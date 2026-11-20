@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app.core.config import Environment, settings
+from app.core.config import settings
+from app.core.constants import Environment
 from app.core.security import decode_token, revoke_token
 from app.database.session import get_db
 from app.models import AuthSession

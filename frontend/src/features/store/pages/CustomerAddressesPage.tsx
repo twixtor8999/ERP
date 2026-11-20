@@ -40,7 +40,7 @@ export const CustomerAddressesPage: React.FC = () => {
       setLoading(true);
       const data = await storeApi.getAddresses();
       setAddresses(data);
-    } catch (err: any) {
+    } catch {
       setError("Failed to load saved addresses.");
     } finally {
       setLoading(false);
@@ -111,7 +111,7 @@ export const CustomerAddressesPage: React.FC = () => {
     try {
       await storeApi.setDefaultAddress(addrId);
       await fetchAddresses();
-    } catch (err) {
+    } catch {
       alert("Could not update default address.");
     }
   };
@@ -121,7 +121,7 @@ export const CustomerAddressesPage: React.FC = () => {
     try {
       await storeApi.deleteAddress(addrId);
       await fetchAddresses();
-    } catch (err) {
+    } catch {
       alert("Could not delete address.");
     }
   };
