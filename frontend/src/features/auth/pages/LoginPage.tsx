@@ -26,7 +26,7 @@ export function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@siddeshwar.in",
+      identifier: "9876543210",
       password: "Password123!",
       rememberMe: false,
     },
@@ -47,7 +47,7 @@ export function LoginPage() {
       toast.success("Authentication successful", {
         description: `Welcome back, ${response.user.fullName}`,
       });
-      navigate("/dashboard");
+      navigate(response.user.dashboardRoute || "/dashboard");
     } catch (err: unknown) {
       const errorMsg =
         err && typeof err === "object" && "response" in err
@@ -87,20 +87,20 @@ export function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="email">Work Email</Label>
+                <Label htmlFor="identifier">Registered Mobile Number or Business Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@siddeshwar.in"
+                    id="identifier"
+                    type="text"
+                    placeholder="9876543210 or name@siddeshwar.in"
                     className="pl-9"
                     disabled={isSubmitting}
-                    {...register("email")}
+                    {...register("identifier")}
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email.message}</p>
+                {errors.identifier && (
+                  <p className="text-xs text-destructive">{errors.identifier.message}</p>
                 )}
               </div>
 

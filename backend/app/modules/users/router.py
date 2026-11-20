@@ -16,10 +16,13 @@ from app.modules.users.schemas import (
     EffectivePermissionsResponse,
     PermissionOverrideRequest,
     PermissionOverrideResponse,
+    ReconciliationConflictUser,
     RoleAssignmentCreateRequest,
     RoleAssignmentHistoryResponse,
     RoleAssignmentResponse,
     RoleAssignmentStatusRequest,
+    SelectPrimaryRoleRequest,
+    UserApprovalRequest,
     UserCreateRequest,
     UserDetailResponse,
     UserStatusUpdateRequest,
@@ -40,6 +43,24 @@ def list_users(
 ) -> list[UserSummaryResponse]:
     """List users belonging to the current organization."""
     return UserService.list_users(db, current_user.organization_id, skip=skip, limit=limit)
+
+
+@router.get("/pending-approvals", response_model=list[UserSummaryResponse])
+def get_pending_approvals(
+    current_user: Annotated[AuthContext, Depends(require_permission("users.view"))],
+    db: Session = Depends(get_db),
+) -> list[UserSummaryResponse]:
+    """List all employee registrations pending approval."""
+    return UserService.get_pending_approvals(db, current_user.organization_id)
+
+
+@router.get("/reconciliation/conflicts", response_model=list[ReconciliationConflictUser])
+def get_reconciliation_conflicts(
+    current_user: Annotated[AuthContext, Depends(require_permission("users.view"))],
+    db: Session = Depends(get_db),
+) -> list[ReconciliationConflictUser]:
+    """List users with multiple active role assignments requiring primary role designation."""
+    return UserService.get_reconciliation_conflicts(db, current_user.organization_id)
 
 
 @router.post("", response_model=UserSummaryResponse, status_code=status.HTTP_201_CREATED)
@@ -80,6 +101,57 @@ def update_user(
         user_id=user_id,
         org_id=current_user.organization_id,
         request=request,
+        current_user_id=current_user.user_id,
+    )
+
+
+@router.post("/{user_id}/approve", response_model=UserDetailResponse)
+def approve_user(
+    user_id: str,
+    request: UserApprovalRequest,
+    current_user: Annotated[AuthContext, Depends(require_permission("users.assign_role"))],
+    db: Session = Depends(get_db),
+) -> UserDetailResponse:
+    """Approve employee registration and assign initial primary role and branch."""
+    return UserService.approve_user(
+        db,
+        user_id=user_id,
+        org_id=current_user.organization_id,
+        request=request,
+        current_user_id=current_user.user_id,
+    )
+
+
+@router.post("/{user_id}/reject", response_model=UserSummaryResponse)
+def reject_user(
+    user_id: str,
+    current_user: Annotated[AuthContext, Depends(require_permission("users.edit"))],
+    reason: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> UserSummaryResponse:
+    """Reject an employee registration."""
+    return UserService.reject_user(
+        db,
+        user_id=user_id,
+        org_id=current_user.organization_id,
+        current_user_id=current_user.user_id,
+        reason=reason,
+    )
+
+
+@router.post("/{user_id}/reconciliation/select-primary", response_model=RoleAssignmentResponse)
+def select_primary_role(
+    user_id: str,
+    request: SelectPrimaryRoleRequest,
+    current_user: Annotated[AuthContext, Depends(require_permission("users.assign_role"))],
+    db: Session = Depends(get_db),
+) -> RoleAssignmentResponse:
+    """Designate an active role as the single primary operational role for an employee."""
+    return UserService.select_primary_role(
+        db,
+        user_id=user_id,
+        org_id=current_user.organization_id,
+        assignment_id=request.assignment_id,
         current_user_id=current_user.user_id,
     )
 

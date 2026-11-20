@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.constants import ROLE_DASHBOARD_MAP
 from app.core.security import create_access_token
 from app.database.base import generate_uuid
 from app.models import (
@@ -206,6 +207,64 @@ class ContextService:
         ]
 
     @staticmethod
+    def get_user_primary_role(
+        db: Session,
+        user_id: str,
+        org_id: str,
+    ) -> tuple[UserRoleAssignment, Role]:
+        """
+        Derive the employee's single active primary operational role for the organization.
+
+        Enforces:
+        - Exactly one operational role determines the user's dashboard and permissions.
+        - If multiple active assignments exist without a primary designated, raises 409 Conflict.
+        """
+        now = datetime.now(UTC)
+        conditions = [
+            UserRoleAssignment.user_id == user_id,
+            UserRoleAssignment.organization_id == org_id,
+            UserRoleAssignment.is_active.is_(True),
+            UserRoleAssignment.status == "ACTIVE",
+            UserRoleAssignment.revoked_at.is_(None),
+            or_(UserRoleAssignment.valid_from.is_(None), UserRoleAssignment.valid_from <= now),
+            or_(UserRoleAssignment.valid_until.is_(None), UserRoleAssignment.valid_until >= now),
+        ]
+
+        stmt = (
+            select(UserRoleAssignment, Role)
+            .join(Role, Role.id == UserRoleAssignment.role_id)
+            .where(and_(*conditions))
+        )
+        assignments = db.execute(stmt).all()
+
+        if not assignments:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User has no active role assignment in this organization. Contact administrator.",
+            )
+
+        # 1. Check if an assignment is explicitly flagged as primary
+        primary_match = next((row for row in assignments if row[0].is_primary), None)
+        if primary_match:
+            return primary_match[0], primary_match[1]
+
+        # 2. If exactly one active assignment exists, designate it as primary
+        if len(assignments) == 1:
+            assign_obj, role_obj = assignments[0]
+            assign_obj.is_primary = True
+            db.commit()
+            return assign_obj, role_obj
+
+        # 3. Multiple active assignments exist without a designated primary role -> Reconciliation required
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Account has multiple active role assignments. "
+                "Administrative primary role reconciliation is required."
+            ),
+        )
+
+    @staticmethod
     def build_session_context(
         db: Session,
         user_id: str,
@@ -242,8 +301,8 @@ class ContextService:
                 branch_name = branch.branch_name
 
         available_branches = ContextService.get_authorized_branches(db, user_id, org_id)
-        available_roles = ContextService.get_available_roles_for_branch(db, user_id, org_id, branch_id)
         effective_perms = ContextService.calculate_effective_permissions(db, user_id, role_id)
+        dashboard_route = ROLE_DASHBOARD_MAP.get(role.slug, ROLE_DASHBOARD_MAP.get(role.name, "/dashboard"))
 
         return SessionContextResponse(
             user_id=user_id,
@@ -254,8 +313,9 @@ class ContextService:
             active_role_id=role.id,
             active_role_name=role.name,
             active_role_slug=role.slug,
+            dashboard_route=dashboard_route,
             available_branches=available_branches,
-            available_roles=available_roles,
+            available_roles=[],  # Employee role switching is permanently removed
             effective_permissions=effective_perms,
             access_token=new_token,
         )
@@ -270,83 +330,36 @@ class ContextService:
         user_agent: str | None = None,
     ) -> SessionContextResponse:
         """
-        Switch active role without requiring re-authentication.
+        Permanently deprecated endpoint.
 
-        Server validates role assignment, branch scope, validity dates,
-        and recalculates effective permissions.
+        Per Prompt 02.4, employees cannot switch roles. Each employee has a fixed,
+        administrator-assigned operational role.
         """
+        # Log attempt to audit trail for security tracking
         session_obj = db.scalar(select(AuthSession).where(AuthSession.id == session_id))
-        if not session_obj or session_obj.is_revoked:
-            raise HTTPException(status_code=401, detail="Session expired or revoked")
-
-        org_id = session_obj.organization_id or ""
-        active_branch_id = session_obj.active_branch_id
-
-        # Validate that target_role_id is in available roles for the current branch
-        available_roles = ContextService.get_available_roles_for_branch(db, user_id, org_id, active_branch_id)
-        valid_role_ids = {r.role_id for r in available_roles}
-
-        if target_role_id not in valid_role_ids:
-            # Record unauthorized switch attempt in security AuditLog
-            audit_entry = AuditLog(
-                id=generate_uuid(),
-                organization_id=org_id,
-                branch_id=active_branch_id,
-                user_id=user_id,
-                action="UNAUTHORIZED_ROLE_SWITCH_ATTEMPT",
-                entity_type="Role",
-                entity_id=target_role_id,
-                old_values={"active_role_id": session_obj.active_role_id},
-                new_values={"attempted_role_id": target_role_id},
-                ip_address=ip_address,
-                user_agent=user_agent,
-            )
-            db.add(audit_entry)
-            db.commit()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Role switch rejected: Target role is not assigned, active, or valid for this branch scope",
-            )
-
-        old_role_id = session_obj.active_role_id
-
-        # Update active session context
-        session_obj.active_role_id = target_role_id
-        session_obj.updated_at = datetime.now(UTC)
-
-        # Audit role-switch event
+        org_id = session_obj.organization_id if session_obj else ""
         db.add(
             AuditLog(
                 id=generate_uuid(),
                 organization_id=org_id,
-                branch_id=active_branch_id,
                 user_id=user_id,
-                action="ROLE_SWITCH",
-                entity_type="AuthSession",
-                entity_id=session_id,
-                old_values={"active_role_id": old_role_id},
-                new_values={"active_role_id": target_role_id},
+                action="ROLE_SWITCH_DEPRECATED_ATTEMPT",
+                entity_type="Role",
+                entity_id=target_role_id,
+                new_values={"attempted_role_id": target_role_id},
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
         )
         db.commit()
 
-        # Generate fresh JWT access token with new context claims
-        target_role = db.scalar(select(Role).where(Role.id == target_role_id))
-        effective_perms = ContextService.calculate_effective_permissions(db, user_id, target_role_id)
-        claims = {
-            "session_id": session_id,
-            "organization_id": org_id,
-            "branch_id": active_branch_id,
-            "role_id": target_role_id,
-            "role": target_role.slug if target_role else "",
-            "permissions": effective_perms,
-        }
-        new_access_token = create_access_token(subject=user_id, claims=claims)
-
-        return ContextService.build_session_context(db, user_id, session_id, new_token=new_access_token)
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail=(
+                "Role switching has been permanently disabled. "
+                "Employees operate under a single fixed administrator-assigned role."
+            ),
+        )
 
     @staticmethod
     def switch_branch(
@@ -359,10 +372,12 @@ class ContextService:
         user_agent: str | None = None,
     ) -> SessionContextResponse:
         """
-        Switch active branch context and adapt active role.
+        Switch active branch context while strictly PRESERVING the assigned operational role.
 
-        Server validates branch authorization. The active role is preserved
-        if valid at the target branch; otherwise, a valid role for that branch is selected.
+        Per Prompt 02.4 Section 8:
+        - Show only authorized branches.
+        - Preserve the same assigned operational role.
+        - A branch switch must NEVER allow an employee to acquire a different role.
         """
         session_obj = db.scalar(select(AuthSession).where(AuthSession.id == session_id))
         if not session_obj or session_obj.is_revoked:
@@ -370,14 +385,16 @@ class ContextService:
 
         org_id = session_obj.organization_id or ""
         old_branch_id = session_obj.active_branch_id
-        old_role_id = session_obj.active_role_id
+        current_role_id = session_obj.active_role_id
+
+        if not current_role_id:
+            raise HTTPException(status_code=400, detail="Session does not have an active role assigned")
 
         # Validate target branch authorization
         authorized_branches = ContextService.get_authorized_branches(db, user_id, org_id)
         authorized_branch_ids = {b.branch_id for b in authorized_branches}
 
         if target_branch_id not in authorized_branch_ids:
-            # Record unauthorized branch switch attempt
             db.add(
                 AuditLog(
                     id=generate_uuid(),
@@ -394,38 +411,13 @@ class ContextService:
                 )
             )
             db.commit()
-
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Branch switch rejected: User does not have authorization for target branch",
             )
 
-        # Get available roles for target branch
-        available_target_roles = ContextService.get_available_roles_for_branch(
-            db, user_id, org_id, target_branch_id
-        )
-        if not available_target_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User has branch access but no valid role assigned for target branch",
-            )
-
-        target_role_id_set = {r.role_id for r in available_target_roles}
-
-        # Resolve active role for new branch context
-        resolved_role_id = None
-        if explicit_role_id and explicit_role_id in target_role_id_set:
-            resolved_role_id = explicit_role_id
-        elif old_role_id in target_role_id_set:
-            # Current role is valid at target branch (e.g. org-wide role)
-            resolved_role_id = old_role_id
-        else:
-            # Fall back to first available role at target branch
-            resolved_role_id = available_target_roles[0].role_id
-
-        # Update session
+        # Update session: update branch while strictly keeping active_role_id unchanged
         session_obj.active_branch_id = target_branch_id
-        session_obj.active_role_id = resolved_role_id
         session_obj.updated_at = datetime.now(UTC)
 
         # Audit branch-switch event
@@ -438,22 +430,22 @@ class ContextService:
                 action="BRANCH_SWITCH",
                 entity_type="AuthSession",
                 entity_id=session_id,
-                old_values={"branch_id": old_branch_id, "role_id": old_role_id},
-                new_values={"branch_id": target_branch_id, "role_id": resolved_role_id},
+                old_values={"branch_id": old_branch_id, "role_id": current_role_id},
+                new_values={"branch_id": target_branch_id, "role_id": current_role_id},
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
         )
         db.commit()
 
-        # Generate fresh JWT token
-        role_obj = db.scalar(select(Role).where(Role.id == resolved_role_id))
-        effective_perms = ContextService.calculate_effective_permissions(db, user_id, resolved_role_id)
+        # Generate fresh JWT token with unchanged role and new branch
+        role_obj = db.scalar(select(Role).where(Role.id == current_role_id))
+        effective_perms = ContextService.calculate_effective_permissions(db, user_id, current_role_id)
         claims = {
             "session_id": session_id,
             "organization_id": org_id,
             "branch_id": target_branch_id,
-            "role_id": resolved_role_id,
+            "role_id": current_role_id,
             "role": role_obj.slug if role_obj else "",
             "permissions": effective_perms,
         }

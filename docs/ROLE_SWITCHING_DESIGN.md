@@ -105,3 +105,4 @@ Whenever an authenticated request arrives at an endpoint guarded by `get_current
 2. If the user's active role assignment has been revoked by an administrator while their session was running, access is rejected with `403 Forbidden` ("Active role assignment has been revoked or is no longer valid").
 
 This completely eliminates the vulnerability of lingering permissions common in naive JWT implementations.
+

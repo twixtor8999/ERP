@@ -110,3 +110,4 @@ Executing a branch switch records an audit event in `audit_logs`:
 - `new_values`: `{"branch_id": "<new_id>", "role_id": "<new_role>"}`
 - `ip_address`: Telemetry IP.
 - `user_agent`: Telemetry client agent string.
+

@@ -10,7 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.constants import UserRole
+from app.core.constants import ROLE_DASHBOARD_MAP, UserRole
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -22,14 +22,18 @@ from app.core.security import (
 from app.database.base import generate_uuid
 from app.database.dependencies import AuthContext, get_current_user
 from app.database.session import get_db
-from app.models import AuthSession, Organization, Role, User, UserRoleAssignment
+from app.models import AuditLog, AuthSession, Organization, Role, User, UserRoleAssignment
 from app.modules.users.context_service import ContextService
 from app.modules.users.schemas import (
+    RoleSwitchDeprecatedResponse,
     SessionContextResponse,
     SwitchBranchRequest,
     SwitchContextResponse,
     SwitchRoleRequest,
+    UserRegisterRequest,
+    UserSummaryResponse,
 )
+from app.modules.users.service import UserService
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Security"])
 
@@ -62,6 +66,7 @@ class UserProfileResponse(BaseModel):
     allowedBranches: list[BranchSummaryResponse]
     activeBranchId: str | None = None
     permissions: list[str]
+    dashboardRoute: str | None = None
 
 
 class LoginSuccessResponse(BaseModel):
@@ -92,6 +97,15 @@ DEMO_BRANCHES = [
         isHeadquarters=False,
     ),
 ]
+
+
+@router.post("/register", response_model=UserSummaryResponse, status_code=status.HTTP_201_CREATED)
+def register(
+    request: UserRegisterRequest,
+    db: Session = Depends(get_db),
+) -> UserSummaryResponse:
+    """Self-registration for employees with PENDING approval status."""
+    return UserService.register_user(db, request)
 
 
 @router.post("/login", response_model=LoginSuccessResponse)
@@ -126,6 +140,21 @@ async def login(
                 detail="User account is deactivated. Contact administrator.",
             )
 
+        # Enforce employee registration approval status
+        if getattr(user, "approval_status", "APPROVED") == "PENDING":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Account registration is pending administrator approval. "
+                    "Please contact your organization administrator."
+                ),
+            )
+        if getattr(user, "approval_status", "APPROVED") == "REJECTED":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account registration has been rejected. Access denied.",
+            )
+
         if not verify_password(credentials.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -143,14 +172,21 @@ async def login(
         )
         active_branch_id = default_branch.branch_id if default_branch else None
 
-        # Determine available roles for branch and default active role
-        available_roles = ContextService.get_available_roles_for_branch(
-            db, user.id, user.organization_id, active_branch_id
-        )
+        # Resolve primary operational role
         active_role_id = None
-        if available_roles:
-            active_role_id = available_roles[0].role_id
-        else:
+        active_role = None
+        try:
+            primary_res = ContextService.get_user_primary_role(db, user.id, user.organization_id)
+            if primary_res:
+                primary_assign, primary_role = primary_res
+                active_role_id = primary_assign.role_id
+                active_role = primary_role
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+        if not active_role_id:
             # Fallback to any active role assignment
             fallback_assign = db.scalar(
                 select(UserRoleAssignment.role_id).where(
@@ -160,10 +196,11 @@ async def login(
                 )
             )
             active_role_id = fallback_assign
-
-        active_role = db.scalar(select(Role).where(Role.id == active_role_id)) if active_role_id else None
+            if active_role_id:
+                active_role = db.scalar(select(Role).where(Role.id == active_role_id))
         role_name = active_role.name if active_role else "STAFF"
         role_slug = active_role.slug if active_role else "staff"
+        dashboard_route = ROLE_DASHBOARD_MAP.get(role_slug, "/dashboard")
 
         effective_permissions = (
             ContextService.calculate_effective_permissions(db, user.id, active_role_id)
@@ -200,6 +237,7 @@ async def login(
             "session_id": session_id,
             "allowed_branches": [b.branch_id for b in authorized_branches],
             "permissions": effective_permissions,
+            "dashboard_route": dashboard_route,
         }
 
         access_token = create_access_token(subject=user.id, claims=claims)
@@ -236,6 +274,7 @@ async def login(
             ],
             activeBranchId=active_branch_id,
             permissions=effective_permissions,
+            dashboardRoute=dashboard_route,
         )
 
         return LoginSuccessResponse(
@@ -257,6 +296,7 @@ async def login(
             "organization_id": "org_siddeshwar",
             "allowed_branches": [b.id for b in DEMO_BRANCHES],
             "permissions": ["*"],
+            "dashboard_route": "/dashboard/admin",
         }
 
         access_token = create_access_token(subject=user_id, claims=claims)
@@ -283,6 +323,7 @@ async def login(
             allowedBranches=DEMO_BRANCHES,
             activeBranchId="br_hq",
             permissions=["*"],
+            dashboardRoute="/dashboard/admin",
         )
 
         return LoginSuccessResponse(
@@ -459,6 +500,7 @@ async def get_me(
         allowedBranches=allowed_branches,
         activeBranchId=current_user.active_branch_id or (allowed_branches[0].id if allowed_branches else None),
         permissions=current_user.permissions,
+        dashboardRoute=ROLE_DASHBOARD_MAP.get(current_user.role, "/dashboard"),
     )
 
 
@@ -480,38 +522,52 @@ def get_current_context(
     )
 
 
-@router.post("/switch-role", response_model=SwitchContextResponse)
+@router.post(
+    "/switch-role",
+    response_model=RoleSwitchDeprecatedResponse,
+    status_code=status.HTTP_410_GONE,
+    responses={
+        410: {
+            "model": RoleSwitchDeprecatedResponse,
+            "description": "Role switching has been permanently disabled per business access control policy.",
+        }
+    },
+)
 def switch_role(
     body: SwitchRoleRequest,
     request: Request,
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> SwitchContextResponse:
+) -> RoleSwitchDeprecatedResponse:
     """
-    Switch active role for the current session without re-login.
-    Validates assignment, recalculates effective permissions, records audit log, and issues new token.
+    Role switching has been permanently disabled in Prompt 02.4.
+    Employees operate strictly under a single fixed administrator-assigned operational role.
+    Always returns HTTP 410 Gone and logs any unauthorized elevation attempt.
     """
-    if not current_user.session_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot switch role without an active database session context",
+    if current_user and current_user.user_id:
+        db.add(
+            AuditLog(
+                id=generate_uuid(),
+                organization_id=current_user.organization_id,
+                user_id=current_user.user_id,
+                action="ROLE_SWITCH_ATTEMPT_BLOCKED",
+                entity_type="UserRoleAssignment",
+                entity_id=body.role_id,
+                new_values={
+                    "attempted_role_id": body.role_id,
+                    "policy": "FIXED_ROLE_ONLY",
+                    "ip_address": request.client.host if request.client else None,
+                },
+            )
         )
+        db.commit()
 
-    ip_address = request.client.host if request.client else None
-    user_agent = request.headers.get("User-Agent")
-
-    new_context = ContextService.switch_role(
-        db,
-        user_id=current_user.user_id,
-        session_id=current_user.session_id,
-        target_role_id=body.role_id,
-        ip_address=ip_address,
-        user_agent=user_agent,
-    )
-
-    return SwitchContextResponse(
-        access_token=new_context.access_token or "",
-        context=new_context,
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Role switching has been permanently disabled. "
+            "Employees operate under a single fixed administrator-assigned role."
+        ),
     )
 
 

@@ -120,3 +120,4 @@ To enforce segregation of duties and prevent privilege escalation:
    ```
 2. **Cross-Organization Boundary Enforcement**: Roles belonging to Organization A (`role.organization_id == org_A`) cannot be assigned to users in Organization B (`user.organization_id == org_B`). Any cross-tenant attempt raises a 400 Bad Request and logs an audit security event.
 3. **Mid-Session Revocation Guard**: When an administrator revokes a role or deactivates an assignment, existing bearer tokens for that role are rejected on their next API call via database session validation.
+

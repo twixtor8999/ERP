@@ -45,6 +45,10 @@ export const router = createBrowserRouter([
         element: <DashboardPage />,
       },
       {
+        path: "dashboard/:roleView",
+        element: <DashboardPage />,
+      },
+      {
         path: "billing",
         element: (
           <ModulePlaceholder

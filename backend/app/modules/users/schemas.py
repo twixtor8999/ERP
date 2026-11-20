@@ -33,6 +33,8 @@ class UserSummaryResponse(BaseModel):
     full_name: str
     is_active: bool
     is_verified: bool
+    approval_status: str = "APPROVED"
+    requested_role_slug: str | None = None
     created_at: datetime
 
 
@@ -40,6 +42,7 @@ class UserSummaryResponse(BaseModel):
 class RoleAssignmentCreateRequest(BaseModel):
     role_id: str
     branch_id: str | None = None  # None indicates Organization-wide assignment
+    is_primary: bool = False
     valid_from: datetime | None = None
     valid_until: datetime | None = None
     notes: str | None = None
@@ -64,6 +67,7 @@ class RoleAssignmentResponse(BaseModel):
     valid_from: datetime | None
     valid_until: datetime | None
     is_active: bool
+    is_primary: bool = False
     status: str
     notes: str | None
 
@@ -133,8 +137,9 @@ class SessionContextResponse(BaseModel):
     active_role_id: str
     active_role_name: str
     active_role_slug: str
+    dashboard_route: str = "/dashboard"
     available_branches: list[AvailableBranchSummary]
-    available_roles: list[AvailableRoleSummary]
+    available_roles: list[AvailableRoleSummary] = []
     effective_permissions: list[str]
     access_token: str | None = None  # Returned upon context switch
     token_type: str = "bearer"
@@ -167,3 +172,39 @@ class EffectivePermissionsResponse(BaseModel):
     user_id: str
     active_role_id: str
     effective_permissions: list[str]
+
+
+# --- Registration & Reconciliation Schemas ---
+class UserRegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=150)
+    phone: str = Field(..., min_length=10, max_length=20)
+    password: str = Field(..., min_length=8)
+    email: EmailStr | None = None
+    requested_role_slug: str | None = None
+
+
+class UserApprovalRequest(BaseModel):
+    role_id: str
+    branch_id: str | None = None
+
+
+class ReconciliationConflictUser(BaseModel):
+    user_id: str
+    full_name: str
+    phone: str | None
+    email: str
+    organization_id: str
+    active_assignments: list[RoleAssignmentResponse]
+
+
+class SelectPrimaryRoleRequest(BaseModel):
+    assignment_id: str
+
+
+class RoleSwitchDeprecatedResponse(BaseModel):
+    code: str = "ROLE_SWITCHING_DEPRECATED"
+    detail: str = (
+        "Role switching has been permanently disabled. "
+        "Employees operate under a single fixed administrator-assigned role."
+    )
+

@@ -46,3 +46,30 @@ class Permission(StrEnum):
     # Admin
     USERS_MANAGE = "users:manage"
     AUDIT_VIEW = "audit:view"
+
+
+# Canonical mapping from role slug or uppercase name to fixed role-based dashboard route
+ROLE_DASHBOARD_MAP: dict[str, str] = {
+    "super_admin": "/dashboard/admin",
+    "SUPER_ADMIN": "/dashboard/admin",
+    "org_admin": "/dashboard/owner",
+    "ORG_ADMIN": "/dashboard/owner",
+    "business_owner": "/dashboard/owner",
+    "general_manager": "/dashboard/management",
+    "branch_manager": "/dashboard/branch-manager",
+    "BRANCH_MANAGER": "/dashboard/branch-manager",
+    "sales_manager": "/dashboard/sales",
+    "sales_executive": "/dashboard/sales",
+    "cashier": "/dashboard/pos",
+    "CASHIER": "/dashboard/pos",
+    "accountant": "/dashboard/accounting",
+    "ACCOUNTANT": "/dashboard/accounting",
+    "purchase_manager": "/dashboard/purchases",
+    "inventory_manager": "/dashboard/inventory",
+    "INVENTORY_MANAGER": "/dashboard/inventory",
+    "crm_executive": "/dashboard/crm",
+    "employee": "/dashboard/employee",
+    "STAFF": "/dashboard/employee",
+    "staff": "/dashboard/employee",
+    "auditor_ca": "/dashboard/auditor",
+}

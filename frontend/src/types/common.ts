@@ -1,13 +1,16 @@
 export interface User {
   id: string;
   email: string;
+  phone?: string;
   fullName: string;
   role: string;
+  activeRoleId?: string;
   organizationId: string;
   organizationName: string;
   allowedBranches: BranchSummary[];
   activeBranchId: string | null;
   permissions: string[];
+  dashboardRoute?: string;
 }
 
 export interface BranchSummary {

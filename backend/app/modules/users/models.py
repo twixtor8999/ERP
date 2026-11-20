@@ -20,6 +20,7 @@ class User(Base, TimestampMixin):
         Index("ix_user_org_email", "organization_id", "email"),
         Index("ix_user_phone", "phone"),
         Index("ix_user_org_phone", "organization_id", "phone"),
+        Index("ix_users_approval_status", "approval_status"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -39,6 +40,8 @@ class User(Base, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(30), default="APPROVED", nullable=False)
+    requested_role_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Relationships
     role_assignments: Mapped[list["UserRoleAssignment"]] = relationship(
