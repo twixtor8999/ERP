@@ -191,6 +191,9 @@ from app.modules.vehicles.models import (
     VehicleMaintenanceRecord,
 )
 
+StoreOrder = Order
+StoreOrderItem = OrderItem
+
 __all__ = [
     "Base",
     # Organizations & Branches
@@ -266,7 +269,9 @@ __all__ = [
     "Cart",
     "CartItem",
     "Order",
+    "StoreOrder",
     "OrderItem",
+    "StoreOrderItem",
     "OrderStatusHistory",
     "OrderNote",
     "OrderAssignment",

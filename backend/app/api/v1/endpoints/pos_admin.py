@@ -1,0 +1,715 @@
+"""Point-of-Sale (POS) Counter Billing, Barcode Lookup, and Cashier Shift Lifecycle Endpoints."""
+
+import secrets
+from datetime import UTC, datetime
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
+
+from app.core.websocket_manager import ws_manager
+from app.database.base import generate_uuid
+from app.database.dependencies import AuthContext, get_current_user
+from app.database.session import get_db
+from app.models import (
+    Branch,
+    Customer,
+    Invoice,
+    InvoiceItem,
+    Product,
+    ProductTaxConfiguration,
+    ProductVariant,
+    Settlement,
+    StockBalance,
+    StockMovement,
+    User,
+)
+
+router = APIRouter(prefix="/pos", tags=["Point of Sale & Cashier Operations"])
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+class OpenShiftRequest(BaseModel):
+    opening_cash: Decimal | None = None
+    opening_float: Decimal | None = None
+    branch_id: str | None = None
+    notes: str | None = None
+
+
+class CloseShiftRequest(BaseModel):
+    actual_counted_cash: Decimal | None = None
+    closing_cash: Decimal | None = None
+    notes: str | None = None
+
+
+class ShiftResponse(BaseModel):
+    id: str
+    organization_id: str
+    branch_id: str
+    cashier_id: str
+    cashier_name: str | None = None
+    settlement_date: str
+    opening_cash: Decimal
+    opening_float: Decimal | None = None
+    cash_sales: Decimal
+    card_sales: Decimal
+    upi_sales: Decimal
+    total_sales: Decimal | None = None
+    expected_total: Decimal
+    expected_cash: Decimal | None = None
+    actual_total: Decimal
+    closing_cash: Decimal | None = None
+    discrepancy: Decimal
+    status: str
+    notes: str | None = None
+    created_at: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+def _make_shift_response(shift: Settlement, cashier_name: str) -> ShiftResponse:
+    total_sales = shift.cash_sales + shift.card_sales + shift.upi_sales
+    return ShiftResponse(
+        id=shift.id,
+        organization_id=shift.organization_id,
+        branch_id=shift.branch_id,
+        cashier_id=shift.cashier_id,
+        cashier_name=cashier_name,
+        settlement_date=shift.settlement_date.isoformat(),
+        opening_cash=shift.opening_cash,
+        opening_float=shift.opening_cash,
+        cash_sales=shift.cash_sales,
+        card_sales=shift.card_sales,
+        upi_sales=shift.upi_sales,
+        total_sales=total_sales,
+        expected_total=shift.expected_total,
+        expected_cash=shift.expected_total,
+        actual_total=shift.actual_total,
+        closing_cash=shift.actual_total,
+        discrepancy=shift.discrepancy,
+        status=shift.status,
+        notes=shift.notes,
+        created_at=shift.created_at.isoformat() if shift.created_at else "",
+    )
+
+
+class POSProductLookupItem(BaseModel):
+    variant_id: str
+    product_id: str
+    product_name: str
+    variant_name: str
+    sku: str
+    barcode: str | None
+    selling_price: Decimal
+    mrp: Decimal
+    cost_price: Decimal
+    stock_available: Decimal
+    category_name: str | None = None
+
+
+class POSInvoiceLineRequest(BaseModel):
+    variant_id: str
+    quantity: Decimal = Field(..., gt=Decimal("0.0000"))
+    unit_price: Decimal | None = None
+    discount_amount: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+
+
+class POSCheckoutRequest(BaseModel):
+    items: list[POSInvoiceLineRequest]
+    payment_method: str | None = None
+    cash_tendered: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+    cash_paid: Decimal | None = None
+    upi_paid: Decimal | None = None
+    upi_reference: str | None = None
+    customer_phone: str | None = None
+    customer_name: str | None = None
+    notes: str | None = None
+
+
+class POSCheckoutResponse(BaseModel):
+    invoice_id: str
+    invoice_number: str
+    invoice_date: str
+    subtotal: Decimal
+    tax_amount: Decimal
+    discount_amount: Decimal
+    grand_total: Decimal
+    total_amount: Decimal | None = None
+    cash_tendered: Decimal
+    cash_paid: Decimal | None = None
+    upi_paid: Decimal | None = None
+    change_due: Decimal
+    payment_method: str
+    item_count: int
+    cashier_name: str
+    branch_name: str
+
+
+# ---------------------------------------------------------------------------
+# 1. Cashier Shift Management Endpoints
+# ---------------------------------------------------------------------------
+@router.post(
+    "/shifts/open",
+    response_model=ShiftResponse,
+    summary="Open a new cashier shift with opening cash float",
+)
+async def open_cashier_shift(
+    req: OpenShiftRequest,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ShiftResponse:
+    """Cashier opens their drawer shift with cash float."""
+    branch_id = req.branch_id or current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="User must have an active branch to open a shift")
+
+    # Check for existing active shift for this cashier
+    existing = db.scalar(
+        select(Settlement).where(
+            Settlement.organization_id == current_user.organization_id,
+            Settlement.branch_id == branch_id,
+            Settlement.cashier_id == current_user.user_id,
+            Settlement.status == "OPEN",
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cashier already has an active OPEN shift. Please close it first.",
+        )
+
+    opening_amt = req.opening_cash if req.opening_cash is not None else (req.opening_float or Decimal("0.00"))
+    now_utc = datetime.now(UTC)
+    shift = Settlement(
+        organization_id=current_user.organization_id,
+        branch_id=branch_id,
+        cashier_id=current_user.user_id,
+        settlement_date=now_utc.date(),
+        opening_cash=opening_amt,
+        cash_sales=Decimal("0.00"),
+        card_sales=Decimal("0.00"),
+        upi_sales=Decimal("0.00"),
+        expected_total=opening_amt,
+        actual_total=Decimal("0.00"),
+        discrepancy=Decimal("0.00"),
+        status="OPEN",
+        notes=req.notes,
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+
+    cashier = db.scalar(select(User).where(User.id == current_user.user_id))
+    cashier_name = cashier.full_name if cashier else current_user.email
+
+    # Broadcast real-time event
+    await ws_manager.broadcast_event(
+        event_type="CASHIER_SHIFT_OPENED",
+        organization_id=shift.organization_id,
+        branch_id=shift.branch_id,
+        summary=f"Cashier shift opened with float ₹{opening_amt} by {cashier_name}",
+        data={
+            "shift_id": shift.id,
+            "opening_cash": str(shift.opening_cash),
+            "cashier_id": shift.cashier_id,
+            "cashier_name": cashier_name,
+        },
+        source_user_id=current_user.user_id,
+        source_user_name=cashier_name,
+    )
+
+    return _make_shift_response(shift, cashier_name)
+
+
+@router.get(
+    "/shifts/current",
+    response_model=ShiftResponse,
+    summary="Get current cashier's active shift status",
+)
+def get_current_shift(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ShiftResponse:
+    """Retrieve cashier's currently active shift."""
+    shift = db.scalar(
+        select(Settlement).where(
+            Settlement.organization_id == current_user.organization_id,
+            Settlement.cashier_id == current_user.user_id,
+            Settlement.status == "OPEN",
+        )
+    )
+    if not shift:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active open shift found for the current cashier.",
+        )
+
+    cashier = db.scalar(select(User).where(User.id == current_user.user_id))
+    cashier_name = cashier.full_name if cashier else current_user.email
+
+    return _make_shift_response(shift, cashier_name)
+
+
+@router.post(
+    "/shifts/close",
+    response_model=ShiftResponse,
+    summary="Close active cashier shift, tally drawer cash, and report discrepancy",
+)
+async def close_cashier_shift(
+    req: CloseShiftRequest,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ShiftResponse:
+    """Cashier tallies drawer cash, computes expected vs actual discrepancy, and closes shift."""
+    shift = db.scalar(
+        select(Settlement)
+        .where(
+            Settlement.organization_id == current_user.organization_id,
+            Settlement.cashier_id == current_user.user_id,
+            Settlement.status == "OPEN",
+        )
+        .with_for_update()
+    )
+    if not shift:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active shift is currently open to close.",
+        )
+
+    counted = req.actual_counted_cash if req.actual_counted_cash is not None else (req.closing_cash or Decimal("0.00"))
+    expected = shift.opening_cash + shift.cash_sales
+    discrepancy = counted - expected
+
+    shift.actual_total = counted
+    shift.expected_total = expected
+    shift.discrepancy = discrepancy
+    shift.status = "CLOSED"
+    if req.notes:
+        shift.notes = f"{shift.notes or ''} [Closing Note: {req.notes}]".strip()
+
+    db.commit()
+    db.refresh(shift)
+
+    cashier = db.scalar(select(User).where(User.id == current_user.user_id))
+    cashier_name = cashier.full_name if cashier else current_user.email
+
+    # Broadcast event
+    summary_text = (
+        f"Shift closed by {cashier_name}. Tallied: ₹{shift.actual_total}, Expected: ₹{shift.expected_total}. "
+        f"{'Discrepancy: ₹' + str(discrepancy) if discrepancy != Decimal('0.00') else 'Exact tally (no discrepancy).'}"
+    )
+
+    await ws_manager.broadcast_event(
+        event_type="CASHIER_SHIFT_CLOSED",
+        organization_id=shift.organization_id,
+        branch_id=shift.branch_id,
+        summary=summary_text,
+        data={
+            "shift_id": shift.id,
+            "opening_cash": str(shift.opening_cash),
+            "cash_sales": str(shift.cash_sales),
+            "expected_total": str(shift.expected_total),
+            "actual_total": str(shift.actual_total),
+            "discrepancy": str(shift.discrepancy),
+            "has_discrepancy": discrepancy != Decimal("0.00"),
+            "cashier_id": shift.cashier_id,
+            "cashier_name": cashier_name,
+        },
+        source_user_id=current_user.user_id,
+        source_user_name=cashier_name,
+    )
+
+    return _make_shift_response(shift, cashier_name)
+
+
+@router.get(
+    "/shifts",
+    response_model=list[ShiftResponse],
+    summary="List cashier shifts with status and branch filter (Managers and Owner)",
+)
+def list_cashier_shifts(
+    branch_id: str | None = Query(None),
+    status_filter: str | None = Query(None, description="'OPEN', 'CLOSED', or all"),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ShiftResponse]:
+    """Retrieve cashier shifts with branch isolation."""
+    if not current_user.is_org_admin:
+        branch_id = current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+
+    stmt = select(Settlement).where(Settlement.organization_id == current_user.organization_id)
+    if branch_id:
+        stmt = stmt.where(Settlement.branch_id == branch_id)
+    if status_filter:
+        stmt = stmt.where(Settlement.status == status_filter.upper())
+
+    stmt = stmt.order_by(Settlement.created_at.desc()).limit(limit)
+    shifts = db.scalars(stmt).all()
+
+    # Pre-fetch user names
+    user_ids = {s.cashier_id for s in shifts}
+    users_map = (
+        {u.id: u.full_name for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()}
+        if user_ids
+        else {}
+    )
+
+    return [
+        _make_shift_response(s, users_map.get(s.cashier_id, "Cashier"))
+        for s in shifts
+    ]
+
+
+# ---------------------------------------------------------------------------
+# 2. Product Barcode & SKU Lookup for Counter Fast Billing
+# ---------------------------------------------------------------------------
+@router.get(
+    "/products/lookup",
+    response_model=list[POSProductLookupItem],
+    summary="Fast barcode or SKU lookup for POS counter scanning",
+)
+def lookup_pos_products(
+    q: str | None = Query(None, description="Barcode, SKU, or product keyword"),
+    code: str | None = Query(None, description="Alternative barcode parameter"),
+    branch_id: str | None = Query(None, description="Branch ID for stock availability lookup"),
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[POSProductLookupItem]:
+    """Search products and variants by barcode or SKU for instant counter add."""
+    target_branch = branch_id or current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+    cleaned = (q or code or "").strip()
+    if not cleaned:
+        return []
+
+    stmt = (
+        select(ProductVariant, Product)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(
+            Product.organization_id == current_user.organization_id,
+            Product.is_active.is_(True),
+            ProductVariant.is_active.is_(True),
+            or_(
+                ProductVariant.barcode == cleaned,
+                ProductVariant.sku.ilike(f"%{cleaned}%"),
+                Product.name.ilike(f"%{cleaned}%"),
+                Product.code.ilike(f"%{cleaned}%"),
+            ),
+        )
+        .limit(20)
+    )
+    rows = db.execute(stmt).all()
+    results: list[POSProductLookupItem] = []
+
+    for variant, product in rows:
+        # Check stock balance for this variant in current branch
+        stock_qty = Decimal("0.0000")
+        if target_branch:
+            bal = db.scalar(
+                select(StockBalance.quantity_available).where(
+                    StockBalance.branch_id == target_branch,
+                    StockBalance.product_variant_id == variant.id,
+                )
+            )
+            if bal is not None:
+                stock_qty = bal
+
+        results.append(
+            POSProductLookupItem(
+                variant_id=variant.id,
+                product_id=product.id,
+                product_name=product.name,
+                variant_name=variant.variant_name,
+                sku=variant.sku,
+                barcode=variant.barcode,
+                selling_price=variant.selling_price,
+                mrp=variant.mrp,
+                cost_price=variant.cost_price,
+                stock_available=stock_qty,
+                category_name=product.category.name if product.category else None,
+            )
+        )
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 3. Fast POS Invoice Checkout & Real-Time Stock Deduction
+# ---------------------------------------------------------------------------
+@router.post(
+    "/invoices",
+    response_model=POSCheckoutResponse,
+    summary="Process POS counter sale, deduct inventory, update cashier shift, and issue invoice",
+)
+async def process_pos_checkout(
+    req: POSCheckoutRequest,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> POSCheckoutResponse:
+    """
+    Atomic in-store Point-of-Sale checkout.
+    - Requires active open cashier shift.
+    - Validates and row-locks branch StockBalance with .with_for_update().
+    - Transactionally deducts inventory and logs StockMovement.
+    - Generates invoice, updates shift running totals, and broadcasts real-time sale.
+    """
+    if not req.items:
+        raise HTTPException(status_code=400, detail="Cannot checkout empty cart")
+
+    branch_id = current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="No active branch context for POS billing")
+
+    # Verify cashier has an open shift
+    shift = db.scalar(
+        select(Settlement)
+        .where(
+            Settlement.organization_id == current_user.organization_id,
+            Settlement.branch_id == branch_id,
+            Settlement.cashier_id == current_user.user_id,
+            Settlement.status == "OPEN",
+        )
+        .with_for_update()
+    )
+    if not shift:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cashier must have an active OPEN shift to process POS sales. Open a shift first.",
+        )
+
+    branch = db.scalar(select(Branch).where(Branch.id == branch_id))
+    branch_name = branch.branch_name if branch else "Main Branch"
+    branch_code = branch.branch_code if branch else "POS"
+
+    subtotal = Decimal("0.00")
+    total_tax = Decimal("0.00")
+    total_discount = Decimal("0.00")
+    invoice_lines: list[InvoiceItem] = []
+
+    # Process items with atomic stock deduction
+    for item_req in req.items:
+        variant = db.scalar(
+            select(ProductVariant)
+            .where(ProductVariant.id == item_req.variant_id)
+        )
+        if not variant:
+            raise HTTPException(status_code=404, detail=f"Product variant {item_req.variant_id} not found")
+
+        # Row-lock StockBalance
+        stock_bal = db.scalar(
+            select(StockBalance)
+            .where(
+                StockBalance.branch_id == branch_id,
+                StockBalance.product_variant_id == variant.id,
+            )
+            .with_for_update()
+        )
+        if not stock_bal or stock_bal.quantity_available < item_req.quantity:
+            avail = stock_bal.quantity_available if stock_bal else Decimal("0.0000")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for SKU '{variant.sku}'. Available: {avail}",
+            )
+
+        # Deduct stock
+        stock_bal.quantity_on_hand -= item_req.quantity
+        stock_bal.quantity_available -= item_req.quantity
+        stock_bal.total_value = stock_bal.quantity_on_hand * stock_bal.average_unit_cost
+
+        # Log StockMovement
+        movement = StockMovement(
+            organization_id=current_user.organization_id,
+            branch_id=branch_id,
+            warehouse_id=stock_bal.warehouse_id,
+            product_variant_id=variant.id,
+            movement_type="POS_SALE",
+            quantity=-item_req.quantity,
+            unit_cost=stock_bal.average_unit_cost,
+            total_cost=(item_req.quantity * stock_bal.average_unit_cost).quantize(Decimal("0.01")),
+            reference_type="INVOICE",
+            reference_id="PENDING",
+            notes=f"POS Counter Bill by Cashier {current_user.user_id}",
+        )
+        db.add(movement)
+
+        # Pricing math: selling_price is standard retail gross price payable
+        unit_price = item_req.unit_price if item_req.unit_price is not None else variant.selling_price
+        discount = item_req.discount_amount
+        line_tot = (item_req.quantity * unit_price) - discount
+        # 5% composite GST standard inclusive
+        line_tax = (line_tot * Decimal("5") / Decimal("105")).quantize(Decimal("0.01"))
+        line_sub = line_tot - line_tax
+
+        subtotal += line_sub
+        total_tax += line_tax
+        total_discount += discount
+
+        product = db.scalar(select(Product).where(Product.id == variant.product_id))
+        hsn_code = "10063020"
+        if product and product.tax_config_id:
+            tax_cfg = db.scalar(
+                select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id)
+            )
+            if tax_cfg:
+                hsn_code = tax_cfg.hsn_sac_code
+
+        inv_item = InvoiceItem(
+            product_variant_id=variant.id,
+            description=f"{variant.sku} - {variant.variant_name}",
+            hsn_sac=hsn_code,
+            quantity=item_req.quantity,
+            unit_price=unit_price,
+            discount_amount=discount,
+            taxable_amount=line_sub,
+            cgst_rate=Decimal("0.025"),
+            cgst_amount=(line_tax / Decimal("2")).quantize(Decimal("0.01")),
+            sgst_rate=Decimal("0.025"),
+            sgst_amount=(line_tax / Decimal("2")).quantize(Decimal("0.01")),
+            total_amount=line_tot,
+        )
+        invoice_lines.append(inv_item)
+
+    grand_total = (subtotal + total_tax).quantize(Decimal("0.01"))
+
+    # Tender calculation
+    cash_paid = req.cash_paid if req.cash_paid is not None else req.cash_tendered
+    upi_paid = req.upi_paid or Decimal("0.00")
+
+    if req.payment_method:
+        payment_method = req.payment_method.upper()
+    elif upi_paid > Decimal("0.00") and cash_paid > Decimal("0.00"):
+        payment_method = "SPLIT"
+    elif upi_paid > Decimal("0.00"):
+        payment_method = "UPI"
+    else:
+        payment_method = "CASH"
+
+    change_due = Decimal("0.00")
+    if payment_method == "CASH":
+        if cash_paid < grand_total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cash tendered (₹{cash_paid}) is less than total amount (₹{grand_total})",
+            )
+        change_due = (cash_paid - grand_total).quantize(Decimal("0.01"))
+        shift.cash_sales += grand_total
+        shift.expected_total += grand_total
+    elif payment_method == "UPI":
+        shift.upi_sales += grand_total
+    else:  # SPLIT or CARD
+        shift.cash_sales += cash_paid
+        shift.expected_total += cash_paid
+        shift.upi_sales += upi_paid
+
+    # Lookup or create retail customer for walk-in billing
+    cust_phone = (req.customer_phone or "9999999999").strip()
+    cust_name = (req.customer_name or "Walk-in Customer").strip()
+    customer = db.scalar(
+        select(Customer).where(
+            Customer.organization_id == current_user.organization_id,
+            Customer.phone == cust_phone,
+        )
+    )
+    if not customer:
+        customer = Customer(
+            id=generate_uuid(),
+            organization_id=current_user.organization_id,
+            customer_code=f"CUST-{cust_phone[-4:]}-{secrets.token_hex(2).upper()}",
+            customer_type="RETAIL",
+            first_name=cust_name.split()[0] if cust_name else "Walk-in",
+            last_name=cust_name.split()[-1] if len(cust_name.split()) > 1 else "Customer",
+            display_name=cust_name,
+            phone=cust_phone,
+            is_active=True,
+        )
+        db.add(customer)
+        db.flush()
+
+    # Generate sequential invoice number
+    today = datetime.now(UTC).date()
+    rand_seq = secrets.token_hex(3).upper()
+    invoice_num = f"INV-{branch_code}-{today.strftime('%y%m%d')}-{rand_seq}"
+
+    invoice = Invoice(
+        organization_id=current_user.organization_id,
+        branch_id=branch_id,
+        customer_id=customer.id,
+        invoice_number=invoice_num,
+        invoice_date=today,
+        subtotal=subtotal,
+        discount_amount=total_discount,
+        total_tax=total_tax,
+        total_amount=grand_total,
+        paid_amount=grand_total,
+        balance_amount=Decimal("0.00"),
+        payment_status="PAID",
+        status="ISSUED",
+        invoice_type="TAX_INVOICE",
+        financial_year="2026-27",
+        notes=f"POS counter checkout. Method: {payment_method}. Change: ₹{change_due}",
+        items=invoice_lines,
+    )
+    db.add(invoice)
+    db.flush()
+
+    # Link movements to invoice
+    for m in db.new:
+        if isinstance(m, StockMovement) and m.reference_id == "PENDING":
+            m.reference_id = invoice.id
+
+    db.commit()
+    db.refresh(invoice)
+
+    cashier = db.scalar(select(User).where(User.id == current_user.user_id))
+    cashier_name = cashier.full_name if cashier else current_user.email
+
+    # Broadcast real-time event to owner and branch manager
+    await ws_manager.broadcast_event(
+        event_type="POS_SALE_COMPLETED",
+        organization_id=invoice.organization_id,
+        branch_id=invoice.branch_id,
+        branch_name=branch_name,
+        summary=f"POS bill {invoice.invoice_number} (₹{invoice.total_amount}) by {cashier_name} at {branch_name}",
+        data={
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "total_amount": str(invoice.total_amount),
+            "payment_method": payment_method,
+            "item_count": len(invoice_lines),
+            "cashier_name": cashier_name,
+            "branch_id": invoice.branch_id,
+            "branch_name": branch_name,
+        },
+        source_user_id=current_user.user_id,
+        source_user_name=cashier_name,
+    )
+
+    return POSCheckoutResponse(
+        invoice_id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        invoice_date=invoice.invoice_date.isoformat(),
+        subtotal=invoice.subtotal,
+        tax_amount=invoice.total_tax,
+        discount_amount=invoice.discount_amount,
+        grand_total=invoice.total_amount,
+        total_amount=invoice.total_amount,
+        cash_tendered=cash_paid,
+        cash_paid=cash_paid,
+        upi_paid=upi_paid,
+        change_due=change_due,
+        payment_method=payment_method,
+        item_count=len(invoice_lines),
+        cashier_name=cashier_name,
+        branch_name=branch_name,
+    )

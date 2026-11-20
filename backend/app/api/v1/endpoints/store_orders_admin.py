@@ -1104,8 +1104,8 @@ def complete_picking(
 
     # Recalculate order totals if any items were partial/unavailable
     if had_partial_fulfillment:
-        new_subtotal = sum((it.unit_price * it.quantity) for it in items)
-        new_tax = sum(it.tax_amount for it in items)
+        new_subtotal = sum((it.unit_price * it.quantity for it in items), Decimal("0.00"))
+        new_tax = sum((it.tax_amount for it in items), Decimal("0.00"))
         order.subtotal = new_subtotal
         order.tax_amount = new_tax
         order.total_amount = new_subtotal + new_tax + (order.delivery_charge or Decimal("0.00"))
@@ -1114,7 +1114,7 @@ def complete_picking(
     order.picking_completed_at = now_utc
 
     hist_notes = (
-        f"Picking completed with partial fulfillment adjustments. Order total updated from ₹{old_total} to ₹{order.total_amount}."
+        f"Picking completed with partial adjustments. Total updated from ₹{old_total} to ₹{order.total_amount}."
         if had_partial_fulfillment
         else "Picking completed. Moved to packing stage."
     )

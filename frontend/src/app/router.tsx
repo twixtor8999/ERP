@@ -18,6 +18,10 @@ import { CustomerLoginPage } from "@/features/store/pages/CustomerLoginPage";
 import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPage";
 import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
 import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
+import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
+import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
+import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
+import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 
 function ModulePlaceholder({ name, description }: { name: string; description: string }) {
   return (
@@ -104,12 +108,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "billing",
-        element: (
-          <ModulePlaceholder
-            name="Point of Sale & Billing"
-            description="Manage checkout transactions, receipt generation, and cash register sessions."
-          />
-        ),
+        element: <PosBillingPage />,
       },
       {
         path: "orders",
@@ -148,12 +147,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "inventory",
-        element: (
-          <ModulePlaceholder
-            name="Inventory & Stock Tracking"
-            description="Branch-level stock quantities, reorder thresholds, and batch transfers."
-          />
-        ),
+        element: <InventoryManagementPage />,
       },
       {
         path: "purchases",
@@ -184,12 +178,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "settlements",
-        element: (
-          <ModulePlaceholder
-            name="Branch Settlements"
-            description="Reconciliation of day-end cash drawers, bank deposits, and transfers."
-          />
-        ),
+        element: <SettlementsPage />,
       },
       {
         path: "accounts",
@@ -211,12 +200,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "reports",
-        element: (
-          <ModulePlaceholder
-            name="Business Analytics & Reports"
-            description="Consolidated sales, gross margins, GST filings, and inventory valuation."
-          />
-        ),
+        element: <ReportsPage />,
       },
       {
         path: "employees",

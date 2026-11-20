@@ -3,8 +3,13 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    analytics,
     auth,
     health,
+    inventory_transfers,
+    notifications,
+    pos_admin,
+    reports_admin,
     store_address,
     store_auth,
     store_cart,
@@ -20,6 +25,13 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(users_router)
+
+# Enterprise Real-Time Command Center & Multi-Branch Intelligence
+api_router.include_router(analytics.router)
+api_router.include_router(pos_admin.router)
+api_router.include_router(inventory_transfers.router)
+api_router.include_router(notifications.router)
+api_router.include_router(reports_admin.router)
 
 # Customer Storefront & Commerce endpoints
 api_router.include_router(store_auth.router)
