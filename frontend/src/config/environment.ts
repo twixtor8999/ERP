@@ -5,3 +5,4 @@ export const env = {
   isProduction: import.meta.env.VITE_APP_ENV === "production",
   isDevelopment: import.meta.env.VITE_APP_ENV !== "production",
 } as const;
+

@@ -80,3 +80,4 @@ networks:
   erp_network:
     name: ai_smart_bazar_net
     driver: bridge
+

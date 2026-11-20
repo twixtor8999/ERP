@@ -12,3 +12,4 @@ def create_migration():
 
 if __name__ == "__main__":
     sys.exit(create_migration())
+

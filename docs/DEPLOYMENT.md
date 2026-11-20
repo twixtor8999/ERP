@@ -55,3 +55,4 @@ During continuous deployment pipelines:
 2. Verify database health probe returns HTTP 200.
 3. Deploy new backend container images using rolling deployment.
 4. Promote traffic to new release.
+

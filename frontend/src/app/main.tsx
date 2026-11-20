@@ -19,3 +19,4 @@ ReactDOM.createRoot(rootElement).render(
     </Providers>
   </React.StrictMode>
 );
+

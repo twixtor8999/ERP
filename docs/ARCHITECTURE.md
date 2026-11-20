@@ -71,3 +71,4 @@ Every business domain module follows a strict 5-layer separation:
 1. **Dual Scoping**: Every business record is tagged with `organization_id` and `branch_id`.
 2. **Zero Storage in LocalStorage**: Access tokens are kept strictly in browser memory. Session persistence is managed through rotating `HttpOnly`, `Secure`, `SameSite=Lax` refresh cookies.
 3. **Server-Side Authorization**: Branch headers passed by the client are always validated against user entitlements by FastAPI dependencies before executing any query.
+

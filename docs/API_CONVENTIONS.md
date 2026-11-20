@@ -80,3 +80,4 @@ Paginated collections:
 - `X-Branch-ID`: Identifies active operational branch context for multi-branch users.
 - `X-Request-ID`: Correlation identifier propagated from client to server logs.
 - `X-Process-Time-Ms`: Server execution latency attached to all responses.
+

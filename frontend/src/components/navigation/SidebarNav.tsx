@@ -102,3 +102,4 @@ export function SidebarNav({ onItemClick }: SidebarNavProps) {
     </div>
   );
 }
+

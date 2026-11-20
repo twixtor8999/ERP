@@ -1,7 +1,7 @@
 """Application configuration and environment settings using Pydantic Settings v2."""
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import Environment
@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = "ai-smart-bazar-documents"
     S3_REGION_NAME: str = "us-east-1"
     LOCAL_STORAGE_DIR: str = "uploads"
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if self.APP_ENV == Environment.PRODUCTION:
+            if "change_in_prod" in self.SECRET_KEY or "dev_secret_key" in self.SECRET_KEY:
+                msg = "Default development SECRET_KEY is strictly forbidden in production"
+                raise ValueError(msg)
+        return self
 
 
 settings = Settings()

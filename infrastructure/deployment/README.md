@@ -8,3 +8,4 @@ This directory contains cloud deployment specifications for **AI Smart Bazar**.
 2. **Environment Injected Secrets**: All credentials (database connection strings, secret keys, cloud storage credentials) must be injected via runtime environment variables and never bundled into container layers.
 3. **HTTPS & Edge Termination**: Production traffic must be terminated at a managed TLS edge load balancer or reverse proxy (e.g. Cloudflare, AWS ALB, Nginx).
 4. **Multi-Branch Data Isolation**: Storage buckets and PostgreSQL connection pools must be configured with appropriate connection limits and private networking.
+

@@ -24,3 +24,4 @@ def check_db():
 
 if __name__ == "__main__":
     sys.exit(check_db())
+

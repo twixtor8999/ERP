@@ -20,3 +20,4 @@ export const useBranchStore = create<BranchState>((set) => ({
     }),
   clearBranchContext: () => set({ activeBranch: null, availableBranches: [] }),
 }));
+

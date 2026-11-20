@@ -22,3 +22,4 @@ describe("Frontend Core Suite", () => {
     ).toBeInTheDocument();
   });
 });
+

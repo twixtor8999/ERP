@@ -78,3 +78,4 @@ docker compose up -d
 - **Backend API**: http://localhost:8000
 - **Swagger Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/api/v1/health
+

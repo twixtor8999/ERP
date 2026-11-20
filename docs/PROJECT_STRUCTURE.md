@@ -86,3 +86,4 @@ Every domain module inside `backend/app/modules/<module_name>` contains:
 - `repository.py`: Encapsulated database queries.
 - `service.py`: Business workflow logic and transaction handling.
 - `router.py`: FastAPI endpoints.
+

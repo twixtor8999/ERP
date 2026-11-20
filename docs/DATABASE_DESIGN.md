@@ -70,3 +70,4 @@ class BranchScopedMixin(OrganizationScopedMixin):
    CREATE INDEX ix_orders_org_branch_created ON orders (organization_id, branch_id, created_at DESC);
    ```
 2. **Future Partitioning**: Highly write-intensive tables (`orders`, `audit_logs`) will support PostgreSQL native declarative range partitioning by `created_at` or list partitioning by `branch_id`.
+

@@ -33,3 +33,4 @@ flowchart TD
 - **Cross-Branch Stock Transfers**: Controlled through a dedicated two-step ledger workflow:
   1. Source branch issues a `stock_transfer_out` transaction (deducting source warehouse stock).
   2. Destination branch verifies delivery and signs off `stock_transfer_in` (incrementing destination stock).
+

@@ -9,7 +9,9 @@ cd ..
 
 echo "=== Running Frontend Code Quality Checks ==="
 cd frontend
+npm run lint
 npm run build
 cd ..
 
 echo "=== All Lint and Strict Typing Checks Passed! ==="
+

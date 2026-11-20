@@ -6,3 +6,4 @@ test.describe("AI Smart Bazar Smoke Suite", () => {
     await expect(page).toHaveTitle(/AI Smart Bazar/);
   });
 });
+

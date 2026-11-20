@@ -12,3 +12,4 @@ npm run test
 cd ..
 
 echo "=== All Tests Passed Successfully! ==="
+

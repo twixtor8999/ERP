@@ -45,3 +45,4 @@ class Permission(StrEnum):
     # Admin
     USERS_MANAGE = "users:manage"
     AUDIT_VIEW = "audit:view"
+

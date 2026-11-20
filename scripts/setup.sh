@@ -34,3 +34,4 @@ fi
 
 echo "=== Setup Completed Successfully! ==="
 echo "Run 'make dev' to start local development servers."
+

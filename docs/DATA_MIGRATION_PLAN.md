@@ -43,3 +43,4 @@ flowchart LR
 - Verify that total customer opening balances match legacy accounting balance sheet totals.
 - Verify that opening stock valuation matches physical inventory audit tallies.
 - Client stakeholder sign-off prior to production go-live.
+

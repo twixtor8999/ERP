@@ -20,3 +20,4 @@ FRONTEND_PID=$!
 cd ..
 
 wait $BACKEND_PID $FRONTEND_PID
+
