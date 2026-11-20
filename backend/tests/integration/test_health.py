@@ -1,4 +1,5 @@
 """Integration tests for application and database health endpoints."""
+
 from fastapi.testclient import TestClient
 
 
@@ -66,4 +67,3 @@ def test_database_health_endpoint_disconnected(client: TestClient):
     body_str = response.text.lower()
     assert "password" not in body_str
     assert "siddeshwar_secure_pass" not in body_str
-

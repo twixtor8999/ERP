@@ -1,4 +1,5 @@
 """Generate initial schema migration via Alembic."""
+
 import subprocess
 import sys
 
@@ -12,4 +13,3 @@ def create_migration():
 
 if __name__ == "__main__":
     sys.exit(create_migration())
-

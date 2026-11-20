@@ -1,4 +1,5 @@
 """Authentication endpoints: Login, Refresh, Logout, and Identity resolution."""
+
 import uuid
 from typing import Any
 

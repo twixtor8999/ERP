@@ -1,4 +1,5 @@
 """S3 and S3-compatible (MinIO / Cloudflare R2 / AWS S3) storage provider."""
+
 from typing import BinaryIO
 
 import boto3

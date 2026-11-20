@@ -1,4 +1,5 @@
 """Database engine and session factory configuration using SQLAlchemy 2.x."""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine

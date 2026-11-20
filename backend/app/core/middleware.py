@@ -1,4 +1,5 @@
 """Custom HTTP middleware for Request ID tracking, execution timing, and Branch Context."""
+
 import time
 import uuid
 

@@ -1,0 +1,1 @@
+"""Database architecture test suite."""

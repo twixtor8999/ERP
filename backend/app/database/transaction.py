@@ -1,4 +1,5 @@
 """Database transaction boundaries and context managers."""
+
 from collections.abc import Generator
 from contextlib import contextmanager
 

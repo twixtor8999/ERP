@@ -1,11 +1,13 @@
 """Utility script to verify PostgreSQL database connectivity."""
-import sys
+
 import os
+import sys
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlalchemy import text
+
 from app.database.session import engine
 
 
@@ -24,4 +26,3 @@ def check_db():
 
 if __name__ == "__main__":
     sys.exit(check_db())
-

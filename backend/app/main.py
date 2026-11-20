@@ -1,4 +1,5 @@
 """Application entry point for AI Smart Bazar Enterprise ERP."""
+
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any

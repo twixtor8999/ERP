@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import settings
 from app.database.base import Base
+import app.models  # noqa: F401 - Register all models with Base.metadata
 
 # Interpret the config file for Python logging.
 config = context.config

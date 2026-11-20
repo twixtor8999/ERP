@@ -1,4 +1,5 @@
 """Application configuration and environment settings using Pydantic Settings v2."""
+
 from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             if v.startswith("[") and v.endswith("]"):
                 import json
+
                 try:
                     loaded = json.loads(v)
                     if isinstance(loaded, list):

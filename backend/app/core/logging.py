@@ -1,4 +1,5 @@
 """Structured JSON logging configuration for AI Smart Bazar ERP."""
+
 import json
 import logging
 import sys

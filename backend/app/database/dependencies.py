@@ -1,4 +1,5 @@
 """FastAPI dependency injection providers for database and security contexts."""
+
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request
@@ -91,9 +92,7 @@ def require_permission(permission: str) -> Any:
 
     def _dependency(current_user: Annotated[AuthContext, Depends(get_current_user)]) -> AuthContext:
         if not current_user.has_permission(permission):
-            raise PermissionDeniedError(
-                f"Required permission '{permission}' is missing for role '{current_user.role}'"
-            )
+            raise PermissionDeniedError(f"Required permission '{permission}' is missing for role '{current_user.role}'")
         return current_user
 
     return _dependency

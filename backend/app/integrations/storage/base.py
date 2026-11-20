@@ -1,4 +1,5 @@
 """Abstract storage service contract for document and asset uploads."""
+
 from abc import ABC, abstractmethod
 from typing import BinaryIO
 

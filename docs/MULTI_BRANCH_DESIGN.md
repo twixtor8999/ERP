@@ -1,36 +1,41 @@
-# Multi-Branch & Multi-Tenant Architecture — AI Smart Bazar ERP
+# AI Smart Bazar ERP — Multi-Branch & Multi-Tenant Architecture
 
-## 1. Multi-Branch Isolation Model
+## 1. Multi-Tenant Tenancy Model
 
-Siddeshwar Enterprises operates multiple physical stores, warehouses, and fulfillment points.
+The system utilizes a pooled database model with strict row-level discriminator tenancy:
+- `OrganizationScopedMixin`: Enforces `organization_id` on all enterprise-level data.
+- `BranchScopedMixin`: Enforces both `organization_id` and `branch_id` on all operational point-of-presence records.
 
-### Absolute Rule: Never a Single-Branch Architecture
-A core design requirement is that every business record is isolated by both `organization_id` and `branch_id`.
-
-```mermaid
-flowchart TD
-    User["User Request with X-Branch-ID: BR-02"] --> Gateway["FastAPI Security Gateway"]
-    Gateway --> CheckAuth["Validate User JWT Claims"]
-    CheckAuth --> CheckBranch{"Is BR-02 in User's Allowed Branches?"}
-    CheckBranch -- No --> 403["403 Forbidden: BRANCH_ACCESS_DENIED"]
-    CheckBranch -- Yes --> ScopeQuery["Inject branch_id = 'BR-02' into Repository Query"]
-    ScopeQuery --> Database[("PostgreSQL Isolated Query Execution")]
+### Composite Foreign Keys & Constraint Enforcement
+To mathematically prevent data leakage (such as Branch A accidentally referencing an invoice or warehouse belonging to another organization), composite constraints and index barriers are placed across all child tables:
+```sql
+UNIQUE (organization_id, branch_code)
+UNIQUE (organization_id, customer_code)
+UNIQUE (organization_id, supplier_code)
+UNIQUE (organization_id, product_code)
+UNIQUE (organization_id, invoice_number)
+UNIQUE (organization_id, branch_id, sequence_type, financial_year)
 ```
 
 ---
 
-## 2. Multi-Branch Access Patterns
+## 2. Branch Autonomy vs Centralized Consolidation
 
-1. **Single-Branch User**: A cashier or store clerk stationed exclusively at one branch. Their JWT claims include only `allowed_branches: ["br_pune_south"]`. Requests attempting to supply any other branch ID are rejected with `403 BRANCH_ACCESS_DENIED`.
-2. **Multi-Branch User**: Area managers or senior inventory auditors authorized across multiple regional stores (e.g. `allowed_branches: ["br_hq", "br_south", "br_warehouse_01"]`). The frontend branch selector allows toggling the active operational branch, sending `X-Branch-ID`.
-3. **Organization-Level User**: Organization Executives and Super Administrators. They have global visibility across all branches and can query consolidated organization-wide reports without individual branch filters.
+| Operational Dimension | Local Branch Autonomy | Centralized Organization Consolidation |
+| :--- | :--- | :--- |
+| **Catalog & Products** | Uses central product catalog and global price lists. | Centrally managed SKUs, barcodes, HSN codes, and tax configurations. |
+| **Stock & Warehouses**| Real-time branch stock balances; cycle counts and bin tracking. | Organization-wide stock valuation, consolidated low-stock reporting. |
+| **Sales & Billing** | Independent sequential invoice counters (`INV-PUNE-0001`). | Central GST reporting, consolidated turnover, and B2B client ledgers. |
+| **Cash Settlements** | Daily cashier drawer settlement and discrepancy reconciliation. | Centralized treasury management and multi-bank account transfers. |
+| **Staff & Shifts** | Branch check-in/out attendance and vehicle assignments. | Centralized employee designations, payroll structures, and incentives. |
 
 ---
 
-## 3. Data Isolation Guarantees
+## 3. Inter-Branch Stock Transfers
 
-- **No Client Trust**: Frontend branch selection is purely for UI context. The backend FastAPI layer **always** validates branch access before querying or mutating data.
-- **Cross-Branch Stock Transfers**: Controlled through a dedicated two-step ledger workflow:
-  1. Source branch issues a `stock_transfer_out` transaction (deducting source warehouse stock).
-  2. Destination branch verifies delivery and signs off `stock_transfer_in` (incrementing destination stock).
-
+Inter-branch inventory movement requires atomic state tracking to guarantee zero ghost stock:
+1. **Creation**: Source branch initiates `StockTransfer` (`status = DRAFT` -> `IN_TRANSIT`).
+2. **Dispatch**: Outbound `StockMovement` recorded at source warehouse; stock deducted from source `StockBalance`.
+3. **Transit**: Quantities recorded as in-transit between locations.
+4. **Receipt**: Destination branch inspects goods and records `StockTransferItem.quantity_received`.
+5. **Inbound Booking**: Inbound `StockMovement` recorded at destination warehouse; balance credited to destination `StockBalance`.

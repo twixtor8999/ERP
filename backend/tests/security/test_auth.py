@@ -1,4 +1,5 @@
 """Security test suite verifying authentication, invalid credentials, and authorization."""
+
 from fastapi.testclient import TestClient
 
 
@@ -69,4 +70,3 @@ def test_production_mode_blocks_default_secret_key():
             APP_ENV=Environment.PRODUCTION,
             SECRET_KEY="dev_secret_key_change_in_prod",
         )
-

@@ -1,46 +1,33 @@
-# Data Migration Plan — AI Smart Bazar ERP
+# AI Smart Bazar ERP — Legacy Data Migration Architecture
 
-## 1. Migration Overview
+## 1. Multi-Stage Ingestion Pipeline
 
-Siddeshwar Enterprises is transitioning from a legacy business management application. The format of the legacy data is currently unconfirmed and may arrive in multiple formats (Excel spreadsheets `.xlsx`, CSV files, legacy SQL dumps, or proprietary accounting exports).
+To migrate Siddeshwar Enterprises' legacy business data from unknown formats (Excel, CSV, legacy databases, or paper records), the system utilizes a staging workflow:
 
-This plan establishes a resilient, audited 5-stage data onboarding pipeline.
-
-```mermaid
-flowchart LR
-    Stage1["1. Ingestion & Format Discovery"] --> Stage2["2. Cleansing & Normalization"]
-    Stage2 --> Stage3["3. Duplicate Resolution & Validation"]
-    Stage3 --> Stage4["4. Atomic Staged Import"]
-    Stage4 --> Stage5["5. Financial & Stock Reconciliation"]
+```
+[Phase 1: Upload] -> data_import_files
+       |
+[Phase 2: Raw Ingestion] -> data_import_records (raw_data JSONB)
+       |
+[Phase 3: Schema Validation] -> data_import_errors (Row & Column level errors)
+       |
+[Phase 4: Transformation] -> data_import_records (parsed_data JSONB)
+       |
+[Phase 5: Entity Insertion & ID Mapping] -> legacy_id_mappings + Master Tables
 ```
 
 ---
 
-## 2. Five-Stage Migration Lifecycle
+## 2. Ingestion Batch Management (`data_import_batches`)
 
-### Stage 1: Ingestion & Discovery
-- Secure receipt of legacy data into isolated staging bucket.
-- Detection of encoding (UTF-8, ISO-8859), column structures, and foreign key anomalies.
-- Automated data profiling using `pandas` and `openpyxl`.
+Each import run is tracked with state progress:
+- `import_type`: `CUSTOMERS`, `PRODUCTS`, `SUPPLIERS`, `INVENTORY`, `COA`
+- `status`: `PENDING` -> `PROCESSING` -> `COMPLETED` / `FAILED`
+- `total_records`, `successful_records`, `failed_records`
 
-### Stage 2: Schema Mapping & Transformation
-- Map legacy fields to AI Smart Bazar target schemas:
-  - Product catalog (Name, SKU barcode, GST tax slabs, Cost price, Selling price).
-  - Customer directory (Name, Phone number, Address, GSTIN, Opening balance).
-  - Supplier directory (Vendor name, Contact details, Bank info).
-  - Inventory opening stock (Branch allocation, batch number, current count).
-
-### Stage 3: Duplicate Resolution & Fuzzy Matching
-- Run customer identity resolution on phone numbers and address fuzzy matching to prevent duplicate customer profiles.
-- Flag conflicting SKU numbers or missing GST rates for administrative review.
-
-### Stage 4: Atomic Batch Ingestion
-- Ingest data in transactional chunks (500 records per transaction).
-- Apply rollback triggers upon foreign key integrity failures.
-- Record every imported entity in `audit_logs` tagged with `source: legacy_migration`.
-
-### Stage 5: Financial & Inventory Reconciliation
-- Verify that total customer opening balances match legacy accounting balance sheet totals.
-- Verify that opening stock valuation matches physical inventory audit tallies.
-- Client stakeholder sign-off prior to production go-live.
-
+### Legacy ID Translation (`legacy_id_mappings`)
+Every migrated record stores a cross-reference:
+```
+(organization_id, entity_type, legacy_id) -> new_postgresql_uuid
+```
+This guarantees that historical customer account numbers, old item codes, and old bill numbers can be queried or matched back to the legacy system.

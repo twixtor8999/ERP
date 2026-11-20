@@ -1,4 +1,5 @@
 """Unit tests for Argon2 password hashing and PyJWT token generation."""
+
 from app.core.security import (
     create_access_token,
     decode_token,

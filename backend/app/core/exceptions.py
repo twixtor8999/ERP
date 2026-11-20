@@ -1,4 +1,5 @@
 """Centralized exception classes and global error handling for AI Smart Bazar."""
+
 from typing import Any
 
 from fastapi import FastAPI, Request, status
@@ -100,9 +101,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         request_id = getattr(request.state, "request_id", None)
         errors: list[dict[str, Any]] = []
         for err in exc.errors():

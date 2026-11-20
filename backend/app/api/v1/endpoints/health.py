@@ -1,4 +1,5 @@
 """Health check endpoints providing meaningful service and database diagnostics."""
+
 import time
 from datetime import UTC, datetime
 from typing import Any

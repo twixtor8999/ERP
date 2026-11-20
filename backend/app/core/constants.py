@@ -1,4 +1,5 @@
 """System-wide constants and enumerations for AI Smart Bazar ERP."""
+
 from enum import StrEnum
 
 
@@ -45,4 +46,3 @@ class Permission(StrEnum):
     # Admin
     USERS_MANAGE = "users:manage"
     AUDIT_VIEW = "audit:view"
-
