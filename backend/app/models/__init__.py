@@ -104,6 +104,7 @@ from app.modules.orders.models import (
     CartItem,
     Order,
     OrderAssignment,
+    OrderDeliveryAttempt,
     OrderItem,
     OrderNote,
     OrderStatusHistory,
@@ -269,6 +270,7 @@ __all__ = [
     "OrderStatusHistory",
     "OrderNote",
     "OrderAssignment",
+    "OrderDeliveryAttempt",
     "SalesReturn",
     "SalesReturnItem",
     # Billing

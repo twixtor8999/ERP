@@ -82,9 +82,16 @@ class Order(Base, TimestampMixin):
     payment_transaction_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     placed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    picking_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    picking_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     packed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    package_count: Mapped[int | None] = mapped_column(Integer, default=1, nullable=True)
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    delivery_attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancellation_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -98,6 +105,9 @@ class Order(Base, TimestampMixin):
     )
     assignments: Mapped[list["OrderAssignment"]] = relationship(
         "OrderAssignment", back_populates="order", cascade="all, delete-orphan"
+    )
+    delivery_attempts: Mapped[list["OrderDeliveryAttempt"]] = relationship(
+        "OrderDeliveryAttempt", back_populates="order", cascade="all, delete-orphan"
     )
 
 
@@ -125,6 +135,8 @@ class OrderItem(Base, TimestampMixin):
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
     sku: Mapped[str] = mapped_column(String(100), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, nullable=False)
+    picked_quantity: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, default=Decimal("0.0000"), nullable=False)
+    picking_status: Mapped[str] = mapped_column(String(30), default="PENDING_PICK", nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(MONEY_TYPE, nullable=False)
     discount_percent: Mapped[Decimal] = mapped_column(RATE_TYPE, default=Decimal("0.0000"), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
@@ -217,6 +229,41 @@ class OrderAssignment(Base, TimestampMixin):
     )
 
     order: Mapped["Order"] = relationship("Order", back_populates="assignments")
+
+
+class OrderDeliveryAttempt(Base, TimestampMixin):
+    """Immutable audit record of home delivery attempt by internal shop staff."""
+
+    __tablename__ = "order_delivery_attempts"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+    order_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    employee_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)  # SUCCESS, FAILED, RETURNED
+    failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    order: Mapped["Order"] = relationship("Order", back_populates="delivery_attempts")
 
 
 class SalesReturn(Base, TimestampMixin):

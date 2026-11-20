@@ -529,6 +529,31 @@ def get_order_detail(
     ):
         plain_otp = decrypt_delivery_otp(order.delivery_otp_encrypted, settings.SECRET_KEY)
 
+    customer_status_labels = {
+        "PENDING": "Order placed successfully.",
+        "CONFIRMED": "Order confirmed by the store team.",
+        "PICKING": "Store staff is picking your items.",
+        "PACKING": "Items picked and packed.",
+        "READY_FOR_DISPATCH": "Packed and ready for delivery.",
+        "OUT_FOR_DELIVERY": "Order is out for home delivery.",
+        "DELIVERED": "Order delivered successfully.",
+        "DELIVERY_FAILED": "Delivery attempt was unsuccessful. Delivery will be retried.",
+        "CANCELLED": "Order was cancelled.",
+    }
+    sanitized_timeline = [
+        OrderStatusHistoryResponse(
+            id=h.id,
+            old_status=h.old_status,
+            new_status=h.new_status,
+            notes=customer_status_labels.get(
+                h.new_status,
+                f"Order status updated to {h.new_status.lower().replace('_', ' ')}.",
+            ),
+            created_at=h.created_at,
+        )
+        for h in history
+    ]
+
     return CustomerOrderDetailResponse(
         id=order.id,
         order_number=order.order_number,
@@ -561,7 +586,7 @@ def get_order_detail(
         cancellation_reason=order.cancellation_reason,
         delivery_otp=plain_otp,
         items=[OrderItemDetailResponse.model_validate(it) for it in items],
-        timeline=[OrderStatusHistoryResponse.model_validate(h) for h in history],
+        timeline=sanitized_timeline,
     )
 
 

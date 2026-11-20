@@ -16,8 +16,9 @@ import type { CustomerOrder } from "../types";
 
 const ORDER_STEPS = [
   { key: "PENDING", label: "Order Placed", icon: Clock },
-  { key: "CONFIRMED", label: "Confirmed by Mart", icon: CheckCircle },
-  { key: "PACKING", label: "Packing & Bagging", icon: Package },
+  { key: "CONFIRMED", label: "Confirmed", icon: CheckCircle },
+  { key: "PICKING", label: "Picking Items", icon: Package },
+  { key: "PACKING", label: "Packed & Ready", icon: Package },
   { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", icon: Truck },
   { key: "DELIVERED", label: "Delivered", icon: ShieldCheck },
 ];
@@ -90,8 +91,27 @@ export const OrderTrackingPage: React.FC = () => {
   const canCancel = ["PENDING", "CONFIRMED"].includes(order.status);
 
   // Determine current active step index
-  const stepKeys = ["PENDING", "CONFIRMED", "PACKING", "OUT_FOR_DELIVERY", "DELIVERED"];
-  const currentStepIdx = stepKeys.indexOf(order.status);
+  const getStepIndex = (st: string) => {
+    switch (st) {
+      case "PENDING":
+        return 0;
+      case "CONFIRMED":
+        return 1;
+      case "PICKING":
+        return 2;
+      case "PACKING":
+      case "READY_FOR_DISPATCH":
+        return 3;
+      case "OUT_FOR_DELIVERY":
+      case "DELIVERY_FAILED":
+        return 4;
+      case "DELIVERED":
+        return 5;
+      default:
+        return 0;
+    }
+  };
+  const currentStepIdx = getStepIndex(order.status);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -139,7 +159,7 @@ export const OrderTrackingPage: React.FC = () => {
               <div
                 className="absolute top-1/2 left-4 h-0.5 bg-emerald-600 -translate-y-1/2 z-0 transition-all duration-500"
                 style={{
-                  width: `${Math.max(0, (currentStepIdx / (stepKeys.length - 1)) * 100)}%`,
+                  width: `${Math.max(0, (currentStepIdx / (ORDER_STEPS.length - 1)) * 100)}%`,
                 }}
               />
 

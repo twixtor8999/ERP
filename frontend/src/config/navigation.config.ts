@@ -37,6 +37,11 @@ export const navigationConfig: NavSection[] = [
         iconName: "ShoppingCart",
       },
       {
+        title: "Deliveries",
+        href: "/deliveries",
+        iconName: "Truck",
+      },
+      {
         title: "Customers & CRM",
         href: "/crm",
         iconName: "Users",

@@ -17,6 +17,7 @@ import { CustomerAddressesPage } from "@/features/store/pages/CustomerAddressesP
 import { CustomerLoginPage } from "@/features/store/pages/CustomerLoginPage";
 import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPage";
 import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
+import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
 
 function ModulePlaceholder({ name, description }: { name: string; description: string }) {
   return (
@@ -113,6 +114,10 @@ export const router = createBrowserRouter([
       {
         path: "orders",
         element: <StoreOrdersAdminPage />,
+      },
+      {
+        path: "deliveries",
+        element: <DeliveryStaffDashboardPage />,
       },
       {
         path: "crm",
