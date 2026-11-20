@@ -47,3 +47,4 @@ While Super Admin is the highest operational authority within an organization, t
 
 4. **Permanent Audit Trail:**
    - Every administrative action executed by a Super Admin is immutably recorded in the append-only `audit_logs` ledger with IP address, user agent, timestamp, action type, entity ID, and old/new state values.
+

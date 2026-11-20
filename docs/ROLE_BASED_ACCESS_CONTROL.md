@@ -82,3 +82,4 @@ To transition safely from prior multi-role assignments without data loss:
      - `GET /api/v1/users/reconciliation/conflicts` (inspect conflicting employees)
      - `POST /api/v1/users/{user_id}/reconciliation/select-primary` (designates the single primary role)
 3. Once reconciled, login succeeds immediately, directing the employee to their dedicated dashboard.
+

@@ -75,3 +75,4 @@ If an employee attempts to navigate to a dashboard outside their role (e.g., a C
    > *Security policy violation: Your account operates under the fixed role `Cashier`. You cannot access the `admin` operational dashboard.*
 3. A single action button is provided: `Return to My Assigned Dashboard`.
 4. Any underlying backend API calls made to restricted endpoints return `403 Forbidden`.
+

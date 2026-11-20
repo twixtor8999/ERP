@@ -67,6 +67,11 @@ ALL_PERMISSIONS: list[dict[str, str]] = [
     {"code": "customers.customer.update", "name": "Update Customers", "module": "customers"},
     {"code": "customers.customer.delete", "name": "Delete Customers", "module": "customers"},
     {"code": "customers.customer.export", "name": "Export Customers", "module": "customers"},
+    {"code": "customers.shop.view", "name": "Browse Storefront Catalog", "module": "customers"},
+    {"code": "customers.cart.manage", "name": "Manage Shopping Cart", "module": "customers"},
+    {"code": "customers.order.create", "name": "Place Customer Orders", "module": "customers"},
+    {"code": "customers.order.view", "name": "View Customer Orders", "module": "customers"},
+    {"code": "customers.profile.manage", "name": "Manage Customer Profile and Addresses", "module": "customers"},
     # Suppliers
     {"code": "suppliers.supplier.view", "name": "View Suppliers", "module": "suppliers"},
     {"code": "suppliers.supplier.create", "name": "Create Suppliers", "module": "suppliers"},
@@ -411,6 +416,18 @@ ROLE_TEMPLATES: list[dict[str, Any]] = [
             "reports.financial.view",
             "reports.sales.view",
             "audit.logs.view",
+        ],
+    },
+    {
+        "slug": "customer",
+        "name": "Customer",
+        "description": "Storefront retail shopper with personal catalog, cart, address book, and self-order access.",
+        "permissions": [
+            "customers.shop.view",
+            "customers.cart.manage",
+            "customers.order.create",
+            "customers.order.view",
+            "customers.profile.manage",
         ],
     },
 ]

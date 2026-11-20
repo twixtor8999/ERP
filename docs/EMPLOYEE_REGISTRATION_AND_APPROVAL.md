@@ -94,3 +94,4 @@ flowchart TD
   - `is_primary BOOLEAN DEFAULT FALSE NOT NULL`: Indexed column designating the single operational primary role.
 - **Alembic Migration:**
   - `backend/alembic/versions/6f1c4e72390a_fixed_role_and_employee_approvals.py` applies schema changes with rollback capability.
+

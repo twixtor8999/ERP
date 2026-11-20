@@ -6,6 +6,17 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { NotFoundPage } from "@/components/feedback/NotFound";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Construction } from "lucide-react";
+import { StoreLayout } from "@/features/store/components/StoreLayout";
+import { StoreCatalogPage } from "@/features/store/pages/StoreCatalogPage";
+import { ProductDetailPage } from "@/features/store/pages/ProductDetailPage";
+import { CartPage } from "@/features/store/pages/CartPage";
+import { CheckoutPage } from "@/features/store/pages/CheckoutPage";
+import { CustomerOrderHistoryPage } from "@/features/store/pages/CustomerOrderHistoryPage";
+import { OrderTrackingPage } from "@/features/store/pages/OrderTrackingPage";
+import { CustomerAddressesPage } from "@/features/store/pages/CustomerAddressesPage";
+import { CustomerLoginPage } from "@/features/store/pages/CustomerLoginPage";
+import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPage";
+import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
 
 function ModulePlaceholder({ name, description }: { name: string; description: string }) {
   return (
@@ -24,6 +35,48 @@ function ModulePlaceholder({ name, description }: { name: string; description: s
 }
 
 export const router = createBrowserRouter([
+  // Customer Storefront Public Routes
+  {
+    path: "/shop",
+    element: <StoreLayout />,
+    children: [
+      { index: true, element: <StoreCatalogPage /> },
+      { path: "product/:id", element: <ProductDetailPage /> },
+    ],
+  },
+  {
+    path: "/cart",
+    element: <StoreLayout />,
+    children: [{ index: true, element: <CartPage /> }],
+  },
+  {
+    path: "/checkout",
+    element: <StoreLayout />,
+    children: [{ index: true, element: <CheckoutPage /> }],
+  },
+  {
+    path: "/account",
+    element: <StoreLayout />,
+    children: [
+      { path: "orders", element: <CustomerOrderHistoryPage /> },
+      { path: "addresses", element: <CustomerAddressesPage /> },
+    ],
+  },
+  {
+    path: "/orders/:orderId",
+    element: <StoreLayout />,
+    children: [{ index: true, element: <OrderTrackingPage /> }],
+  },
+  {
+    path: "/customer/login",
+    element: <CustomerLoginPage />,
+  },
+  {
+    path: "/customer/register",
+    element: <CustomerRegisterPage />,
+  },
+
+  // Internal ERP Routes
   {
     path: "/login",
     element: <LoginPage />,
@@ -59,12 +112,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "orders",
-        element: (
-          <ModulePlaceholder
-            name="Orders & Fulfillment"
-            description="Track wholesale orders, customer order processing, and delivery status."
-          />
-        ),
+        element: <StoreOrdersAdminPage />,
       },
       {
         path: "crm",

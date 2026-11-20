@@ -108,3 +108,4 @@ Result: **5 passed in 10.32s (100% pass rate)**
 - **MyPy:** `backend/venv/bin/mypy app` -> **Success: no issues found in 182 source files**
 - **ESLint:** `npm run lint` in `frontend/` -> **0 errors, 0 warnings**
 - **Vite Build:** `npm run build` in `frontend/` -> **Built successfully in 19.98s**
+

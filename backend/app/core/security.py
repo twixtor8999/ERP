@@ -100,3 +100,39 @@ def revoke_token(token_id: str) -> None:
 def is_token_revoked(token_id: str) -> bool:
     """Check if a refresh token has been revoked."""
     return token_id in _revoked_token_ids
+
+
+def get_fernet_key(secret: str) -> bytes:
+    """Derive 32-byte URL-safe base64 encryption key from server secret."""
+    import base64
+    import hashlib
+
+    key = hashlib.sha256(secret.encode()).digest()
+    return base64.urlsafe_b64encode(key)
+
+
+def encrypt_delivery_otp(otp: str, secret: str) -> str:
+    """Encrypt 4-digit OTP using Fernet with server secret key."""
+    from cryptography.fernet import Fernet
+
+    f = Fernet(get_fernet_key(secret))
+    return f.encrypt(otp.encode()).decode()
+
+
+def decrypt_delivery_otp(encrypted_otp: str, secret: str) -> str | None:
+    """Decrypt 4-digit OTP for authorized customer order tracking."""
+    from cryptography.fernet import Fernet
+
+    try:
+        f = Fernet(get_fernet_key(secret))
+        return f.decrypt(encrypted_otp.encode()).decode()
+    except Exception:
+        return None
+
+
+def hash_delivery_otp(order_id: str, otp: str, secret: str) -> str:
+    """Generate SHA-256 HMAC-style digest of order ID and OTP for database verification."""
+    import hashlib
+
+    return hashlib.sha256(f"{order_id}:{otp.strip()}:{secret}".encode()).hexdigest()
+

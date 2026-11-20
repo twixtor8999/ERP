@@ -60,6 +60,12 @@ class Customer(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     customer_code: Mapped[str] = mapped_column(String(50), nullable=False)
     customer_type: Mapped[str] = mapped_column(String(30), default="RETAIL", nullable=False)
     company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -104,8 +110,11 @@ class CustomerAddress(Base, TimestampMixin):
         index=True,
     )
     address_type: Mapped[str] = mapped_column(String(30), default="BILLING", nullable=False)
+    recipient_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     address_line1: Mapped[str] = mapped_column(String(255), nullable=False)
     address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    landmark: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
     postal_code: Mapped[str] = mapped_column(String(20), nullable=False)

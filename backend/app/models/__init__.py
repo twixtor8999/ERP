@@ -100,6 +100,8 @@ from app.modules.inventory.models import (
 
 # 8. Sales Orders & Returns
 from app.modules.orders.models import (
+    Cart,
+    CartItem,
     Order,
     OrderAssignment,
     OrderItem,
@@ -260,6 +262,8 @@ __all__ = [
     "PurchaseReturn",
     "PurchaseReturnItem",
     # Orders
+    "Cart",
+    "CartItem",
     "Order",
     "OrderItem",
     "OrderStatusHistory",

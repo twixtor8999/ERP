@@ -18,6 +18,7 @@ class UserRole(StrEnum):
     INVENTORY_MANAGER = "INVENTORY_MANAGER"
     ACCOUNTANT = "ACCOUNTANT"
     STAFF = "STAFF"
+    CUSTOMER = "customer"
 
 
 class Permission(StrEnum):

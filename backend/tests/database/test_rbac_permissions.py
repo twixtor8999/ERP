@@ -27,10 +27,11 @@ def test_permission_catalog_and_role_templates(db_session: Session) -> None:
     assert "inventory.stock.view" in perm_map
 
     role_map = seed_system_roles(db_session, perm_map)
-    assert len(role_map) == 13
+    assert len(role_map) >= 13
     assert "super_admin" in role_map
     assert "accountant" in role_map
     assert "cashier" in role_map
+    assert "customer" in role_map
 
     # Super Admin must have all permissions
     sa_role = role_map["super_admin"]

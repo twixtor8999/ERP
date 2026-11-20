@@ -94,6 +94,12 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise AuthenticationError("Invalid token type")
 
+        # Explicit isolation: Customer credentials cannot authenticate employee or administrative services
+        if payload.get("role") == "customer" or payload.get("token_scope") == "customer":
+            raise PermissionDeniedError(
+                "Customer credentials cannot be used to authenticate employee or administrative ERP services."
+            )
+
         user_id = payload.get("sub", "")
         session_id = payload.get("session_id")
         role_id = payload.get("role_id")
