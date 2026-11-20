@@ -1,5 +1,4 @@
 """SQLAlchemy 2.x models for Users, Sessions, and Tokens."""
-
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -13,12 +12,14 @@ if TYPE_CHECKING:
 
 
 class User(Base, TimestampMixin):
-    """User account entity authenticated via email and argon2 hash."""
+    """User account entity authenticated via mobile phone or email with argon2 hash."""
 
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("organization_id", "email", name="uq_user_org_email"),
         Index("ix_user_org_email", "organization_id", "email"),
+        Index("ix_user_phone", "phone"),
+        Index("ix_user_org_phone", "organization_id", "phone"),
     )
 
     id: Mapped[str] = mapped_column(
@@ -33,9 +34,9 @@ class User(Base, TimestampMixin):
         index=True,
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
@@ -76,12 +77,14 @@ class UserBranchAccess(Base, TimestampMixin):
         nullable=False,
     )
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    assigned_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="branch_access")
 
 
 class AuthSession(Base, TimestampMixin):
-    """Authenticated user session with tracking metadata."""
+    """Authenticated user session with tracking metadata and active context."""
 
     __tablename__ = "auth_sessions"
 
@@ -96,10 +99,29 @@ class AuthSession(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    active_branch_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("branches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    active_role_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("roles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     token_hash: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE", nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="sessions")

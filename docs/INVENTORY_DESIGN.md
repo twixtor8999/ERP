@@ -38,3 +38,4 @@ The system separates real-time read performance from historical audit integrity 
 
 4. **Bulk Unpack / Stock Breakdown**:
    Large bulk bags (e.g. 50kg Sugar Sack) unpacked into 1kg retail packets are tracked via `stock_split_batches` and `stock_split_items`.
+

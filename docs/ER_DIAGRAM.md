@@ -53,3 +53,4 @@ erDiagram
    `branches` maintain their own `stock_balances`, `invoice_sequences`, `settlements`, and local staff access (`user_branch_access`).
 3. **Double-Entry Ledger Integrity**:
    `journal_entry_lines` are tied directly to `chart_of_accounts`, guaranteeing that any balance movement maps to a recognized ledger account.
+

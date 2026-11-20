@@ -45,3 +45,4 @@ After running migrations, the initial RBAC permissions, 13 system role templates
 cd backend
 PYTHONPATH=. venv/bin/python scripts/seed_database.py
 ```
+

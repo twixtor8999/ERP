@@ -155,7 +155,7 @@ from app.modules.reports.models import (
     ReportDefinition,
     SavedReportFilter,
 )
-from app.modules.roles.models import Role, UserRoleAssignment
+from app.modules.roles.models import Role, RoleAssignmentHistory, UserRoleAssignment
 from app.modules.settlements.models import (
     PaymentReconciliationRecord,
     Settlement,
@@ -200,6 +200,7 @@ __all__ = [
     "RolePermission",
     "UserPermissionOverride",
     "Role",
+    "RoleAssignmentHistory",
     "UserRoleAssignment",
     "User",
     "UserBranchAccess",

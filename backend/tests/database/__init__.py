@@ -1,1 +1,2 @@
 """Database architecture test suite."""
+

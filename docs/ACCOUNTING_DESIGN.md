@@ -32,3 +32,4 @@ $$\sum \text{debit\_amount} = \sum \text{credit\_amount}$$
 - Financial years span 12 months (e.g. April 1 to March 31).
 - `accounting_periods` track monthly books. Once closed (`is_closed = True`), back-dated vouchers cannot be posted without administrator reopening.
 - Bank accounts link directly to General Ledger accounts, supporting statement imports and reconciliation tracking (`bank_reconciliations`).
+

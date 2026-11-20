@@ -1,10 +1,13 @@
 """Authentication endpoints: Login, Refresh, Logout, and Identity resolution."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.constants import UserRole
@@ -14,14 +17,27 @@ from app.core.security import (
     decode_token,
     is_token_revoked,
     revoke_token,
+    verify_password,
 )
+from app.database.base import generate_uuid
 from app.database.dependencies import AuthContext, get_current_user
+from app.database.session import get_db
+from app.models import AuthSession, Organization, Role, User, UserRoleAssignment
+from app.modules.users.context_service import ContextService
+from app.modules.users.schemas import (
+    SessionContextResponse,
+    SwitchBranchRequest,
+    SwitchContextResponse,
+    SwitchRoleRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Security"])
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr | None = None
+    phone: str | None = None
+    identifier: str | None = None
     password: str
     rememberMe: bool | None = False
 
@@ -37,8 +53,10 @@ class BranchSummaryResponse(BaseModel):
 class UserProfileResponse(BaseModel):
     id: str
     email: str
+    phone: str | None = None
     fullName: str
     role: str
+    activeRoleId: str | None = None
     organizationId: str
     organizationName: str
     allowedBranches: list[BranchSummaryResponse]
@@ -77,58 +95,204 @@ DEMO_BRANCHES = [
 
 
 @router.post("/login", response_model=LoginSuccessResponse)
-async def login(credentials: LoginRequest, response: Response) -> LoginSuccessResponse:
+async def login(
+    credentials: LoginRequest,
+    response: Response,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> LoginSuccessResponse:
     """
-    Authenticate user credentials, return JWT access token in response body,
-    and attach rotatable refresh token in HttpOnly secure cookie.
+    Authenticate user via mobile phone or business email, initialize session context,
+    return JWT access token, and attach rotatable refresh token cookie.
     """
-    # For project initialization phase, accept admin account credentials
-    if credentials.email != "admin@siddeshwar.in" or credentials.password != "Password123!":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid business email or password",
+    login_id = (credentials.phone or credentials.email or credentials.identifier or "").strip()
+
+    # Attempt database authentication first
+    user = None
+    if login_id:
+        user = db.scalar(
+            select(User).where(
+                or_(
+                    User.email == login_id,
+                    User.phone == login_id,
+                )
+            )
         )
 
-    user_id = "usr_admin_01"
-    refresh_token_id = uuid.uuid4().hex
+    if user:
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is deactivated. Contact administrator.",
+            )
 
-    claims = {
-        "email": credentials.email,
-        "role": UserRole.SUPER_ADMIN.value,
-        "organization_id": "org_siddeshwar",
-        "allowed_branches": [b.id for b in DEMO_BRANCHES],
-        "permissions": ["*"],
-    }
+        if not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid business credentials or password",
+            )
 
-    access_token = create_access_token(subject=user_id, claims=claims)
-    refresh_token = create_refresh_token(subject=user_id, token_id=refresh_token_id)
+        org = db.scalar(select(Organization).where(Organization.id == user.organization_id))
+        org_name = org.name if org else "Siddeshwar Enterprises"
 
-    # Set secure HttpOnly cookie for refresh token
-    response.set_cookie(
-        key=settings.REFRESH_COOKIE_NAME,
-        value=refresh_token,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite=settings.COOKIE_SAMESITE,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        path="/api/v1/auth",
-    )
+        # Determine authorized branches and default active branch
+        authorized_branches = ContextService.get_authorized_branches(db, user.id, user.organization_id)
+        default_branch = next(
+            (b for b in authorized_branches if b.is_default),
+            authorized_branches[0] if authorized_branches else None,
+        )
+        active_branch_id = default_branch.branch_id if default_branch else None
 
-    user_profile = UserProfileResponse(
-        id=user_id,
-        email=credentials.email,
-        fullName="Enterprise Administrator",
-        role=UserRole.SUPER_ADMIN.value,
-        organizationId="org_siddeshwar",
-        organizationName="Siddeshwar Enterprises",
-        allowedBranches=DEMO_BRANCHES,
-        activeBranchId="br_hq",
-        permissions=["*"],
-    )
+        # Determine available roles for branch and default active role
+        available_roles = ContextService.get_available_roles_for_branch(
+            db, user.id, user.organization_id, active_branch_id
+        )
+        active_role_id = None
+        if available_roles:
+            active_role_id = available_roles[0].role_id
+        else:
+            # Fallback to any active role assignment
+            fallback_assign = db.scalar(
+                select(UserRoleAssignment.role_id).where(
+                    UserRoleAssignment.user_id == user.id,
+                    UserRoleAssignment.is_active.is_(True),
+                    UserRoleAssignment.status == "ACTIVE",
+                )
+            )
+            active_role_id = fallback_assign
 
-    return LoginSuccessResponse(
-        user=user_profile,
-        access_token=access_token,
+        active_role = db.scalar(select(Role).where(Role.id == active_role_id)) if active_role_id else None
+        role_name = active_role.name if active_role else "STAFF"
+        role_slug = active_role.slug if active_role else "staff"
+
+        effective_permissions = (
+            ContextService.calculate_effective_permissions(db, user.id, active_role_id)
+            if active_role_id
+            else []
+        )
+
+        # Create persistent AuthSession in database
+        session_id = generate_uuid()
+        now = datetime.now(UTC)
+        auth_session = AuthSession(
+            id=session_id,
+            user_id=user.id,
+            organization_id=user.organization_id,
+            active_branch_id=active_branch_id,
+            active_role_id=active_role_id,
+            token_hash=session_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("User-Agent"),
+            expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            is_revoked=False,
+            status="ACTIVE",
+        )
+        db.add(auth_session)
+        db.commit()
+
+        claims = {
+            "email": user.email,
+            "phone": user.phone,
+            "role": role_slug,
+            "role_id": active_role_id,
+            "organization_id": user.organization_id,
+            "active_branch_id": active_branch_id,
+            "session_id": session_id,
+            "allowed_branches": [b.branch_id for b in authorized_branches],
+            "permissions": effective_permissions,
+        }
+
+        access_token = create_access_token(subject=user.id, claims=claims)
+        refresh_token = create_refresh_token(subject=user.id, token_id=session_id)
+
+        response.set_cookie(
+            key=settings.REFRESH_COOKIE_NAME,
+            value=refresh_token,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+            path="/api/v1/auth",
+        )
+
+        user_profile = UserProfileResponse(
+            id=user.id,
+            email=user.email,
+            phone=user.phone,
+            fullName=user.full_name,
+            role=role_name,
+            activeRoleId=active_role_id,
+            organizationId=user.organization_id,
+            organizationName=org_name,
+            allowedBranches=[
+                BranchSummaryResponse(
+                    id=b.branch_id,
+                    code=b.branch_code,
+                    name=b.branch_name,
+                    city="Pune",
+                    isHeadquarters=b.is_default,
+                )
+                for b in authorized_branches
+            ],
+            activeBranchId=active_branch_id,
+            permissions=effective_permissions,
+        )
+
+        return LoginSuccessResponse(
+            user=user_profile,
+            access_token=access_token,
+        )
+
+    is_demo_admin = (
+        login_id in ("admin@siddeshwar.in", "9876543210") or credentials.email == "admin@siddeshwar.in"
+    ) and credentials.password == "Password123!"
+
+    if is_demo_admin:
+        user_id = "usr_admin_01"
+        refresh_token_id = uuid.uuid4().hex
+
+        claims = {
+            "email": "admin@siddeshwar.in",
+            "role": UserRole.SUPER_ADMIN.value,
+            "organization_id": "org_siddeshwar",
+            "allowed_branches": [b.id for b in DEMO_BRANCHES],
+            "permissions": ["*"],
+        }
+
+        access_token = create_access_token(subject=user_id, claims=claims)
+        refresh_token = create_refresh_token(subject=user_id, token_id=refresh_token_id)
+
+        response.set_cookie(
+            key=settings.REFRESH_COOKIE_NAME,
+            value=refresh_token,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+            path="/api/v1/auth",
+        )
+
+        user_profile = UserProfileResponse(
+            id=user_id,
+            email="admin@siddeshwar.in",
+            phone="9876543210",
+            fullName="Enterprise Administrator",
+            role=UserRole.SUPER_ADMIN.value,
+            organizationId="org_siddeshwar",
+            organizationName="Siddeshwar Enterprises",
+            allowedBranches=DEMO_BRANCHES,
+            activeBranchId="br_hq",
+            permissions=["*"],
+        )
+
+        return LoginSuccessResponse(
+            user=user_profile,
+            access_token=access_token,
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid business email or password",
     )
 
 
@@ -136,10 +300,9 @@ async def login(credentials: LoginRequest, response: Response) -> LoginSuccessRe
 async def refresh_access_token(
     request: Request,
     response: Response,
+    db: Session = Depends(get_db),
 ) -> TokenRefreshResponse:
-    """
-    Validate refresh token from HttpOnly cookie, rotate it, and issue new access token.
-    """
+    """Validate refresh token from HttpOnly cookie, rotate it, and issue new access token."""
     token_str = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not token_str:
         raise HTTPException(
@@ -158,21 +321,52 @@ async def refresh_access_token(
 
         user_id = payload.get("sub", "")
 
+        # Check DB session if exists
+        session_obj = None
+        if old_token_id:
+            session_obj = db.scalar(select(AuthSession).where(AuthSession.id == old_token_id))
+            if session_obj and (session_obj.is_revoked or session_obj.status != "ACTIVE"):
+                raise HTTPException(status_code=401, detail="Session is revoked or inactive")
+
         # Revoke old refresh token (token rotation)
         if old_token_id:
             revoke_token(old_token_id)
 
-        # Issue new pair
+        # Issue new token pair
         new_token_id = uuid.uuid4().hex
         new_refresh = create_refresh_token(subject=user_id, token_id=new_token_id)
 
-        claims = {
-            "email": "admin@siddeshwar.in",
-            "role": UserRole.SUPER_ADMIN.value,
-            "organization_id": "org_siddeshwar",
-            "allowed_branches": [b.id for b in DEMO_BRANCHES],
-            "permissions": ["*"],
-        }
+        if session_obj:
+            session_obj.token_hash = new_token_id
+            session_obj.updated_at = datetime.now(UTC)
+            db.commit()
+
+            # Build claims from active session
+            role = db.scalar(select(Role).where(Role.id == session_obj.active_role_id))
+            effective_perms = (
+                ContextService.calculate_effective_permissions(db, user_id, session_obj.active_role_id)
+                if session_obj.active_role_id
+                else []
+            )
+            branches = ContextService.get_authorized_branches(db, user_id, session_obj.organization_id or "")
+            claims = {
+                "session_id": session_obj.id,
+                "role_id": session_obj.active_role_id,
+                "role": role.slug if role else "",
+                "organization_id": session_obj.organization_id,
+                "active_branch_id": session_obj.active_branch_id,
+                "allowed_branches": [b.branch_id for b in branches],
+                "permissions": effective_perms,
+            }
+        else:
+            claims = {
+                "email": "admin@siddeshwar.in",
+                "role": UserRole.SUPER_ADMIN.value,
+                "organization_id": "org_siddeshwar",
+                "allowed_branches": [b.id for b in DEMO_BRANCHES],
+                "permissions": ["*"],
+            }
+
         new_access = create_access_token(subject=user_id, claims=claims)
 
         response.set_cookie(
@@ -186,6 +380,8 @@ async def refresh_access_token(
         )
 
         return TokenRefreshResponse(access_token=new_access)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -194,8 +390,13 @@ async def refresh_access_token(
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response) -> dict[str, Any]:
-    """Log out current session, revoking refresh token and clearing session cookies."""
+async def logout(
+    request: Request,
+    response: Response,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Log out current session, revoking refresh token, invalidating DB session and clearing cookies."""
     token_str = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if token_str:
         try:
@@ -206,21 +407,145 @@ async def logout(request: Request, response: Response) -> dict[str, Any]:
         except Exception:
             pass
 
+    # Revoke database session if bound
+    if current_user and current_user.session_id:
+        session_obj = db.scalar(select(AuthSession).where(AuthSession.id == current_user.session_id))
+        if session_obj:
+            session_obj.is_revoked = True
+            session_obj.status = "REVOKED"
+            session_obj.updated_at = datetime.now(UTC)
+            db.commit()
+
     response.delete_cookie(key=settings.REFRESH_COOKIE_NAME, path="/api/v1/auth")
     return {"success": True, "message": "Successfully logged out"}
 
 
 @router.get("/me", response_model=UserProfileResponse)
-async def get_me(current_user: AuthContext = Depends(get_current_user)) -> UserProfileResponse:
+async def get_me(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserProfileResponse:
     """Return currently authenticated identity and branch access list."""
+    org_name = "Siddeshwar Enterprises"
+    allowed_branches: list[BranchSummaryResponse] = DEMO_BRANCHES
+
+    if current_user.organization_id:
+        org = db.scalar(select(Organization).where(Organization.id == current_user.organization_id))
+        if org:
+            org_name = org.name
+
+        auth_branches = ContextService.get_authorized_branches(db, current_user.user_id, current_user.organization_id)
+        if auth_branches:
+            allowed_branches = [
+                BranchSummaryResponse(
+                    id=b.branch_id,
+                    code=b.branch_code,
+                    name=b.branch_name,
+                    city="Pune",
+                    isHeadquarters=b.is_default,
+                )
+                for b in auth_branches
+            ]
+
     return UserProfileResponse(
         id=current_user.user_id,
         email=current_user.email,
-        fullName="Enterprise Administrator",
+        phone=current_user.phone,
+        fullName="Enterprise Administrator" if current_user.is_super_admin else current_user.email,
         role=current_user.role,
+        activeRoleId=current_user.role_id,
         organizationId=current_user.organization_id,
-        organizationName="Siddeshwar Enterprises",
-        allowedBranches=DEMO_BRANCHES,
-        activeBranchId="br_hq",
+        organizationName=org_name,
+        allowedBranches=allowed_branches,
+        activeBranchId=current_user.active_branch_id or (allowed_branches[0].id if allowed_branches else None),
         permissions=current_user.permissions,
+    )
+
+
+@router.get("/context", response_model=SessionContextResponse)
+def get_current_context(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SessionContextResponse:
+    """Retrieve full active session context including available branches, roles, and effective permissions."""
+    if not current_user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Active session context is not available for this identity",
+        )
+    return ContextService.build_session_context(
+        db,
+        user_id=current_user.user_id,
+        session_id=current_user.session_id,
+    )
+
+
+@router.post("/switch-role", response_model=SwitchContextResponse)
+def switch_role(
+    body: SwitchRoleRequest,
+    request: Request,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SwitchContextResponse:
+    """
+    Switch active role for the current session without re-login.
+    Validates assignment, recalculates effective permissions, records audit log, and issues new token.
+    """
+    if not current_user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot switch role without an active database session context",
+        )
+
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent")
+
+    new_context = ContextService.switch_role(
+        db,
+        user_id=current_user.user_id,
+        session_id=current_user.session_id,
+        target_role_id=body.role_id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    return SwitchContextResponse(
+        access_token=new_context.access_token or "",
+        context=new_context,
+    )
+
+
+@router.post("/switch-branch", response_model=SwitchContextResponse)
+def switch_branch(
+    body: SwitchBranchRequest,
+    request: Request,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SwitchContextResponse:
+    """
+    Switch active branch for the current session.
+    Validates branch authorization, adapts active role, records audit log, and issues new token.
+    """
+    if not current_user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot switch branch without an active database session context",
+        )
+
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent")
+
+    new_context = ContextService.switch_branch(
+        db,
+        user_id=current_user.user_id,
+        session_id=current_user.session_id,
+        target_branch_id=body.branch_id,
+        explicit_role_id=body.role_id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    return SwitchContextResponse(
+        access_token=new_context.access_token or "",
+        context=new_context,
     )

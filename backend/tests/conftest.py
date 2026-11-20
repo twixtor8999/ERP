@@ -15,14 +15,8 @@ from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - Register all models
 from app.database.base import Base
+from app.database.session import get_db
 from app.main import app
-
-
-@pytest.fixture(scope="session")
-def client() -> Generator[TestClient, None, None]:
-    """Synchronous test client for API endpoints."""
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 @pytest.fixture(scope="function")
@@ -41,3 +35,15 @@ def db_session() -> Generator[Session, None, None]:
     finally:
         session.close()
         Base.metadata.drop_all(engine)
+
+
+@pytest.fixture(scope="function")
+def client(db_session: Session) -> Generator[TestClient, None, None]:
+    """Synchronous test client for API endpoints with database dependency override."""
+    def _override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.pop(get_db, None)
