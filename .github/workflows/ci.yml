@@ -1,0 +1,73 @@
+name: Enterprise ERP Continuous Integration
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend-quality:
+    name: Backend Lint, Typing & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run Ruff Linter
+        run: |
+          cd backend
+          ruff check app tests
+
+      - name: Run MyPy Type Checker
+        run: |
+          cd backend
+          mypy --explicit-package-bases app
+
+      - name: Run Pytest Suite
+        run: |
+          cd backend
+          pytest
+
+  frontend-quality:
+    name: Frontend Build, Strict TypeScript & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Vitest Unit Tests
+        run: |
+          cd frontend
+          npm run test
+
+      - name: Run TypeScript Strict Check & Production Build
+        run: |
+          cd frontend
+          npm run build

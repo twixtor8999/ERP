@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_smart_bazar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-siddeshwar_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siddeshwar_secure_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-siddeshwar_erp}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Bound strictly to localhost loopback to prevent public exposure
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siddeshwar_user} -d ${POSTGRES_DB:-siddeshwar_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - erp_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+    container_name: ai_smart_bazar_api
+    restart: unless-stopped
+    environment:
+      APP_NAME: "AI Smart Bazar"
+      APP_ENV: development
+      PORT: 8000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-siddeshwar_user}:${POSTGRES_PASSWORD:-siddeshwar_secure_pass_2026}@postgres:5432/${POSTGRES_DB:-siddeshwar_erp}
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_key_siddeshwar_erp_ai_smart_bazar_2026_super_secure}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173,http://localhost:80,http://localhost"
+      LOG_LEVEL: INFO
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - erp_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../infrastructure/docker/frontend.Dockerfile
+    container_name: ai_smart_bazar_web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks:
+      - erp_network
+
+volumes:
+  postgres_data:
+    name: ai_smart_bazar_pgdata
+
+networks:
+  erp_network:
+    name: ai_smart_bazar_net
+    driver: bridge
