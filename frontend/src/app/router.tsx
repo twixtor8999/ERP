@@ -23,6 +23,14 @@ import { InventoryManagementPage } from "@/features/inventory/pages/InventoryMan
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 import { PaymentsManagementPage } from "@/features/payments/pages/PaymentsManagementPage";
+import { ProductsCatalogPage } from "@/features/products/pages/ProductsCatalogPage";
+import { BranchesPage } from "@/features/branches/pages/BranchesPage";
+import { UsersManagementPage } from "@/features/users/pages/UsersManagementPage";
+import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage";
+import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
+import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
+import { CustomersCrmPage } from "@/features/customers/pages/CustomersCrmPage";
+import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 
 function ModulePlaceholder({ name, description }: { name: string; description: string }) {
   return (
@@ -133,12 +141,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "crm",
-        element: (
-          <ModulePlaceholder
-            name="Customer Relationship Management"
-            description="Manage customer profiles, credit ledgers, and contact interactions."
-          />
-        ),
+        element: <CustomersCrmPage />,
       },
       {
         path: "duplicate-check",
@@ -151,12 +154,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "products",
-        element: (
-          <ModulePlaceholder
-            name="Products & Catalog"
-            description="Central product master catalog, SKU barcodes, and pricing tiers."
-          />
-        ),
+        element: <ProductsCatalogPage />,
       },
       {
         path: "inventory",
@@ -190,12 +188,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "accounts",
-        element: (
-          <ModulePlaceholder
-            name="General Ledger & Accounts"
-            description="Chart of accounts, journal entries, and balance sheet maintenance."
-          />
-        ),
+        element: <AccountsLedgerPage />,
       },
       {
         path: "expenses",
@@ -239,39 +232,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "organization",
-        element: (
-          <ModulePlaceholder
-            name="Organization Configuration"
-            description="Siddeshwar Enterprises corporate entity settings, legal identity, and GSTIN."
-          />
-        ),
+        element: <OrganizationPage />,
       },
       {
         path: "branches",
-        element: (
-          <ModulePlaceholder
-            name="Branch Management"
-            description="Multi-branch configuration, warehouse addresses, and tax identifiers."
-          />
-        ),
+        element: <BranchesPage />,
       },
       {
         path: "users",
-        element: (
-          <ModulePlaceholder
-            name="User Accounts"
-            description="Provision enterprise users, email verification, and branch permissions."
-          />
-        ),
+        element: <UsersManagementPage />,
       },
       {
         path: "roles",
-        element: (
-          <ModulePlaceholder
-            name="Roles & RBAC"
-            description="Custom permission matrix, security policies, and administrative gates."
-          />
-        ),
+        element: <RolesManagementPage />,
       },
       {
         path: "plans-billing",
@@ -284,12 +257,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "audit-logs",
-        element: (
-          <ModulePlaceholder
-            name="Security & Audit Logs"
-            description="Immutable activity trail of system actions, logins, and modifications."
-          />
-        ),
+        element: <AuditLogsPage />,
       },
       {
         path: "settings",
