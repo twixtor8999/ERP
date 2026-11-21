@@ -74,7 +74,7 @@ export const CustomerLoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label htmlFor="customer-phone" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Registered Mobile Number
               </label>
               <div className="relative rounded-lg shadow-sm">
@@ -85,6 +85,7 @@ export const CustomerLoginPage: React.FC = () => {
                   </span>
                 </div>
                 <input
+                  id="customer-phone"
                   type="tel"
                   maxLength={10}
                   placeholder="Enter 10-digit mobile"
@@ -97,7 +98,7 @@ export const CustomerLoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label htmlFor="customer-password" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Password
               </label>
               <div className="relative rounded-lg shadow-sm">
@@ -105,6 +106,7 @@ export const CustomerLoginPage: React.FC = () => {
                   <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
+                  id="customer-password"
                   type="password"
                   placeholder="••••••••"
                   value={password}

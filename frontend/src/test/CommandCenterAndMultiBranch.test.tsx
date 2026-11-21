@@ -52,9 +52,9 @@ describe("Prompt 02.7 — Command Center & Multi-Branch Workspaces", () => {
     expect(screen.getByText(/POS Counter Billing Terminal/i)).toBeInTheDocument();
     expect(screen.getByText(/Barcode & SKU Fast Search/i)).toBeInTheDocument();
     expect(screen.getByText(/Active Cart/i)).toBeInTheDocument();
-    expect(screen.getByText(/In-Store Payment Mode Split/i)).toBeInTheDocument();
-    expect(screen.getByText(/100% Cash/i)).toBeInTheDocument();
-    expect(screen.getByText(/100% UPI QR/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select Tender Mode/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Cash/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /UPI QR/i })).toBeInTheDocument();
   });
 
   it("renders Inventory workspace with stock valuation and transfer workflow tabs", () => {

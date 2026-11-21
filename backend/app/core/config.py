@@ -88,8 +88,12 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
         if self.APP_ENV == Environment.PRODUCTION:
-            if "change_in_prod" in self.SECRET_KEY or "dev_secret_key" in self.SECRET_KEY:
-                msg = "Default development SECRET_KEY is strictly forbidden in production"
+            forbidden_markers = ("change_in_prod", "dev_secret_key", "change_this_to", "super_secret_key")
+            if any(marker in self.SECRET_KEY.lower() for marker in forbidden_markers) or len(self.SECRET_KEY) < 32:
+                msg = (
+                    "Default development SECRET_KEY is strictly forbidden in production. "
+                    "Provide a cryptographically secure key (minimum 32 characters, e.g. from 'openssl rand -hex 32')."
+                )
                 raise ValueError(msg)
         return self
 
