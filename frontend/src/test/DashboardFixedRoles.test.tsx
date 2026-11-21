@@ -102,9 +102,9 @@ describe("Fixed Role Dashboard Verification", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/Admin Dashboard/i)).toBeInTheDocument();
-    expect(screen.getByText(/Central API Status/i)).toBeInTheDocument();
-    expect(screen.getByText(/Super Admin Authority/i)).toBeInTheDocument();
+    expect(screen.getByText(/Store Business Overview/i)).toBeInTheDocument();
+    expect(screen.getByText(/Today's Total Sales/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open Billing Counter/i)).toBeInTheDocument();
   });
 });
 

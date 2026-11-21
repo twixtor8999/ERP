@@ -10,7 +10,7 @@ Verifies:
 """
 
 from collections.abc import Generator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -152,6 +152,20 @@ def commerce_env(audit_db: Session) -> dict:
     )
     audit_db.add(mgr_assign)
 
+    mgr_session = AuthSession(
+        id=generate_uuid(),
+        user_id=mgr_user.id,
+        organization_id=org.id,
+        active_branch_id=branch.id,
+        active_role_id=mgr_role.id,
+        token_hash=generate_uuid(),
+        status="ACTIVE",
+        is_revoked=False,
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    audit_db.add(mgr_session)
+    audit_db.flush()
+
     mgr_token = create_access_token(
         subject=mgr_user.id,
         claims={
@@ -159,6 +173,8 @@ def commerce_env(audit_db: Session) -> dict:
             "role_id": mgr_role.id,
             "organization_id": org.id,
             "branch_id": branch.id,
+            "active_branch_id": branch.id,
+            "session_id": mgr_session.id,
             "allowed_branches": [branch.id],
             "permissions": ["orders.manage", "store.manage"],
         },

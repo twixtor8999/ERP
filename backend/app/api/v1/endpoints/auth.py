@@ -10,7 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.constants import ROLE_DASHBOARD_MAP, UserRole
+from app.core.constants import ROLE_DASHBOARD_MAP
 from app.core.limiter import limiter
 from app.core.security import (
     create_access_token,
@@ -88,25 +88,6 @@ class RegistrationRoleOption(BaseModel):
     description: str
 
 
-# Demo organizational seed context
-DEMO_BRANCHES = [
-    BranchSummaryResponse(
-        id="br_hq",
-        code="HQ-01",
-        name="Main Branch (HQ)",
-        city="Pune",
-        isHeadquarters=True,
-    ),
-    BranchSummaryResponse(
-        id="br_south",
-        code="BR-02",
-        name="South Market Branch",
-        city="Pune",
-        isHeadquarters=False,
-    ),
-]
-
-
 @router.get("/registration-roles", response_model=list[RegistrationRoleOption])
 def get_registration_roles() -> list[RegistrationRoleOption]:
     """List operational roles permitted for employee self-registration.
@@ -117,9 +98,7 @@ def get_registration_roles() -> list[RegistrationRoleOption]:
             "slug": "cashier",
             "name": "Cashier / Counter Billing Agent",
             "badge": "POS Operations",
-            "description": (
-                "Counter POS billing terminal, active cart, barcode scanning & shift drawer settlements."
-            ),
+            "description": ("Counter POS billing terminal, active cart, barcode scanning & shift drawer settlements."),
         },
         {
             "slug": "branch_manager",
@@ -149,17 +128,13 @@ def get_registration_roles() -> list[RegistrationRoleOption]:
             "slug": "sales_executive",
             "name": "Sales Executive",
             "badge": "In-Store Sales",
-            "description": (
-                "Customer orders, billing counter sales, customer CRM lookup and pricing discounts."
-            ),
+            "description": ("Customer orders, billing counter sales, customer CRM lookup and pricing discounts."),
         },
         {
             "slug": "employee",
             "name": "Store & Delivery Staff",
             "badge": "Logistics & Floor",
-            "description": (
-                "Order item picking, parcel packing, mobile delivery runs & OTP verification."
-            ),
+            "description": ("Order item picking, parcel packing, mobile delivery runs & OTP verification."),
         },
     ]
 
@@ -175,6 +150,25 @@ def register(
     return UserService.register_user(db, payload)
 
 
+def _normalize_login_candidates(identifier: str) -> list[str]:
+    """Generate potential matching variations for email or phone numbers."""
+    cleaned = identifier.strip()
+    if not cleaned:
+        return []
+    candidates = {cleaned, cleaned.lower()}
+    digits = "".join(ch for ch in cleaned if ch.isdigit())
+    if len(digits) == 10:
+        candidates.add(digits)
+        candidates.add(f"+91{digits}")
+        candidates.add(f"+91 {digits}")
+    elif len(digits) == 12 and digits.startswith("91"):
+        core10 = digits[2:]
+        candidates.add(core10)
+        candidates.add(f"+91{core10}")
+        candidates.add(f"+91 {core10}")
+    return list(candidates)
+
+
 @router.post("/login", response_model=LoginSuccessResponse)
 @limiter.limit("15/minute")
 async def login(
@@ -188,220 +182,170 @@ async def login(
     return JWT access token, and attach rotatable refresh token cookie.
     """
     login_id = (credentials.phone or credentials.email or credentials.identifier or "").strip()
+    candidates = _normalize_login_candidates(login_id)
 
-    # Attempt database authentication first
+    # Attempt database authentication
     user = None
-    if login_id:
+    if candidates:
         user = db.scalar(
             select(User).where(
                 or_(
-                    User.email == login_id,
-                    User.phone == login_id,
+                    User.email.in_(candidates),
+                    User.phone.in_(candidates),
                 )
             )
         )
 
-    if user:
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User account is deactivated. Contact administrator.",
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid business credentials or password",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is deactivated. Contact administrator.",
+        )
+
+    # Enforce employee registration approval status
+    if getattr(user, "approval_status", "APPROVED") == "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Account registration is pending administrator approval. "
+                "Please contact your organization administrator."
+            ),
+        )
+    if getattr(user, "approval_status", "APPROVED") == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account registration has been rejected. Access denied.",
+        )
+
+    if not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid business credentials or password",
+        )
+
+    org = db.scalar(select(Organization).where(Organization.id == user.organization_id))
+    org_name = org.name if org else "Siddeshwar Enterprises"
+
+    # Determine authorized branches and default active branch
+    authorized_branches = ContextService.get_authorized_branches(db, user.id, user.organization_id)
+    default_branch = next(
+        (b for b in authorized_branches if b.is_default),
+        authorized_branches[0] if authorized_branches else None,
+    )
+    active_branch_id = default_branch.branch_id if default_branch else None
+
+    # Resolve primary operational role
+    active_role_id = None
+    active_role = None
+    try:
+        primary_res = ContextService.get_user_primary_role(db, user.id, user.organization_id)
+        if primary_res:
+            primary_assign, primary_role = primary_res
+            active_role_id = primary_assign.role_id
+            active_role = primary_role
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    if not active_role_id:
+        # Fallback to any active role assignment
+        fallback_assign = db.scalar(
+            select(UserRoleAssignment.role_id).where(
+                UserRoleAssignment.user_id == user.id,
+                UserRoleAssignment.is_active.is_(True),
+                UserRoleAssignment.status == "ACTIVE",
             )
+        )
+        active_role_id = fallback_assign
+        if active_role_id:
+            active_role = db.scalar(select(Role).where(Role.id == active_role_id))
+    role_name = active_role.name if active_role else "STAFF"
+    role_slug = active_role.slug if active_role else "staff"
+    dashboard_route = ROLE_DASHBOARD_MAP.get(role_slug, "/dashboard")
 
-        # Enforce employee registration approval status
-        if getattr(user, "approval_status", "APPROVED") == "PENDING":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Account registration is pending administrator approval. "
-                    "Please contact your organization administrator."
-                ),
+    effective_permissions = (
+        ContextService.calculate_effective_permissions(db, user.id, active_role_id) if active_role_id else []
+    )
+
+    # Create persistent AuthSession in database
+    session_id = generate_uuid()
+    now = datetime.now(UTC)
+    auth_session = AuthSession(
+        id=session_id,
+        user_id=user.id,
+        organization_id=user.organization_id,
+        active_branch_id=active_branch_id,
+        active_role_id=active_role_id,
+        token_hash=session_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+        expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        is_revoked=False,
+        status="ACTIVE",
+    )
+    db.add(auth_session)
+    db.commit()
+
+    claims = {
+        "email": user.email,
+        "phone": user.phone,
+        "role": role_slug,
+        "role_id": active_role_id,
+        "organization_id": user.organization_id,
+        "active_branch_id": active_branch_id,
+        "session_id": session_id,
+        "allowed_branches": [b.branch_id for b in authorized_branches],
+        "permissions": effective_permissions,
+        "dashboard_route": dashboard_route,
+    }
+
+    access_token = create_access_token(subject=user.id, claims=claims)
+    refresh_token = create_refresh_token(subject=user.id, token_id=session_id)
+
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path="/api/v1/auth",
+    )
+
+    user_profile = UserProfileResponse(
+        id=user.id,
+        email=user.email,
+        phone=user.phone,
+        fullName=user.full_name,
+        role=role_name,
+        activeRoleId=active_role_id,
+        organizationId=user.organization_id,
+        organizationName=org_name,
+        allowedBranches=[
+            BranchSummaryResponse(
+                id=b.branch_id,
+                code=b.branch_code,
+                name=b.branch_name,
+                city="Pune",
+                isHeadquarters=b.is_default,
             )
-        if getattr(user, "approval_status", "APPROVED") == "REJECTED":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account registration has been rejected. Access denied.",
-            )
+            for b in authorized_branches
+        ],
+        activeBranchId=active_branch_id,
+        permissions=effective_permissions,
+        dashboardRoute=dashboard_route,
+    )
 
-        if not verify_password(credentials.password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid business credentials or password",
-            )
-
-        org = db.scalar(select(Organization).where(Organization.id == user.organization_id))
-        org_name = org.name if org else "Siddeshwar Enterprises"
-
-        # Determine authorized branches and default active branch
-        authorized_branches = ContextService.get_authorized_branches(db, user.id, user.organization_id)
-        default_branch = next(
-            (b for b in authorized_branches if b.is_default),
-            authorized_branches[0] if authorized_branches else None,
-        )
-        active_branch_id = default_branch.branch_id if default_branch else None
-
-        # Resolve primary operational role
-        active_role_id = None
-        active_role = None
-        try:
-            primary_res = ContextService.get_user_primary_role(db, user.id, user.organization_id)
-            if primary_res:
-                primary_assign, primary_role = primary_res
-                active_role_id = primary_assign.role_id
-                active_role = primary_role
-        except HTTPException:
-            raise
-        except Exception:
-            pass
-
-        if not active_role_id:
-            # Fallback to any active role assignment
-            fallback_assign = db.scalar(
-                select(UserRoleAssignment.role_id).where(
-                    UserRoleAssignment.user_id == user.id,
-                    UserRoleAssignment.is_active.is_(True),
-                    UserRoleAssignment.status == "ACTIVE",
-                )
-            )
-            active_role_id = fallback_assign
-            if active_role_id:
-                active_role = db.scalar(select(Role).where(Role.id == active_role_id))
-        role_name = active_role.name if active_role else "STAFF"
-        role_slug = active_role.slug if active_role else "staff"
-        dashboard_route = ROLE_DASHBOARD_MAP.get(role_slug, "/dashboard")
-
-        effective_permissions = (
-            ContextService.calculate_effective_permissions(db, user.id, active_role_id)
-            if active_role_id
-            else []
-        )
-
-        # Create persistent AuthSession in database
-        session_id = generate_uuid()
-        now = datetime.now(UTC)
-        auth_session = AuthSession(
-            id=session_id,
-            user_id=user.id,
-            organization_id=user.organization_id,
-            active_branch_id=active_branch_id,
-            active_role_id=active_role_id,
-            token_hash=session_id,
-            ip_address=request.client.host if request.client else None,
-            user_agent=request.headers.get("User-Agent"),
-            expires_at=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-            is_revoked=False,
-            status="ACTIVE",
-        )
-        db.add(auth_session)
-        db.commit()
-
-        claims = {
-            "email": user.email,
-            "phone": user.phone,
-            "role": role_slug,
-            "role_id": active_role_id,
-            "organization_id": user.organization_id,
-            "active_branch_id": active_branch_id,
-            "session_id": session_id,
-            "allowed_branches": [b.branch_id for b in authorized_branches],
-            "permissions": effective_permissions,
-            "dashboard_route": dashboard_route,
-        }
-
-        access_token = create_access_token(subject=user.id, claims=claims)
-        refresh_token = create_refresh_token(subject=user.id, token_id=session_id)
-
-        response.set_cookie(
-            key=settings.REFRESH_COOKIE_NAME,
-            value=refresh_token,
-            httponly=True,
-            secure=settings.COOKIE_SECURE,
-            samesite=settings.COOKIE_SAMESITE,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-            path="/api/v1/auth",
-        )
-
-        user_profile = UserProfileResponse(
-            id=user.id,
-            email=user.email,
-            phone=user.phone,
-            fullName=user.full_name,
-            role=role_name,
-            activeRoleId=active_role_id,
-            organizationId=user.organization_id,
-            organizationName=org_name,
-            allowedBranches=[
-                BranchSummaryResponse(
-                    id=b.branch_id,
-                    code=b.branch_code,
-                    name=b.branch_name,
-                    city="Pune",
-                    isHeadquarters=b.is_default,
-                )
-                for b in authorized_branches
-            ],
-            activeBranchId=active_branch_id,
-            permissions=effective_permissions,
-            dashboardRoute=dashboard_route,
-        )
-
-        return LoginSuccessResponse(
-            user=user_profile,
-            access_token=access_token,
-        )
-
-    is_demo_admin = (
-        login_id in ("admin@siddeshwar.in", "9876543210") or credentials.email == "admin@siddeshwar.in"
-    ) and credentials.password == "Password123!"
-
-    if is_demo_admin:
-        user_id = "usr_admin_01"
-        refresh_token_id = uuid.uuid4().hex
-
-        claims = {
-            "email": "admin@siddeshwar.in",
-            "role": UserRole.SUPER_ADMIN.value,
-            "organization_id": "org_siddeshwar",
-            "allowed_branches": [b.id for b in DEMO_BRANCHES],
-            "permissions": ["*"],
-            "dashboard_route": "/dashboard/admin",
-        }
-
-        access_token = create_access_token(subject=user_id, claims=claims)
-        refresh_token = create_refresh_token(subject=user_id, token_id=refresh_token_id)
-
-        response.set_cookie(
-            key=settings.REFRESH_COOKIE_NAME,
-            value=refresh_token,
-            httponly=True,
-            secure=settings.COOKIE_SECURE,
-            samesite=settings.COOKIE_SAMESITE,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-            path="/api/v1/auth",
-        )
-
-        user_profile = UserProfileResponse(
-            id=user_id,
-            email="admin@siddeshwar.in",
-            phone="9876543210",
-            fullName="Enterprise Administrator",
-            role=UserRole.SUPER_ADMIN.value,
-            organizationId="org_siddeshwar",
-            organizationName="Siddeshwar Enterprises",
-            allowedBranches=DEMO_BRANCHES,
-            activeBranchId="br_hq",
-            permissions=["*"],
-            dashboardRoute="/dashboard/admin",
-        )
-
-        return LoginSuccessResponse(
-            user=user_profile,
-            access_token=access_token,
-        )
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid business email or password",
+    return LoginSuccessResponse(
+        user=user_profile,
+        access_token=access_token,
     )
 
 
@@ -535,7 +479,10 @@ async def get_me(
 ) -> UserProfileResponse:
     """Return currently authenticated identity and branch access list."""
     org_name = "Siddeshwar Enterprises"
-    allowed_branches: list[BranchSummaryResponse] = DEMO_BRANCHES
+    allowed_branches: list[BranchSummaryResponse] = []
+
+    user = db.scalar(select(User).where(User.id == current_user.user_id))
+    full_name = user.full_name if (user and user.full_name) else (current_user.email or "Enterprise User")
 
     if current_user.organization_id:
         org = db.scalar(select(Organization).where(Organization.id == current_user.organization_id))
@@ -559,7 +506,7 @@ async def get_me(
         id=current_user.user_id,
         email=current_user.email,
         phone=current_user.phone,
-        fullName="Enterprise Administrator" if current_user.is_super_admin else current_user.email,
+        fullName=full_name,
         role=current_user.role,
         activeRoleId=current_user.role_id,
         organizationId=current_user.organization_id,

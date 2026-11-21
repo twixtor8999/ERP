@@ -1,5 +1,6 @@
 """FastAPI dependency injection providers for database and security contexts."""
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request
@@ -115,13 +116,37 @@ async def get_current_user(
         org_id = payload.get("organization_id", "")
         branch_id = payload.get("active_branch_id") or payload.get("branch_id")
 
-        # Live verification against DB session and role assignment status if session_id is bound
-        if session_id and db is not None:
-            from app.models import AuthSession, UserRoleAssignment
+        # Mandate valid session identifier for all employee and administrative access
+        if not session_id or not isinstance(session_id, str) or not session_id.strip():
+            raise AuthenticationError("Authentication token is missing required session identifier")
+
+        # Live verification against DB session, user state, and role assignment status
+        if db is not None:
+            from app.models import AuthSession, User, UserRoleAssignment
 
             session_obj = db.scalar(select(AuthSession).where(AuthSession.id == session_id))
-            if not session_obj or session_obj.is_revoked or session_obj.status != "ACTIVE":
+            if not session_obj:
+                raise AuthenticationError("Session does not exist or has expired")
+            if session_obj.is_revoked or session_obj.status != "ACTIVE":
                 raise AuthenticationError("Session has been terminated or revoked")
+            if session_obj.expires_at:
+                now = datetime.now(UTC)
+                session_expires = session_obj.expires_at
+                if session_expires.tzinfo is None:
+                    session_expires = session_expires.replace(tzinfo=UTC)
+                if session_expires < now:
+                    raise AuthenticationError("Session has expired")
+
+            # Validate that session matches authenticated user identity
+            if session_obj.user_id != user_id:
+                raise AuthenticationError("Session does not match authenticated user identity")
+
+            # Validate the user account status
+            user_obj = db.scalar(select(User).where(User.id == user_id))
+            if not user_obj or not user_obj.is_active:
+                raise AuthenticationError("User account is inactive or deleted")
+            if getattr(user_obj, "approval_status", "APPROVED") == "REJECTED":
+                raise AuthenticationError("User account registration has been rejected")
 
             # Verify that active role assignment is still active and valid in DB
             if role_id:
