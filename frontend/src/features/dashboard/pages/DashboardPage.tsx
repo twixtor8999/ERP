@@ -2,9 +2,6 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity,
-  Database,
-  Building2,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -155,15 +152,15 @@ export function DashboardPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground capitalize">
-              {effectiveView.replace("-", " ")} Dashboard
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {isExecutive ? "Store Business Overview" : `${effectiveView.replace("-", " ")} Dashboard`}
             </h1>
-            <Badge variant="outline" className="text-xs font-mono py-0.5">
-              Role: {user?.role || "EMPLOYEE"}
+            <Badge variant="outline" className="text-xs font-semibold py-0.5 bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+              {isExecutive ? "Store Owner" : (user?.role || "EMPLOYEE")}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Siddeshwar Enterprises Unified Enterprise Multi-Branch Command Center.
+          <p className="text-xs text-muted-foreground">
+            Siddeshwar Enterprises • City Retail & Wholesale Operations
           </p>
         </div>
 
@@ -324,64 +321,117 @@ function SuperAdminCommandCenter({
 
   return (
     <div className="space-y-6">
-      {/* Context Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Organization</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">
+      {/* Quick Store Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+            <Store className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
               {user?.organizationName || "Siddeshwar Enterprises"}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Super Admin Authority</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Central API Status</CardTitle>
-            <Activity className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <span className="text-base font-semibold capitalize">Online (v1.0.0)</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Environment: production
+            </h2>
+            <p className="text-xs text-slate-500">
+              City Retail & Wholesale Management • Live Operations
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">PostgreSQL Database</CardTitle>
-            <Database className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <span className="text-base font-semibold capitalize">PostgreSQL 16 Authoritative</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Multi-Branch Schema Connected
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => navigate("/pos")}
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            Open Billing Counter
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/products")}
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            Products & Stock
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/orders")}
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Bills History
+          </Button>
+        </div>
+      </div>
 
-        <Card className="border-primary/20 bg-primary/5">
+      {/* Primary Store Performance Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Today's Sales */}
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Gross Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Today&apos;s Total Sales</CardTitle>
+            <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-foreground">
+            <div className="text-2xl font-bold font-mono text-emerald-900">
               ₹ {Number(overview?.revenue_today || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              MTD: ₹ {Number(overview?.revenue_month || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              Month to Date: ₹ {Number(overview?.revenue_month || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Bills & Invoices */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today&apos;s Bills Billed</CardTitle>
+            <Receipt className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono">
+              {Number(overview?.today_total_invoices || 0)} Bills
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Number(overview?.pending_deliveries || 0)} Pending Home Deliveries
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Active Billing Counters */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Counters</CardTitle>
+            <Store className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="text-2xl font-bold font-mono">
+                {overview?.active_cashier_shifts || 1} Online
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Live Register Shifts Synced
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Liquid Funds */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cash & Bank Balances</CardTitle>
+            <Wallet className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-purple-700">
+              ₹ {Number(overview?.total_liquid_funds || overview?.liquid_cash_balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cash Drawer + Bank Accounts
             </p>
           </CardContent>
         </Card>

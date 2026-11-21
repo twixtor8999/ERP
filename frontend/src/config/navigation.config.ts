@@ -17,44 +17,14 @@ export const navigationConfig: NavSection[] = [
     title: "Overview",
     items: [
       {
-        title: "Dashboard",
+        title: "Business Today",
         href: "/dashboard",
         iconName: "LayoutDashboard",
       },
     ],
   },
   {
-    title: "Operations & Sales",
-    items: [
-      {
-        title: "Point of Sale & Billing",
-        href: "/billing",
-        iconName: "Receipt",
-      },
-      {
-        title: "Orders",
-        href: "/orders",
-        iconName: "ShoppingCart",
-      },
-      {
-        title: "Deliveries",
-        href: "/deliveries",
-        iconName: "Truck",
-      },
-      {
-        title: "Customers & CRM",
-        href: "/crm",
-        iconName: "Users",
-      },
-      {
-        title: "Duplicate Check",
-        href: "/duplicate-check",
-        iconName: "UserCheck",
-      },
-    ],
-  },
-  {
-    title: "Inventory & Purchasing",
+    title: "Products & Stock",
     items: [
       {
         title: "Products Catalog",
@@ -62,107 +32,77 @@ export const navigationConfig: NavSection[] = [
         iconName: "Package",
       },
       {
-        title: "Inventory Stock",
+        title: "Stock & Inventory",
         href: "/inventory",
         iconName: "Boxes",
       },
       {
-        title: "Purchases",
+        title: "Purchase Orders",
         href: "/purchases",
         iconName: "Truck",
       },
       {
-        title: "Suppliers",
+        title: "Suppliers & Vendors",
         href: "/suppliers",
         iconName: "Building2",
       },
     ],
   },
   {
-    title: "Finance & Accounts",
+    title: "Sales & Bills",
     items: [
       {
-        title: "Payments & Collections",
-        href: "/payments",
-        iconName: "CreditCard",
+        title: "Counter Bills & Orders",
+        href: "/orders",
+        iconName: "Receipt",
       },
       {
-        title: "Settlements",
+        title: "Home Deliveries",
+        href: "/deliveries",
+        iconName: "Truck",
+      },
+      {
+        title: "Daily Cash & Drawer",
         href: "/settlements",
         iconName: "ArrowLeftRight",
       },
+    ],
+  },
+  {
+    title: "Customers & Khata",
+    items: [
       {
-        title: "General Accounts",
-        href: "/accounts",
-        iconName: "BookOpen",
+        title: "Customer Directory & Khata",
+        href: "/crm",
+        iconName: "Users",
+      },
+    ],
+  },
+  {
+    title: "Store & Team",
+    items: [
+      {
+        title: "Staff & Attendance",
+        href: "/employees",
+        iconName: "UserCog",
       },
       {
-        title: "Expenses",
-        href: "/expenses",
-        iconName: "Wallet",
+        title: "Store Branches",
+        href: "/branches",
+        iconName: "GitFork",
+      },
+      {
+        title: "Accounts & Khata Ledger",
+        href: "/accounts",
+        iconName: "BookOpen",
       },
       {
         title: "Business Reports",
         href: "/reports",
         iconName: "BarChart3",
       },
-    ],
-  },
-  {
-    title: "Staff & Logistics",
-    items: [
       {
-        title: "Employees",
-        href: "/employees",
-        iconName: "UserCog",
-      },
-      {
-        title: "Incentives",
-        href: "/incentives",
-        iconName: "Award",
-      },
-      {
-        title: "Vehicles & Transport",
-        href: "/vehicles",
-        iconName: "Car",
-      },
-    ],
-  },
-  {
-    title: "Enterprise Administration",
-    items: [
-      {
-        title: "Organization",
-        href: "/organization",
-        iconName: "Building",
-      },
-      {
-        title: "Branches",
-        href: "/branches",
-        iconName: "GitFork",
-      },
-      {
-        title: "Users & Security",
-        href: "/users",
-        iconName: "ShieldCheck",
-      },
-      {
-        title: "Roles & Permissions",
-        href: "/roles",
-        iconName: "KeyRound",
-      },
-      {
-        title: "Subscription & Plans",
-        href: "/plans-billing",
-        iconName: "Coins",
-      },
-      {
-        title: "Audit Logs",
-        href: "/audit-logs",
-        iconName: "History",
-      },
-      {
-        title: "System Settings",
+        title: "Store Settings & GST",
         href: "/settings",
         iconName: "Settings",
       },
