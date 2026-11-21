@@ -1,5 +1,5 @@
 import { useState, useEffect, useId } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -219,23 +219,20 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/25 border border-blue-500/30">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 border border-emerald-500/30">
             <Store className="w-7 h-7" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">
-              AI Smart Bazar
-              <span className="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                ERP
-              </span>
+              Siddeshwar Enterprises
             </h1>
             <p className="text-xs text-slate-500 mt-1 font-medium">
-              Siddeshwar Enterprises • Enterprise Multi-Branch Retail Operations
+              Store Team Portal • Owner, Managers, Cashiers & Delivery
             </p>
           </div>
         </div>
 
-        {/* Enterprise Auth Card */}
+        {/* Auth Card */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60 p-6 sm:p-7 space-y-5">
           {/* Segmented Tab Bar */}
           <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
@@ -248,7 +245,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              Sign In to ERP
+              Staff & Owner Sign In
             </button>
             <button
               type="button"
@@ -259,16 +256,16 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              Register Employee
+              New Staff Request
             </button>
           </div>
 
           {activeTab === "login" ? (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Enterprise Sign In</h2>
+                <h2 className="text-lg font-bold text-slate-900">Sign In to Store</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Enter your registered mobile number to access your authorized branch workspace.
+                  Enter your mobile number. The system will automatically open your assigned workspace.
                 </p>
               </div>
 
@@ -283,7 +280,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                       id="identifier"
                       type="text"
                       placeholder="Enter 10-digit mobile number"
-                      className="pl-9 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 font-mono text-sm shadow-sm"
+                      className="pl-9 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500 font-mono text-sm shadow-sm"
                       disabled={isSubmitting}
                       {...loginRegister("identifier")}
                     />
@@ -302,10 +299,10 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                       type="button"
                       onClick={() =>
                         toast.info("Password Assistance", {
-                          description: "Please contact your Super Admin or Branch Administrator for credential resets.",
+                          description: "Please contact your Store Owner or Administrator for credential resets.",
                         })
                       }
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                      className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
                     >
                       Forgot password?
                     </button>
@@ -316,7 +313,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••••••"
-                      className="pl-9 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm shadow-sm"
+                      className="pl-9 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500 text-sm shadow-sm"
                       disabled={isSubmitting}
                       {...loginRegister("password")}
                     />
@@ -335,13 +332,13 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
 
                 <Button
                   type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 h-auto shadow-md shadow-blue-600/20"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 h-auto shadow-md shadow-emerald-600/20"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Authenticating...
+                      Signing In...
                     </>
                   ) : (
                     <>
@@ -351,13 +348,21 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   )}
                 </Button>
               </form>
+
+              {/* Customer Link Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>Looking for online shopping?</span>
+                <Link to="/shop" className="font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                  Customer Storefront <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Register Operational Staff</h2>
+                <h2 className="text-lg font-bold text-slate-900">Request Staff Access</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Create an employee account with your mobile number and assigned operational role.
+                  Submit your details. Your profile will be activated once approved by the store owner.
                 </p>
               </div>
 
@@ -496,13 +501,13 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
           )}
         </div>
 
-        {/* Security & Database Status Footer */}
+        {/* Security & System Footer */}
         <div className="text-center text-xs text-slate-500 space-y-1">
           <p className="flex items-center justify-center gap-1.5 font-medium">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Enterprise Branch Isolation & Role-Based Access Control
+            Siddeshwar Multi-Branch Enterprise Security & Isolation
           </p>
-          <p className="text-[11px] text-slate-400">Authoritative Cloud PostgreSQL Database (Neon)</p>
+          <p className="text-[11px] text-slate-400">Authoritative Cloud PostgreSQL Database Active</p>
         </div>
       </div>
     </div>
