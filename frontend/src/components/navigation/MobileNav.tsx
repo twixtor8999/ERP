@@ -28,9 +28,11 @@ export function MobileNav() {
           <div className="relative flex w-full max-w-xs flex-1 flex-col bg-card border-r shadow-xl">
             <div className="flex h-16 items-center justify-between px-4 border-b">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
-                  SB
-                </div>
+                <img
+                  src="/siddeshwar-logo.png"
+                  alt="Siddeshwar Enterprises"
+                  className="w-7 h-7 rounded-full object-cover shrink-0 border border-amber-500/20"
+                />
                 <div className="flex flex-col">
                   <span className="font-bold text-sm leading-tight text-foreground">
                     AI Smart Bazar

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag, ArrowRight, ShieldCheck, AlertCircle, Phone, Lock, User, Mail } from "lucide-react";
+import { ArrowRight, ShieldCheck, AlertCircle, Phone, Lock, User, Mail } from "lucide-react";
 import { storeApi } from "../services/storeApi";
 import { useCustomerAuthStore } from "@/stores/customerAuth.store";
 
@@ -60,9 +60,11 @@ export const CustomerRegisterPage: React.FC = () => {
     <div className="min-h-[80vh] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/shop" className="inline-flex items-center space-x-2">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-600/30">
-            <ShoppingBag className="w-7 h-7" />
-          </div>
+          <img
+            src="/siddeshwar-logo.png"
+            alt="Siddeshwar Enterprises Logo"
+            className="w-16 h-16 rounded-full object-cover shadow-xl border-2 border-emerald-500/20"
+          />
         </Link>
         <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
           Create Customer Account
