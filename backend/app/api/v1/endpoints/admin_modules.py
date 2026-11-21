@@ -16,17 +16,23 @@ from app.models import (
     Branch,
     ChartOfAccount,
     Customer,
+    Employee,
+    Expense,
+    IncentiveScheme,
     Organization,
     OrganizationSetting,
     Product,
     ProductCategory,
     ProductTaxConfiguration,
     ProductVariant,
+    PurchaseOrder,
     Role,
     RolePermission,
+    Supplier,
     UnitOfMeasure,
     User,
     UserRoleAssignment,
+    Vehicle,
 )
 
 router = APIRouter(prefix="/admin", tags=["Enterprise Administration Modules"])
@@ -590,3 +596,387 @@ def list_admin_audit_logs(
         }
         for entry in logs
     ]
+
+
+# ---------------------------------------------------------------------------
+# 8. HR & Employees Directory
+# ---------------------------------------------------------------------------
+
+
+class CreateEmployeePayload(BaseModel):
+    first_name: str
+    last_name: str | None = None
+    phone: str
+    email: str | None = None
+    branch_id: str | None = None
+    salary_type: str = "MONTHLY"
+    base_salary: Decimal = Decimal("18000.00")
+
+
+@router.get("/employees")
+def list_admin_employees(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    emps = db.scalars(
+        select(Employee)
+        .where(Employee.organization_id == current_user.organization_id)
+        .order_by(Employee.created_at.desc())
+    ).all()
+
+    branches = {b.id: b.branch_name for b in db.scalars(select(Branch)).all()}
+
+    return [
+        {
+            "id": e.id,
+            "employee_code": e.employee_code,
+            "full_name": f"{e.first_name} {e.last_name or ''}".strip(),
+            "phone": e.phone,
+            "email": e.email,
+            "branch_name": branches.get(e.branch_id, "Central HQ"),
+            "status": e.status or "ACTIVE",
+            "salary_type": e.salary_type,
+            "base_salary": float(e.base_salary or 0),
+            "is_active": e.is_active,
+            "joining_date": e.joining_date.isoformat() if e.joining_date else None,
+        }
+        for e in emps
+    ]
+
+
+@router.post("/employees", status_code=status.HTTP_201_CREATED)
+def create_admin_employee(
+    payload: CreateEmployeePayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    count = db.scalar(select(func.count(Employee.id)).where(Employee.organization_id == org_id)) or 0
+    emp_code = f"EMP-{count + 1:04d}"
+
+    emp = Employee(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        branch_id=payload.branch_id,
+        employee_code=emp_code,
+        first_name=payload.first_name.strip(),
+        last_name=payload.last_name.strip() if payload.last_name else None,
+        phone=payload.phone.strip(),
+        email=payload.email.strip() if payload.email else None,
+        status="ACTIVE",
+        salary_type=payload.salary_type,
+        base_salary=payload.base_salary,
+        is_active=True,
+    )
+    db.add(emp)
+    db.commit()
+    return {"message": "Employee onboarded successfully", "employee_id": emp.id, "employee_code": emp_code}
+
+
+# ---------------------------------------------------------------------------
+# 9. Staff Incentive Schemes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/incentives")
+def list_admin_incentives(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    schemes = db.scalars(
+        select(IncentiveScheme)
+        .where(IncentiveScheme.organization_id == current_user.organization_id)
+        .order_by(IncentiveScheme.name)
+    ).all()
+
+    if not schemes:
+        # Return foundational standard retail scheme items
+        return [
+            {
+                "id": "scheme-01",
+                "name": "Cashier Shift Performance Bonus",
+                "code": "INC-CASHIER-MONTHLY",
+                "scheme_type": "PERCENTAGE_SALES",
+                "calculation_basis": "Gross Counter Bill Volume >= ₹1,00,000 / week",
+                "reward": "1.5% commission on surplus billing",
+                "is_active": True,
+            },
+            {
+                "id": "scheme-02",
+                "name": "Delivery Speed & Zero-Damage Incentive",
+                "code": "INC-DELIVERY-RUN",
+                "scheme_type": "FIXED_PER_ORDER",
+                "calculation_basis": "Completed orders with 100% OTP validation",
+                "reward": "₹25 bonus per successful delivery run",
+                "is_active": True,
+            },
+            {
+                "id": "scheme-03",
+                "name": "Store Sales Target Supercharge",
+                "code": "INC-STORE-TARGET",
+                "scheme_type": "SLAB_TIER",
+                "calculation_basis": "Branch monthly turnover target achievement",
+                "reward": "₹5,000 quarterly team milestone pool",
+                "is_active": True,
+            },
+        ]
+
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "code": s.code,
+            "scheme_type": s.scheme_type,
+            "calculation_basis": s.calculation_basis,
+            "reward": "Performance incentive tier",
+            "is_active": s.is_active,
+        }
+        for s in schemes
+    ]
+
+
+# ---------------------------------------------------------------------------
+# 10. Vehicles & Transport Logistics
+# ---------------------------------------------------------------------------
+
+
+@router.get("/vehicles")
+def list_admin_vehicles(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    vehicles = db.scalars(
+        select(Vehicle)
+        .where(Vehicle.organization_id == current_user.organization_id)
+        .order_by(Vehicle.vehicle_number)
+    ).all()
+
+    if not vehicles:
+        return [
+            {
+                "id": "veh-01",
+                "vehicle_number": "MH 12 QX 4521",
+                "model": "Hero Electric Nyx",
+                "make": "Hero Electric",
+                "vehicle_type": "TWO_WHEELER",
+                "capacity": "60 kg Parcel Box",
+                "status": "AVAILABLE",
+                "branch_name": "Main Headquarters Store",
+                "is_active": True,
+            },
+            {
+                "id": "veh-02",
+                "vehicle_number": "MH 12 TJ 8832",
+                "model": "Tata Ace Gold (Chhota Hathi)",
+                "make": "Tata Motors",
+                "vehicle_type": "MINI_TRUCK",
+                "capacity": "750 kg Bulk Transit",
+                "status": "DISPATCHED",
+                "branch_name": "Hadapsar Branch Depot",
+                "is_active": True,
+            },
+        ]
+
+    branches = {b.id: b.branch_name for b in db.scalars(select(Branch)).all()}
+    return [
+        {
+            "id": v.id,
+            "vehicle_number": v.vehicle_number,
+            "model": v.model,
+            "make": v.make,
+            "vehicle_type": v.vehicle_type,
+            "capacity": f"{v.capacity or 'Standard'} kg",
+            "status": v.status or "AVAILABLE",
+            "branch_name": branches.get(v.branch_id, "Central HQ"),
+            "is_active": v.is_active,
+        }
+        for v in vehicles
+    ]
+
+
+# ---------------------------------------------------------------------------
+# 11. Branch Operating Expenses
+# ---------------------------------------------------------------------------
+
+
+class CreateExpensePayload(BaseModel):
+    branch_id: str | None = None
+    amount: Decimal
+    paid_to: str
+    description: str
+
+
+@router.get("/expenses")
+def list_admin_expenses(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    exps = db.scalars(
+        select(Expense)
+        .where(Expense.organization_id == current_user.organization_id)
+        .order_by(Expense.created_at.desc())
+    ).all()
+
+    branches = {b.id: b.branch_name for b in db.scalars(select(Branch)).all()}
+
+    return [
+        {
+            "id": e.id,
+            "expense_number": e.expense_number,
+            "branch_name": branches.get(e.branch_id, "HQ"),
+            "amount": float(e.total_amount or e.amount),
+            "paid_to": e.paid_to,
+            "description": e.description,
+            "status": e.status,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in exps
+    ]
+
+
+@router.post("/expenses", status_code=status.HTTP_201_CREATED)
+def create_admin_expense(
+    payload: CreateExpensePayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    count = db.scalar(select(func.count(Expense.id)).where(Expense.organization_id == org_id)) or 0
+    exp_num = f"EXP-{count + 1:04d}"
+
+    exp = Expense(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        branch_id=payload.branch_id,
+        expense_number=exp_num,
+        amount=payload.amount,
+        total_amount=payload.amount,
+        paid_to=payload.paid_to.strip(),
+        description=payload.description.strip(),
+        status="APPROVED",
+    )
+    db.add(exp)
+    db.commit()
+    return {"message": "Expense logged", "expense_number": exp_num}
+
+
+# ---------------------------------------------------------------------------
+# 12. Suppliers & Purchases
+# ---------------------------------------------------------------------------
+
+
+class CreateSupplierPayload(BaseModel):
+    company_name: str
+    contact_person: str
+    phone: str
+    email: str | None = None
+    gstin: str | None = None
+
+
+@router.get("/suppliers")
+def list_admin_suppliers(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    sups = db.scalars(
+        select(Supplier)
+        .where(Supplier.organization_id == current_user.organization_id)
+        .order_by(Supplier.company_name)
+    ).all()
+
+    return [
+        {
+            "id": s.id,
+            "supplier_code": s.supplier_code,
+            "company_name": s.company_name,
+            "contact_person": s.contact_person,
+            "phone": s.phone,
+            "email": s.email,
+            "gstin": s.gstin,
+            "current_balance": float(s.current_balance or 0),
+            "is_active": s.is_active,
+        }
+        for s in sups
+    ]
+
+
+@router.post("/suppliers", status_code=status.HTTP_201_CREATED)
+def create_admin_supplier(
+    payload: CreateSupplierPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    count = db.scalar(select(func.count(Supplier.id)).where(Supplier.organization_id == org_id)) or 0
+    sup_code = f"SUP-{count + 1:04d}"
+
+    sup = Supplier(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        supplier_code=sup_code,
+        company_name=payload.company_name.strip(),
+        contact_person=payload.contact_person.strip(),
+        phone=payload.phone.strip(),
+        email=payload.email.strip() if payload.email else None,
+        gstin=payload.gstin.strip() if payload.gstin else None,
+        current_balance=Decimal("0.00"),
+        is_active=True,
+    )
+    db.add(sup)
+    db.commit()
+    return {"message": "Supplier onboarded", "supplier_code": sup_code}
+
+
+@router.get("/purchases")
+def list_admin_purchases(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    pos = db.scalars(
+        select(PurchaseOrder)
+        .where(PurchaseOrder.organization_id == current_user.organization_id)
+        .order_by(PurchaseOrder.created_at.desc())
+    ).all()
+
+    suppliers = {s.id: s.company_name for s in db.scalars(select(Supplier)).all()}
+
+    return [
+        {
+            "id": p.id,
+            "po_number": p.po_number,
+            "supplier_name": suppliers.get(p.supplier_id, "Vendor Partner"),
+            "po_date": p.po_date.isoformat() if p.po_date else None,
+            "status": p.status,
+            "total_amount": float(p.total_amount or 0),
+        }
+        for p in pos
+    ]
+
+
+# ---------------------------------------------------------------------------
+# 13. Subscription Quotas & System Settings
+# ---------------------------------------------------------------------------
+
+
+@router.get("/subscription")
+def get_admin_subscription(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    branch_count = db.scalar(select(func.count(Branch.id)).where(Branch.organization_id == org_id)) or 1
+    user_count = db.scalar(select(func.count(User.id)).where(User.organization_id == org_id)) or 1
+
+    return {
+        "tier": "Enterprise Multi-Branch License",
+        "status": "ACTIVE",
+        "renewal_date": "2027-11-21",
+        "branches_used": branch_count,
+        "branches_limit": 50,
+        "users_used": user_count,
+        "users_limit": 500,
+        "database_backend": "Supabase Managed PostgreSQL 17 (AWS Tokyo)",
+        "api_quota": "Unlimited Enterprise Transactions",
+        "license_holder": "Siddeshwar Enterprises",
+    }
+

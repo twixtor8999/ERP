@@ -4,8 +4,6 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { NotFoundPage } from "@/components/feedback/NotFound";
-import { EmptyState } from "@/components/feedback/EmptyState";
-import { Construction } from "lucide-react";
 import { StoreLayout } from "@/features/store/components/StoreLayout";
 import { StoreCatalogPage } from "@/features/store/pages/StoreCatalogPage";
 import { ProductDetailPage } from "@/features/store/pages/ProductDetailPage";
@@ -31,22 +29,15 @@ import { OrganizationPage } from "@/features/organization/pages/OrganizationPage
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
 import { CustomersCrmPage } from "@/features/customers/pages/CustomersCrmPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
-
-function ModulePlaceholder({ name, description }: { name: string; description: string }) {
-  return (
-    <div className="space-y-4">
-      <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{name}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <EmptyState
-        icon={<Construction className="w-6 h-6 text-amber-500" />}
-        title={`${name} Module Initialized`}
-        description="The architectural foundation, types, schemas, and service layer contracts for this module are established. Implementation is scheduled in the business modules sprint."
-      />
-    </div>
-  );
-}
+import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
+import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
+import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
+import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
+import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
+import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
+import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
+import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
+import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
 
 export const router = createBrowserRouter([
   // Customer Storefront Public Routes
@@ -144,13 +135,12 @@ export const router = createBrowserRouter([
         element: <CustomersCrmPage />,
       },
       {
+        path: "customers",
+        element: <Navigate to="/crm" replace />,
+      },
+      {
         path: "duplicate-check",
-        element: (
-          <ModulePlaceholder
-            name="Duplicate Identity Resolution"
-            description="Prevent redundant customer records using phone and address fuzzy matching."
-          />
-        ),
+        element: <DuplicateCheckPage />,
       },
       {
         path: "products",
@@ -162,21 +152,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "purchases",
-        element: (
-          <ModulePlaceholder
-            name="Purchase Orders & GRN"
-            description="Supplier procurement, goods received notes, and purchase invoices."
-          />
-        ),
+        element: <PurchasesPage />,
       },
       {
         path: "suppliers",
-        element: (
-          <ModulePlaceholder
-            name="Suppliers Directory"
-            description="Vendor onboarding, payment terms, and vendor performance history."
-          />
-        ),
+        element: <SuppliersPage />,
       },
       {
         path: "payments",
@@ -192,12 +172,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "expenses",
-        element: (
-          <ModulePlaceholder
-            name="Expense Management"
-            description="Track branch operating costs, petty cash, and recurring operational fees."
-          />
-        ),
+        element: <ExpensesPage />,
       },
       {
         path: "reports",
@@ -205,30 +180,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "employees",
-        element: (
-          <ModulePlaceholder
-            name="Employees & Staff"
-            description="Staff records, branch assignments, attendance, and payroll records."
-          />
-        ),
+        element: <EmployeesPage />,
       },
       {
         path: "incentives",
-        element: (
-          <ModulePlaceholder
-            name="Staff Incentive Schemes"
-            description="Sales commission tiers, performance targets, and milestone payouts."
-          />
-        ),
+        element: <IncentivesPage />,
       },
       {
         path: "vehicles",
-        element: (
-          <ModulePlaceholder
-            name="Vehicles & Transport"
-            description="Fleet tracking, delivery runs, maintenance schedules, and fuel logs."
-          />
-        ),
+        element: <VehiclesPage />,
+      },
+      {
+        path: "transport",
+        element: <Navigate to="/vehicles" replace />,
       },
       {
         path: "organization",
@@ -248,12 +212,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "plans-billing",
-        element: (
-          <ModulePlaceholder
-            name="Subscription & Plan Quotas"
-            description="ERP plan tier management, active licenses, and billing statements."
-          />
-        ),
+        element: <SubscriptionPlansPage />,
+      },
+      {
+        path: "plans",
+        element: <Navigate to="/plans-billing" replace />,
       },
       {
         path: "audit-logs",
@@ -261,12 +224,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: (
-          <ModulePlaceholder
-            name="System Settings"
-            description="Global ERP preferences, localization, currency, and API webhooks."
-          />
-        ),
+        element: <SystemSettingsPage />,
       },
     ],
   },
