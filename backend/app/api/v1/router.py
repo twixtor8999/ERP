@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     health,
     inventory_transfers,
     notifications,
+    payments,
     pos_admin,
     reports_admin,
     store_address,
@@ -28,6 +29,7 @@ api_router.include_router(users_router)
 
 # Enterprise Real-Time Command Center & Multi-Branch Intelligence
 api_router.include_router(analytics.router)
+api_router.include_router(payments.router)
 api_router.include_router(pos_admin.router)
 api_router.include_router(inventory_transfers.router)
 api_router.include_router(notifications.router)

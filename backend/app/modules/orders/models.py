@@ -422,3 +422,8 @@ class CartItem(Base, TimestampMixin):
 
     cart: Mapped["Cart"] = relationship("Cart", back_populates="items")
 
+
+# Backward compatibility aliases
+StoreOrder = Order
+StoreOrderItem = OrderItem
+

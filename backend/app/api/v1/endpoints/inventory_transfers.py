@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -265,6 +265,34 @@ async def approve_stock_transfer(
     if not transfer:
         raise HTTPException(status_code=404, detail="Stock transfer not found")
 
+    # Enforce role authorization for transfer approvals
+    role_lower = (current_user.role or "").lower()
+    allowed_roles = [
+        "super_admin",
+        "business_owner",
+        "org_admin",
+        "general_manager",
+        "branch_manager",
+        "inventory_manager",
+    ]
+    has_perm = current_user.has_permission("inventory.transfer_approve")
+    if not (current_user.is_org_admin or role_lower in allowed_roles or has_perm):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You lack authorization to approve stock transfers.",
+        )
+
+    # Enforce branch authorization: Business Owner has org-wide access; managers must belong to source or dest branch
+    if not (
+        current_user.is_org_admin
+        or current_user.can_access_branch(transfer.source_branch_id)
+        or current_user.can_access_branch(transfer.destination_branch_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to approve transfers involving these branches.",
+        )
+
     if transfer.status != "REQUESTED":
         raise HTTPException(status_code=400, detail=f"Cannot approve transfer with status '{transfer.status}'")
 
@@ -308,6 +336,30 @@ async def dispatch_stock_transfer(
     )
     if not transfer:
         raise HTTPException(status_code=404, detail="Stock transfer not found")
+
+    # Enforce role authorization for dispatch
+    role_lower = (current_user.role or "").lower()
+    allowed_roles = [
+        "super_admin",
+        "business_owner",
+        "org_admin",
+        "general_manager",
+        "branch_manager",
+        "inventory_manager",
+    ]
+    has_perm = current_user.has_permission("inventory.transfer_dispatch")
+    if not (current_user.is_org_admin or role_lower in allowed_roles or has_perm):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You lack authorization to dispatch stock transfers.",
+        )
+
+    # Enforce source branch access: caller must have authorization to access source branch
+    if not (current_user.is_org_admin or current_user.can_access_branch(transfer.source_branch_id)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to dispatch stock from this source branch.",
+        )
 
     if transfer.status not in ("REQUESTED", "APPROVED"):
         raise HTTPException(status_code=400, detail=f"Cannot dispatch transfer in status '{transfer.status}'")
@@ -399,6 +451,34 @@ async def receive_stock_transfer(
     )
     if not transfer:
         raise HTTPException(status_code=404, detail="Stock transfer not found")
+
+    # Enforce role authorization for receipt
+    role_lower = (current_user.role or "").lower()
+    allowed_roles = [
+        "super_admin",
+        "business_owner",
+        "org_admin",
+        "general_manager",
+        "branch_manager",
+        "inventory_manager",
+    ]
+    has_perm = current_user.has_permission("inventory.transfer_receive")
+    if not (current_user.is_org_admin or role_lower in allowed_roles or has_perm):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You lack authorization to receive stock transfers.",
+        )
+
+    # Enforce destination/source branch access: caller must have authorization to access destination or source branch
+    if not (
+        current_user.is_org_admin
+        or current_user.can_access_branch(transfer.destination_branch_id)
+        or current_user.can_access_branch(transfer.source_branch_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to receive stock into this branch.",
+        )
 
     if transfer.status not in ("DISPATCHED", "IN_TRANSIT"):
         raise HTTPException(

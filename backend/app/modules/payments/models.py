@@ -97,6 +97,35 @@ class PaymentTransaction(Base, TimestampMixin):
     idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    order_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("orders.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    invoice_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("invoices.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    collector_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    collector_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    reconciled_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reconciliation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dispute_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     allocations: Mapped[list["PaymentAllocation"]] = relationship(
         "PaymentAllocation", back_populates="transaction", cascade="all, delete-orphan"
     )

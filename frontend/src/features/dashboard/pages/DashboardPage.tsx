@@ -30,11 +30,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeStream, type RealtimeActivityEvent } from "@/lib/realtime/useRealtimeStream";
+import { BusinessOwnerDashboard } from "../components/BusinessOwnerDashboard";
 
 // Role mapping helper
 function getRoleDashboardView(role?: string): string {
   const normalized = (role || "").toLowerCase().replace(/[-\s]/g, "_");
-  if (normalized.includes("super_admin") || normalized.includes("admin")) return "admin";
+  if (normalized.includes("super_admin")) return "admin";
+  if (normalized.includes("owner") || normalized.includes("org_admin")) return "owner";
+  if (normalized.includes("admin")) return "admin";
   if (normalized.includes("branch_manager") || normalized.includes("general_manager")) return "branch-manager";
   if (normalized.includes("cashier") || normalized.includes("pos")) return "pos";
   if (normalized.includes("accountant") || normalized.includes("auditor")) return "accounting";
@@ -102,10 +105,12 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   const userDashboard = getRoleDashboardView(user?.role);
-  const isSuperAdmin = user?.role?.toLowerCase().includes("super_admin") || user?.role?.toLowerCase().includes("admin");
+  const isSuperAdmin = user?.role?.toLowerCase().includes("super_admin");
+  const isOwner = user?.role?.toLowerCase().includes("owner") || user?.role?.toLowerCase().includes("org_admin");
+  const isExecutive = isSuperAdmin || isOwner || user?.role?.toLowerCase().includes("admin");
 
   // Check if user is attempting to access a different dashboard route
-  const isMismatched = roleView && roleView !== userDashboard && !isSuperAdmin;
+  const isMismatched = roleView && roleView !== userDashboard && !isExecutive;
 
   if (isMismatched) {
     return (
@@ -162,9 +167,9 @@ export function DashboardPage() {
           </p>
         </div>
 
-        {/* Multi-Branch Filter (Super Admin sees All Branches selector, others pinned) */}
+        {/* Multi-Branch Filter (Super Admin & Owner see All Branches selector, others pinned) */}
         <div className="flex items-center gap-3">
-          {isSuperAdmin ? (
+          {isExecutive ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">Scope:</span>
               <select
@@ -214,6 +219,12 @@ export function DashboardPage() {
       </div>
 
       {/* Render Sub-Dashboards */}
+      {effectiveView === "owner" && (
+        <BusinessOwnerDashboard
+          branchId={selectedBranchId || undefined}
+          liveEvents={liveEvents}
+        />
+      )}
       {effectiveView === "admin" && (
         <SuperAdminCommandCenter
           branchId={selectedBranchId || undefined}
@@ -232,7 +243,7 @@ export function DashboardPage() {
       {effectiveView === "inventory" && <InventoryDashboard branchId={selectedBranchId || activeBranch?.id} />}
       {effectiveView === "sales" && <SalesDashboard />}
       {effectiveView === "employee" && <GeneralEmployeeDashboard />}
-      {!["pos", "branch-manager", "accounting", "inventory", "sales", "admin", "employee"].includes(effectiveView) && (
+      {!["owner", "pos", "branch-manager", "accounting", "inventory", "sales", "admin", "employee"].includes(effectiveView) && (
         <GeneralEmployeeDashboard />
       )}
     </div>

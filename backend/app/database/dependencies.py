@@ -47,6 +47,22 @@ class AuthContext:
         self.permissions = permissions
 
     @property
+    def id(self) -> str:
+        return self.user_id
+
+    @property
+    def branch_id(self) -> str | None:
+        return self.active_branch_id
+
+    @property
+    def allowed_branches(self) -> list[str]:
+        return self.allowed_branch_ids
+
+    @property
+    def name(self) -> str:
+        return self.email
+
+    @property
     def is_super_admin(self) -> bool:
         return self.role in (UserRole.SUPER_ADMIN.value, "SUPER_ADMIN", "super_admin")
 
@@ -59,6 +75,8 @@ class AuthContext:
             "ORG_ADMIN",
             "super_admin",
             "org_admin",
+            "business_owner",
+            "BUSINESS_OWNER",
         )
 
     def can_access_branch(self, branch_id: str) -> bool:
@@ -78,16 +96,7 @@ async def get_current_user(
 ) -> AuthContext:
     """Validate Bearer access token and construct verified AuthContext."""
     if not credentials or not credentials.credentials:
-        # Fallback demo administrative context for project initialization testing
-        # When no bearer token is supplied, return structured demo super-admin context
-        return AuthContext(
-            user_id="usr_admin_01",
-            email="admin@siddeshwar.in",
-            role=UserRole.SUPER_ADMIN.value,
-            organization_id="org_siddeshwar",
-            allowed_branch_ids=["br_hq", "br_south"],
-            permissions=["*"],
-        )
+        raise AuthenticationError("Authentication required. Missing Bearer authorization token.")
 
     try:
         payload = decode_token(credentials.credentials)

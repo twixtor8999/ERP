@@ -87,7 +87,7 @@ export const CustomerLoginPage: React.FC = () => {
                 <input
                   type="tel"
                   maxLength={10}
-                  placeholder="9876543210"
+                  placeholder="Enter 10-digit mobile"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                   className="block w-full pl-20 pr-3 py-2.5 sm:text-sm border border-slate-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 font-medium"

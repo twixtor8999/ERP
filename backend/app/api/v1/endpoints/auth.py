@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.constants import ROLE_DASHBOARD_MAP, UserRole
+from app.core.limiter import limiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -164,15 +165,18 @@ def get_registration_roles() -> list[RegistrationRoleOption]:
 
 
 @router.post("/register", response_model=UserSummaryResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("15/minute")
 def register(
-    request: UserRegisterRequest,
+    request: Request,
+    payload: UserRegisterRequest,
     db: Session = Depends(get_db),
 ) -> UserSummaryResponse:
     """Self-registration for employees with immediate assignment to the selected operational role."""
-    return UserService.register_user(db, request)
+    return UserService.register_user(db, payload)
 
 
 @router.post("/login", response_model=LoginSuccessResponse)
+@limiter.limit("15/minute")
 async def login(
     credentials: LoginRequest,
     response: Response,
@@ -427,50 +431,49 @@ async def refresh_access_token(
         user_id = payload.get("sub", "")
 
         # Check DB session if exists
-        session_obj = None
-        if old_token_id:
-            session_obj = db.scalar(select(AuthSession).where(AuthSession.id == old_token_id))
-            if session_obj and (session_obj.is_revoked or session_obj.status != "ACTIVE"):
-                raise HTTPException(status_code=401, detail="Session is revoked or inactive")
+        if not old_token_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token identifier")
+
+        session_obj = db.scalar(select(AuthSession).where(AuthSession.id == old_token_id))
+        if not session_obj or session_obj.is_revoked or session_obj.status != "ACTIVE":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is revoked or inactive")
+
+        # Verify associated user remains active and approved
+        user = db.scalar(select(User).where(User.id == user_id, User.is_active.is_(True)))
+        if not user or getattr(user, "approval_status", "APPROVED") != "APPROVED":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is deactivated or pending approval",
+            )
 
         # Revoke old refresh token (token rotation)
-        if old_token_id:
-            revoke_token(old_token_id)
+        revoke_token(old_token_id)
 
         # Issue new token pair
         new_token_id = uuid.uuid4().hex
         new_refresh = create_refresh_token(subject=user_id, token_id=new_token_id)
 
-        if session_obj:
-            session_obj.token_hash = new_token_id
-            session_obj.updated_at = datetime.now(UTC)
-            db.commit()
+        session_obj.token_hash = new_token_id
+        session_obj.updated_at = datetime.now(UTC)
+        db.commit()
 
-            # Build claims from active session
-            role = db.scalar(select(Role).where(Role.id == session_obj.active_role_id))
-            effective_perms = (
-                ContextService.calculate_effective_permissions(db, user_id, session_obj.active_role_id)
-                if session_obj.active_role_id
-                else []
-            )
-            branches = ContextService.get_authorized_branches(db, user_id, session_obj.organization_id or "")
-            claims = {
-                "session_id": session_obj.id,
-                "role_id": session_obj.active_role_id,
-                "role": role.slug if role else "",
-                "organization_id": session_obj.organization_id,
-                "active_branch_id": session_obj.active_branch_id,
-                "allowed_branches": [b.branch_id for b in branches],
-                "permissions": effective_perms,
-            }
-        else:
-            claims = {
-                "email": "admin@siddeshwar.in",
-                "role": UserRole.SUPER_ADMIN.value,
-                "organization_id": "org_siddeshwar",
-                "allowed_branches": [b.id for b in DEMO_BRANCHES],
-                "permissions": ["*"],
-            }
+        # Build claims authoritatively from active session and database roles
+        role = db.scalar(select(Role).where(Role.id == session_obj.active_role_id))
+        effective_perms = (
+            ContextService.calculate_effective_permissions(db, user_id, session_obj.active_role_id)
+            if session_obj.active_role_id
+            else []
+        )
+        branches = ContextService.get_authorized_branches(db, user_id, session_obj.organization_id or "")
+        claims = {
+            "session_id": session_obj.id,
+            "role_id": session_obj.active_role_id,
+            "role": role.slug if role else "",
+            "organization_id": session_obj.organization_id,
+            "active_branch_id": session_obj.active_branch_id,
+            "allowed_branches": [b.branch_id for b in branches],
+            "permissions": effective_perms,
+        }
 
         new_access = create_access_token(subject=user_id, claims=claims)
 

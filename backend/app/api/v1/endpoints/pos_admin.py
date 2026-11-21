@@ -26,6 +26,8 @@ from app.models import (
     StockMovement,
     User,
 )
+from app.modules.payments.models import PaymentAllocation, PaymentTransaction
+from app.modules.payments.service import _generate_tx_number, _get_or_create_payment_method
 
 router = APIRouter(prefix="/pos", tags=["Point of Sale & Cashier Operations"])
 
@@ -124,6 +126,8 @@ class POSCheckoutRequest(BaseModel):
     cash_paid: Decimal | None = None
     upi_paid: Decimal | None = None
     upi_reference: str | None = None
+    card_paid: Decimal | None = None
+    card_reference: str | None = None
     customer_phone: str | None = None
     customer_name: str | None = None
     notes: str | None = None
@@ -141,6 +145,7 @@ class POSCheckoutResponse(BaseModel):
     cash_tendered: Decimal
     cash_paid: Decimal | None = None
     upi_paid: Decimal | None = None
+    card_paid: Decimal | None = None
     change_due: Decimal
     payment_method: str
     item_count: int
@@ -162,17 +167,37 @@ async def open_cashier_shift(
     db: Session = Depends(get_db),
 ) -> ShiftResponse:
     """Cashier opens their drawer shift with cash float."""
-    branch_id = req.branch_id or current_user.active_branch_id or (
+    target_branch_id = req.branch_id or current_user.active_branch_id or (
         current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
     )
-    if not branch_id:
+    if not target_branch_id:
         raise HTTPException(status_code=400, detail="User must have an active branch to open a shift")
+
+    # Validate that branch belongs to the authenticated user's organization
+    branch = db.scalar(
+        select(Branch).where(
+            Branch.id == target_branch_id,
+            Branch.organization_id == current_user.organization_id,
+        )
+    )
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found in your organization",
+        )
+
+    # Validate that user has authorization for this branch
+    if not current_user.can_access_branch(target_branch_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to open a cashier shift at this branch",
+        )
 
     # Check for existing active shift for this cashier
     existing = db.scalar(
         select(Settlement).where(
             Settlement.organization_id == current_user.organization_id,
-            Settlement.branch_id == branch_id,
+            Settlement.branch_id == target_branch_id,
             Settlement.cashier_id == current_user.user_id,
             Settlement.status == "OPEN",
         )
@@ -187,7 +212,7 @@ async def open_cashier_shift(
     now_utc = datetime.now(UTC)
     shift = Settlement(
         organization_id=current_user.organization_id,
-        branch_id=branch_id,
+        branch_id=target_branch_id,
         cashier_id=current_user.user_id,
         settlement_date=now_utc.date(),
         opening_cash=opening_amt,
@@ -497,14 +522,27 @@ async def process_pos_checkout(
     total_discount = Decimal("0.00")
     invoice_lines: list[InvoiceItem] = []
 
-    # Process items with atomic stock deduction
+    # Process items with atomic stock deduction and authoritative pricing
     for item_req in req.items:
+        if item_req.quantity <= Decimal("0.0000"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item quantity must be strictly greater than zero",
+            )
+
         variant = db.scalar(
             select(ProductVariant)
-            .where(ProductVariant.id == item_req.variant_id)
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(
+                ProductVariant.id == item_req.variant_id,
+                Product.organization_id == current_user.organization_id,
+            )
         )
         if not variant:
-            raise HTTPException(status_code=404, detail=f"Product variant {item_req.variant_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product variant {item_req.variant_id} not found in this organization",
+            )
 
         # Row-lock StockBalance
         stock_bal = db.scalar(
@@ -543,10 +581,48 @@ async def process_pos_checkout(
         )
         db.add(movement)
 
-        # Pricing math: selling_price is standard retail gross price payable
-        unit_price = item_req.unit_price if item_req.unit_price is not None else variant.selling_price
-        discount = item_req.discount_amount
-        line_tot = (item_req.quantity * unit_price) - discount
+        # Authoritative pricing: resolve unit_price authoritatively from product catalog
+        if item_req.unit_price is not None and item_req.unit_price != variant.selling_price:
+            if not (current_user.is_org_admin or current_user.has_permission("pos.override_price")):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Arbitrary unit price tampering rejected for SKU '{variant.sku}'. "
+                        f"Catalog price is ₹{variant.selling_price}."
+                    ),
+                )
+            unit_price = item_req.unit_price
+        else:
+            unit_price = variant.selling_price
+
+        gross_line = (item_req.quantity * unit_price).quantize(Decimal("0.01"))
+        discount = (item_req.discount_amount or Decimal("0.00")).quantize(Decimal("0.01"))
+
+        if discount < Decimal("0.00"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Negative discount rejected for SKU '{variant.sku}'",
+            )
+        if discount > gross_line:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Discount (₹{discount}) cannot exceed line total (₹{gross_line}) for SKU '{variant.sku}'",
+            )
+
+        # Enforce discount authorization threshold (discounts > 15% require manager permission)
+        max_discount_pct = Decimal("15.0")
+        line_discount_pct = (discount / gross_line * Decimal("100")) if gross_line > 0 else Decimal("0.0")
+        if line_discount_pct > max_discount_pct:
+            if not (current_user.is_org_admin or current_user.has_permission("pos.override_discount")):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        f"Discount of {line_discount_pct:.1f}% exceeds authorized cashier threshold "
+                        f"({max_discount_pct}%). Manager authorization required."
+                    ),
+                )
+
+        line_tot = gross_line - discount
         # 5% composite GST standard inclusive
         line_tax = (line_tot * Decimal("5") / Decimal("105")).quantize(Decimal("0.01"))
         line_sub = line_tot - line_tax
@@ -585,11 +661,14 @@ async def process_pos_checkout(
     # Tender calculation
     cash_paid = req.cash_paid if req.cash_paid is not None else req.cash_tendered
     upi_paid = req.upi_paid or Decimal("0.00")
+    card_paid = req.card_paid or Decimal("0.00")
 
     if req.payment_method:
         payment_method = req.payment_method.upper()
-    elif upi_paid > Decimal("0.00") and cash_paid > Decimal("0.00"):
+    elif sum([cash_paid > Decimal("0.00"), upi_paid > Decimal("0.00"), card_paid > Decimal("0.00")]) > 1:
         payment_method = "SPLIT"
+    elif card_paid > Decimal("0.00"):
+        payment_method = "CARD"
     elif upi_paid > Decimal("0.00"):
         payment_method = "UPI"
     else:
@@ -607,10 +686,13 @@ async def process_pos_checkout(
         shift.expected_total += grand_total
     elif payment_method == "UPI":
         shift.upi_sales += grand_total
-    else:  # SPLIT or CARD
+    elif payment_method == "CARD":
+        shift.card_sales += grand_total
+    else:  # SPLIT
         shift.cash_sales += cash_paid
         shift.expected_total += cash_paid
         shift.upi_sales += upi_paid
+        shift.card_sales += card_paid
 
     # Lookup or create retail customer for walk-in billing
     cust_phone = (req.customer_phone or "9999999999").strip()
@@ -663,6 +745,97 @@ async def process_pos_checkout(
     db.add(invoice)
     db.flush()
 
+    # Record in centralized payment transactions ledger
+    effective_cash = (grand_total - upi_paid - card_paid) if payment_method == "CASH" else cash_paid
+    if effective_cash > Decimal("0.00"):
+        cash_m = _get_or_create_payment_method(db, current_user.organization_id, "CASH")
+        tx_cash = PaymentTransaction(
+            organization_id=current_user.organization_id,
+            branch_id=branch_id,
+            customer_id=customer.id,
+            payment_type="RECEIPT",
+            transaction_number=_generate_tx_number(),
+            transaction_date=today,
+            payment_method_id=cash_m.id,
+            amount=effective_cash,
+            currency="INR",
+            status="REPORTED",
+            invoice_id=invoice.id,
+            collector_id=current_user.user_id,
+            collector_role="cashier",
+            notes=f"POS Invoice {invoice_num} Cash Receipt",
+        )
+        db.add(tx_cash)
+        db.flush()
+        db.add(
+            PaymentAllocation(
+                organization_id=current_user.organization_id,
+                payment_transaction_id=tx_cash.id,
+                invoice_id=invoice.id,
+                allocated_amount=effective_cash,
+            )
+        )
+
+    if upi_paid > Decimal("0.00"):
+        upi_m = _get_or_create_payment_method(db, current_user.organization_id, "UPI")
+        tx_upi = PaymentTransaction(
+            organization_id=current_user.organization_id,
+            branch_id=branch_id,
+            customer_id=customer.id,
+            payment_type="RECEIPT",
+            transaction_number=_generate_tx_number(),
+            transaction_date=today,
+            payment_method_id=upi_m.id,
+            amount=upi_paid,
+            currency="INR",
+            reference_number=req.upi_reference.strip() if req.upi_reference else None,
+            status="REPORTED",
+            invoice_id=invoice.id,
+            collector_id=current_user.user_id,
+            collector_role="cashier",
+            notes=f"POS Invoice {invoice_num} UPI QR Receipt",
+        )
+        db.add(tx_upi)
+        db.flush()
+        db.add(
+            PaymentAllocation(
+                organization_id=current_user.organization_id,
+                payment_transaction_id=tx_upi.id,
+                invoice_id=invoice.id,
+                allocated_amount=upi_paid,
+            )
+        )
+
+    if card_paid > Decimal("0.00"):
+        card_m = _get_or_create_payment_method(db, current_user.organization_id, "CARD")
+        tx_card = PaymentTransaction(
+            organization_id=current_user.organization_id,
+            branch_id=branch_id,
+            customer_id=customer.id,
+            payment_type="RECEIPT",
+            transaction_number=_generate_tx_number(),
+            transaction_date=today,
+            payment_method_id=card_m.id,
+            amount=card_paid,
+            currency="INR",
+            reference_number=req.card_reference.strip() if req.card_reference else None,
+            status="REPORTED",
+            invoice_id=invoice.id,
+            collector_id=current_user.user_id,
+            collector_role="cashier",
+            notes=f"POS Invoice {invoice_num} Card Terminal Receipt",
+        )
+        db.add(tx_card)
+        db.flush()
+        db.add(
+            PaymentAllocation(
+                organization_id=current_user.organization_id,
+                payment_transaction_id=tx_card.id,
+                invoice_id=invoice.id,
+                allocated_amount=card_paid,
+            )
+        )
+
     # Link movements to invoice
     for m in db.new:
         if isinstance(m, StockMovement) and m.reference_id == "PENDING":
@@ -707,6 +880,7 @@ async def process_pos_checkout(
         cash_tendered=cash_paid,
         cash_paid=cash_paid,
         upi_paid=upi_paid,
+        card_paid=card_paid,
         change_due=change_due,
         payment_method=payment_method,
         item_count=len(invoice_lines),

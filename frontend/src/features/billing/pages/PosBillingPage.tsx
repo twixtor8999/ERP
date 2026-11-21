@@ -14,6 +14,8 @@ import {
   ShoppingBag,
   RefreshCw,
   X,
+  CreditCard,
+  Banknote,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -78,7 +80,6 @@ export function PosBillingPage() {
   const customerNameId = useId();
   const customerPhoneId = useId();
   const cashAmountId = useId();
-  const upiAmountId = useId();
   const openingFloatId = useId();
   const countedCashId = useId();
   const shiftNotesId = useId();
@@ -104,8 +105,12 @@ export function PosBillingPage() {
   // Customer & Payment
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "CARD" | "SPLIT">("CASH");
   const [cashAmount, setCashAmount] = useState<string>("");
   const [upiAmount, setUpiAmount] = useState<string>("");
+  const [cardAmount, setCardAmount] = useState<string>("");
+  const [upiReference, setUpiReference] = useState<string>("");
+  const [cardReference, setCardReference] = useState<string>("");
 
   // Invoice output modal
   const [completedInvoice, setCompletedInvoice] = useState<InvoiceResult | null>(null);
@@ -249,11 +254,31 @@ export function PosBillingPage() {
       setErrorMessage("Cart is empty.");
       return;
     }
-    const cash = parseFloat(cashAmount) || 0;
-    const upi = parseFloat(upiAmount) || 0;
-    if (Math.abs(cash + upi - total) > 0.05) {
-      setErrorMessage(`Total payment (₹${(cash + upi).toFixed(2)}) must match bill total (₹${total.toFixed(2)})`);
-      return;
+
+    let cash = 0;
+    let upi = 0;
+    let card = 0;
+
+    if (paymentMode === "CASH") {
+      cash = parseFloat(cashAmount) || total;
+      if (cash < total) {
+        setErrorMessage(`Cash tendered (₹${cash.toFixed(2)}) cannot be less than bill total (₹${total.toFixed(2)})`);
+        return;
+      }
+    } else if (paymentMode === "UPI") {
+      upi = total;
+    } else if (paymentMode === "CARD") {
+      card = total;
+    } else {
+      cash = parseFloat(cashAmount) || 0;
+      upi = parseFloat(upiAmount) || 0;
+      card = parseFloat(cardAmount) || 0;
+      if (Math.abs(cash + upi + card - total) > 0.05) {
+        setErrorMessage(
+          `Total split payment (₹${(cash + upi + card).toFixed(2)}) must equal bill total (₹${total.toFixed(2)})`
+        );
+        return;
+      }
     }
 
     try {
@@ -263,7 +288,12 @@ export function PosBillingPage() {
         customer_name: customerName.trim() || undefined,
         customer_phone: customerPhone.trim() || undefined,
         cash_paid: cash,
+        cash_tendered: cash,
         upi_paid: upi,
+        upi_reference: upiReference.trim() || undefined,
+        card_paid: card,
+        card_reference: cardReference.trim() || undefined,
+        payment_method: paymentMode,
         items: cart.map((i) => ({
           variant_id: i.variant_id,
           quantity: i.qty,
@@ -276,6 +306,9 @@ export function PosBillingPage() {
       setCustomerPhone("");
       setCashAmount("");
       setUpiAmount("");
+      setCardAmount("");
+      setUpiReference("");
+      setCardReference("");
       fetchCurrentShift();
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { detail?: string } } };
@@ -486,18 +519,18 @@ export function PosBillingPage() {
           </Card>
         </div>
 
-        {/* Right: Payment & Summary (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="border-primary/20">
-            <CardHeader className="pb-3 bg-muted/20">
-              <CardTitle className="text-base flex items-center justify-between">
+        {/* Right: Payment & Summary (5 cols - Compact & Sticky) */}
+        <div className="lg:col-span-5 space-y-3 lg:sticky lg:top-4">
+          <Card className="border-primary/20 shadow-md">
+            <CardHeader className="py-2.5 px-4 bg-muted/20 border-b">
+              <CardTitle className="text-sm flex items-center justify-between">
                 <span>Bill Summary</span>
-                <span className="text-2xl font-bold font-mono text-primary">₹ {total.toFixed(2)}</span>
+                <span className="text-xl font-bold font-mono text-primary">₹ {total.toFixed(2)}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="space-y-3 p-4">
               {/* Financial Breakup */}
-              <div className="space-y-1.5 text-sm">
+              <div className="space-y-1 text-xs">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Taxable Subtotal:</span>
                   <span className="font-mono">₹ {subtotal.toFixed(2)}</span>
@@ -506,121 +539,272 @@ export function PosBillingPage() {
                   <span>GST Amount (CGST+SGST):</span>
                   <span className="font-mono">₹ {taxAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-base border-t pt-2 text-foreground">
+                <div className="flex justify-between font-bold text-sm border-t pt-1.5 text-foreground">
                   <span>Total Payable:</span>
                   <span className="font-mono text-primary">₹ {total.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Customer Info (Optional) */}
-              <div className="border-t pt-3 space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Customer Details (Optional)
-                </h4>
+              <div className="border-t pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Customer Details (Optional)
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label htmlFor={customerNameId} className="sr-only">Customer Name</label>
-                    <Input
-                      id={customerNameId}
-                      placeholder="Customer Name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={customerPhoneId} className="sr-only">Mobile Number</label>
-                    <Input
-                      id={customerPhoneId}
-                      placeholder="Mobile (10 digits)"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className="text-xs font-mono"
-                    />
-                  </div>
+                  <Input
+                    id={customerNameId}
+                    placeholder="Customer Name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="text-xs h-8"
+                  />
+                  <Input
+                    id={customerPhoneId}
+                    placeholder="Mobile (10 digits)"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="text-xs font-mono h-8"
+                  />
                 </div>
               </div>
 
-              {/* Payment Split */}
-              <div className="border-t pt-3 space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  In-Store Payment Mode Split
-                </h4>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 flex items-center gap-1.5 text-xs font-medium">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Cash (INR)
-                    </div>
-                    <label htmlFor={cashAmountId} className="sr-only">Cash Tendered</label>
-                    <Input
-                      id={cashAmountId}
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={cashAmount}
-                      onChange={(e) => {
-                        setCashAmount(e.target.value);
-                        const c = parseFloat(e.target.value) || 0;
-                        setUpiAmount(Math.max(0, total - c).toFixed(2));
-                      }}
-                      className="font-mono text-sm"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 flex items-center gap-1.5 text-xs font-medium">
-                      <Smartphone className="w-3.5 h-3.5 text-blue-600" /> UPI QR (INR)
-                    </div>
-                    <label htmlFor={upiAmountId} className="sr-only">UPI Tendered</label>
-                    <Input
-                      id={upiAmountId}
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={upiAmount}
-                      onChange={(e) => {
-                        setUpiAmount(e.target.value);
-                        const u = parseFloat(e.target.value) || 0;
-                        setCashAmount(Math.max(0, total - u).toFixed(2));
-                      }}
-                      className="font-mono text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Split Buttons */}
-                <div className="flex gap-2">
+              {/* Payment Method Selector Tabs */}
+              <div className="border-t pt-2 space-y-2">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Select Tender Mode
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    className="flex-1 text-xs"
+                    variant={paymentMode === "CASH" ? "default" : "outline"}
+                    className={`h-8 text-xs gap-1 font-semibold ${
+                      paymentMode === "CASH" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+                    }`}
                     onClick={() => {
+                      setPaymentMode("CASH");
                       setCashAmount(total.toFixed(2));
-                      setUpiAmount("0.00");
+                      setUpiAmount("");
+                      setCardAmount("");
                     }}
                   >
-                    100% Cash
+                    <Banknote className="w-3.5 h-3.5" /> Cash
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    className="flex-1 text-xs"
+                    variant={paymentMode === "UPI" ? "default" : "outline"}
+                    className={`h-8 text-xs gap-1 font-semibold ${
+                      paymentMode === "UPI" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""
+                    }`}
                     onClick={() => {
-                      setCashAmount("0.00");
+                      setPaymentMode("UPI");
                       setUpiAmount(total.toFixed(2));
+                      setCashAmount("");
+                      setCardAmount("");
                     }}
                   >
-                    100% UPI QR
+                    <Smartphone className="w-3.5 h-3.5" /> UPI QR
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={paymentMode === "CARD" ? "default" : "outline"}
+                    className={`h-8 text-xs gap-1 font-semibold ${
+                      paymentMode === "CARD" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                    }`}
+                    onClick={() => {
+                      setPaymentMode("CARD");
+                      setCardAmount(total.toFixed(2));
+                      setCashAmount("");
+                      setUpiAmount("");
+                    }}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" /> Card
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={paymentMode === "SPLIT" ? "default" : "outline"}
+                    className={`h-8 text-xs gap-1 font-semibold ${
+                      paymentMode === "SPLIT" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""
+                    }`}
+                    onClick={() => {
+                      setPaymentMode("SPLIT");
+                      setCashAmount((total / 2).toFixed(2));
+                      setUpiAmount((total / 2).toFixed(2));
+                      setCardAmount("");
+                    }}
+                  >
+                    Split
                   </Button>
                 </div>
+
+                {/* Cash Mode View */}
+                {paymentMode === "CASH" && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor={cashAmountId} className="w-24 text-xs font-medium text-muted-foreground">
+                        Cash Tendered:
+                      </label>
+                      <Input
+                        id={cashAmountId}
+                        type="number"
+                        step="0.01"
+                        value={cashAmount}
+                        onChange={(e) => setCashAmount(e.target.value)}
+                        className="font-mono text-sm h-8 font-bold"
+                        placeholder={total.toFixed(2)}
+                      />
+                    </div>
+                    {/* Quick Cash Tender Presets */}
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setCashAmount(total.toFixed(2))}
+                      >
+                        Exact ₹{total.toFixed(2)}
+                      </Button>
+                      {[100, 200, 500, 2000].map((denom) => (
+                        <Button
+                          key={denom}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          onClick={() => setCashAmount(String(denom))}
+                        >
+                          ₹{denom}
+                        </Button>
+                      ))}
+                    </div>
+                    {parseFloat(cashAmount) > total && (
+                      <div className="p-2 rounded bg-emerald-500/10 text-emerald-600 text-xs font-mono font-bold flex justify-between">
+                        <span>Change to Return:</span>
+                        <span>₹ {(parseFloat(cashAmount) - total).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* UPI Mode View */}
+                {paymentMode === "UPI" && (
+                  <div className="space-y-2 pt-1 bg-blue-500/5 p-2.5 rounded-lg border border-blue-500/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-blue-600 flex items-center gap-1">
+                        <Smartphone className="w-3.5 h-3.5" /> Scan Dynamic QR on Terminal
+                      </span>
+                      <span className="font-mono font-bold text-foreground">₹ {total.toFixed(2)}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] text-muted-foreground font-medium">
+                          UPI UTR / Reference Number:
+                        </label>
+                        <span className="text-[10px] text-emerald-600 font-semibold">(Optional)</span>
+                      </div>
+                      <Input
+                        placeholder="UTR reference (Optional - never compulsory)"
+                        value={upiReference}
+                        onChange={(e) => setUpiReference(e.target.value)}
+                        className="text-xs font-mono h-7"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Mode View */}
+                {paymentMode === "CARD" && (
+                  <div className="space-y-2 pt-1 bg-purple-500/5 p-2.5 rounded-lg border border-purple-500/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-purple-600 flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5" /> In-Store EDC Card Swipe/Chip
+                      </span>
+                      <span className="font-mono font-bold text-foreground">₹ {total.toFixed(2)}</span>
+                    </div>
+                    <Input
+                      placeholder="Card Approval Code (Optional)"
+                      value={cardReference}
+                      onChange={(e) => setCardReference(e.target.value)}
+                      className="text-xs font-mono h-7"
+                    />
+                  </div>
+                )}
+
+                {/* Split Mode View */}
+                {paymentMode === "SPLIT" && (
+                  <div className="space-y-2 pt-1">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">Cash (₹):</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={cashAmount}
+                          onChange={(e) => setCashAmount(e.target.value)}
+                          className="font-mono text-xs h-7"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">UPI (₹):</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={upiAmount}
+                          onChange={(e) => setUpiAmount(e.target.value)}
+                          className="font-mono text-xs h-7"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">Card (₹):</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={cardAmount}
+                          onChange={(e) => setCardAmount(e.target.value)}
+                          className="font-mono text-xs h-7"
+                        />
+                      </div>
+                    </div>
+                    {/* Remaining allocation indicator */}
+                    <div className="text-[11px] font-mono flex justify-between">
+                      <span className="text-muted-foreground">Allocated:</span>
+                      <span
+                        className={
+                          Math.abs(
+                            (parseFloat(cashAmount) || 0) +
+                              (parseFloat(upiAmount) || 0) +
+                              (parseFloat(cardAmount) || 0) -
+                              total
+                          ) < 0.05
+                            ? "text-emerald-600 font-bold"
+                            : "text-destructive font-bold"
+                        }
+                      >
+                        ₹{" "}
+                        {(
+                          (parseFloat(cashAmount) || 0) +
+                          (parseFloat(upiAmount) || 0) +
+                          (parseFloat(cardAmount) || 0)
+                        ).toFixed(2)}{" "}
+                        / ₹ {total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Checkout Action Button */}
               <Button
-                className="w-full h-11 text-base font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white mt-4"
+                className="w-full h-11 text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md mt-2"
                 disabled={cart.length === 0 || isSubmittingBill || !currentShift}
                 onClick={handleCheckoutInvoice}
               >
@@ -635,7 +819,7 @@ export function PosBillingPage() {
                 )}
               </Button>
               {!currentShift && (
-                <p className="text-xs text-amber-600 text-center font-medium">
+                <p className="text-[11px] text-amber-600 text-center font-medium">
                   Please open a cashier shift drawer before processing invoices.
                 </p>
               )}

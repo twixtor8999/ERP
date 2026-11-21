@@ -22,6 +22,7 @@ import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
+import { PaymentsManagementPage } from "@/features/payments/pages/PaymentsManagementPage";
 
 function ModulePlaceholder({ name, description }: { name: string; description: string }) {
   return (
@@ -181,12 +182,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "payments",
-        element: (
-          <ModulePlaceholder
-            name="Payments & Collections"
-            description="Record incoming cash, UPI, cards, and bank transfer receipts."
-          />
-        ),
+        element: <PaymentsManagementPage />,
       },
       {
         path: "settlements",

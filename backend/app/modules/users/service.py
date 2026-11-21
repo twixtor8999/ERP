@@ -977,13 +977,25 @@ class UserService:
                 detail=f"Email '{email_val}' is already registered in this organization",
             )
 
-        # Enforce that Super Admin / Admin roles cannot be self-registered
-        role_slug_req = (request.requested_role_slug or request.role_slug or "cashier").strip().lower().replace("-", "_")
-        FORBIDDEN_SELF_ROLES = {"super_admin", "admin", "business_owner", "org_admin", "general_manager"}
-        if role_slug_req in FORBIDDEN_SELF_ROLES:
+        # Enforce that Administrative, Managerial and Financial roles cannot be self-registered
+        raw_slug = request.requested_role_slug or request.role_slug or "cashier"
+        role_slug_req = raw_slug.strip().lower().replace("-", "_")
+        forbidden_self_roles = {
+            "super_admin",
+            "admin",
+            "business_owner",
+            "org_admin",
+            "general_manager",
+            "branch_manager",
+            "accountant",
+        }
+        if role_slug_req in forbidden_self_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Administrative roles (Super Admin, Business Owner, General Manager) cannot be self-registered. An authorized administrator must provision them.",
+                detail=(
+                    f"Role '{role_slug_req}' cannot be self-registered. "
+                    "Managerial and financial positions require authorized administrative provisioning."
+                ),
             )
 
         # Match requested role from database
@@ -1001,14 +1013,14 @@ class UserService:
             password_hash=hash_password(request.password),
             full_name=request.full_name,
             is_active=True,
-            is_verified=True,
-            approval_status="APPROVED",
+            is_verified=False,
+            approval_status="PENDING",
             requested_role_slug=matched_role.slug if matched_role else role_slug_req,
         )
         db.add(new_user)
         db.flush()
 
-        # Assign the operational role as primary role
+        # Assign the operational role in PENDING status (inactive until approved)
         if matched_role:
             db.add(
                 UserRoleAssignment(
@@ -1017,27 +1029,14 @@ class UserService:
                     role_id=matched_role.id,
                     organization_id=target_org_id,
                     branch_id=None,
-                    is_active=True,
+                    is_active=False,
                     is_primary=True,
-                    status="ACTIVE",
+                    status="PENDING",
                     assigned_at=datetime.now(UTC),
                 )
             )
 
-        # Assign default branch access
-        flagship_branch = db.scalar(
-            select(Branch).where(Branch.organization_id == target_org_id, Branch.is_active.is_(True)).order_by(Branch.created_at)
-        )
-        if flagship_branch:
-            db.add(
-                UserBranchAccess(
-                    id=generate_uuid(),
-                    user_id=new_user.id,
-                    branch_id=flagship_branch.id,
-                    is_default=True,
-                    is_active=True,
-                )
-            )
+        # Pending employees must NOT receive active branch permissions until approved
 
         db.add(
             AuditLog(
@@ -1051,7 +1050,7 @@ class UserService:
                     "phone": new_user.phone,
                     "full_name": new_user.full_name,
                     "role_slug": matched_role.slug if matched_role else role_slug_req,
-                    "approval_status": "APPROVED",
+                    "approval_status": "PENDING",
                 },
             )
         )
