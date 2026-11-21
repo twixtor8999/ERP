@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Store,
   Lock,
   Loader2,
   ArrowRight,
@@ -219,8 +218,12 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 border border-emerald-500/30">
-            <Store className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center">
+            <img
+              src="/siddeshwar-logo.png"
+              alt="Siddeshwar Enterprises Logo"
+              className="w-16 h-16 rounded-2xl object-cover shadow-lg border border-slate-200"
+            />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ShoppingBag,
   ShoppingCart,
   Search,
   MapPin,
@@ -48,9 +47,11 @@ export const StoreHeader: React.FC<StoreHeaderProps> = ({ onSearch, cartCount = 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link to="/shop" className="flex items-center space-x-2 flex-shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-            <ShoppingBag className="w-6 h-6" />
-          </div>
+          <img
+            src="/siddeshwar-logo.png"
+            alt="Siddeshwar Enterprises Logo"
+            className="w-10 h-10 rounded-full object-cover shadow-md shadow-emerald-500/20 border border-emerald-500/20"
+          />
           <div>
             <span className="text-xl font-bold tracking-tight text-slate-900 block leading-tight">
               AI Smart Bazar

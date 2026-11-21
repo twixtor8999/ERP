@@ -42,7 +42,8 @@ describe("Customer Storefront UI Suite", () => {
 
     expect(screen.getByText("Welcome to AI Smart Bazar")).toBeInTheDocument();
     expect(screen.getByText("+91")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("9876543210")).toBeInTheDocument();
+    expect(screen.getByLabelText(/registered mobile number/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/10-digit mobile/i)).toBeInTheDocument();
     expect(screen.getByText("Sign In to Shop")).toBeInTheDocument();
   });
 
@@ -53,8 +54,8 @@ describe("Customer Storefront UI Suite", () => {
       </BrowserRouter>
     );
 
-    const phoneInput = screen.getByPlaceholderText("9876543210");
-    const passwordInput = screen.getByPlaceholderText("••••••••");
+    const phoneInput = screen.getByLabelText(/registered mobile number/i);
+    const passwordInput = screen.getByLabelText(/password/i);
     const submitBtn = screen.getByText("Sign In to Shop");
 
     fireEvent.change(phoneInput, { target: { value: "12345" } });

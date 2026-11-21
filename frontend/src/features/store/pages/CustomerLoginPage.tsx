@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { ShoppingBag, ArrowRight, ShieldCheck, AlertCircle, Phone, Lock } from "lucide-react";
+import { ArrowRight, ShieldCheck, AlertCircle, Phone, Lock } from "lucide-react";
 import { storeApi } from "../services/storeApi";
 import { useCustomerAuthStore } from "@/stores/customerAuth.store";
 
@@ -51,9 +51,11 @@ export const CustomerLoginPage: React.FC = () => {
     <div className="min-h-[80vh] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/shop" className="inline-flex items-center space-x-2">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-600/30">
-            <ShoppingBag className="w-7 h-7" />
-          </div>
+          <img
+            src="/siddeshwar-logo.png"
+            alt="Siddeshwar Enterprises Logo"
+            className="w-16 h-16 rounded-full object-cover shadow-xl border-2 border-emerald-500/20"
+          />
         </Link>
         <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
           Welcome to AI Smart Bazar
@@ -74,7 +76,7 @@ export const CustomerLoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label htmlFor="customer-phone" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Registered Mobile Number
               </label>
               <div className="relative rounded-lg shadow-sm">
@@ -85,6 +87,7 @@ export const CustomerLoginPage: React.FC = () => {
                   </span>
                 </div>
                 <input
+                  id="customer-phone"
                   type="tel"
                   maxLength={10}
                   placeholder="Enter 10-digit mobile"
@@ -97,7 +100,7 @@ export const CustomerLoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label htmlFor="customer-password" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Password
               </label>
               <div className="relative rounded-lg shadow-sm">
@@ -105,6 +108,7 @@ export const CustomerLoginPage: React.FC = () => {
                   <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
+                  id="customer-password"
                   type="password"
                   placeholder="••••••••"
                   value={password}

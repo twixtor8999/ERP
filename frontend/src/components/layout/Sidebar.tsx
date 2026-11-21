@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Store } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utilities/cn";
@@ -17,9 +17,11 @@ export function Sidebar() {
       {/* Brand Header */}
       <div className="flex h-16 items-center justify-between px-4 border-b">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm shrink-0 shadow-sm">
-            <Store className="w-4 h-4" />
-          </div>
+          <img
+            src="/siddeshwar-logo.png"
+            alt="Siddeshwar Enterprises"
+            className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-amber-500/20"
+          />
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="font-bold text-sm leading-tight text-foreground truncate">
