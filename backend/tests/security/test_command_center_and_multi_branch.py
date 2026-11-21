@@ -34,9 +34,7 @@ from app.models import (
     ProductTaxConfiguration,
     ProductVariant,
     Settlement,
-    StockAdjustment,
     StockBalance,
-    StockTransfer,
     UnitOfMeasure,
     User,
     UserBranchAccess,
@@ -474,7 +472,9 @@ def test_03_pos_cashier_shift_lifecycle_and_counter_billing(
     setup_multi_branch_erp_environment: dict[str, Any],
     db_session: Session,
 ) -> None:
-    """Full POS counter workflow: Shift Open -> Barcode Lookup -> Billing -> Stock Deduction -> Shift Close Discrepancy."""
+    """Full POS counter workflow: Shift Open -> Barcode Lookup -> Billing ->
+    Stock Deduction -> Shift Close Discrepancy.
+    """
     env = setup_multi_branch_erp_environment
     cashier_token = _login_token(client, "9822990004", "CashierPass123!")
     csh_hdr = _auth_headers(cashier_token)
@@ -737,7 +737,7 @@ def test_07_reports_and_csv_streaming_export(
     setup_multi_branch_erp_environment: dict[str, Any],
 ) -> None:
     """Verifies sales breakdown, cashier performance, inventory valuation and CSV downloads."""
-    env = setup_multi_branch_erp_environment
+    _ = setup_multi_branch_erp_environment
     owner_token = _login_token(client, "9822990000", "OwnerSecurePass123!")
     owner_hdr = _auth_headers(owner_token)
 

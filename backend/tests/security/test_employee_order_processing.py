@@ -25,15 +25,9 @@ from app.core.security import hash_password
 from app.database.base import generate_uuid
 from app.database.seed import seed_permissions, seed_system_roles
 from app.models import (
-    AuditLog,
     Branch,
-    Customer,
     Employee,
     InventoryReservation,
-    Order,
-    OrderDeliveryAttempt,
-    OrderItem,
-    OrderStatusHistory,
     Organization,
     Product,
     ProductCategory,
