@@ -267,17 +267,15 @@ export function VehiclesPage() {
       <div className="flex items-center gap-2 border-b pb-2">
         <button
           onClick={() => setActiveTab("fleet")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "fleet" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "fleet" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <Truck className="w-4 h-4" /> Active Fleet Vehicles ({vehicles.length})
         </button>
         <button
           onClick={() => setActiveTab("trips")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "trips" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "trips" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <Layers className="w-4 h-4" /> Delivery Trips & Run-Sheets ({trips.length})
         </button>
@@ -394,8 +392,8 @@ export function VehiclesPage() {
                             t.status === "COMPLETED"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : t.status === "DISPATCHED"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
                           }
                         >
                           {t.status}

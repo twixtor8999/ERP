@@ -171,11 +171,10 @@ export function SettlementsPage() {
         denominations,
       });
       toast.success("Shift Closed & Cash Drawer Reconciled", {
-        description: `Tallied ₹${calculatedCountedCash.toFixed(2)}. ${
-          activeShiftDiscrepancy === 0
-            ? "Exact drawer balance!"
-            : `Discrepancy: ${activeShiftDiscrepancy > 0 ? "+" : ""}₹${activeShiftDiscrepancy.toFixed(2)}`
-        }`,
+        description: `Tallied ₹${calculatedCountedCash.toFixed(2)}. ${activeShiftDiscrepancy === 0
+          ? "Exact drawer balance!"
+          : `Discrepancy: ${activeShiftDiscrepancy > 0 ? "+" : ""}₹${activeShiftDiscrepancy.toFixed(2)}`
+          }`,
       });
       setIsTallyModalOpen(false);
       fetchShifts();
@@ -246,21 +245,19 @@ export function SettlementsPage() {
       <div className="flex items-center gap-2 border-b pb-2">
         <button
           onClick={() => setActiveTab("shifts")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "shifts"
-              ? "bg-slate-900 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "shifts"
+            ? "bg-slate-900 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <Layers className="w-4 h-4" /> Cashier Shifts & Drawer Tally
         </button>
         <button
           onClick={() => setActiveTab("daybook")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "daybook"
-              ? "bg-slate-900 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "daybook"
+            ? "bg-slate-900 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <BookOpen className="w-4 h-4" /> Daybook (Roznamcha Daily Accounts)
         </button>
@@ -558,13 +555,12 @@ export function SettlementsPage() {
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              l.mode === "CASH"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : l.mode === "UPI"
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${l.mode === "CASH"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : l.mode === "UPI"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-slate-100 text-slate-800"
-                            }`}
+                              }`}
                           >
                             {l.mode}
                           </span>
@@ -704,17 +700,16 @@ export function SettlementsPage() {
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
                   <span className="text-slate-400">Drawer Discrepancy:</span>
                   <span
-                    className={`font-mono font-bold px-2 py-0.5 rounded ${
-                      activeShiftDiscrepancy === 0
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-rose-500/20 text-rose-400"
-                    }`}
+                    className={`font-mono font-bold px-2 py-0.5 rounded ${activeShiftDiscrepancy === 0
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-rose-500/20 text-rose-400"
+                      }`}
                   >
                     {activeShiftDiscrepancy === 0
                       ? "Exact Match (₹0.00)"
                       : `${activeShiftDiscrepancy > 0 ? "Excess +" : "Shortage -"}₹${Math.abs(
-                          activeShiftDiscrepancy
-                        ).toFixed(2)}`}
+                        activeShiftDiscrepancy
+                      ).toFixed(2)}`}
                   </span>
                 </div>
               </div>

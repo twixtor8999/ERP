@@ -275,25 +275,22 @@ export function EmployeesPage() {
       <div className="flex items-center gap-2 border-b pb-2">
         <button
           onClick={() => setActiveTab("roster")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "roster" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "roster" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <UserCheck className="w-4 h-4" /> Staff Roster ({employees.length})
         </button>
         <button
           onClick={() => setActiveTab("attendance")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "attendance" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "attendance" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <Clock className="w-4 h-4" /> Daily Attendance Register
         </button>
         <button
           onClick={() => setActiveTab("slips")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            activeTab === "slips" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "slips" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+            }`}
         >
           <FileText className="w-4 h-4" /> Monthly Salary Slips ({salarySlips.length})
         </button>
@@ -398,17 +395,16 @@ export function EmployeesPage() {
                       <td className="py-3 px-4 font-mono text-xs text-slate-600">{emp.phone}</td>
                       <td className="py-3 px-4 text-center">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            currentStatus === "PRESENT"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : currentStatus === "HALF_DAY"
+                          className={`px-2 py-0.5 rounded text-xs font-bold ${currentStatus === "PRESENT"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : currentStatus === "HALF_DAY"
                               ? "bg-amber-100 text-amber-800"
                               : currentStatus === "ABSENT"
-                              ? "bg-rose-100 text-rose-800"
-                              : currentStatus === "LEAVE"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
+                                ? "bg-rose-100 text-rose-800"
+                                : currentStatus === "LEAVE"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-slate-100 text-slate-500"
+                            }`}
                         >
                           {currentStatus}
                         </span>
@@ -416,31 +412,28 @@ export function EmployeesPage() {
                       <td className="py-3 px-4 text-right space-x-1">
                         <button
                           onClick={() => handlePunchAttendance(emp.id, "PRESENT")}
-                          className={`px-2.5 py-1 text-xs font-bold rounded ${
-                            currentStatus === "PRESENT"
-                              ? "bg-emerald-600 text-white shadow"
-                              : "bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                          }`}
+                          className={`px-2.5 py-1 text-xs font-bold rounded ${currentStatus === "PRESENT"
+                            ? "bg-emerald-600 text-white shadow"
+                            : "bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                            }`}
                         >
                           P (Present)
                         </button>
                         <button
                           onClick={() => handlePunchAttendance(emp.id, "HALF_DAY")}
-                          className={`px-2.5 py-1 text-xs font-bold rounded ${
-                            currentStatus === "HALF_DAY"
-                              ? "bg-amber-500 text-white shadow"
-                              : "bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700"
-                          }`}
+                          className={`px-2.5 py-1 text-xs font-bold rounded ${currentStatus === "HALF_DAY"
+                            ? "bg-amber-500 text-white shadow"
+                            : "bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+                            }`}
                         >
                           HD (Half Day)
                         </button>
                         <button
                           onClick={() => handlePunchAttendance(emp.id, "ABSENT")}
-                          className={`px-2.5 py-1 text-xs font-bold rounded ${
-                            currentStatus === "ABSENT"
-                              ? "bg-rose-600 text-white shadow"
-                              : "bg-slate-100 text-slate-700 hover:bg-rose-50 hover:text-rose-700"
-                          }`}
+                          className={`px-2.5 py-1 text-xs font-bold rounded ${currentStatus === "ABSENT"
+                            ? "bg-rose-600 text-white shadow"
+                            : "bg-slate-100 text-slate-700 hover:bg-rose-50 hover:text-rose-700"
+                            }`}
                         >
                           A (Absent)
                         </button>

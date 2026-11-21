@@ -28,6 +28,7 @@ import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage"
 import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
 import { CustomersCrmPage } from "@/features/customers/pages/CustomersCrmPage";
+import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
 import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
@@ -52,6 +53,9 @@ function RoleBasedHomeRedirect() {
   }
   if (role.includes("inventory")) {
     return <Navigate to="/inventory" replace />;
+  }
+  if (role.includes("crm") || role.includes("telecaller")) {
+    return <Navigate to="/crm" replace />;
   }
   return <Navigate to="/dashboard" replace />;
 }
@@ -108,6 +112,14 @@ export const router = createBrowserRouter([
     element: <LoginPage initialTab="register" />,
   },
   {
+    path: "/crm",
+    element: (
+      <ProtectedRoute>
+        <CrmTelecallerPortalPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/",
     element: (
       <ProtectedRoute>
@@ -149,11 +161,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "crm",
-        element: <CustomersCrmPage />,
+        element: <CrmTelecallerPortalPage />,
       },
       {
         path: "customers",
-        element: <Navigate to="/crm" replace />,
+        element: <CustomersCrmPage />,
       },
       {
         path: "duplicate-check",

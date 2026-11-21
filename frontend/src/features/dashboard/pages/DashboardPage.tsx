@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeStream, type RealtimeActivityEvent } from "@/lib/realtime/useRealtimeStream";
 import { BusinessOwnerDashboard } from "../components/BusinessOwnerDashboard";
+import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 
 // Role mapping helper
 function getRoleDashboardView(role?: string): string {
@@ -239,8 +240,9 @@ export function DashboardPage() {
       {effectiveView === "accounting" && <AccountantDashboard branchId={selectedBranchId || activeBranch?.id} />}
       {effectiveView === "inventory" && <InventoryDashboard branchId={selectedBranchId || activeBranch?.id} />}
       {effectiveView === "sales" && <SalesDashboard />}
+      {effectiveView === "crm" && <CrmTelecallerPortalPage />}
       {effectiveView === "employee" && <GeneralEmployeeDashboard />}
-      {!["owner", "pos", "branch-manager", "accounting", "inventory", "sales", "admin", "employee"].includes(effectiveView) && (
+      {!["owner", "pos", "branch-manager", "accounting", "inventory", "sales", "admin", "crm", "employee"].includes(effectiveView) && (
         <GeneralEmployeeDashboard />
       )}
     </div>
