@@ -111,6 +111,14 @@ export const router = createBrowserRouter([
         element: <PosBillingPage />,
       },
       {
+        path: "pos",
+        element: <PosBillingPage />,
+      },
+      {
+        path: "pos-billing",
+        element: <Navigate to="/pos" replace />,
+      },
+      {
         path: "orders",
         element: <StoreOrdersAdminPage />,
       },
