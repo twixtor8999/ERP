@@ -174,7 +174,7 @@ export function DashboardPage() {
                 className="p-1.5 border rounded-md text-xs font-semibold bg-background"
               >
                 <option value="">All Branches (Consolidated Organization)</option>
-                {availableBranches.map((b) => (
+                {(availableBranches || []).map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} ({b.code})
                   </option>
@@ -265,29 +265,51 @@ function SuperAdminCommandCenter({
   });
 
   // Multi-Branch Comparison Query
-  const { data: branchComparisons, isLoading: isCompLoading } = useQuery({
+  const { data: branchComparisons, isLoading: isCompLoading } = useQuery<BranchComparisonRow[]>({
     queryKey: ["analytics-branch-comparison"],
     queryFn: async () => {
-      const res = await apiClient.get<BranchComparisonRow[]>("/api/v1/analytics/branch-comparison");
-      return res.data;
+      const res = await apiClient.get<any>("/api/v1/analytics/branch-comparison");
+      const raw = res.data;
+      const list = Array.isArray(raw) ? raw : (raw?.branches || []);
+      return list.map((b: any): BranchComparisonRow => ({
+        branch_id: b.branch_id || "",
+        branch_name: b.branch_name || "Branch",
+        branch_code: b.branch_code || "",
+        city: b.city || "Pune Hub",
+        is_headquarters: Boolean(b.is_headquarters || b.branch_code === "HQ-01" || b.branch_code === "BR-MAIN" || b.branch_code === "HQ"),
+        today_sales: b.today_sales ?? b.daily_sales ?? 0,
+        month_sales: b.month_sales ?? b.monthly_sales ?? 0,
+        stock_valuation: b.stock_valuation ?? b.inventory_valuation ?? 0,
+        active_shifts: b.active_shifts ?? b.active_cashiers ?? 0,
+        cash_discrepancy_total: b.cash_discrepancy_total ?? 0,
+        pending_deliveries: b.pending_deliveries ?? 0,
+        alert_count: b.alert_count ?? b.low_stock_count ?? 0,
+        health_status: b.health_status ?? (b.low_stock_count > 5 ? "WARNING" : "HEALTHY"),
+      }));
     },
     refetchInterval: 20000,
   });
 
   // Central Operational Alerts Feed
-  const { data: alerts, isLoading: isAlertsLoading } = useQuery({
+  const { data: alerts, isLoading: isAlertsLoading } = useQuery<SystemAlert[]>({
     queryKey: ["notifications-alerts", branchId],
     queryFn: async () => {
-      const res = await apiClient.get<SystemAlert[]>("/api/v1/notifications/alerts", {
+      const res = await apiClient.get<any>("/api/v1/notifications/alerts", {
         params: {
           limit: 8,
           ...(branchId ? { branch_id: branchId } : {}),
         },
       });
-      return res.data;
+      const raw = res.data;
+      const list = Array.isArray(raw) ? raw : (raw?.alerts || raw?.items || []);
+      return list as SystemAlert[];
     },
     refetchInterval: 10000,
   });
+
+  const branchList = Array.isArray(branchComparisons) ? branchComparisons : [];
+  const alertList = Array.isArray(alerts) ? alerts : [];
+  const eventList = Array.isArray(liveEvents) ? liveEvents : [];
 
   return (
     <div className="space-y-6">
@@ -433,7 +455,7 @@ function SuperAdminCommandCenter({
             </CardDescription>
           </div>
           <Badge variant="outline" className="text-xs font-mono">
-            {branchComparisons?.length || 0} Operating Locations
+            {branchList.length} Operating Locations
           </Badge>
         </CardHeader>
         <CardContent className="p-0">
@@ -458,64 +480,72 @@ function SuperAdminCommandCenter({
                       Gathering multi-branch telemetry...
                     </td>
                   </tr>
-                ) : branchComparisons?.map((b) => (
-                  <tr key={b.branch_id} className="hover:bg-muted/20">
-                    <td className="py-2.5 px-4">
-                      <div className="font-semibold text-foreground flex items-center gap-1.5">
-                        {b.branch_name}
-                        {b.is_headquarters && (
-                          <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
-                            HQ
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {b.branch_code} • {b.city || "Hub"}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground">
-                      ₹ {Number(b.today_sales).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
-                      ₹ {Number(b.month_sales).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-medium">
-                      ₹ {Number(b.stock_valuation).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {b.active_shifts} active
-                      </Badge>
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold">
-                      {Number(b.cash_discrepancy_total) !== 0 ? (
-                        <span className="text-destructive">
-                          ₹{Number(b.cash_discrepancy_total).toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600">₹0.00</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-center font-mono">
-                      {b.pending_deliveries}
-                    </td>
-                    <td className="py-2.5 px-4 text-center">
-                      {b.health_status === "HEALTHY" ? (
-                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
-                          HEALTHY
-                        </Badge>
-                      ) : b.health_status === "WARNING" ? (
-                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs">
-                          WARNING
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">
-                          ACTION REQ
-                        </Badge>
-                      )}
+                ) : branchList.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-muted-foreground">
+                      No branch operational data available.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  branchList.map((b) => (
+                    <tr key={b.branch_id} className="hover:bg-muted/20">
+                      <td className="py-2.5 px-4">
+                        <div className="font-semibold text-foreground flex items-center gap-1.5">
+                          {b.branch_name}
+                          {b.is_headquarters && (
+                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+                              HQ
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {b.branch_code} • {b.city || "Hub"}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground">
+                        ₹ {Number(b.today_sales).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
+                        ₹ {Number(b.month_sales).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-medium">
+                        ₹ {Number(b.stock_valuation).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {b.active_shifts} active
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold">
+                        {Number(b.cash_discrepancy_total) !== 0 ? (
+                          <span className="text-destructive">
+                            ₹{Number(b.cash_discrepancy_total).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600">₹0.00</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono">
+                        {b.pending_deliveries}
+                      </td>
+                      <td className="py-2.5 px-4 text-center">
+                        {b.health_status === "HEALTHY" ? (
+                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
+                            HEALTHY
+                          </Badge>
+                        ) : b.health_status === "WARNING" ? (
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs">
+                            WARNING
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            ACTION REQ
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -537,7 +567,7 @@ function SuperAdminCommandCenter({
                 </CardDescription>
               </div>
               <Badge variant="outline" className="text-xs">
-                {alerts?.length || 0} Alerts
+                {alertList.length} Alerts
               </Badge>
             </CardHeader>
             <CardContent className="space-y-2.5 max-h-96 overflow-y-auto">
@@ -545,13 +575,13 @@ function SuperAdminCommandCenter({
                 <div className="py-8 text-center text-muted-foreground text-sm">
                   Checking system alerts...
                 </div>
-              ) : !alerts || alerts.length === 0 ? (
+              ) : alertList.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-1.5">
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                   <span>No operational alerts or register discrepancies.</span>
                 </div>
               ) : (
-                alerts.map((a) => (
+                alertList.map((a) => (
                   <div
                     key={a.id}
                     onClick={() => a.action_url && navigate(a.action_url)}
@@ -605,16 +635,16 @@ function SuperAdminCommandCenter({
                 </CardDescription>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
-                {liveEvents.length} Recent Events
+                {eventList.length} Recent Events
               </Badge>
             </CardHeader>
             <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-              {liveEvents.length === 0 ? (
+              {eventList.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground text-sm">
                   Awaiting real-time events. As POS counter bills and stock movements occur, they appear here instantly.
                 </div>
               ) : (
-                liveEvents.slice(0, 15).map((ev) => (
+                eventList.slice(0, 15).map((ev) => (
                   <div
                     key={ev.event_id}
                     className="p-2.5 rounded-md border bg-card/40 flex items-start justify-between gap-3 text-xs"
@@ -725,7 +755,7 @@ function BranchManagerDashboard({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">{activeBranchName || "Branch"} Operational Shortcuts</CardTitle>
-          <Badge variant="outline" className="text-xs font-mono">{liveEvents.length} Live Events</Badge>
+          <Badge variant="outline" className="text-xs font-mono">{(liveEvents || []).length} Live Events</Badge>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-4">
           <Button variant="outline" className="h-auto py-3 px-4 flex flex-col items-start gap-1" onClick={() => navigate("/billing")}>

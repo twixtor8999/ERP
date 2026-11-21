@@ -4,6 +4,7 @@ import { router } from "./router";
 import { useAuthStore } from "@/stores/auth.store";
 import { useBranchStore } from "@/stores/branch.store";
 import { authService } from "@/features/auth/services/auth.service";
+import { ErrorBoundary } from "@/components/feedback/ErrorBoundary";
 
 export function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -65,6 +66,10 @@ export function App() {
     };
   }, [setUser, setLoading, setAvailableBranches, setActiveBranch]);
 
-  return <RouterProvider router={router} />;
+  return (
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+    </ErrorBoundary>
+  );
 }
 
