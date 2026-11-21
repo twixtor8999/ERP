@@ -721,7 +721,7 @@ export function PosBillingPage() {
                       setKhataAmount("");
                     }}
                   >
-                    <Smartphone className="w-3 h-3" /> UPI
+                    <Smartphone className="w-3 h-3" /> UPI QR
                   </Button>
                   <Button
                     type="button"

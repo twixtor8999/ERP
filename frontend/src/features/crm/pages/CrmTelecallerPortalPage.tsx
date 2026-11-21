@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   LogOut,
   Sparkles,
+  X,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -155,6 +156,7 @@ export function CrmTelecallerPortalPage() {
     active_period: "01 Nov 2026 to 30 Nov 2026",
   });
   const [incentiveProducts, setIncentiveProducts] = useState<IncentiveProduct[]>([]);
+  const [selectedIncentiveProduct, setSelectedIncentiveProduct] = useState<IncentiveProduct | null>(null);
 
   // Calling Sheet state
   const [routes, setRoutes] = useState<string[]>([]);
@@ -542,7 +544,7 @@ export function CrmTelecallerPortalPage() {
       </header>
 
       {/* Main Responsive Canvas with Smooth Animated Page Transition */}
-      <main className="max-w-4xl mx-auto p-3 sm:p-5">
+      <main className="max-w-4xl mx-auto p-3 sm:p-5 pb-28 sm:pb-32">
         <div
           key={activeView}
           className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
@@ -653,23 +655,25 @@ export function CrmTelecallerPortalPage() {
                 {/* Horizontal Scroll Product Incentive Carousel */}
                 <div className="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth">
                   {incentiveProducts.map((p) => (
-                    <div
+                    <button
                       key={p.id}
-                      className="min-w-[155px] max-w-[155px] bg-slate-50 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between shrink-0 hover:shadow-md transition-shadow relative"
+                      type="button"
+                      onClick={() => setSelectedIncentiveProduct(p)}
+                      className="min-w-[155px] max-w-[155px] bg-slate-50 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between shrink-0 hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
                     >
                       <div className="space-y-1.5">
                         <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center">
                           <img
                             src={p.image_url}
                             alt={p.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                           <span className="absolute top-1 right-1 text-[8px] font-bold px-1 py-0.5 rounded bg-blue-700 text-white uppercase">
                             {p.badge}
                           </span>
                         </div>
 
-                        <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight">
+                        <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
                           {p.name}
                         </h4>
                         <p className="text-[10px] text-slate-500 font-medium">
@@ -688,7 +692,7 @@ export function CrmTelecallerPortalPage() {
                           {p.progress_text}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
@@ -1321,7 +1325,8 @@ export function CrmTelecallerPortalPage() {
                     return (
                       <div
                         key={p.id}
-                        className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2"
+                        onClick={() => setSelectedIncentiveProduct(p)}
+                        className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 hover:border-blue-400 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1360,6 +1365,33 @@ export function CrmTelecallerPortalPage() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* How to get incentive & Terms (matching nxIncPoster in Firebase app) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                    <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📋 How to Get Incentive</span>
+                    </h4>
+                    <ol className="text-xs text-slate-600 space-y-1.5 list-decimal pl-4">
+                      <li>Place orders for the scheme products in the CRM app.</li>
+                      <li>Order at least the minimum target quantity.</li>
+                      <li>Incentive = quantity × incentive per unit. Returned items deducted.</li>
+                      <li>The month's incentive is credited directly with your salary payout.</li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                    <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>⚖️ Scheme Terms & Conditions</span>
+                    </h4>
+                    <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li>Valid only for designated scheme products inside the active dates.</li>
+                      <li>Cancelled orders do not count towards target achievement.</li>
+                      <li>Returns or credit note reconciliations are deducted automatically.</li>
+                      <li>The Business Owner may adjust or extend target slabs.</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1836,6 +1868,160 @@ export function CrmTelecallerPortalPage() {
           )}
         </div>
       </main>
+
+      {/* ======================================================== */}
+      {/* INCENTIVE PRODUCT DETAIL & QUICK ACTION MODAL            */}
+      {/* ======================================================== */}
+      {selectedIncentiveProduct && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl animate-in zoom-in-95 border border-slate-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 uppercase">
+                  {selectedIncentiveProduct.badge}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Target Scheme
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedIncentiveProduct(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Product Card Info */}
+            <div className="flex gap-3 items-center">
+              <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 flex items-center justify-center">
+                <img
+                  src={selectedIncentiveProduct.image_url}
+                  alt={selectedIncentiveProduct.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2">
+                  {selectedIncentiveProduct.name}
+                </h3>
+                <p className="text-[11px] text-slate-600 font-semibold">
+                  MRP: <span className="font-bold text-slate-900">₹{selectedIncentiveProduct.mrp}</span>
+                </p>
+                <div className="inline-block bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] shadow-xs">
+                  {selectedIncentiveProduct.incentive_text}
+                </div>
+              </div>
+            </div>
+
+            {/* Target Progress & Incentive Breakdown */}
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-600">Target Progress</span>
+                <span className="font-bold text-slate-900">
+                  {selectedIncentiveProduct.sold_pcs} / {selectedIncentiveProduct.target_pcs} Sold
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    selectedIncentiveProduct.sold_pcs >= selectedIncentiveProduct.target_pcs
+                      ? "bg-emerald-500"
+                      : "bg-blue-600"
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (selectedIncentiveProduct.sold_pcs /
+                          (selectedIncentiveProduct.target_pcs || 1)) *
+                          100
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                  <span className="text-slate-500 block text-[10px]">Remaining</span>
+                  <span className="font-bold text-slate-800">
+                    {Math.max(0, selectedIncentiveProduct.target_pcs - selectedIncentiveProduct.sold_pcs)} more needed
+                  </span>
+                </div>
+                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                  <span className="text-slate-500 block text-[10px]">Total Potential</span>
+                  <span className="font-bold text-emerald-700">
+                    ₹{selectedIncentiveProduct.target_pcs * selectedIncentiveProduct.incentive_amt}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const match = catalog.find(
+                    (c) =>
+                      c.id === selectedIncentiveProduct.id ||
+                      c.name.toLowerCase().includes(selectedIncentiveProduct.name.toLowerCase()) ||
+                      selectedIncentiveProduct.name.toLowerCase().includes(c.name.toLowerCase())
+                  );
+                  const prodId = match ? match.id : selectedIncentiveProduct.id;
+                  setOrderItems((prev) => ({
+                    ...prev,
+                    [prodId]: (prev[prodId] || 0) + 1,
+                  }));
+                  setSelectedIncentiveProduct(null);
+                  setActiveView("place-order");
+                  toast.success("Item Added to Order Pad", {
+                    description: `${selectedIncentiveProduct.name} added to cart. Ready to select customer.`,
+                  });
+                }}
+                className="w-full bg-[#1e3a8a] hover:bg-[#172554] text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs active:scale-95"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>Punch Order with This Item</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIncentiveProduct(null);
+                    setActiveView("callings");
+                    toast.info("Route Calling Sheet", {
+                      description: `Call route customers and pitch ${selectedIncentiveProduct.name}.`,
+                    });
+                  }}
+                  className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                >
+                  <Phone className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Pitch on Call</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIncentiveProduct(null);
+                    setActiveView("targets");
+                  }}
+                  className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                >
+                  <Target className="w-3.5 h-3.5 text-pink-600" />
+                  <span>All Targets</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* LOG CALL REMARK POPUP MODAL                              */}

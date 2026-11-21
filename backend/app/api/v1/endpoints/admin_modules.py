@@ -45,6 +45,7 @@ from app.models import (
     SalarySlip,
     Settlement,
     StockBalance,
+    StockMovement,
     Supplier,
     UnitConversion,
     UnitOfMeasure,
@@ -264,12 +265,105 @@ def list_admin_products(
     return res
 
 
+def check_product_manage_permission(current_user: AuthContext) -> None:
+    """Ensure actor is store owner, admin, or inventory manager."""
+    role = (current_user.role or "").lower()
+    allowed_roles = ("admin", "super_admin", "owner", "inventory_manager", "org_admin", "business_owner")
+    if not current_user.is_org_admin and not any(r in role for r in allowed_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Only store administrators and inventory managers can modify product master catalog or pricing.",
+        )
+
+
+def validate_pricing(
+    cost_price: Decimal | None = None,
+    selling_price: Decimal | None = None,
+    mrp: Decimal | None = None,
+    wholesale_price: Decimal | None = None,
+    min_selling_price: Decimal | None = None,
+) -> None:
+    """Validate pricing relationships and non-negative constraints."""
+    if cost_price is not None and cost_price < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Cost price cannot be negative")
+    if selling_price is not None and selling_price <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Selling price must be greater than zero")
+    if mrp is not None and mrp < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="MRP cannot be negative")
+    if selling_price is not None and mrp is not None and selling_price > mrp:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Selling price (₹{selling_price}) cannot exceed MRP (₹{mrp}) under Legal Metrology Act rules",
+        )
+    if wholesale_price is not None and wholesale_price < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Wholesale price cannot be negative")
+    if min_selling_price is not None and min_selling_price < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Minimum selling price cannot be negative")
+    if min_selling_price is not None and selling_price is not None and min_selling_price > selling_price:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Minimum selling price (₹{min_selling_price}) cannot be higher than selling price (₹{selling_price})",
+        )
+
+
+def validate_product_image(image_url: str | None) -> None:
+    """Validate uploaded image format and size constraints."""
+    if not image_url:
+        return
+    if image_url.startswith("data:image/"):
+        if len(image_url) > 500_000:
+            raise HTTPException(status_code=400, detail="Product image exceeds 500KB limit for base64 upload")
+        valid_mimes = ("data:image/jpeg", "data:image/png", "data:image/webp", "data:image/gif")
+        if not any(image_url.startswith(m) for m in valid_mimes):
+            raise HTTPException(status_code=400, detail="Invalid image MIME type. Only JPEG, PNG, WEBP, GIF allowed")
+    elif not (image_url.startswith("http://") or image_url.startswith("https://") or image_url.startswith("/")):
+        raise HTTPException(status_code=400, detail="Invalid image URL format. Must be an HTTP(S) URL or valid data URI")
+
+
+def validate_sku(sku: str) -> str:
+    """Enforce SKU format and non-empty constraints."""
+    cleaned = sku.strip().upper()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="SKU cannot be empty or whitespace")
+    if len(cleaned) < 2:
+        raise HTTPException(status_code=400, detail="SKU must be at least 2 characters long")
+    return cleaned
+
+
+def sanitize_csv_cell(val: Any) -> str:
+    """Prevent CSV formula injection (CWE-1236) by neutralizing dangerous leading characters."""
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return f"'{s}"
+    return s
+
+
 @router.post("/products", status_code=status.HTTP_201_CREATED)
 def create_admin_product(
     payload: CreateProductPayload,
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    check_product_manage_permission(current_user)
+
+    # Validate SKU and image
+    clean_sku = validate_sku(payload.initial_variant.sku)
+    validate_product_image(payload.image_url)
+
+    # Validate pricing relationships
+    mrp_val = payload.initial_variant.mrp or payload.initial_variant.selling_price
+    wholesale_val = payload.initial_variant.wholesale_price or payload.initial_variant.selling_price
+    min_price_val = payload.initial_variant.min_selling_price or payload.initial_variant.cost_price
+    validate_pricing(
+        cost_price=payload.initial_variant.cost_price,
+        selling_price=payload.initial_variant.selling_price,
+        mrp=mrp_val,
+        wholesale_price=wholesale_val,
+        min_selling_price=min_price_val,
+    )
+
     # Check for duplicate product code or variant SKU
     existing = db.scalar(
         select(Product).where(
@@ -281,10 +375,10 @@ def create_admin_product(
         raise HTTPException(status_code=400, detail=f"Product with code '{payload.code}' already exists")
 
     sku_existing = db.scalar(
-        select(ProductVariant).where(ProductVariant.sku == payload.initial_variant.sku.strip())
+        select(ProductVariant).where(ProductVariant.sku == clean_sku)
     )
     if sku_existing:
-        raise HTTPException(status_code=400, detail=f"SKU '{payload.initial_variant.sku}' already exists")
+        raise HTTPException(status_code=400, detail=f"SKU '{clean_sku}' already exists")
 
     # Resolve default warehouse and branch
     branch = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
@@ -396,6 +490,8 @@ def update_admin_product(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    check_product_manage_permission(current_user)
+
     product = db.scalar(
         select(Product).where(
             Product.id == product_id,
@@ -405,12 +501,14 @@ def update_admin_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product master record not found")
 
+    if payload.image_url is not None:
+        validate_product_image(payload.image_url)
+        product.image_url = payload.image_url
+
     if payload.name is not None:
         product.name = payload.name.strip()
     if payload.display_name is not None:
         product.display_name = payload.display_name.strip()
-    if payload.image_url is not None:
-        product.image_url = payload.image_url
     if payload.category_id is not None:
         product.category_id = payload.category_id
     if payload.uom_id is not None:
@@ -443,9 +541,37 @@ def update_admin_product(
 
     if variant:
         if payload.sku is not None:
-            variant.sku = payload.sku.strip().upper()
+            clean_sku = validate_sku(payload.sku)
+            # Check duplicate SKU
+            dup_v = db.scalar(
+                select(ProductVariant).where(
+                    ProductVariant.sku == clean_sku,
+                    ProductVariant.id != variant.id,
+                )
+            )
+            if dup_v:
+                raise HTTPException(status_code=400, detail=f"SKU '{clean_sku}' is already assigned to another product")
+            variant.sku = clean_sku
+
         if payload.barcode is not None:
             variant.barcode = payload.barcode.strip()
+
+        # Pricing validation
+        new_cost = payload.cost_price if payload.cost_price is not None else variant.cost_price
+        new_selling = payload.selling_price if payload.selling_price is not None else variant.selling_price
+        new_mrp = payload.mrp if payload.mrp is not None else variant.mrp
+        new_wholesale = payload.wholesale_price if payload.wholesale_price is not None else variant.wholesale_price
+        new_min = payload.min_selling_price if payload.min_selling_price is not None else variant.min_selling_price
+
+        if any(p is not None for p in (payload.cost_price, payload.selling_price, payload.mrp, payload.wholesale_price, payload.min_selling_price)):
+            validate_pricing(
+                cost_price=new_cost,
+                selling_price=new_selling,
+                mrp=new_mrp,
+                wholesale_price=new_wholesale,
+                min_selling_price=new_min,
+            )
+
         if payload.cost_price is not None:
             variant.cost_price = payload.cost_price
         if payload.selling_price is not None:
@@ -476,8 +602,8 @@ def update_admin_product(
                             barcode_type="CODE128",
                         ))
 
-        # Stock adjustment
-        if payload.stock_adjustment is not None:
+        # Auditable Stock adjustment (Phase 5)
+        if payload.stock_adjustment is not None and payload.stock_adjustment != Decimal("0.00"):
             branch = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
             warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == current_user.organization_id))
             if branch and warehouse:
@@ -487,21 +613,88 @@ def update_admin_product(
                         StockBalance.warehouse_id == warehouse.id,
                     )
                 )
+                before_qty = stock_bal.quantity_on_hand if stock_bal else Decimal("0.0000")
+                after_qty = before_qty + payload.stock_adjustment
+                if after_qty < Decimal("0.0000"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Stock adjustment of {payload.stock_adjustment} would cause negative stock ({after_qty} on hand)",
+                    )
+
                 if stock_bal:
-                    stock_bal.quantity_on_hand += payload.stock_adjustment
+                    stock_bal.quantity_on_hand = after_qty
+                    stock_bal.total_value = after_qty * (stock_bal.average_unit_cost or variant.cost_price)
                 else:
-                    db.add(StockBalance(
+                    stock_bal = StockBalance(
                         id=str(uuid.uuid4()),
                         organization_id=current_user.organization_id,
                         warehouse_id=warehouse.id,
                         branch_id=branch.id,
                         product_variant_id=variant.id,
-                        quantity_on_hand=payload.stock_adjustment,
+                        quantity_on_hand=after_qty,
                         quantity_reserved=Decimal("0.0000"),
-                    ))
+                        average_unit_cost=variant.cost_price,
+                        total_value=after_qty * variant.cost_price,
+                    )
+                    db.add(stock_bal)
+
+                # Record immutable audit ledger entry
+                db.add(
+                    StockMovement(
+                        id=str(uuid.uuid4()),
+                        organization_id=current_user.organization_id,
+                        branch_id=branch.id,
+                        warehouse_id=warehouse.id,
+                        product_variant_id=variant.id,
+                        movement_type="ADJUSTMENT",
+                        quantity=payload.stock_adjustment,
+                        unit_cost=variant.cost_price,
+                        total_cost=abs(payload.stock_adjustment) * variant.cost_price,
+                        reference_type="PRODUCT_MASTER_EDIT",
+                        reference_id=product.id,
+                        notes=f"Stock adjusted by {payload.stock_adjustment} (from {before_qty} to {after_qty}) by user {current_user.user_id}",
+                        created_by=current_user.user_id,
+                    )
+                )
 
     db.commit()
     return {"message": "Product master updated successfully", "product_id": product.id}
+
+
+@router.delete("/products/{product_id}")
+def delete_admin_product(
+    product_id: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Safely archive / soft-delete product while preserving historical order lines."""
+    check_product_manage_permission(current_user)
+    product = db.scalar(
+        select(Product).where(
+            Product.id == product_id,
+            Product.organization_id == current_user.organization_id,
+        )
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found in this organization")
+
+    # Check if existing order items exist
+    has_orders = db.scalar(
+        select(func.count(OrderItem.id))
+        .join(ProductVariant, ProductVariant.id == OrderItem.product_variant_id)
+        .where(ProductVariant.product_id == product.id)
+    ) or 0
+
+    product.is_active = False
+    for v in product.variants:
+        v.is_active = False
+    db.commit()
+
+    return {
+        "message": f"Product '{product.name}' deactivated successfully.",
+        "status": "DEACTIVATED",
+        "historical_orders_preserved": has_orders,
+    }
 
 
 @router.get("/products/lookup/barcode/{barcode}")

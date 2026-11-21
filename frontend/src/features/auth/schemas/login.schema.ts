@@ -14,7 +14,7 @@ export const loginSchema = z.object({
         message: "Enter a valid 10-digit mobile number or business email address",
       }
     ),
-  password: z.string().min(8, "Password must be at least 8 characters long"),
+  password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().default(false).optional(),
 });
 

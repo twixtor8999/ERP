@@ -250,7 +250,7 @@ export function SettlementsPage() {
             : "text-slate-600 hover:bg-slate-100"
             }`}
         >
-          <Layers className="w-4 h-4" /> Cashier Shifts & Drawer Tally
+          <Layers className="w-4 h-4" /> Cashier Shifts & Day-End Drawer Settlements
         </button>
         <button
           onClick={() => setActiveTab("daybook")}
@@ -306,7 +306,7 @@ export function SettlementsPage() {
 
             <Card className={discrepancyCount > 0 ? "border-destructive/30 bg-destructive/5" : ""}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Drawer Discrepancies</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Drawer Discrepancies</CardTitle>
                 <AlertTriangle className={`h-4 w-4 ${discrepancyCount > 0 ? "text-destructive" : "text-muted-foreground"}`} />
               </CardHeader>
               <CardContent>
