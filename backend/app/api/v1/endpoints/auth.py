@@ -80,6 +80,13 @@ class TokenRefreshResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class RegistrationRoleOption(BaseModel):
+    slug: str
+    name: str
+    badge: str
+    description: str
+
+
 # Demo organizational seed context
 DEMO_BRANCHES = [
     BranchSummaryResponse(
@@ -99,8 +106,8 @@ DEMO_BRANCHES = [
 ]
 
 
-@router.get("/registration-roles")
-def get_registration_roles():
+@router.get("/registration-roles", response_model=list[RegistrationRoleOption])
+def get_registration_roles() -> list[RegistrationRoleOption]:
     """List operational roles permitted for employee self-registration.
     Super Admin, Business Owner and administrative executive roles are strictly excluded.
     """
@@ -109,37 +116,49 @@ def get_registration_roles():
             "slug": "cashier",
             "name": "Cashier / Counter Billing Agent",
             "badge": "POS Operations",
-            "description": "Counter POS billing terminal, active cart, barcode scanning & shift drawer settlements.",
+            "description": (
+                "Counter POS billing terminal, active cart, barcode scanning & shift drawer settlements."
+            ),
         },
         {
             "slug": "branch_manager",
             "name": "Branch Manager",
             "badge": "Branch Oversight",
-            "description": "Branch-level sales oversight, cashier shifts audit, stock requisitions & deliveries dispatch.",
+            "description": (
+                "Branch-level sales oversight, cashier shifts audit, stock requisitions & deliveries dispatch."
+            ),
         },
         {
             "slug": "inventory_manager",
             "name": "Inventory & Stock Manager",
             "badge": "Warehouse & Stock",
-            "description": "Multi-branch stock balances, inter-branch transfers, SKU barcodes & product master catalog.",
+            "description": (
+                "Multi-branch stock balances, inter-branch transfers, SKU barcodes & product master catalog."
+            ),
         },
         {
             "slug": "accountant",
             "name": "Accountant",
             "badge": "Finance & Audit",
-            "description": "Cashier float reconciliation, end-of-day discrepancy verification, customer credit ledger & reports.",
+            "description": (
+                "Cashier float reconciliation, discrepancy verification, customer credit ledger & reports."
+            ),
         },
         {
             "slug": "sales_executive",
             "name": "Sales Executive",
             "badge": "In-Store Sales",
-            "description": "Customer orders, billing counter sales, customer CRM lookup and pricing discounts.",
+            "description": (
+                "Customer orders, billing counter sales, customer CRM lookup and pricing discounts."
+            ),
         },
         {
             "slug": "employee",
             "name": "Store & Delivery Staff",
             "badge": "Logistics & Floor",
-            "description": "Order item picking, parcel packing, mobile delivery runs & OTP verification.",
+            "description": (
+                "Order item picking, parcel packing, mobile delivery runs & OTP verification."
+            ),
         },
     ]
 
