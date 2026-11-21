@@ -1,4 +1,4 @@
-import { useState, useId } from "react";
+import { useState, useEffect, useId } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,6 +65,17 @@ const OPERATIONAL_ROLES: RegistrationRoleItem[] = [
   },
 ];
 
+function resolveSmartRoute(role?: string, fallbackRoute?: string | null): string {
+  if (!role) return fallbackRoute || "/dashboard";
+  const r = role.toLowerCase().replace(/[-\s]/g, "_");
+  if (r.includes("cashier") || r.includes("pos")) return "/pos";
+  if (r.includes("delivery")) return "/deliveries";
+  if (r.includes("inventory")) return "/inventory";
+  if (r.includes("accountant")) return "/accounts";
+  if (r.includes("super_admin") || r.includes("admin") || r.includes("owner")) return "/dashboard";
+  return fallbackRoute || "/dashboard";
+}
+
 interface LoginPageProps {
   initialTab?: "login" | "register";
 }
@@ -91,8 +102,14 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
   const [regPassword, setRegPassword] = useState("");
   const [regSelectedRole, setRegSelectedRole] = useState("cashier");
 
-  const { setUser } = useAuthStore();
+  const { user, isAuthenticated, setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(resolveSmartRoute(user.role, user.dashboardRoute), { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const {
     register: loginRegister,
@@ -122,7 +139,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
       toast.success("Authentication Successful", {
         description: `Welcome back, ${response.user.fullName} (${response.user.role})`,
       });
-      navigate(response.user.dashboardRoute || "/dashboard");
+      navigate(resolveSmartRoute(response.user.role, response.user.dashboardRoute), { replace: true });
     } catch (err: unknown) {
       const errorMsg =
         err && typeof err === "object" && "response" in err
@@ -180,7 +197,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
         }
       }
 
-      navigate(loginRes.user.dashboardRoute || "/dashboard");
+      navigate(resolveSmartRoute(loginRes.user.role, loginRes.user.dashboardRoute), { replace: true });
     } catch (err: unknown) {
       const errorMsg =
         err && typeof err === "object" && "response" in err

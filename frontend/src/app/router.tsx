@@ -39,6 +39,23 @@ import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
 import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
 import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
 
+import { useAuthStore } from "@/stores/auth.store";
+
+function RoleBasedHomeRedirect() {
+  const { user } = useAuthStore();
+  const role = user?.role?.toLowerCase().replace(/[-\s]/g, "_") || "";
+  if (role.includes("cashier") || role.includes("pos")) {
+    return <Navigate to="/pos" replace />;
+  }
+  if (role.includes("delivery")) {
+    return <Navigate to="/deliveries" replace />;
+  }
+  if (role.includes("inventory")) {
+    return <Navigate to="/inventory" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+}
+
 export const router = createBrowserRouter([
   // Customer Storefront Public Routes
   {
@@ -100,7 +117,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/dashboard" replace />,
+        element: <RoleBasedHomeRedirect />,
       },
       {
         path: "dashboard",

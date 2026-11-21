@@ -67,13 +67,13 @@ function isItemPermitted(role: string | undefined, href: string): boolean {
     return true;
   }
 
-  // Dashboard is visible to all active roles
-  if (href === "/dashboard") return true;
-
-  // Cashier / Billing Agent: POS counter and shift drawer settlements only
+  // Cashier / Billing Agent: POS counter, bill history, and shift drawer settlements only
   if (r.includes("cashier") || r.includes("pos")) {
-    return href === "/billing" || href === "/pos" || href === "/settlements";
+    return href === "/billing" || href === "/pos" || href === "/settlements" || href === "/orders";
   }
+
+  // Dashboard is visible to active store managers
+  if (href === "/dashboard") return true;
 
   // Branch Manager: store operations, counter, inventory, local team & reports
   if (r.includes("branch_manager")) {

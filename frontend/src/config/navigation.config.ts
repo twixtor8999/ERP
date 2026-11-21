@@ -52,9 +52,14 @@ export const navigationConfig: NavSection[] = [
     title: "Sales & Bills",
     items: [
       {
-        title: "Counter Bills & Orders",
-        href: "/orders",
+        title: "Billing Counter (POS)",
+        href: "/pos",
         iconName: "Receipt",
+      },
+      {
+        title: "Bills History & Orders",
+        href: "/orders",
+        iconName: "ShoppingCart",
       },
       {
         title: "Home Deliveries",
