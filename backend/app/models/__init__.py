@@ -68,6 +68,7 @@ from app.modules.employees.models import (
     Employee,
     EmployeeBranchAssignment,
     EmployeeDesignation,
+    SalarySlip,
 )
 
 # 12. Expenses
@@ -131,6 +132,7 @@ from app.modules.permissions.models import Permission, RolePermission, UserPermi
 from app.modules.products.models import (
     SKU,
     Brand,
+    BranchProductSetting,
     PriceList,
     PriceListItem,
     Product,
@@ -138,6 +140,7 @@ from app.modules.products.models import (
     ProductCategory,
     ProductTaxConfiguration,
     ProductVariant,
+    UnitConversion,
     UnitOfMeasure,
 )
 
@@ -186,6 +189,8 @@ from app.modules.users.models import (
     UserBranchAccess,
 )
 from app.modules.vehicles.models import (
+    DeliveryTrip,
+    DeliveryTripStop,
     Vehicle,
     VehicleAssignment,
     VehicleMaintenanceRecord,

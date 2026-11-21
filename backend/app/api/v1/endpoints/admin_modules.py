@@ -1,39 +1,57 @@
 """Enterprise Administration Endpoints: Products, Branches, Organization, Roles, Accounts, CRM, Audit Logs."""
 
+import csv
+import io
 import uuid
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session
 
+from app.core.websocket_manager import ws_manager
 from app.database.dependencies import AuthContext, get_current_user
 from app.database.session import get_db
 from app.models import (
+    AttendanceRecord,
     AuditLog,
     Branch,
+    BranchProductSetting,
     ChartOfAccount,
     Customer,
+    DeliveryTrip,
+    DeliveryTripStop,
     Employee,
     Expense,
     IncentiveScheme,
+    Invoice,
     Organization,
     OrganizationSetting,
     Product,
+    ProductBarcode,
     ProductCategory,
     ProductTaxConfiguration,
     ProductVariant,
     PurchaseOrder,
     Role,
     RolePermission,
+    SalarySlip,
+    Settlement,
+    StockBalance,
     Supplier,
+    UnitConversion,
     UnitOfMeasure,
     User,
     UserRoleAssignment,
     Vehicle,
+    Warehouse,
 )
+from app.modules.payments.models import PaymentAllocation, PaymentTransaction
+from app.modules.payments.service import _generate_tx_number, _get_or_create_payment_method
 
 router = APIRouter(prefix="/admin", tags=["Enterprise Administration Modules"])
 
@@ -47,79 +65,195 @@ class CreateProductVariantPayload(BaseModel):
     variant_name: str = "Standard"
     sku: str
     barcode: str | None = None
+    alternate_barcodes: list[str] | None = None
     cost_price: Decimal = Decimal("0.00")
     selling_price: Decimal
     mrp: Decimal | None = None
+    wholesale_price: Decimal = Decimal("0.00")
+    min_selling_price: Decimal = Decimal("0.00")
     weight: Decimal | None = None
+    initial_stock: Decimal = Decimal("0.00")
 
 
 class CreateProductPayload(BaseModel):
     name: str
     code: str
+    display_name: str | None = None
+    image_url: str | None = None
     category_id: str | None = None
     uom_id: str | None = None
     tax_config_id: str | None = None
     description: str | None = None
+    is_saleable: bool = True
+    is_purchasable: bool = True
+    is_inventory_tracked: bool = True
+    is_perishable: bool = False
+    is_batch_tracked: bool = False
+    is_expiry_tracked: bool = False
     initial_variant: CreateProductVariantPayload
+
+
+class UpdateProductPayload(BaseModel):
+    name: str | None = None
+    display_name: str | None = None
+    image_url: str | None = None
+    category_id: str | None = None
+    uom_id: str | None = None
+    tax_config_id: str | None = None
+    description: str | None = None
+    is_saleable: bool | None = None
+    is_purchasable: bool | None = None
+    is_inventory_tracked: bool | None = None
+    is_perishable: bool | None = None
+    is_batch_tracked: bool | None = None
+    is_expiry_tracked: bool | None = None
+    is_active: bool | None = None
+    # Variant fields
+    variant_id: str | None = None
+    sku: str | None = None
+    barcode: str | None = None
+    alternate_barcodes: list[str] | None = None
+    cost_price: Decimal | None = None
+    selling_price: Decimal | None = None
+    mrp: Decimal | None = None
+    wholesale_price: Decimal | None = None
+    min_selling_price: Decimal | None = None
+    stock_adjustment: Decimal | None = None
+
+
+class CreateCategoryPayload(BaseModel):
+    name: str
+    code: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    sort_order: int = 0
+
+
+class UpdateCategoryPayload(BaseModel):
+    name: str | None = None
+    code: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
 
 
 @router.get("/products")
 def list_admin_products(
     category_id: str | None = None,
     search: str | None = None,
+    status_filter: str = "ALL",  # ALL, ACTIVE, LOW_STOCK, OUT_OF_STOCK
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     stmt = (
         select(Product)
-        .where(
-            Product.organization_id == current_user.organization_id,
-            Product.is_active.is_(True),
-        )
+        .where(Product.organization_id == current_user.organization_id)
         .order_by(Product.name)
     )
+    if status_filter == "ACTIVE":
+        stmt = stmt.where(Product.is_active.is_(True))
     if category_id:
         stmt = stmt.where(Product.category_id == category_id)
 
     products = db.scalars(stmt).all()
-    categories = {c.id: c.name for c in db.scalars(select(ProductCategory)).all()}
-    uoms = {u.id: f"{u.name} ({u.symbol})" for u in db.scalars(select(UnitOfMeasure)).all()}
-    taxes = {
-        t.id: f"{t.description} ({float(t.tax_rate * 100):.1f}%)"
-        for t in db.scalars(select(ProductTaxConfiguration)).all()
-    }
+
+    # Preload auxiliary lookups for speed
+    categories = {c.id: c for c in db.scalars(select(ProductCategory).where(
+        (ProductCategory.organization_id == current_user.organization_id) | (ProductCategory.organization_id.is_(None))
+    )).all()}
+    uoms = {u.id: u for u in db.scalars(select(UnitOfMeasure).where(
+        (UnitOfMeasure.organization_id == current_user.organization_id) | (UnitOfMeasure.organization_id.is_(None))
+    )).all()}
+    taxes = {t.id: t for t in db.scalars(select(ProductTaxConfiguration).where(
+        (ProductTaxConfiguration.organization_id == current_user.organization_id) | (ProductTaxConfiguration.organization_id.is_(None))
+    )).all()}
+
+    # Preload stock balances aggregated by product_variant_id
+    stocks = {}
+    stock_recs = db.scalars(
+        select(StockBalance).where(StockBalance.organization_id == current_user.organization_id)
+    ).all()
+    for sb in stock_recs:
+        stocks[sb.product_variant_id] = stocks.get(sb.product_variant_id, 0.0) + float(sb.quantity_on_hand)
+
+    # Preload alternate barcodes by product_variant_id
+    alt_barcodes: dict[str, list[str]] = {}
+    for bc in db.scalars(select(ProductBarcode)).all():
+        alt_barcodes.setdefault(bc.product_variant_id, []).append(bc.barcode)
 
     res = []
     for p in products:
         variants = db.scalars(select(ProductVariant).where(ProductVariant.product_id == p.id)).all()
+        prod_stock = sum(stocks.get(v.id, 0.0) for v in variants)
+
+        # Status filter check
+        if status_filter == "LOW_STOCK" and not (0 < prod_stock <= 10):
+            continue
+        if status_filter == "OUT_OF_STOCK" and prod_stock > 0:
+            continue
+
         if search:
             q = search.lower()
-            name_match = q in p.name.lower() or q in p.code.lower()
-            var_match = any(q in (v.sku or "").lower() or q in (v.barcode or "").lower() for v in variants)
+            name_match = (
+                q in p.name.lower()
+                or q in p.code.lower()
+                or (p.display_name and q in p.display_name.lower())
+            )
+            var_match = any(
+                q in (v.sku or "").lower()
+                or q in (v.barcode or "").lower()
+                or any(q in b.lower() for b in alt_barcodes.get(v.id, []))
+                for v in variants
+            )
             if not (name_match or var_match):
                 continue
+
+        cat_obj = categories.get(p.category_id)
+        uom_obj = uoms.get(p.uom_id)
+        tax_obj = taxes.get(p.tax_config_id)
 
         res.append({
             "id": p.id,
             "name": p.name,
             "code": p.code,
+            "display_name": p.display_name or p.name,
+            "image_url": p.image_url,
             "description": p.description,
-            "category": categories.get(p.category_id, "General"),
+            "category": cat_obj.name if cat_obj else "General",
             "category_id": p.category_id,
-            "uom": uoms.get(p.uom_id, "Unit"),
+            "category_image": cat_obj.image_url if cat_obj else None,
+            "uom": f"{uom_obj.name} ({uom_obj.symbol})" if uom_obj else "Unit (pcs)",
             "uom_id": p.uom_id,
-            "tax": taxes.get(p.tax_config_id, "Standard"),
+            "tax": f"{tax_obj.description} ({float(tax_obj.tax_rate * 100):.1f}%)" if tax_obj else "Standard GST (5.0%)",
             "tax_config_id": p.tax_config_id,
+            "tax_rate": float(tax_obj.tax_rate * 100) if tax_obj else 5.0,
+            "hsn_code": tax_obj.hsn_sac_code if tax_obj else None,
+            "is_saleable": p.is_saleable,
+            "is_purchasable": p.is_purchasable,
+            "is_inventory_tracked": p.is_inventory_tracked,
+            "is_perishable": p.is_perishable,
+            "is_batch_tracked": p.is_batch_tracked,
+            "is_expiry_tracked": p.is_expiry_tracked,
             "is_active": p.is_active,
+            "stock_on_hand": prod_stock,
             "variants": [
                 {
                     "id": v.id,
                     "variant_name": v.variant_name,
                     "sku": v.sku,
                     "barcode": v.barcode,
+                    "alternate_barcodes": alt_barcodes.get(v.id, []),
                     "cost_price": float(v.cost_price),
                     "selling_price": float(v.selling_price),
                     "mrp": float(v.mrp or v.selling_price),
+                    "wholesale_price": float(v.wholesale_price or 0.0),
+                    "min_selling_price": float(v.min_selling_price or 0.0),
+                    "stock_on_hand": stocks.get(v.id, 0.0),
+                    "margin_percentage": (
+                        round(float((v.selling_price - v.cost_price) / v.selling_price * 100), 2)
+                        if v.selling_price > 0 else 0.0
+                    ),
                 }
                 for v in variants
             ],
@@ -149,41 +283,558 @@ def create_admin_product(
     if sku_existing:
         raise HTTPException(status_code=400, detail=f"SKU '{payload.initial_variant.sku}' already exists")
 
+    # Resolve default warehouse and branch
+    branch = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
+    warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == current_user.organization_id)) if branch else None
+
+    # Resolve default UOM if not passed
+    uom_id = payload.uom_id
+    if not uom_id:
+        def_uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.organization_id == current_user.organization_id))
+        uom_id = def_uom.id if def_uom else None
+
     prod_id = str(uuid.uuid4())
     product = Product(
         id=prod_id,
         organization_id=current_user.organization_id,
         name=payload.name.strip(),
         code=payload.code.strip().upper(),
+        display_name=payload.display_name.strip() if payload.display_name else payload.name.strip(),
+        image_url=payload.image_url,
         category_id=payload.category_id,
-        uom_id=payload.uom_id,
+        uom_id=uom_id,
         tax_config_id=payload.tax_config_id,
         description=payload.description,
+        is_saleable=payload.is_saleable,
+        is_purchasable=payload.is_purchasable,
+        is_inventory_tracked=payload.is_inventory_tracked,
+        is_perishable=payload.is_perishable,
+        is_batch_tracked=payload.is_batch_tracked,
+        is_expiry_tracked=payload.is_expiry_tracked,
         has_variants=True,
         is_active=True,
     )
     db.add(product)
     db.flush()
 
+    var_id = str(uuid.uuid4())
+    mrp_val = payload.initial_variant.mrp or payload.initial_variant.selling_price
+    wholesale_val = payload.initial_variant.wholesale_price or payload.initial_variant.selling_price
+    min_price_val = payload.initial_variant.min_selling_price or payload.initial_variant.cost_price
+
     variant = ProductVariant(
-        id=str(uuid.uuid4()),
+        id=var_id,
         product_id=product.id,
         variant_name=payload.initial_variant.variant_name.strip(),
         sku=payload.initial_variant.sku.strip().upper(),
-        barcode=payload.initial_variant.barcode.strip() if payload.initial_variant.barcode else None,
+        barcode=payload.initial_variant.barcode.strip() if payload.initial_variant.barcode else payload.initial_variant.sku.strip().upper(),
         cost_price=payload.initial_variant.cost_price,
         selling_price=payload.initial_variant.selling_price,
-        mrp=payload.initial_variant.mrp or payload.initial_variant.selling_price,
+        mrp=mrp_val,
+        wholesale_price=wholesale_val,
+        min_selling_price=min_price_val,
         weight=payload.initial_variant.weight,
         is_active=True,
     )
     db.add(variant)
+    db.flush()
+
+    # Alternate barcodes if provided
+    if payload.initial_variant.alternate_barcodes:
+        for alt in payload.initial_variant.alternate_barcodes:
+            alt_clean = alt.strip()
+            if alt_clean and alt_clean != variant.barcode:
+                db.add(ProductBarcode(
+                    id=str(uuid.uuid4()),
+                    product_variant_id=variant.id,
+                    barcode=alt_clean,
+                    barcode_type="CODE128",
+                ))
+
+    # Initialize warehouse stock balance
+    if warehouse and branch:
+        stock_bal = StockBalance(
+            id=str(uuid.uuid4()),
+            organization_id=current_user.organization_id,
+            warehouse_id=warehouse.id,
+            branch_id=branch.id,
+            product_variant_id=variant.id,
+            quantity_on_hand=payload.initial_variant.initial_stock,
+            quantity_reserved=Decimal("0.0000"),
+        )
+        db.add(stock_bal)
+
+        # Branch product availability & price override setting
+        branch_setting = BranchProductSetting(
+            id=str(uuid.uuid4()),
+            organization_id=current_user.organization_id,
+            branch_id=branch.id,
+            product_variant_id=variant.id,
+            is_available=True,
+            branch_selling_price=payload.initial_variant.selling_price,
+            branch_min_stock=Decimal("10.0000"),
+            branch_reorder_level=Decimal("5.0000"),
+        )
+        db.add(branch_setting)
+
     db.commit()
 
     return {
-        "message": "Product and master SKU created successfully",
+        "message": "Product master record and SKU created successfully",
         "product_id": product.id,
         "variant_id": variant.id,
+    }
+
+
+@router.put("/products/{product_id}")
+def update_admin_product(
+    product_id: str,
+    payload: UpdateProductPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    product = db.scalar(
+        select(Product).where(
+            Product.id == product_id,
+            Product.organization_id == current_user.organization_id,
+        )
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product master record not found")
+
+    if payload.name is not None:
+        product.name = payload.name.strip()
+    if payload.display_name is not None:
+        product.display_name = payload.display_name.strip()
+    if payload.image_url is not None:
+        product.image_url = payload.image_url
+    if payload.category_id is not None:
+        product.category_id = payload.category_id
+    if payload.uom_id is not None:
+        product.uom_id = payload.uom_id
+    if payload.tax_config_id is not None:
+        product.tax_config_id = payload.tax_config_id
+    if payload.description is not None:
+        product.description = payload.description
+    if payload.is_saleable is not None:
+        product.is_saleable = payload.is_saleable
+    if payload.is_purchasable is not None:
+        product.is_purchasable = payload.is_purchasable
+    if payload.is_inventory_tracked is not None:
+        product.is_inventory_tracked = payload.is_inventory_tracked
+    if payload.is_perishable is not None:
+        product.is_perishable = payload.is_perishable
+    if payload.is_batch_tracked is not None:
+        product.is_batch_tracked = payload.is_batch_tracked
+    if payload.is_expiry_tracked is not None:
+        product.is_expiry_tracked = payload.is_expiry_tracked
+    if payload.is_active is not None:
+        product.is_active = payload.is_active
+
+    # Update variant if specified
+    variant = None
+    if payload.variant_id:
+        variant = db.scalar(select(ProductVariant).where(ProductVariant.id == payload.variant_id))
+    else:
+        variant = db.scalar(select(ProductVariant).where(ProductVariant.product_id == product.id))
+
+    if variant:
+        if payload.sku is not None:
+            variant.sku = payload.sku.strip().upper()
+        if payload.barcode is not None:
+            variant.barcode = payload.barcode.strip()
+        if payload.cost_price is not None:
+            variant.cost_price = payload.cost_price
+        if payload.selling_price is not None:
+            variant.selling_price = payload.selling_price
+        if payload.mrp is not None:
+            variant.mrp = payload.mrp
+        if payload.wholesale_price is not None:
+            variant.wholesale_price = payload.wholesale_price
+        if payload.min_selling_price is not None:
+            variant.min_selling_price = payload.min_selling_price
+
+        # Alternate barcodes
+        if payload.alternate_barcodes is not None:
+            for alt in payload.alternate_barcodes:
+                alt_clean = alt.strip()
+                if alt_clean and alt_clean != variant.barcode:
+                    existing_alt = db.scalar(
+                        select(ProductBarcode).where(
+                            ProductBarcode.product_variant_id == variant.id,
+                            ProductBarcode.barcode == alt_clean,
+                        )
+                    )
+                    if not existing_alt:
+                        db.add(ProductBarcode(
+                            id=str(uuid.uuid4()),
+                            product_variant_id=variant.id,
+                            barcode=alt_clean,
+                            barcode_type="CODE128",
+                        ))
+
+        # Stock adjustment
+        if payload.stock_adjustment is not None:
+            branch = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
+            warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == current_user.organization_id))
+            if branch and warehouse:
+                stock_bal = db.scalar(
+                    select(StockBalance).where(
+                        StockBalance.product_variant_id == variant.id,
+                        StockBalance.warehouse_id == warehouse.id,
+                    )
+                )
+                if stock_bal:
+                    stock_bal.quantity_on_hand += payload.stock_adjustment
+                else:
+                    db.add(StockBalance(
+                        id=str(uuid.uuid4()),
+                        organization_id=current_user.organization_id,
+                        warehouse_id=warehouse.id,
+                        branch_id=branch.id,
+                        product_variant_id=variant.id,
+                        quantity_on_hand=payload.stock_adjustment,
+                        quantity_reserved=Decimal("0.0000"),
+                    ))
+
+    db.commit()
+    return {"message": "Product master updated successfully", "product_id": product.id}
+
+
+@router.get("/products/lookup/barcode/{barcode}")
+def lookup_product_by_barcode(
+    barcode: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Fast barcode scanner lookup for POS and inventory audit."""
+    bc_clean = barcode.strip()
+
+    # 1. Search primary variant barcode
+    variant = db.scalar(
+        select(ProductVariant)
+        .join(Product, Product.id == ProductVariant.product_id)
+        .where(
+            Product.organization_id == current_user.organization_id,
+            ProductVariant.barcode == bc_clean,
+            ProductVariant.is_active.is_(True),
+        )
+    )
+
+    # 2. Search alternate barcodes table if not found
+    if not variant:
+        alt = db.scalar(
+            select(ProductBarcode)
+            .join(ProductVariant, ProductVariant.id == ProductBarcode.product_variant_id)
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(
+                Product.organization_id == current_user.organization_id,
+                ProductBarcode.barcode == bc_clean,
+            )
+        )
+        if alt:
+            variant = db.scalar(select(ProductVariant).where(ProductVariant.id == alt.product_variant_id))
+
+    if not variant:
+        raise HTTPException(status_code=404, detail=f"No product found for barcode '{bc_clean}'")
+
+    product = db.scalar(select(Product).where(Product.id == variant.product_id))
+    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id))
+    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id))
+
+    # Live stock
+    stock_qty = db.scalar(
+        select(func.coalesce(func.sum(StockBalance.quantity_on_hand), 0)).where(
+            StockBalance.product_variant_id == variant.id
+        )
+    ) or Decimal("0.00")
+
+    return {
+        "found": True,
+        "product_id": product.id,
+        "variant_id": variant.id,
+        "name": product.name,
+        "display_name": product.display_name or product.name,
+        "code": product.code,
+        "sku": variant.sku,
+        "barcode": variant.barcode,
+        "cost_price": float(variant.cost_price),
+        "selling_price": float(variant.selling_price),
+        "mrp": float(variant.mrp or variant.selling_price),
+        "wholesale_price": float(variant.wholesale_price or 0.0),
+        "uom": uom.symbol if uom else "pcs",
+        "tax_rate": float(tax.tax_rate * 100) if tax else 5.0,
+        "hsn_code": tax.hsn_sac_code if tax else None,
+        "stock_on_hand": float(stock_qty),
+        "image_url": product.image_url,
+    }
+
+
+@router.get("/products/lookup/sku/{sku}")
+def lookup_product_by_sku(
+    sku: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Fast SKU lookup for POS and warehouse operations."""
+    sku_clean = sku.strip().upper()
+    variant = db.scalar(
+        select(ProductVariant)
+        .join(Product, Product.id == ProductVariant.product_id)
+        .where(
+            Product.organization_id == current_user.organization_id,
+            ProductVariant.sku == sku_clean,
+            ProductVariant.is_active.is_(True),
+        )
+    )
+    if not variant:
+        raise HTTPException(status_code=404, detail=f"No product found for SKU '{sku_clean}'")
+
+    product = db.scalar(select(Product).where(Product.id == variant.product_id))
+    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id))
+    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id))
+    stock_qty = db.scalar(
+        select(func.coalesce(func.sum(StockBalance.quantity_on_hand), 0)).where(
+            StockBalance.product_variant_id == variant.id
+        )
+    ) or Decimal("0.00")
+
+    return {
+        "found": True,
+        "product_id": product.id,
+        "variant_id": variant.id,
+        "name": product.name,
+        "display_name": product.display_name or product.name,
+        "code": product.code,
+        "sku": variant.sku,
+        "barcode": variant.barcode,
+        "cost_price": float(variant.cost_price),
+        "selling_price": float(variant.selling_price),
+        "mrp": float(variant.mrp or variant.selling_price),
+        "wholesale_price": float(variant.wholesale_price or 0.0),
+        "uom": uom.symbol if uom else "pcs",
+        "tax_rate": float(tax.tax_rate * 100) if tax else 5.0,
+        "stock_on_hand": float(stock_qty),
+        "image_url": product.image_url,
+    }
+
+
+@router.get("/products/export")
+def export_product_catalog(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Export the central product master catalog to CSV."""
+    products = db.scalars(
+        select(Product)
+        .where(Product.organization_id == current_user.organization_id)
+        .order_by(Product.name)
+    ).all()
+
+    categories = {c.id: c.name for c in db.scalars(select(ProductCategory)).all()}
+    uoms = {u.id: u.symbol for u in db.scalars(select(UnitOfMeasure)).all()}
+    taxes = {t.id: t for t in db.scalars(select(ProductTaxConfiguration)).all()}
+
+    stocks = {}
+    for sb in db.scalars(select(StockBalance).where(StockBalance.organization_id == current_user.organization_id)).all():
+        stocks[sb.product_variant_id] = stocks.get(sb.product_variant_id, 0.0) + float(sb.quantity_on_hand)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Product Code",
+        "Product Name",
+        "Display Name",
+        "Category",
+        "UOM",
+        "HSN Code",
+        "GST Rate %",
+        "SKU",
+        "Barcode",
+        "Cost Price (INR)",
+        "Selling Price (INR)",
+        "MRP (INR)",
+        "Wholesale Price (INR)",
+        "Min Selling Price (INR)",
+        "Stock On Hand",
+        "Is Saleable",
+        "Is Perishable",
+        "Is Batch Tracked",
+    ])
+
+    for p in products:
+        variants = db.scalars(select(ProductVariant).where(ProductVariant.product_id == p.id)).all()
+        cat_name = categories.get(p.category_id, "General")
+        uom_symbol = uoms.get(p.uom_id, "pcs")
+        tax_obj = taxes.get(p.tax_config_id)
+        hsn = tax_obj.hsn_sac_code if tax_obj else ""
+        gst_pct = float(tax_obj.tax_rate * 100) if tax_obj else 5.0
+
+        for v in variants:
+            writer.writerow([
+                p.code,
+                p.name,
+                p.display_name or p.name,
+                cat_name,
+                uom_symbol,
+                hsn,
+                f"{gst_pct:.1f}",
+                v.sku,
+                v.barcode or "",
+                f"{float(v.cost_price):.2f}",
+                f"{float(v.selling_price):.2f}",
+                f"{float(v.mrp or v.selling_price):.2f}",
+                f"{float(v.wholesale_price or 0.0):.2f}",
+                f"{float(v.min_selling_price or 0.0):.2f}",
+                f"{stocks.get(v.id, 0.0):.2f}",
+                "YES" if p.is_saleable else "NO",
+                "YES" if p.is_perishable else "NO",
+                "YES" if p.is_batch_tracked else "NO",
+            ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=siddeshwar_product_master_catalog.csv"},
+    )
+
+
+class ImportProductRow(BaseModel):
+    name: str
+    code: str | None = None
+    display_name: str | None = None
+    category: str | None = None
+    uom: str | None = None
+    hsn: str | None = None
+    gst: float | None = 5.0
+    sku: str | None = None
+    barcode: str | None = None
+    cost_price: float = 0.0
+    selling_price: float
+    mrp: float | None = None
+    wholesale_price: float | None = None
+    stock: float = 0.0
+
+
+class ImportProductBatchPayload(BaseModel):
+    rows: list[ImportProductRow]
+
+
+@router.post("/products/import")
+def import_product_batch(
+    payload: ImportProductBatchPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Bulk import products from CSV/Excel data."""
+    branch = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
+    warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == current_user.organization_id)) if branch else None
+
+    # Load categories, uoms, taxes
+    cats = {c.name.lower(): c.id for c in db.scalars(select(ProductCategory).where(ProductCategory.organization_id == current_user.organization_id)).all()}
+    uoms = {u.code.upper(): u.id for u in db.scalars(select(UnitOfMeasure).where(UnitOfMeasure.organization_id == current_user.organization_id)).all()}
+    def_uom_id = next(iter(uoms.values()), None)
+
+    created_count = 0
+    updated_count = 0
+
+    for idx, row in enumerate(payload.rows):
+        p_name = row.name.strip()
+        p_code = (row.code or f"IMP-{idx+1:04d}").strip().upper()
+        p_sku = (row.sku or p_code).strip().upper()
+        p_bc = (row.barcode or p_sku).strip()
+
+        # Category
+        cat_id = cats.get(row.category.strip().lower()) if row.category else None
+
+        # UOM
+        uom_id = uoms.get((row.uom or "PCS").strip().upper(), def_uom_id)
+
+        # Tax
+        tax_id = None
+        if row.hsn:
+            tax_match = db.scalar(select(ProductTaxConfiguration).where(
+                ProductTaxConfiguration.organization_id == current_user.organization_id,
+                ProductTaxConfiguration.hsn_sac_code == row.hsn.strip(),
+            ))
+            if tax_match:
+                tax_id = tax_match.id
+
+        prod = db.scalar(select(Product).where(
+            Product.organization_id == current_user.organization_id,
+            (Product.code == p_code) | (Product.name == p_name),
+        ))
+
+        cost_val = Decimal(str(row.cost_price or 0.0))
+        price_val = Decimal(str(row.selling_price))
+        mrp_val = Decimal(str(row.mrp or price_val))
+        ws_val = Decimal(str(row.wholesale_price or (cost_val * Decimal("1.05"))))
+
+        if not prod:
+            prod = Product(
+                id=str(uuid.uuid4()),
+                organization_id=current_user.organization_id,
+                name=p_name,
+                code=p_code,
+                display_name=row.display_name or p_name,
+                category_id=cat_id,
+                uom_id=uom_id,
+                tax_config_id=tax_id,
+                is_saleable=True,
+                is_purchasable=True,
+                is_inventory_tracked=True,
+                has_variants=True,
+                is_active=True,
+            )
+            db.add(prod)
+            db.flush()
+
+            variant = ProductVariant(
+                id=str(uuid.uuid4()),
+                product_id=prod.id,
+                variant_name="Standard",
+                sku=p_sku,
+                barcode=p_bc,
+                cost_price=cost_val,
+                selling_price=price_val,
+                mrp=mrp_val,
+                wholesale_price=ws_val,
+                min_selling_price=cost_val,
+                is_active=True,
+            )
+            db.add(variant)
+            db.flush()
+
+            if warehouse and branch:
+                db.add(StockBalance(
+                    id=str(uuid.uuid4()),
+                    organization_id=current_user.organization_id,
+                    warehouse_id=warehouse.id,
+                    branch_id=branch.id,
+                    product_variant_id=variant.id,
+                    quantity_on_hand=Decimal(str(row.stock or 0.0)),
+                    quantity_reserved=Decimal("0.0000"),
+                ))
+            created_count += 1
+        else:
+            if row.display_name:
+                prod.display_name = row.display_name
+            if cat_id:
+                prod.category_id = cat_id
+            variant = db.scalar(select(ProductVariant).where(ProductVariant.product_id == prod.id))
+            if variant:
+                variant.cost_price = cost_val
+                variant.selling_price = price_val
+                variant.mrp = mrp_val
+                variant.wholesale_price = ws_val
+            updated_count += 1
+
+    db.commit()
+    return {
+        "message": f"Successfully imported {created_count} new products and updated {updated_count} existing records.",
+        "created": created_count,
+        "updated": updated_count,
     }
 
 
@@ -198,9 +849,86 @@ def list_product_categories(
             (ProductCategory.organization_id == current_user.organization_id)
             | (ProductCategory.organization_id.is_(None))
         )
-        .order_by(ProductCategory.name)
+        .order_by(ProductCategory.sort_order, ProductCategory.name)
     ).all()
-    return [{"id": c.id, "name": c.name, "code": c.code, "description": c.description} for c in cats]
+
+    # Product count per category
+    counts = dict(
+        db.execute(
+            select(Product.category_id, func.count(Product.id))
+            .where(Product.organization_id == current_user.organization_id)
+            .group_by(Product.category_id)
+        ).fetchall()
+    )
+
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "code": c.code,
+            "description": c.description,
+            "image_url": c.image_url,
+            "sort_order": c.sort_order,
+            "is_active": c.is_active,
+            "product_count": counts.get(c.id, 0),
+        }
+        for c in cats
+    ]
+
+
+@router.post("/categories", status_code=status.HTTP_201_CREATED)
+def create_product_category(
+    payload: CreateCategoryPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    code = (payload.code or payload.name.strip().upper()[:20]).replace(" ", "_")
+    cat = ProductCategory(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        name=payload.name.strip(),
+        code=code,
+        description=payload.description,
+        image_url=payload.image_url,
+        sort_order=payload.sort_order,
+        is_active=True,
+    )
+    db.add(cat)
+    db.commit()
+    return {"message": "Category created successfully", "category_id": cat.id}
+
+
+@router.put("/categories/{category_id}")
+def update_product_category(
+    category_id: str,
+    payload: UpdateCategoryPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    cat = db.scalar(
+        select(ProductCategory).where(
+            ProductCategory.id == category_id,
+            ProductCategory.organization_id == current_user.organization_id,
+        )
+    )
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    if payload.name is not None:
+        cat.name = payload.name.strip()
+    if payload.code is not None:
+        cat.code = payload.code.strip()
+    if payload.description is not None:
+        cat.description = payload.description
+    if payload.image_url is not None:
+        cat.image_url = payload.image_url
+    if payload.sort_order is not None:
+        cat.sort_order = payload.sort_order
+    if payload.is_active is not None:
+        cat.is_active = payload.is_active
+
+    db.commit()
+    return {"message": "Category updated successfully", "category_id": cat.id}
 
 
 @router.get("/taxes")
@@ -242,6 +970,52 @@ def list_units_of_measure(
         .order_by(UnitOfMeasure.name)
     ).all()
     return [{"id": u.id, "name": u.name, "code": u.code, "symbol": u.symbol} for u in uoms]
+
+
+class CreateUnitConversionPayload(BaseModel):
+    from_uom_id: str
+    to_uom_id: str
+    conversion_factor: Decimal
+
+
+@router.get("/unit-conversions")
+def list_unit_conversions(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    convs = db.scalars(
+        select(UnitConversion).where(UnitConversion.organization_id == current_user.organization_id)
+    ).all()
+    uoms = {u.id: f"{u.name} ({u.symbol})" for u in db.scalars(select(UnitOfMeasure)).all()}
+    return [
+        {
+            "id": c.id,
+            "from_uom_id": c.from_uom_id,
+            "from_uom": uoms.get(c.from_uom_id, "Unknown"),
+            "to_uom_id": c.to_uom_id,
+            "to_uom": uoms.get(c.to_uom_id, "Unknown"),
+            "conversion_factor": float(c.conversion_factor),
+        }
+        for c in convs
+    ]
+
+
+@router.post("/unit-conversions", status_code=status.HTTP_201_CREATED)
+def create_unit_conversion(
+    payload: CreateUnitConversionPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    conv = UnitConversion(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        from_uom_id=payload.from_uom_id,
+        to_uom_id=payload.to_uom_id,
+        conversion_factor=payload.conversion_factor,
+    )
+    db.add(conv)
+    db.commit()
+    return {"message": "Unit conversion configured successfully", "id": conv.id}
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +1336,166 @@ def create_admin_customer(
     return {"message": "Customer registered successfully", "customer_id": cust.id, "customer_code": cust.customer_code}
 
 
+class ReceivePaymentPayload(BaseModel):
+    amount: Decimal = Field(..., gt=Decimal("0.00"))
+    payment_method: str = "CASH"  # CASH or UPI
+    reference_number: str | None = None
+    notes: str | None = None
+
+
+@router.post("/customers/{customer_id}/receive-payment")
+async def receive_customer_payment(
+    customer_id: str,
+    payload: ReceivePaymentPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Receive Udhaar / Khata payment from a customer.
+    - Atomically updates customer current_balance.
+    - Creates a confirmed payment transaction record.
+    - Allocates payment to unpaid invoices via FIFO.
+    - If cashier has an open shift, adds cash/UPI to drawer shift.
+    - Broadcasts real-time event.
+    """
+    customer = db.scalar(
+        select(Customer)
+        .where(
+            Customer.id == customer_id,
+            Customer.organization_id == current_user.organization_id,
+        )
+        .with_for_update()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found in your organization")
+
+    pay_amount = payload.amount.quantize(Decimal("0.01"))
+    if pay_amount <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+
+    prev_balance = customer.current_balance or Decimal("0.00")
+    # Decrement customer balance
+    customer.current_balance = (prev_balance - pay_amount).quantize(Decimal("0.01"))
+    new_balance = customer.current_balance
+
+    # Record payment transaction
+    today = datetime.now(UTC).date()
+    method_name = payload.payment_method.upper()
+    pay_m = _get_or_create_payment_method(db, current_user.organization_id, method_name)
+
+    branch_id = current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+
+    tx_num = _generate_tx_number()
+    tx = PaymentTransaction(
+        organization_id=current_user.organization_id,
+        branch_id=branch_id,
+        customer_id=customer.id,
+        payment_type="RECEIPT",
+        transaction_number=tx_num,
+        transaction_date=today,
+        payment_method_id=pay_m.id,
+        amount=pay_amount,
+        currency="INR",
+        reference_number=payload.reference_number.strip() if payload.reference_number else None,
+        status="CONFIRMED",
+        collector_id=current_user.user_id,
+        collector_role="cashier",
+        notes=payload.notes or f"Khata Payment received from {customer.display_name or customer.first_name}",
+    )
+    db.add(tx)
+    db.flush()
+
+    # FIFO invoice allocation to outstanding invoices
+    unpaid_invoices = db.scalars(
+        select(Invoice)
+        .where(
+            Invoice.customer_id == customer.id,
+            Invoice.organization_id == current_user.organization_id,
+            Invoice.balance_amount > Decimal("0.00"),
+        )
+        .order_by(Invoice.invoice_date.asc(), Invoice.created_at.asc())
+        .with_for_update()
+    ).all()
+
+    rem = pay_amount
+    for inv in unpaid_invoices:
+        if rem <= Decimal("0.00"):
+            break
+        alloc = min(rem, inv.balance_amount)
+        inv.balance_amount -= alloc
+        inv.paid_amount += alloc
+        if inv.balance_amount <= Decimal("0.00"):
+            inv.payment_status = "PAID"
+        else:
+            inv.payment_status = "PARTIAL"
+
+        db.add(
+            PaymentAllocation(
+                organization_id=current_user.organization_id,
+                payment_transaction_id=tx.id,
+                invoice_id=inv.id,
+                allocated_amount=alloc,
+            )
+        )
+        rem -= alloc
+
+    # If user has an open cashier shift, update shift totals
+    if branch_id:
+        shift = db.scalar(
+            select(Settlement)
+            .where(
+                Settlement.organization_id == current_user.organization_id,
+                Settlement.branch_id == branch_id,
+                Settlement.cashier_id == current_user.user_id,
+                Settlement.status == "OPEN",
+            )
+            .with_for_update()
+        )
+        if shift:
+            if method_name == "CASH":
+                shift.cash_sales += pay_amount
+                shift.expected_total += pay_amount
+            elif method_name == "UPI":
+                shift.upi_sales += pay_amount
+
+    db.commit()
+    db.refresh(customer)
+
+    # Broadcast event
+    await ws_manager.broadcast_event(
+        event_type="KHATA_PAYMENT_RECEIVED",
+        organization_id=customer.organization_id,
+        branch_id=branch_id,
+        summary=f"Khata payment ₹{pay_amount} received from {customer.display_name or customer.first_name}",
+        data={
+            "customer_id": customer.id,
+            "customer_name": customer.display_name or f"{customer.first_name} {customer.last_name or ''}".strip(),
+            "amount": str(pay_amount),
+            "payment_method": method_name,
+            "transaction_number": tx_num,
+            "previous_balance": str(prev_balance),
+            "new_balance": str(new_balance),
+        },
+        source_user_id=current_user.user_id,
+    )
+
+    return {
+        "success": True,
+        "message": f"Payment of ₹{pay_amount} received successfully.",
+        "transaction_number": tx_num,
+        "customer_id": customer.id,
+        "customer_name": customer.display_name or f"{customer.first_name} {customer.last_name or ''}".strip(),
+        "customer_phone": customer.phone,
+        "amount_paid": float(pay_amount),
+        "payment_method": method_name,
+        "previous_balance": float(prev_balance),
+        "remaining_balance": float(new_balance),
+        "date": today.isoformat(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # 7. Security & Immutable Audit Logs
 # ---------------------------------------------------------------------------
@@ -804,6 +1738,8 @@ class CreateExpensePayload(BaseModel):
     amount: Decimal
     paid_to: str
     description: str
+    payment_mode: str = "CASH"
+    allow_duplicate: bool = False
 
 
 @router.get("/expenses")
@@ -841,18 +1777,44 @@ def create_admin_expense(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
+
+    # Duplicate Expense Prevention Check
+    if not payload.allow_duplicate:
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
+        duplicate = db.scalar(
+            select(Expense).where(
+                Expense.organization_id == org_id,
+                Expense.paid_to.ilike(payload.paid_to.strip()),
+                Expense.amount == payload.amount,
+                Expense.created_at >= cutoff,
+            )
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Duplicate Expense Warning: An expense of ₹{payload.amount:.2f} to '{payload.paid_to.strip()}' was already logged recently ({duplicate.expense_number}). If this is a separate expense, enable 'Allow Duplicate'.",
+            )
+
     count = db.scalar(select(func.count(Expense.id)).where(Expense.organization_id == org_id)) or 0
     exp_num = f"EXP-{count + 1:04d}"
+    target_branch = payload.branch_id or current_user.active_branch_id
+    if not target_branch:
+        first_b = db.scalar(select(Branch).where(Branch.organization_id == org_id))
+        target_branch = first_b.id if first_b else str(uuid.uuid4())
 
+    now_utc = datetime.now(UTC)
     exp = Expense(
         id=str(uuid.uuid4()),
-        organization_id=current_user.organization_id,
-        branch_id=payload.branch_id,
+        organization_id=org_id,
+        branch_id=target_branch,
+        category_id=None,
         expense_number=exp_num,
+        expense_date=now_utc.date(),
         amount=payload.amount,
+        tax_amount=Decimal("0.00"),
         total_amount=payload.amount,
         paid_to=payload.paid_to.strip(),
-        description=payload.description.strip(),
+        description=f"[{payload.payment_mode}] {payload.description.strip()}".strip(),
         status="APPROVED",
     )
     db.add(exp)
@@ -979,4 +1941,585 @@ def get_admin_subscription(
         "api_quota": "Unlimited Enterprise Transactions",
         "license_holder": "Siddeshwar Enterprises",
     }
+
+
+# ---------------------------------------------------------------------------
+# 14. Daybook (Roznamcha) Daily Cash & Accounts Settlement
+# ---------------------------------------------------------------------------
+
+
+@router.get("/daybook")
+def get_admin_daybook(
+    target_date: str | None = None,
+    branch_id: str | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    if target_date:
+        try:
+            day_d = date.fromisoformat(target_date)
+        except ValueError:
+            day_d = datetime.now(UTC).date()
+    else:
+        day_d = datetime.now(UTC).date()
+
+    shift_query = select(Settlement).where(
+        Settlement.organization_id == org_id,
+        Settlement.settlement_date == day_d,
+    )
+    if branch_id:
+        shift_query = shift_query.where(Settlement.branch_id == branch_id)
+    shifts = db.scalars(shift_query).all()
+
+    users_map = {u.id: u.full_name for u in db.scalars(select(User).where(User.organization_id == org_id)).all()}
+
+    opening_float = sum((s.opening_cash or Decimal("0.00")) for s in shifts)
+    pos_cash_sales = sum((s.cash_sales or Decimal("0.00")) for s in shifts)
+    pos_upi_sales = sum((s.upi_sales or Decimal("0.00")) for s in shifts)
+    pos_card_sales = sum((s.card_sales or Decimal("0.00")) for s in shifts)
+    counted_drawer_cash = sum((s.actual_total or Decimal("0.00")) for s in shifts)
+
+    start_dt = datetime.combine(day_d, datetime.min.time(), tzinfo=UTC)
+    end_dt = datetime.combine(day_d, datetime.max.time(), tzinfo=UTC)
+
+    khata_payments = db.scalars(
+        select(PaymentTransaction).where(
+            PaymentTransaction.organization_id == org_id,
+            PaymentTransaction.payment_type == "RECEIPT",
+            PaymentTransaction.transaction_date >= start_dt,
+            PaymentTransaction.transaction_date <= end_dt,
+        )
+    ).all()
+
+    khata_cash = sum((p.amount or Decimal("0.00")) for p in khata_payments if (p.payment_mode or "").upper() == "CASH")
+    khata_upi = sum((p.amount or Decimal("0.00")) for p in khata_payments if (p.payment_mode or "").upper() == "UPI")
+
+    expense_query = select(Expense).where(
+        Expense.organization_id == org_id,
+        Expense.expense_date == day_d,
+    )
+    if branch_id:
+        expense_query = expense_query.where(Expense.branch_id == branch_id)
+    expenses = db.scalars(expense_query).all()
+
+    total_expenses = sum((e.total_amount or e.amount or Decimal("0.00")) for e in expenses)
+
+    expected_drawer_cash = opening_float + pos_cash_sales + khata_cash - total_expenses
+    if counted_drawer_cash == Decimal("0.00") and any(s.status == "OPEN" for s in shifts):
+        computed_discrepancy = Decimal("0.00")
+    else:
+        computed_discrepancy = counted_drawer_cash - expected_drawer_cash
+
+    lines = []
+    for s in shifts:
+        c_name = users_map.get(s.cashier_id, "Cashier")
+        lines.append({
+            "time": s.created_at.strftime("%H:%M:%S") if s.created_at else "09:00:00",
+            "type": "OPENING_FLOAT",
+            "reference": f"Shift #{s.id[:8]}",
+            "party": f"Counter Register ({c_name})",
+            "inflow": float(s.opening_cash),
+            "outflow": 0.0,
+            "mode": "CASH",
+            "notes": "Morning Cash Float",
+        })
+
+    for p in khata_payments:
+        cust = db.scalar(select(Customer).where(Customer.id == p.customer_id))
+        c_name = cust.name if cust else "Retail Customer"
+        lines.append({
+            "time": p.transaction_date.strftime("%H:%M:%S") if p.transaction_date else "12:00:00",
+            "type": "KHATA_COLLECTION",
+            "reference": p.transaction_number,
+            "party": f"{c_name} (Udhaar Cleared)",
+            "inflow": float(p.amount),
+            "outflow": 0.0,
+            "mode": (p.payment_mode or "CASH").upper(),
+            "notes": p.notes or "Counter Udhaar Payment",
+        })
+
+    for e in expenses:
+        lines.append({
+            "time": e.created_at.strftime("%H:%M:%S") if e.created_at else "14:00:00",
+            "type": "EXPENSE",
+            "reference": e.expense_number,
+            "party": e.paid_to,
+            "inflow": 0.0,
+            "outflow": float(e.total_amount or e.amount),
+            "mode": "CASH",
+            "notes": e.description or "Operational Expense",
+        })
+
+    return {
+        "date": day_d.isoformat(),
+        "opening_float": float(opening_float),
+        "pos_cash_sales": float(pos_cash_sales),
+        "pos_upi_sales": float(pos_upi_sales),
+        "pos_card_sales": float(pos_card_sales),
+        "khata_cash_collected": float(khata_cash),
+        "khata_upi_collected": float(khata_upi),
+        "total_cash_inflows": float(pos_cash_sales + khata_cash),
+        "total_upi_inflows": float(pos_upi_sales + khata_upi),
+        "total_expenses": float(total_expenses),
+        "expected_drawer_cash": float(expected_drawer_cash),
+        "counted_drawer_cash": float(counted_drawer_cash),
+        "discrepancy": float(computed_discrepancy),
+        "active_shifts_count": len(shifts),
+        "open_shifts_count": len([s for s in shifts if s.status == "OPEN"]),
+        "closed_shifts_count": len([s for s in shifts if s.status == "CLOSED"]),
+        "lines": lines,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 15. Vehicle Delivery Trips & Fleet Operations
+# ---------------------------------------------------------------------------
+
+
+class CreateTripStopPayload(BaseModel):
+    customer_id: str | None = None
+    customer_name: str
+    customer_phone: str
+    delivery_address: str
+    invoice_number: str | None = None
+    amount_to_collect: Decimal = Decimal("0.00")
+    notes: str | None = None
+
+
+class CreateTripPayload(BaseModel):
+    branch_id: str | None = None
+    vehicle_id: str
+    driver_id: str | None = None
+    route_name: str
+    trip_date: str | None = None
+    start_odometer: int | None = None
+    notes: str | None = None
+    stops: list[CreateTripStopPayload] = []
+
+
+class CompleteTripPayload(BaseModel):
+    fuel_expense: Decimal = Decimal("0.00")
+    toll_expense: Decimal = Decimal("0.00")
+    driver_allowance: Decimal = Decimal("0.00")
+    cod_collected: Decimal = Decimal("0.00")
+    end_odometer: int | None = None
+    notes: str | None = None
+
+
+@router.get("/trips")
+def list_admin_trips(
+    branch_id: str | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    org_id = current_user.organization_id
+    query = select(DeliveryTrip).where(DeliveryTrip.organization_id == org_id).order_by(DeliveryTrip.created_at.desc())
+    if branch_id:
+        query = query.where(DeliveryTrip.branch_id == branch_id)
+    trips = db.scalars(query).all()
+
+    vehicles_map = {v.id: f"{v.vehicle_number} ({v.make} {v.model})" for v in db.scalars(select(Vehicle).where(Vehicle.organization_id == org_id)).all()}
+    drivers_map = {e.id: f"{e.first_name} {e.last_name}" for e in db.scalars(select(Employee).where(Employee.organization_id == org_id)).all()}
+    branches_map = {b.id: b.branch_name for b in db.scalars(select(Branch).where(Branch.organization_id == org_id)).all()}
+
+    results = []
+    for t in trips:
+        stops_data = [
+            {
+                "id": s.id,
+                "customer_name": s.customer_name,
+                "customer_phone": s.customer_phone,
+                "delivery_address": s.delivery_address,
+                "invoice_number": s.invoice_number,
+                "amount_to_collect": float(s.amount_to_collect),
+                "amount_collected": float(s.amount_collected),
+                "status": s.status,
+            }
+            for s in t.stops
+        ]
+        results.append({
+            "id": t.id,
+            "trip_number": t.trip_number,
+            "branch_name": branches_map.get(t.branch_id, "Central HQ"),
+            "vehicle_name": vehicles_map.get(t.vehicle_id, "Delivery Van"),
+            "driver_name": drivers_map.get(t.driver_id, "Assigned Driver") if t.driver_id else "Unassigned",
+            "route_name": t.route_name,
+            "trip_date": t.trip_date.isoformat(),
+            "status": t.status,
+            "total_stops": len(stops_data),
+            "total_invoice_amount": float(t.total_invoice_amount),
+            "cod_to_collect": float(t.cod_to_collect),
+            "cod_collected": float(t.cod_collected),
+            "fuel_expense": float(t.fuel_expense),
+            "toll_expense": float(t.toll_expense),
+            "driver_allowance": float(t.driver_allowance),
+            "start_odometer": t.start_odometer,
+            "end_odometer": t.end_odometer,
+            "notes": t.notes,
+            "stops": stops_data,
+        })
+    return results
+
+
+@router.post("/trips", status_code=status.HTTP_201_CREATED)
+def create_admin_trip(
+    payload: CreateTripPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    target_branch = payload.branch_id or current_user.active_branch_id
+    if not target_branch:
+        first_b = db.scalar(select(Branch).where(Branch.organization_id == org_id))
+        target_branch = first_b.id if first_b else str(uuid.uuid4())
+
+    count = db.scalar(select(func.count(DeliveryTrip.id)).where(DeliveryTrip.organization_id == org_id)) or 0
+    trip_num = f"TRIP-{datetime.now(UTC).strftime('%y%m%d')}-{count + 1:03d}"
+
+    t_date = date.fromisoformat(payload.trip_date) if payload.trip_date else datetime.now(UTC).date()
+    total_cod = sum(s.amount_to_collect for s in payload.stops)
+
+    trip = DeliveryTrip(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=target_branch,
+        trip_number=trip_num,
+        vehicle_id=payload.vehicle_id,
+        driver_id=payload.driver_id,
+        trip_date=t_date,
+        route_name=payload.route_name.strip(),
+        status="SCHEDULED",
+        total_stops=len(payload.stops),
+        total_invoice_amount=total_cod,
+        cod_to_collect=total_cod,
+        cod_collected=Decimal("0.00"),
+        fuel_expense=Decimal("0.00"),
+        toll_expense=Decimal("0.00"),
+        driver_allowance=Decimal("0.00"),
+        start_odometer=payload.start_odometer,
+        notes=payload.notes,
+    )
+    db.add(trip)
+    db.flush()
+
+    for s in payload.stops:
+        stop = DeliveryTripStop(
+            id=str(uuid.uuid4()),
+            trip_id=trip.id,
+            customer_id=s.customer_id,
+            customer_name=s.customer_name.strip(),
+            customer_phone=s.customer_phone.strip(),
+            delivery_address=s.delivery_address.strip(),
+            invoice_number=s.invoice_number,
+            amount_to_collect=s.amount_to_collect,
+            amount_collected=Decimal("0.00"),
+            status="PENDING",
+            notes=s.notes,
+        )
+        db.add(stop)
+
+    db.commit()
+    return {"message": "Delivery trip created", "trip_id": trip.id, "trip_number": trip_num}
+
+
+@router.post("/trips/{trip_id}/dispatch")
+def dispatch_admin_trip(
+    trip_id: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    trip = db.scalar(
+        select(DeliveryTrip).where(
+            DeliveryTrip.id == trip_id,
+            DeliveryTrip.organization_id == current_user.organization_id,
+        )
+    )
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    trip.status = "DISPATCHED"
+    db.commit()
+    return {"message": f"Trip {trip.trip_number} dispatched", "status": "DISPATCHED"}
+
+
+@router.post("/trips/{trip_id}/complete")
+def complete_admin_trip(
+    trip_id: str,
+    payload: CompleteTripPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    trip = db.scalar(
+        select(DeliveryTrip).where(
+            DeliveryTrip.id == trip_id,
+            DeliveryTrip.organization_id == current_user.organization_id,
+        )
+    )
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    trip.status = "COMPLETED"
+    trip.fuel_expense = payload.fuel_expense
+    trip.toll_expense = payload.toll_expense
+    trip.driver_allowance = payload.driver_allowance
+    trip.cod_collected = payload.cod_collected
+    if payload.end_odometer is not None:
+        trip.end_odometer = payload.end_odometer
+    if payload.notes:
+        trip.notes = f"{trip.notes or ''} [Completion: {payload.notes}]".strip()
+
+    for s in trip.stops:
+        if s.status == "PENDING":
+            s.status = "DELIVERED"
+            s.amount_collected = s.amount_to_collect
+            s.delivered_at = datetime.now(UTC)
+
+    if payload.fuel_expense > Decimal("0.00"):
+        exp_count = db.scalar(select(func.count(Expense.id)).where(Expense.organization_id == trip.organization_id)) or 0
+        fuel_exp = Expense(
+            id=str(uuid.uuid4()),
+            organization_id=trip.organization_id,
+            branch_id=trip.branch_id,
+            expense_number=f"EXP-{exp_count + 1:04d}",
+            expense_date=trip.trip_date,
+            amount=payload.fuel_expense,
+            tax_amount=Decimal("0.00"),
+            total_amount=payload.fuel_expense,
+            paid_to="Fuel Station (Diesel)",
+            description=f"Trip {trip.trip_number} ({trip.route_name}) Diesel Expense",
+            status="APPROVED",
+        )
+        db.add(fuel_exp)
+
+    db.commit()
+    return {"message": f"Trip {trip.trip_number} completed successfully", "status": "COMPLETED"}
+
+
+# ---------------------------------------------------------------------------
+# 16. Employee Attendance & Monthly Salary Slips
+# ---------------------------------------------------------------------------
+
+
+class PunchAttendancePayload(BaseModel):
+    employee_id: str
+    attendance_date: str | None = None
+    status: str = "PRESENT"
+    notes: str | None = None
+
+
+class GenerateSalarySlipsPayload(BaseModel):
+    month: int = Field(ge=1, le=12)
+    year: int = Field(ge=2020, le=2050)
+    working_days: int = 30
+
+
+@router.get("/attendance")
+def get_admin_attendance(
+    month: int | None = None,
+    year: int | None = None,
+    branch_id: str | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    org_id = current_user.organization_id
+    now = datetime.now(UTC)
+    target_month = month or now.month
+    target_year = year or now.year
+
+    query = (
+        select(AttendanceRecord)
+        .where(
+            AttendanceRecord.organization_id == org_id,
+            func.extract("month", AttendanceRecord.attendance_date) == target_month,
+            func.extract("year", AttendanceRecord.attendance_date) == target_year,
+        )
+        .order_by(AttendanceRecord.attendance_date.desc())
+    )
+    if branch_id:
+        query = query.where(AttendanceRecord.branch_id == branch_id)
+
+    records = db.scalars(query).all()
+    employees_map = {
+        e.id: f"{e.first_name} {e.last_name} ({e.employee_code})"
+        for e in db.scalars(select(Employee).where(Employee.organization_id == org_id)).all()
+    }
+
+    return [
+        {
+            "id": r.id,
+            "employee_id": r.employee_id,
+            "employee_name": employees_map.get(r.employee_id, "Staff Member"),
+            "attendance_date": r.attendance_date.isoformat(),
+            "status": r.status,
+            "check_in": r.check_in.isoformat() if r.check_in else None,
+            "notes": r.notes,
+        }
+        for r in records
+    ]
+
+
+@router.post("/attendance", status_code=status.HTTP_201_CREATED)
+def punch_admin_attendance(
+    payload: PunchAttendancePayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    emp = db.scalar(select(Employee).where(Employee.id == payload.employee_id, Employee.organization_id == org_id))
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    att_date = date.fromisoformat(payload.attendance_date) if payload.attendance_date else datetime.now(UTC).date()
+
+    existing = db.scalar(
+        select(AttendanceRecord).where(
+            AttendanceRecord.employee_id == emp.id,
+            AttendanceRecord.attendance_date == att_date,
+        )
+    )
+    if existing:
+        existing.status = payload.status
+        existing.notes = payload.notes
+        db.commit()
+        return {"message": "Attendance updated", "status": payload.status}
+
+    now_utc = datetime.now(UTC)
+    record = AttendanceRecord(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=emp.branch_id,
+        employee_id=emp.id,
+        attendance_date=att_date,
+        check_in=now_utc if payload.status in ("PRESENT", "HALF_DAY") else None,
+        status=payload.status,
+        notes=payload.notes,
+    )
+    db.add(record)
+    db.commit()
+    return {"message": "Attendance recorded", "status": payload.status}
+
+
+@router.get("/salary-slips")
+def list_admin_salary_slips(
+    month: int | None = None,
+    year: int | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    org_id = current_user.organization_id
+    query = select(SalarySlip).where(SalarySlip.organization_id == org_id).order_by(SalarySlip.year.desc(), SalarySlip.month.desc())
+    if month:
+        query = query.where(SalarySlip.month == month)
+    if year:
+        query = query.where(SalarySlip.year == year)
+
+    slips = db.scalars(query).all()
+    employees_map = {
+        e.id: {
+            "name": f"{e.first_name} {e.last_name}",
+            "code": e.employee_code,
+            "phone": e.phone,
+        }
+        for e in db.scalars(select(Employee).where(Employee.organization_id == org_id)).all()
+    }
+    branches_map = {b.id: b.branch_name for b in db.scalars(select(Branch).where(Branch.organization_id == org_id)).all()}
+
+    return [
+        {
+            "id": s.id,
+            "employee_id": s.employee_id,
+            "employee_name": employees_map.get(s.employee_id, {}).get("name", "Staff Member"),
+            "employee_code": employees_map.get(s.employee_id, {}).get("code", "EMP"),
+            "employee_phone": employees_map.get(s.employee_id, {}).get("phone", ""),
+            "branch_name": branches_map.get(s.branch_id, "Main Branch"),
+            "month": s.month,
+            "year": s.year,
+            "working_days": s.working_days,
+            "present_days": float(s.present_days),
+            "absent_days": float(s.absent_days),
+            "base_salary": float(s.base_salary),
+            "per_day_rate": float(s.per_day_rate),
+            "earned_salary": float(s.earned_salary),
+            "incentives": float(s.incentives),
+            "deductions": float(s.deductions),
+            "net_salary": float(s.net_salary),
+            "payment_status": s.payment_status,
+            "payment_date": s.payment_date.isoformat() if s.payment_date else None,
+            "payment_method": s.payment_method,
+            "notes": s.notes,
+        }
+        for s in slips
+    ]
+
+
+@router.post("/salary-slips/generate", status_code=status.HTTP_201_CREATED)
+def generate_admin_salary_slips(
+    payload: GenerateSalarySlipsPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    employees = db.scalars(select(Employee).where(Employee.organization_id == org_id, Employee.is_active == True)).all()
+
+    generated_count = 0
+    for emp in employees:
+        existing = db.scalar(
+            select(SalarySlip).where(
+                SalarySlip.employee_id == emp.id,
+                SalarySlip.month == payload.month,
+                SalarySlip.year == payload.year,
+            )
+        )
+        if existing:
+            continue
+
+        attendance_recs = db.scalars(
+            select(AttendanceRecord).where(
+                AttendanceRecord.employee_id == emp.id,
+                func.extract("month", AttendanceRecord.attendance_date) == payload.month,
+                func.extract("year", AttendanceRecord.attendance_date) == payload.year,
+            )
+        ).all()
+
+        p_days = Decimal("0.00")
+        for a in attendance_recs:
+            if a.status == "PRESENT":
+                p_days += Decimal("1.00")
+            elif a.status == "HALF_DAY":
+                p_days += Decimal("0.50")
+
+        if not attendance_recs:
+            p_days = Decimal(str(payload.working_days))
+
+        a_days = max(Decimal("0.00"), Decimal(str(payload.working_days)) - p_days)
+        base = emp.base_salary or Decimal("18000.00")
+        per_day = base / Decimal(str(payload.working_days))
+        earned = per_day * p_days
+        deductions = per_day * a_days
+        net = earned
+
+        slip = SalarySlip(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            branch_id=emp.branch_id,
+            employee_id=emp.id,
+            month=payload.month,
+            year=payload.year,
+            working_days=payload.working_days,
+            present_days=p_days,
+            absent_days=a_days,
+            base_salary=base,
+            per_day_rate=per_day,
+            earned_salary=earned,
+            incentives=Decimal("0.00"),
+            deductions=deductions,
+            net_salary=net,
+            payment_status="PENDING",
+            payment_method="CASH",
+        )
+        db.add(slip)
+        generated_count += 1
+
+    db.commit()
+    return {"message": f"Generated {generated_count} salary slips for {payload.month}/{payload.year}"}
 

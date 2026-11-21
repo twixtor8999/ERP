@@ -63,3 +63,7 @@ Thumbs.db
 # Docker volume data
 postgres_data/
 
+# Data backups & customer dumps
+*backup*.json
+
+

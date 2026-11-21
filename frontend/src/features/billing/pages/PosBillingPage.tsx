@@ -16,6 +16,8 @@ import {
   X,
   CreditCard,
   Banknote,
+  BookOpen,
+  MessageCircle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -59,11 +61,19 @@ interface InvoiceResult {
   invoice_number: string;
   invoice_date: string;
   branch_id: string;
+  branch_name?: string;
   cashier_name: string;
+  customer_name?: string;
+  customer_phone?: string;
   total_amount: string | number;
   tax_amount: string | number;
   cash_paid: string | number;
   upi_paid: string | number;
+  card_paid?: string | number;
+  khata_amount?: string | number;
+  balance_amount?: string | number;
+  customer_current_balance?: string | number;
+  payment_method?: string;
   items: Array<{
     variant_id: string;
     product_name: string;
@@ -102,13 +112,16 @@ export function PosBillingPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // Customer & Payment
+  // Customer & Khata lookup
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "CARD" | "SPLIT">("CASH");
+  const [customerKhataBalance, setCustomerKhataBalance] = useState<number | null>(null);
+  const [isCustomerSearching, setIsCustomerSearching] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "CARD" | "KHATA" | "SPLIT">("CASH");
   const [cashAmount, setCashAmount] = useState<string>("");
   const [upiAmount, setUpiAmount] = useState<string>("");
   const [cardAmount, setCardAmount] = useState<string>("");
+  const [khataAmount, setKhataAmount] = useState<string>("");
   const [upiReference, setUpiReference] = useState<string>("");
   const [cardReference, setCardReference] = useState<string>("");
 
@@ -249,6 +262,76 @@ export function PosBillingPage() {
     }
   };
 
+  const lookupCustomerByPhone = async (phone: string) => {
+    setCustomerPhone(phone);
+    const cleaned = phone.trim();
+    if (cleaned.length >= 4) {
+      try {
+        setIsCustomerSearching(true);
+        const res = await apiClient.get<Array<{
+          id: string;
+          name: string;
+          phone: string;
+          current_balance: string | number;
+        }>>("/api/v1/pos/customers/lookup", {
+          params: { q: cleaned },
+        });
+        const match = res.data?.[0];
+        if (match) {
+          if (!customerName || customerName === "Walk-in Customer") {
+            setCustomerName(match.name);
+          }
+          setCustomerKhataBalance(Number(match.current_balance));
+        } else {
+          setCustomerKhataBalance(0);
+        }
+      } catch {
+        setCustomerKhataBalance(null);
+      } finally {
+        setIsCustomerSearching(false);
+      }
+    } else {
+      setCustomerKhataBalance(null);
+    }
+  };
+
+  const generateWhatsAppReceiptUrl = (invoice: InvoiceResult) => {
+    const rawPhone = (invoice.customer_phone || customerPhone || "").replace(/\D/g, "");
+    if (!rawPhone) return "";
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+
+    let msg = `*🧾 Siddeshwar Enterprises — Cash Memo*\n`;
+    msg += `*Bill No:* ${invoice.invoice_number}\n`;
+    msg += `*Date:* ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}\n`;
+    msg += `*Cashier:* ${invoice.cashier_name}\n`;
+    if (invoice.customer_name) {
+      msg += `*Customer:* ${invoice.customer_name}\n`;
+    }
+    msg += `───────────────────────\n`;
+    (invoice.items || []).forEach((it) => {
+      msg += `• ${it.product_name} x ${it.quantity} = ₹${Number(it.total).toFixed(2)}\n`;
+    });
+    msg += `───────────────────────\n`;
+    msg += `*Total Amount:* ₹${Number(invoice.total_amount).toFixed(2)}\n`;
+    if (Number(invoice.cash_paid) > 0) {
+      msg += `*Paid (Cash):* ₹${Number(invoice.cash_paid).toFixed(2)}\n`;
+    }
+    if (Number(invoice.upi_paid) > 0) {
+      msg += `*Paid (UPI QR):* ₹${Number(invoice.upi_paid).toFixed(2)}\n`;
+    }
+    const khataVal = Number(invoice.khata_amount || invoice.balance_amount || 0);
+    if (khataVal > 0) {
+      msg += `*Added to Khata (Udhaar):* ₹${khataVal.toFixed(2)}\n`;
+    }
+    if (invoice.customer_current_balance !== undefined) {
+      msg += `*Remaining Khata Balance:* ₹${Number(invoice.customer_current_balance).toFixed(2)}\n`;
+    }
+    msg += `───────────────────────\n`;
+    msg += `Thank you for your business! 🙏\nSiddeshwar Enterprises`;
+
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
   const handleCheckoutInvoice = async () => {
     if (cart.length === 0) {
       setErrorMessage("Cart is empty.");
@@ -258,6 +341,7 @@ export function PosBillingPage() {
     let cash = 0;
     let upi = 0;
     let card = 0;
+    let khata = 0;
 
     if (paymentMode === "CASH") {
       cash = parseFloat(cashAmount) || total;
@@ -269,13 +353,24 @@ export function PosBillingPage() {
       upi = total;
     } else if (paymentMode === "CARD") {
       card = total;
+    } else if (paymentMode === "KHATA") {
+      if (!customerPhone.trim() && !customerName.trim()) {
+        setErrorMessage("Customer name or mobile number is required for Khata (Udhaar) billing.");
+        return;
+      }
+      khata = total;
     } else {
       cash = parseFloat(cashAmount) || 0;
       upi = parseFloat(upiAmount) || 0;
       card = parseFloat(cardAmount) || 0;
-      if (Math.abs(cash + upi + card - total) > 0.05) {
+      khata = parseFloat(khataAmount) || 0;
+      if (khata > 0 && !customerPhone.trim() && !customerName.trim()) {
+        setErrorMessage("Customer mobile number is required when allocating amount to Khata (Udhaar).");
+        return;
+      }
+      if (Math.abs(cash + upi + card + khata - total) > 0.05) {
         setErrorMessage(
-          `Total split payment (₹${(cash + upi + card).toFixed(2)}) must equal bill total (₹${total.toFixed(2)})`
+          `Total split payment (₹${(cash + upi + card + khata).toFixed(2)}) must equal bill total (₹${total.toFixed(2)})`
         );
         return;
       }
@@ -293,6 +388,7 @@ export function PosBillingPage() {
         upi_reference: upiReference.trim() || undefined,
         card_paid: card,
         card_reference: cardReference.trim() || undefined,
+        khata_amount: khata,
         payment_method: paymentMode,
         items: cart.map((i) => ({
           variant_id: i.variant_id,
@@ -304,9 +400,11 @@ export function PosBillingPage() {
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
+      setCustomerKhataBalance(null);
       setCashAmount("");
       setUpiAmount("");
       setCardAmount("");
+      setKhataAmount("");
       setUpiReference("");
       setCardReference("");
       fetchCurrentShift();
@@ -545,12 +643,27 @@ export function PosBillingPage() {
                 </div>
               </div>
 
-              {/* Customer Info (Optional) */}
+              {/* Customer Info & Live Khata Lookup */}
               <div className="border-t pt-2 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Customer Details (Optional)
+                    Customer & Khata (Udhaar)
                   </span>
+                  {isCustomerSearching ? (
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Checking Khata...
+                    </span>
+                  ) : customerKhataBalance !== null ? (
+                    customerKhataBalance > 0 ? (
+                      <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-mono font-bold animate-pulse">
+                        🔴 Pending Udhaar: ₹ {customerKhataBalance.toFixed(2)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono text-emerald-600 bg-emerald-50 border-emerald-200">
+                        🟢 Khata Clear: ₹ 0.00
+                      </Badge>
+                    )
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
@@ -564,7 +677,7 @@ export function PosBillingPage() {
                     id={customerPhoneId}
                     placeholder="Mobile (10 digits)"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => lookupCustomerByPhone(e.target.value)}
                     className="text-xs font-mono h-8"
                   />
                 </div>
@@ -575,12 +688,12 @@ export function PosBillingPage() {
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
                   Select Tender Mode
                 </span>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-5 gap-1">
                   <Button
                     type="button"
                     size="sm"
                     variant={paymentMode === "CASH" ? "default" : "outline"}
-                    className={`h-8 text-xs gap-1 font-semibold ${
+                    className={`h-8 text-[11px] px-1 gap-1 font-semibold ${
                       paymentMode === "CASH" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
                     }`}
                     onClick={() => {
@@ -588,15 +701,16 @@ export function PosBillingPage() {
                       setCashAmount(total.toFixed(2));
                       setUpiAmount("");
                       setCardAmount("");
+                      setKhataAmount("");
                     }}
                   >
-                    <Banknote className="w-3.5 h-3.5" /> Cash
+                    <Banknote className="w-3 h-3" /> Cash
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant={paymentMode === "UPI" ? "default" : "outline"}
-                    className={`h-8 text-xs gap-1 font-semibold ${
+                    className={`h-8 text-[11px] px-1 gap-1 font-semibold ${
                       paymentMode === "UPI" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""
                     }`}
                     onClick={() => {
@@ -604,15 +718,16 @@ export function PosBillingPage() {
                       setUpiAmount(total.toFixed(2));
                       setCashAmount("");
                       setCardAmount("");
+                      setKhataAmount("");
                     }}
                   >
-                    <Smartphone className="w-3.5 h-3.5" /> UPI QR
+                    <Smartphone className="w-3 h-3" /> UPI
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant={paymentMode === "CARD" ? "default" : "outline"}
-                    className={`h-8 text-xs gap-1 font-semibold ${
+                    className={`h-8 text-[11px] px-1 gap-1 font-semibold ${
                       paymentMode === "CARD" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
                     }`}
                     onClick={() => {
@@ -620,15 +735,33 @@ export function PosBillingPage() {
                       setCardAmount(total.toFixed(2));
                       setCashAmount("");
                       setUpiAmount("");
+                      setKhataAmount("");
                     }}
                   >
-                    <CreditCard className="w-3.5 h-3.5" /> Card
+                    <CreditCard className="w-3 h-3" /> Card
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={paymentMode === "KHATA" ? "default" : "outline"}
+                    className={`h-8 text-[11px] px-1 gap-1 font-semibold ${
+                      paymentMode === "KHATA" ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
+                    }`}
+                    onClick={() => {
+                      setPaymentMode("KHATA");
+                      setKhataAmount(total.toFixed(2));
+                      setCashAmount("");
+                      setUpiAmount("");
+                      setCardAmount("");
+                    }}
+                  >
+                    <BookOpen className="w-3 h-3" /> Khata
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant={paymentMode === "SPLIT" ? "default" : "outline"}
-                    className={`h-8 text-xs gap-1 font-semibold ${
+                    className={`h-8 text-[11px] px-1 gap-1 font-semibold ${
                       paymentMode === "SPLIT" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""
                     }`}
                     onClick={() => {
@@ -636,6 +769,7 @@ export function PosBillingPage() {
                       setCashAmount((total / 2).toFixed(2));
                       setUpiAmount((total / 2).toFixed(2));
                       setCardAmount("");
+                      setKhataAmount("");
                     }}
                   >
                     Split
@@ -736,53 +870,86 @@ export function PosBillingPage() {
                   </div>
                 )}
 
+                {/* Khata (Udhaar) Mode View */}
+                {paymentMode === "KHATA" && (
+                  <div className="space-y-2 pt-1 bg-rose-500/5 p-2.5 rounded-lg border border-rose-500/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-rose-600 flex items-center gap-1">
+                        <BookOpen className="w-3.5 h-3.5" /> 100% Khata (Customer Credit / Udhaar)
+                      </span>
+                      <span className="font-mono font-bold text-foreground">₹ {total.toFixed(2)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Full amount of <b>₹{total.toFixed(2)}</b> will be debited to{" "}
+                      <b>{customerName || "Customer"}</b>'s Khata ledger.
+                    </p>
+                    {(!customerPhone.trim() && !customerName.trim()) && (
+                      <p className="text-[10px] text-rose-600 font-medium">
+                        ⚠️ Please enter Customer Name or Mobile Number above before checkout.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Split Mode View */}
                 {paymentMode === "SPLIT" && (
                   <div className="space-y-2 pt-1">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-1.5">
                       <div>
-                        <span className="text-[10px] text-muted-foreground block mb-0.5">Cash (₹):</span>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">Cash:</span>
                         <Input
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           value={cashAmount}
                           onChange={(e) => setCashAmount(e.target.value)}
-                          className="font-mono text-xs h-7"
+                          className="font-mono text-xs h-7 px-1.5"
                         />
                       </div>
                       <div>
-                        <span className="text-[10px] text-muted-foreground block mb-0.5">UPI (₹):</span>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">UPI QR:</span>
                         <Input
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           value={upiAmount}
                           onChange={(e) => setUpiAmount(e.target.value)}
-                          className="font-mono text-xs h-7"
+                          className="font-mono text-xs h-7 px-1.5"
                         />
                       </div>
                       <div>
-                        <span className="text-[10px] text-muted-foreground block mb-0.5">Card (₹):</span>
+                        <span className="text-[10px] text-muted-foreground block mb-0.5">Card:</span>
                         <Input
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           value={cardAmount}
                           onChange={(e) => setCardAmount(e.target.value)}
-                          className="font-mono text-xs h-7"
+                          className="font-mono text-xs h-7 px-1.5"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-rose-600 font-medium block mb-0.5">Khata:</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={khataAmount}
+                          onChange={(e) => setKhataAmount(e.target.value)}
+                          className="font-mono text-xs h-7 px-1.5 border-rose-300"
                         />
                       </div>
                     </div>
                     {/* Remaining allocation indicator */}
-                    <div className="text-[11px] font-mono flex justify-between">
+                    <div className="text-[11px] font-mono flex justify-between items-center">
                       <span className="text-muted-foreground">Allocated:</span>
                       <span
                         className={
                           Math.abs(
                             (parseFloat(cashAmount) || 0) +
                               (parseFloat(upiAmount) || 0) +
-                              (parseFloat(cardAmount) || 0) -
+                              (parseFloat(cardAmount) || 0) +
+                              (parseFloat(khataAmount) || 0) -
                               total
                           ) < 0.05
                             ? "text-emerald-600 font-bold"
@@ -793,7 +960,8 @@ export function PosBillingPage() {
                         {(
                           (parseFloat(cashAmount) || 0) +
                           (parseFloat(upiAmount) || 0) +
-                          (parseFloat(cardAmount) || 0)
+                          (parseFloat(cardAmount) || 0) +
+                          (parseFloat(khataAmount) || 0)
                         ).toFixed(2)}{" "}
                         / ₹ {total.toFixed(2)}
                       </span>
@@ -977,9 +1145,15 @@ export function PosBillingPage() {
                 <div>
                   <div className="font-bold text-foreground">INV: #{completedInvoice.invoice_number}</div>
                   <div className="text-muted-foreground">Date: {new Date(completedInvoice.invoice_date).toLocaleString()}</div>
+                  {completedInvoice.customer_name && (
+                    <div className="text-foreground font-semibold mt-0.5">
+                      Customer: {completedInvoice.customer_name} {completedInvoice.customer_phone ? `(${completedInvoice.customer_phone})` : ""}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-muted-foreground">Cashier: {completedInvoice.cashier_name}</div>
+                  <div className="text-primary font-semibold uppercase">{completedInvoice.payment_method || "CASH"}</div>
                 </div>
               </div>
 
@@ -993,7 +1167,7 @@ export function PosBillingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {completedInvoice.items.map((i, idx) => (
+                  {(completedInvoice.items || []).map((i, idx) => (
                     <tr key={idx}>
                       <td className="py-1">{i.product_name}</td>
                       <td className="py-1 text-center">{i.quantity}</td>
@@ -1013,19 +1187,42 @@ export function PosBillingPage() {
                   <span>Tax Breakdown (GST):</span>
                   <span>₹ {Number(completedInvoice.tax_amount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-xs font-normal text-emerald-600">
-                  <span>Paid Cash: ₹ {Number(completedInvoice.cash_paid).toFixed(2)}</span>
-                  <span>Paid UPI: ₹ {Number(completedInvoice.upi_paid).toFixed(2)}</span>
+                <div className="flex justify-between text-xs font-normal text-emerald-600 flex-wrap gap-x-3">
+                  {Number(completedInvoice.cash_paid) > 0 && <span>Paid Cash: ₹ {Number(completedInvoice.cash_paid).toFixed(2)}</span>}
+                  {Number(completedInvoice.upi_paid) > 0 && <span>Paid UPI: ₹ {Number(completedInvoice.upi_paid).toFixed(2)}</span>}
                 </div>
+                {Number(completedInvoice.khata_amount || completedInvoice.balance_amount || 0) > 0 && (
+                  <div className="flex justify-between text-xs font-bold text-rose-600 bg-rose-50 p-1.5 rounded border border-rose-200">
+                    <span>Added to Khata (Udhaar):</span>
+                    <span>₹ {Number(completedInvoice.khata_amount || completedInvoice.balance_amount).toFixed(2)}</span>
+                  </div>
+                )}
+                {completedInvoice.customer_current_balance !== undefined && (
+                  <div className="flex justify-between text-[11px] font-semibold text-muted-foreground pt-0.5">
+                    <span>Remaining Customer Khata Balance:</span>
+                    <span className="font-mono text-foreground">₹ {Number(completedInvoice.customer_current_balance).toFixed(2)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-3">
+                {completedInvoice.customer_phone && (
+                  <Button
+                    className="flex-1 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    onClick={() => {
+                      const url = generateWhatsAppReceiptUrl(completedInvoice);
+                      if (url) window.open(url, "_blank");
+                    }}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp Receipt
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="flex-1 gap-1 text-xs"
                   onClick={() => window.print()}
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print Receipt
+                  <Printer className="w-3.5 h-3.5" /> Thermal Print
                 </Button>
                 <Button
                   className="flex-1 text-xs bg-primary text-primary-foreground"

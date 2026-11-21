@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -198,3 +199,54 @@ class AttendanceRecord(Base, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     employee: Mapped["Employee"] = relationship("Employee", back_populates="attendance_records")
+
+
+class SalarySlip(Base, TimestampMixin):
+    """Monthly salary slip and attendance compensation voucher."""
+
+    __tablename__ = "salary_slips"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "month", "year", name="uq_emp_salary_month_year"),
+        Index("ix_salary_slip_emp_period", "employee_id", "month", "year"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    branch_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("branches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    employee_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("employees.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    working_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    present_days: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("30.00"), nullable=False)
+    absent_days: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    base_salary: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    per_day_rate: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    earned_salary: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    incentives: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    deductions: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    net_salary: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    payment_status: Mapped[str] = mapped_column(String(30), default="PENDING", nullable=False)
+    payment_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    payment_method: Mapped[str | None] = mapped_column(String(50), default="CASH", nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    employee: Mapped["Employee"] = relationship("Employee")

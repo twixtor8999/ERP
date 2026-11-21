@@ -6,7 +6,6 @@ import {
   Lock,
   Loader2,
   ArrowRight,
-  Phone,
   User,
   Eye,
   EyeOff,
@@ -14,6 +13,13 @@ import {
   ShieldAlert,
   Sparkles,
   ShieldCheck,
+  ShoppingCart,
+  Users,
+  Receipt,
+  FileText,
+  Package,
+  BarChart3,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { loginSchema, type LoginFormData } from "../schemas/login.schema";
@@ -57,6 +63,12 @@ const OPERATIONAL_ROLES: RegistrationRoleItem[] = [
     description: "Customer counter orders, billing counter sales, customer CRM & pricing discounts.",
   },
   {
+    slug: "crm_executive",
+    name: "Telecaller / CRM Staff",
+    badge: "Customer Relations",
+    description: "Customer Khata ledger, pending Udhaar calls, WhatsApp payment reminders & orders.",
+  },
+  {
     slug: "employee",
     name: "Store & Delivery Staff",
     badge: "Logistics & Floor",
@@ -70,8 +82,9 @@ function resolveSmartRoute(role?: string, fallbackRoute?: string | null): string
   if (r.includes("cashier") || r.includes("pos")) return "/pos";
   if (r.includes("delivery")) return "/deliveries";
   if (r.includes("inventory")) return "/inventory";
-  if (r.includes("accountant")) return "/accounts";
-  if (r.includes("super_admin") || r.includes("admin") || r.includes("owner")) return "/dashboard";
+  if (r.includes("accountant") || r.includes("ca")) return "/accounts";
+  if (r.includes("crm") || r.includes("telecaller")) return "/crm";
+  if (r.includes("super_admin") || r.includes("admin") || r.includes("owner")) return fallbackRoute || "/dashboard";
   return fallbackRoute || "/dashboard";
 }
 
@@ -178,25 +191,11 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
         role_slug: regSelectedRole,
       });
 
-      toast.success("Account Created Successfully", {
-        description: `Registered with assigned role: ${OPERATIONAL_ROLES.find((r) => r.slug === regSelectedRole)?.name || regSelectedRole}`,
+      toast.success("Access Request Submitted", {
+        description: "Your registration is pending Super Admin role approval. You will be able to log in once approved.",
       });
 
-      // Automatically sign in with the new registered account
-      const loginRes = await authService.login({
-        identifier: cleanPhone,
-        password: regPassword,
-      });
-      setUser(loginRes.user);
-      if (loginRes.user.allowedBranches && loginRes.user.allowedBranches.length > 0) {
-        setAvailableBranches(loginRes.user.allowedBranches);
-        const defaultBranch = loginRes.user.allowedBranches[0];
-        if (defaultBranch) {
-          setActiveBranch(defaultBranch);
-        }
-      }
-
-      navigate(resolveSmartRoute(loginRes.user.role, loginRes.user.dashboardRoute), { replace: true });
+      setActiveTab("login");
     } catch (err: unknown) {
       const errorMsg =
         err && typeof err === "object" && "response" in err
@@ -214,76 +213,138 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
   const selectedRoleObj = OPERATIONAL_ROLES.find((r) => r.slug === regSelectedRole) || OPERATIONAL_ROLES[0];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50/80 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] p-4 text-slate-800">
-      <div className="w-full max-w-md space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center">
-            <img
-              src="/siddeshwar-logo.png"
-              alt="Siddeshwar Enterprises Logo"
-              className="w-16 h-16 rounded-2xl object-cover shadow-lg border border-slate-200"
-            />
+    <div className="min-h-screen w-full flex flex-col bg-[#f8fafc] text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+      {/* Top Application Header */}
+      <header className="h-14 sm:h-16 px-4 sm:px-8 bg-white border-b border-slate-200/90 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">
-              Siddeshwar Enterprises
-            </h1>
-            <p className="text-xs text-slate-500 mt-1 font-medium">
-              Store Team Portal • Owner, Managers, Cashiers & Delivery
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight">
+              PK Ai Smart Bazar
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-500">
+              BILLING SOFTWARE
+            </span>
           </div>
         </div>
 
-        {/* Auth Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60 p-6 sm:p-7 space-y-5">
-          {/* Segmented Tab Bar */}
-          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
-            <button
-              type="button"
-              onClick={() => setActiveTab("login")}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "login"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              Staff & Owner Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("register")}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "register"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              New Staff Request
-            </button>
-          </div>
+        <Link
+          to="/shop"
+          className="text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to home</span>
+        </Link>
+      </header>
 
-          {activeTab === "login" ? (
-            <div className="space-y-4">
+      {/* Main Split-Screen Canvas */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* Left Side: Retail Hero Photography & Operations Value Prop */}
+        <div className="relative hidden lg:flex lg:w-7/12 xl:w-3/5 bg-slate-900 overflow-hidden items-end p-8 xl:p-14">
+          <img
+            src="/family-shopping.jpg"
+            alt="Indian family shopping in supermarket aisle"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          {/* Subtle Dark Gradient Overlay for High Contrast Text */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+
+          {/* Hero Branding Content */}
+          <div className="relative z-10 space-y-5 max-w-xl">
+            <h2 className="text-3xl xl:text-4xl font-extrabold text-white tracking-tight leading-snug">
+              Run your store, <br />
+              <span className="text-slate-100 font-bold">all in one app</span>
+            </h2>
+
+            {/* 5 Operational Badges from the Live CRM */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg">
+                <Users className="w-4 h-4 text-amber-400" />
+                <span>CRM</span>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg">
+                <Receipt className="w-4 h-4 text-amber-400" />
+                <span>Billing</span>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span>GST</span>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg">
+                <Package className="w-4 h-4 text-amber-400" />
+                <span>Inventory</span>
+              </div>
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg">
+                <BarChart3 className="w-4 h-4 text-amber-400" />
+                <span>Reports</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Clean Authentication Portal */}
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:p-12 bg-white lg:bg-slate-50/60">
+          <div className="w-full max-w-md bg-white sm:border sm:border-slate-200/90 sm:rounded-2xl sm:shadow-xl sm:shadow-slate-200/50 p-6 sm:p-8 space-y-6">
+            {/* Siddeshwar Brand Seal & Title */}
+            <div className="text-center space-y-2">
+              <div className="inline-block relative">
+                <img
+                  src="/siddeshwar-logo.png"
+                  alt="Siddeshwar Enterprises Logo"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-amber-500/40 shadow-sm mx-auto"
+                />
+              </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Sign In to Store</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Enter your mobile number. The system will automatically open your assigned workspace.
+                <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#1e3a8a] uppercase">
+                  SIDDESHWAR ENTERPRISES
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                  Welcome back! Sign in to continue
                 </p>
               </div>
+            </div>
 
+            {/* Segmented Tab Switcher */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setActiveTab("login")}
+                className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === "login"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Staff Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("register")}
+                className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === "register"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                New Staff Request
+              </button>
+            </div>
+
+            {activeTab === "login" ? (
               <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-4">
+                {/* Mobile / Email / Username Input */}
                 <div className="space-y-1.5">
                   <Label htmlFor="identifier" className="text-xs font-semibold text-slate-700">
-                    Registered Mobile Number
+                    Mobile / Email / Username
                   </Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="identifier"
                       type="text"
-                      placeholder="Enter 10-digit mobile number"
-                      className="pl-9 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500 font-mono text-sm shadow-sm"
+                      placeholder="Registered mobile number / username"
+                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-11 shadow-xs rounded-xl"
                       disabled={isSubmitting}
                       {...loginRegister("identifier")}
                     />
@@ -293,6 +354,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   )}
                 </div>
 
+                {/* Password Input with Show/Hide toggle */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-xs font-semibold text-slate-700">
@@ -302,30 +364,29 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                       type="button"
                       onClick={() =>
                         toast.info("Password Assistance", {
-                          description: "Please contact your Store Owner or Administrator for credential resets.",
+                          description: "Please contact Store Admin or Vijaykumar for credential resets.",
                         })
                       }
-                      className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
                     >
                       Forgot password?
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="••••••••••••"
-                      className="pl-9 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500 text-sm shadow-sm"
+                      placeholder="Enter password"
+                      className="pr-16 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-11 shadow-xs rounded-xl"
                       disabled={isSubmitting}
                       {...loginRegister("password")}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-3 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? "Hide" : "Show"}
                     </button>
                   </div>
                   {loginErrors.password && (
@@ -333,56 +394,52 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   )}
                 </div>
 
-                <Button
+                {/* Exact Pill Sign In Button with Orange Arrow Icon */}
+                <button
                   type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 h-auto shadow-md shadow-emerald-600/20"
                   disabled={isSubmitting}
+                  className="w-full bg-[#0a192f] hover:bg-[#112240] text-white font-semibold py-3 px-4 rounded-full flex items-center justify-center gap-3 transition-all shadow-md shadow-slate-900/10 cursor-pointer disabled:opacity-70 mt-2"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Signing In...
+                      <Loader2 className="w-4 h-4 animate-spin text-orange-400" />
+                      <span className="text-sm">Signing In...</span>
                     </>
                   ) : (
                     <>
-                      Sign In to Workspace
-                      <ArrowRight className="w-4 h-4 ml-2" />
+                      <span className="text-sm font-semibold tracking-wide">Sign In</span>
+                      <div className="w-6 h-6 rounded-full bg-[#f97316] flex items-center justify-center text-white">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </div>
                     </>
                   )}
-                </Button>
+                </button>
+
+                {/* Security Tag & Version */}
+                <div className="pt-2 text-center space-y-0.5">
+                  <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                    Secure login
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-mono">5.08</p>
+                </div>
               </form>
-
-              {/* Customer Link Footer */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Looking for online shopping?</span>
-                <Link to="/shop" className="font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                  Customer Storefront <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Request Staff Access</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Submit your details. Your profile will be activated once approved by the store owner.
-                </p>
-              </div>
-
+            ) : (
+              /* Staff Registration Form */
               <form onSubmit={onRegisterSubmit} className="space-y-3.5">
                 <div className="space-y-1">
                   <Label htmlFor={regFullNameId} className="text-xs font-semibold text-slate-700">
                     Full Name
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id={regFullNameId}
                       type="text"
                       placeholder="e.g. Ramesh Patil"
                       value={regFullName}
                       onChange={(e) => setRegFullName(e.target.value)}
-                      className="pl-9 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm shadow-sm"
+                      className="pl-9 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-10 shadow-xs rounded-xl"
                       disabled={isSubmitting}
                       required
                     />
@@ -404,7 +461,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                       placeholder="Enter 10-digit mobile number"
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
-                      className="pl-12 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 font-mono text-sm shadow-sm"
+                      className="pl-12 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 font-mono text-sm h-10 shadow-xs rounded-xl"
                       disabled={isSubmitting}
                       required
                     />
@@ -413,14 +470,14 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
 
                 <div className="space-y-1">
                   <Label htmlFor={regRoleSelectId} className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                    <span>Operational Role</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Select branch position</span>
+                    <span>Requested Operational Role</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Super Admin will approve</span>
                   </Label>
                   <select
                     id={regRoleSelectId}
                     value={regSelectedRole}
                     onChange={(e) => setRegSelectedRole(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm font-medium bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
                     disabled={isSubmitting}
                   >
                     {OPERATIONAL_ROLES.map((role) => (
@@ -452,14 +509,14 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                     Account Password (min 8 characters)
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id={regPasswordId}
                       type={showRegPassword ? "text" : "password"}
                       placeholder="••••••••••••"
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      className="pl-9 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm shadow-sm"
+                      className="pl-9 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-10 shadow-xs rounded-xl"
                       disabled={isSubmitting}
                       minLength={8}
                       required
@@ -474,43 +531,42 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                   </div>
                 </div>
 
-                {/* Security guardrail callout */}
-                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2">
+                {/* Zero-trust security approval notice */}
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2">
                   <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                   <span>
-                    Super Admin & Business Owner roles are enterprise authorities reserved for direct database provisioning.
+                    New accounts are submitted in <strong>PENDING</strong> status. The Super Admin will review your profile and assign your branch role before you can sign in.
                   </span>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 h-auto shadow-md shadow-emerald-600/20"
+                  className="w-full bg-[#0a192f] hover:bg-[#112240] text-white font-semibold py-2.5 h-auto rounded-full shadow-md"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Creating Employee Profile...
+                      Submitting Request...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Register & Access Workspace
+                      <Sparkles className="w-4 h-4 mr-2 text-amber-400" />
+                      Submit Access Request
                     </>
                   )}
                 </Button>
               </form>
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* Security & System Footer */}
-        <div className="text-center text-xs text-slate-500 space-y-1">
-          <p className="flex items-center justify-center gap-1.5 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Siddeshwar Multi-Branch Enterprise Security & Isolation
-          </p>
-          <p className="text-[11px] text-slate-400">Authoritative Cloud PostgreSQL Database Active</p>
+            {/* Bottom Storefront Cross-link */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Looking for online shopping?</span>
+              <Link to="/shop" className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                Customer Storefront <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -46,6 +46,7 @@ class CloseShiftRequest(BaseModel):
     actual_counted_cash: Decimal | None = None
     closing_cash: Decimal | None = None
     notes: str | None = None
+    denominations: dict[str, int] | None = None
 
 
 class ShiftResponse(BaseModel):
@@ -112,6 +113,25 @@ class POSProductLookupItem(BaseModel):
     category_name: str | None = None
 
 
+class POSCustomerLookupItem(BaseModel):
+    id: str
+    phone: str | None
+    name: str
+    company_name: str | None = None
+    current_balance: Decimal = Decimal("0.00")
+    credit_limit: Decimal | None = None
+
+
+class POSInvoiceItemResponse(BaseModel):
+    variant_id: str
+    product_name: str
+    sku: str
+    quantity: Decimal
+    unit_price: Decimal
+    tax_rate: Decimal
+    total: Decimal
+
+
 class POSInvoiceLineRequest(BaseModel):
     variant_id: str
     quantity: Decimal = Field(..., gt=Decimal("0.0000"))
@@ -128,6 +148,8 @@ class POSCheckoutRequest(BaseModel):
     upi_reference: str | None = None
     card_paid: Decimal | None = None
     card_reference: str | None = None
+    khata_amount: Decimal | None = None
+    credit_amount: Decimal | None = None
     customer_phone: str | None = None
     customer_name: str | None = None
     notes: str | None = None
@@ -146,11 +168,18 @@ class POSCheckoutResponse(BaseModel):
     cash_paid: Decimal | None = None
     upi_paid: Decimal | None = None
     card_paid: Decimal | None = None
+    khata_amount: Decimal | None = None
+    balance_amount: Decimal | None = None
+    customer_current_balance: Decimal | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
     change_due: Decimal
     payment_method: str
     item_count: int
     cashier_name: str
     branch_name: str
+    branch_id: str | None = None
+    items: list[POSInvoiceItemResponse] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +335,23 @@ async def close_cashier_shift(
             detail="No active shift is currently open to close.",
         )
 
-    counted = req.actual_counted_cash if req.actual_counted_cash is not None else (req.closing_cash or Decimal("0.00"))
+    if req.denominations:
+        calc_cash = Decimal("0.00")
+        note_details = []
+        for denom, count in req.denominations.items():
+            if count and count > 0:
+                if denom.lower() in ("coins", "coin"):
+                    calc_cash += Decimal(str(count))
+                    note_details.append(f"Coins: ₹{count}")
+                elif denom.isdigit():
+                    val = Decimal(denom) * Decimal(count)
+                    calc_cash += val
+                    note_details.append(f"₹{denom}x{count}")
+        counted = calc_cash
+        denom_str = f"[Denominations: {', '.join(note_details)} | Total: ₹{calc_cash}]"
+        shift.notes = f"{shift.notes or ''} {denom_str}".strip()
+    else:
+        counted = req.actual_counted_cash if req.actual_counted_cash is not None else (req.closing_cash or Decimal("0.00"))
     expected = shift.opening_cash + shift.cash_sales
     discrepancy = counted - expected
 
@@ -464,6 +509,54 @@ def lookup_pos_products(
             )
         )
 
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 2b. Fast Customer & Khata (Udhaar) Lookup for POS Counter
+# ---------------------------------------------------------------------------
+@router.get(
+    "/customers/lookup",
+    response_model=list[POSCustomerLookupItem],
+    summary="Fast customer search and Khata balance lookup for POS checkout",
+)
+def lookup_pos_customers(
+    q: str = Query(..., description="Customer phone, name, or code"),
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[POSCustomerLookupItem]:
+    """Search customers by phone or name to retrieve their live Khata (credit) balance."""
+    cleaned = q.strip()
+    if not cleaned:
+        return []
+
+    stmt = (
+        select(Customer)
+        .where(
+            Customer.organization_id == current_user.organization_id,
+            Customer.is_active.is_(True),
+            or_(
+                Customer.phone.ilike(f"%{cleaned}%"),
+                Customer.display_name.ilike(f"%{cleaned}%"),
+                Customer.company_name.ilike(f"%{cleaned}%"),
+                Customer.customer_code.ilike(f"%{cleaned}%"),
+            ),
+        )
+        .limit(10)
+    )
+    customers = db.scalars(stmt).all()
+    results = []
+    for c in customers:
+        results.append(
+            POSCustomerLookupItem(
+                id=c.id,
+                phone=c.phone,
+                name=c.display_name or f"{c.first_name} {c.last_name}".strip(),
+                company_name=c.company_name,
+                current_balance=c.current_balance or Decimal("0.00"),
+                credit_limit=c.credit_limit,
+            )
+        )
     return results
 
 
@@ -658,19 +751,24 @@ async def process_pos_checkout(
 
     grand_total = (subtotal + total_tax).quantize(Decimal("0.01"))
 
-    # Tender calculation
+    # Tender & Khata (Udhaar) calculation
     cash_paid = req.cash_paid if req.cash_paid is not None else req.cash_tendered
     upi_paid = req.upi_paid or Decimal("0.00")
     card_paid = req.card_paid or Decimal("0.00")
+    khata_paid = req.khata_amount or req.credit_amount or Decimal("0.00")
 
     if req.payment_method:
         payment_method = req.payment_method.upper()
-    elif sum([cash_paid > Decimal("0.00"), upi_paid > Decimal("0.00"), card_paid > Decimal("0.00")]) > 1:
+    elif khata_paid >= grand_total:
+        payment_method = "KHATA"
+    elif sum([cash_paid > Decimal("0.00"), upi_paid > Decimal("0.00"), card_paid > Decimal("0.00"), khata_paid > Decimal("0.00")]) > 1:
         payment_method = "SPLIT"
     elif card_paid > Decimal("0.00"):
         payment_method = "CARD"
     elif upi_paid > Decimal("0.00"):
         payment_method = "UPI"
+    elif khata_paid > Decimal("0.00"):
+        payment_method = "KHATA"
     else:
         payment_method = "CASH"
 
@@ -682,15 +780,41 @@ async def process_pos_checkout(
                 detail=f"Cash tendered (₹{cash_paid}) is less than total amount (₹{grand_total})",
             )
         change_due = (cash_paid - grand_total).quantize(Decimal("0.01"))
+        actual_paid = grand_total
+        balance_amount = Decimal("0.00")
         shift.cash_sales += grand_total
         shift.expected_total += grand_total
     elif payment_method == "UPI":
+        upi_paid = grand_total
+        actual_paid = grand_total
+        balance_amount = Decimal("0.00")
         shift.upi_sales += grand_total
     elif payment_method == "CARD":
+        card_paid = grand_total
+        actual_paid = grand_total
+        balance_amount = Decimal("0.00")
         shift.card_sales += grand_total
-    else:  # SPLIT
-        shift.cash_sales += cash_paid
-        shift.expected_total += cash_paid
+    elif payment_method == "KHATA":
+        # 100% Khata (Udhaar) sale
+        actual_paid = Decimal("0.00")
+        balance_amount = grand_total
+        khata_paid = grand_total
+        cash_paid = Decimal("0.00")
+        upi_paid = Decimal("0.00")
+        card_paid = Decimal("0.00")
+    else:  # SPLIT (Cash + UPI + Card + Khata)
+        total_tendered = cash_paid + upi_paid + card_paid + khata_paid
+        if total_tendered < grand_total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Total split tendered (₹{total_tendered}) cannot be less than grand total (₹{grand_total})",
+            )
+        effective_cash = min(cash_paid, max(Decimal("0.00"), grand_total - upi_paid - card_paid - khata_paid))
+        change_due = max(Decimal("0.00"), cash_paid - effective_cash)
+        actual_paid = (effective_cash + upi_paid + card_paid).quantize(Decimal("0.01"))
+        balance_amount = (grand_total - actual_paid).quantize(Decimal("0.01"))
+        shift.cash_sales += effective_cash
+        shift.expected_total += effective_cash
         shift.upi_sales += upi_paid
         shift.card_sales += card_paid
 
@@ -713,15 +837,22 @@ async def process_pos_checkout(
             last_name=cust_name.split()[-1] if len(cust_name.split()) > 1 else "Customer",
             display_name=cust_name,
             phone=cust_phone,
+            current_balance=Decimal("0.00"),
             is_active=True,
         )
         db.add(customer)
         db.flush()
 
+    # Update customer Khata balance if credit amount exists
+    if balance_amount > Decimal("0.00"):
+        customer.current_balance = (customer.current_balance or Decimal("0.00")) + balance_amount
+
     # Generate sequential invoice number
     today = datetime.now(UTC).date()
     rand_seq = secrets.token_hex(3).upper()
     invoice_num = f"INV-{branch_code}-{today.strftime('%y%m%d')}-{rand_seq}"
+
+    payment_status = "PAID" if balance_amount <= Decimal("0.00") else ("UNPAID" if actual_paid <= Decimal("0.00") else "PARTIAL")
 
     invoice = Invoice(
         organization_id=current_user.organization_id,
@@ -733,20 +864,20 @@ async def process_pos_checkout(
         discount_amount=total_discount,
         total_tax=total_tax,
         total_amount=grand_total,
-        paid_amount=grand_total,
-        balance_amount=Decimal("0.00"),
-        payment_status="PAID",
+        paid_amount=actual_paid,
+        balance_amount=balance_amount,
+        payment_status=payment_status,
         status="ISSUED",
         invoice_type="TAX_INVOICE",
         financial_year="2026-27",
-        notes=f"POS counter checkout. Method: {payment_method}. Change: ₹{change_due}",
+        notes=f"POS checkout. Method: {payment_method}. Change: ₹{change_due}. Khata: ₹{balance_amount}",
         items=invoice_lines,
     )
     db.add(invoice)
     db.flush()
 
     # Record in centralized payment transactions ledger
-    effective_cash = (grand_total - upi_paid - card_paid) if payment_method == "CASH" else cash_paid
+    effective_cash = (grand_total - upi_paid - card_paid - balance_amount) if payment_method == "CASH" else cash_paid
     if effective_cash > Decimal("0.00"):
         cash_m = _get_or_create_payment_method(db, current_user.organization_id, "CASH")
         tx_cash = PaymentTransaction(
@@ -868,6 +999,19 @@ async def process_pos_checkout(
         source_user_name=cashier_name,
     )
 
+    items_resp = [
+        POSInvoiceItemResponse(
+            variant_id=it.product_variant_id,
+            product_name=it.description,
+            sku=it.description.split(" - ")[0] if " - " in it.description else it.description,
+            quantity=it.quantity,
+            unit_price=it.unit_price,
+            tax_rate=Decimal("5.0"),
+            total=it.total_amount,
+        )
+        for it in invoice_lines
+    ]
+
     return POSCheckoutResponse(
         invoice_id=invoice.id,
         invoice_number=invoice.invoice_number,
@@ -878,12 +1022,19 @@ async def process_pos_checkout(
         grand_total=invoice.total_amount,
         total_amount=invoice.total_amount,
         cash_tendered=cash_paid,
-        cash_paid=cash_paid,
-        upi_paid=upi_paid,
-        card_paid=card_paid,
+        cash_paid=cash_paid if payment_method in ("CASH", "SPLIT") else Decimal("0.00"),
+        upi_paid=upi_paid if payment_method in ("UPI", "SPLIT") else Decimal("0.00"),
+        card_paid=card_paid if payment_method in ("CARD", "SPLIT") else Decimal("0.00"),
+        khata_amount=balance_amount,
+        balance_amount=balance_amount,
+        customer_current_balance=customer.current_balance,
+        customer_name=customer.display_name or f"{customer.first_name} {customer.last_name}".strip(),
+        customer_phone=customer.phone,
         change_due=change_due,
         payment_method=payment_method,
         item_count=len(invoice_lines),
         cashier_name=cashier_name,
         branch_name=branch_name,
+        branch_id=invoice.branch_id,
+        items=items_resp,
     )

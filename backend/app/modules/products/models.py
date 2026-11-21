@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import (
@@ -43,6 +43,9 @@ class ProductCategory(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     products: Mapped[list["Product"]] = relationship("Product", back_populates="category")
 
@@ -174,6 +177,14 @@ class Product(Base, TimestampMixin):
         nullable=True,
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_saleable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_purchasable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_inventory_tracked: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_perishable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_batch_tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_expiry_tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_variants: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -210,6 +221,8 @@ class ProductVariant(Base, TimestampMixin):
     cost_price: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
     selling_price: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
     mrp: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    wholesale_price: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
+    min_selling_price: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
     weight: Mapped[Decimal | None] = mapped_column(QUANTITY_TYPE, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -335,3 +348,78 @@ class PriceListItem(Base, TimestampMixin):
     min_quantity: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, default=Decimal("1.0000"), nullable=False)
 
     price_list: Mapped["PriceList"] = relationship("PriceList", back_populates="items")
+
+
+class UnitConversion(Base, TimestampMixin):
+    """Conversion ratio between two Units of Measure (e.g. 1 Box = 12 Pieces)."""
+
+    __tablename__ = "unit_conversions"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "from_uom_id", "to_uom_id", name="uq_uom_conversion"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    from_uom_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("units_of_measure.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    to_uom_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("units_of_measure.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    conversion_factor: Mapped[Decimal] = mapped_column(RATE_TYPE, nullable=False)
+
+    from_uom: Mapped["UnitOfMeasure"] = relationship("UnitOfMeasure", foreign_keys=[from_uom_id])
+    to_uom: Mapped["UnitOfMeasure"] = relationship("UnitOfMeasure", foreign_keys=[to_uom_id])
+
+
+class BranchProductSetting(Base, TimestampMixin):
+    """Branch-specific product availability, pricing override, and reorder levels."""
+
+    __tablename__ = "branch_product_settings"
+    __table_args__ = (
+        UniqueConstraint("branch_id", "product_variant_id", name="uq_branch_variant_setting"),
+        Index("ix_branch_variant_setting", "branch_id", "product_variant_id"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=generate_uuid,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    branch_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("branches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_variant_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("product_variants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    branch_selling_price: Mapped[Decimal | None] = mapped_column(MONEY_TYPE, nullable=True)
+    branch_min_stock: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, default=Decimal("10.0000"), nullable=False)
+    branch_reorder_level: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, default=Decimal("5.0000"), nullable=False)
+
+    variant: Mapped["ProductVariant"] = relationship("ProductVariant")

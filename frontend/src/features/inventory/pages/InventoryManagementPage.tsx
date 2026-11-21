@@ -8,6 +8,7 @@ import {
   Plus,
   RefreshCw,
   X,
+  Printer,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface StockBalanceItem {
   id: string;
@@ -27,6 +29,31 @@ interface StockBalanceItem {
   quantity_reserved: string | number;
   average_unit_cost: string | number;
   total_value: string | number;
+}
+
+function SvgBarcode({ code }: { code: string }) {
+  const bars: { width: number; isBlack: boolean }[] = [];
+  let isBlack = true;
+  const str = code || "12345678";
+  for (let i = 0; i < str.length; i++) {
+    const val = (str.charCodeAt(i) % 3) + 1;
+    bars.push({ width: val, isBlack });
+    bars.push({ width: 1, isBlack: false });
+    isBlack = !isBlack;
+  }
+  let currentX = 10;
+  return (
+    <svg viewBox="0 0 160 36" className="w-full h-7 max-w-[140px] mx-auto">
+      {bars.map((bar, idx) => {
+        const x = currentX;
+        currentX += bar.width + 1;
+        if (bar.isBlack) {
+          return <rect key={idx} x={x} y="0" width={bar.width} height="36" fill="#000" />;
+        }
+        return null;
+      })}
+    </svg>
+  );
 }
 
 export function InventoryManagementPage() {
@@ -44,11 +71,33 @@ export function InventoryManagementPage() {
 
   const { activeBranch, availableBranches } = useBranchStore();
 
-  const [activeTab, setActiveTab] = useState<"balances" | "transfers" | "adjustments">("balances");
+  const [activeTab, setActiveTab] = useState<"balances" | "transfers" | "adjustments" | "barcodes">("balances");
   const [balances, setBalances] = useState<StockBalanceItem[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [onlyLowStock, setOnlyLowStock] = useState(false);
+
+  // Barcode Printing State
+  const [barcodeProductName, setBarcodeProductName] = useState("Siddeshwar Fresh Toor Dal (1kg)");
+  const [barcodeSku, setBarcodeSku] = useState("8901234567890");
+  const [barcodeMrp, setBarcodeMrp] = useState("165.00");
+  const [barcodePrice, setBarcodePrice] = useState("142.00");
+  const [barcodeLayout, setBarcodeLayout] = useState<"24" | "30" | "single">("24");
+  const [barcodeCount, setBarcodeCount] = useState(24);
+  const [barcodePackedDate, setBarcodePackedDate] = useState(
+    new Date().toLocaleDateString("en-GB")
+  );
+
+  const handleSelectProductForBarcode = (b: StockBalanceItem) => {
+    setBarcodeProductName(b.product_name);
+    setBarcodeSku(b.sku);
+    setBarcodePrice((Number(b.average_unit_cost) * 1.2).toFixed(2));
+    setBarcodeMrp((Number(b.average_unit_cost) * 1.35).toFixed(2));
+    setActiveTab("barcodes");
+    toast.success("Loaded Product into Barcode Generator", {
+      description: `${b.product_name} ready for sticker printing.`,
+    });
+  };
 
   // Transfers
   const [showRequestTransferModal, setShowRequestTransferModal] = useState(false);
@@ -255,6 +304,16 @@ export function InventoryManagementPage() {
         >
           Inter-Branch Transfers
         </button>
+        <button
+          onClick={() => setActiveTab("barcodes")}
+          className={`pb-2.5 px-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "barcodes"
+              ? "border-primary text-primary font-bold"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          🏷️ Barcode Sticker Generator (A4 Sheets)
+        </button>
       </div>
 
       {/* TAB 1: Stock Balances */}
@@ -302,18 +361,19 @@ export function InventoryManagementPage() {
                       <th className="py-2.5 px-3 font-medium text-right">Avg Cost</th>
                       <th className="py-2.5 px-3 font-medium text-right">Total Valuation</th>
                       <th className="py-2.5 px-4 font-medium text-center">Status</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {isLoadingBalances ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-8 text-center text-muted-foreground">
                           Loading inventory balances...
                         </td>
                       </tr>
                     ) : filteredBalances.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-8 text-center text-muted-foreground">
                           No stock balance records found.
                         </td>
                       </tr>
@@ -360,6 +420,16 @@ export function InventoryManagementPage() {
                                   In Stock
                                 </Badge>
                               )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSelectProductForBarcode(item)}
+                                className="h-7 text-xs gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-semibold"
+                              >
+                                <Printer className="w-3.5 h-3.5" /> Barcode
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -408,6 +478,149 @@ export function InventoryManagementPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* TAB 3: Barcode Sticker Generator (A4 Sheets) */}
+      {activeTab === "barcodes" && (
+        <div className="space-y-6">
+          {/* Controls Bar */}
+          <Card>
+            <CardHeader className="py-3 border-b">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Printer className="w-5 h-5 text-blue-600" />
+                  A4 Barcode Sticker Sheet Generator
+                </span>
+                <Button
+                  onClick={() => window.print()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 text-xs h-8 shadow-sm"
+                >
+                  <Printer className="w-4 h-4" /> Print Sticker Sheet ({barcodeCount} Labels)
+                </Button>
+              </CardTitle>
+              <CardDescription>
+                Print standard adhesive barcode labels for loose grocery packets, counter pricing, and retail shelves.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Product Display Name</label>
+                  <Input
+                    value={barcodeProductName}
+                    onChange={(e) => setBarcodeProductName(e.target.value)}
+                    placeholder="e.g. Basmati Rice 1kg"
+                    className="text-xs h-8 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Barcode / SKU</label>
+                  <Input
+                    value={barcodeSku}
+                    onChange={(e) => setBarcodeSku(e.target.value)}
+                    placeholder="e.g. 8901234567890"
+                    className="text-xs h-8 font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">MRP (₹)</label>
+                  <Input
+                    type="number"
+                    value={barcodeMrp}
+                    onChange={(e) => setBarcodeMrp(e.target.value)}
+                    className="text-xs h-8 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Our Price (₹)</label>
+                  <Input
+                    type="number"
+                    value={barcodePrice}
+                    onChange={(e) => setBarcodePrice(e.target.value)}
+                    className="text-xs h-8 font-mono font-bold text-emerald-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Sheet Format / Template</label>
+                  <select
+                    value={barcodeLayout}
+                    onChange={(e) => {
+                      const val = e.target.value as "24" | "30" | "single";
+                      setBarcodeLayout(val);
+                      if (val === "24") setBarcodeCount(24);
+                      else if (val === "30") setBarcodeCount(30);
+                      else setBarcodeCount(1);
+                    }}
+                    className="w-full h-8 rounded border border-input text-xs font-medium px-2 bg-background"
+                  >
+                    <option value="24">A4 Sheet — 24 Labels (3 cols × 8 rows, 64mm × 33.9mm)</option>
+                    <option value="30">A4 Sheet — 30 Labels (3 cols × 10 rows, 70mm × 29.7mm)</option>
+                    <option value="single">Counter Roll — Single Label (50mm × 25mm)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Labels Count</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={barcodeCount}
+                    onChange={(e) => setBarcodeCount(parseInt(e.target.value) || 1)}
+                    className="text-xs h-8 font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Packed Date</label>
+                  <Input
+                    value={barcodePackedDate}
+                    onChange={(e) => setBarcodePackedDate(e.target.value)}
+                    className="text-xs h-8 font-mono"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Live Sheet Preview */}
+          <div className="bg-slate-200 p-6 rounded-xl border flex justify-center overflow-x-auto">
+            <div
+              className={`bg-white shadow-xl p-4 border border-slate-300 w-full max-w-[210mm] min-h-[297mm] ${
+                barcodeLayout === "single"
+                  ? "flex items-center justify-center min-h-[150px] max-w-[300px]"
+                  : barcodeLayout === "30"
+                  ? "grid grid-cols-3 gap-2"
+                  : "grid grid-cols-3 gap-3"
+              }`}
+            >
+              {Array.from({ length: barcodeCount }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="border border-slate-300 border-dashed rounded p-2 flex flex-col justify-between text-center bg-white h-[32mm]"
+                >
+                  <div className="text-[10px] font-black uppercase text-slate-800 tracking-wider leading-tight">
+                    SIDDESHWAR ENTERPRISES
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-900 truncate my-0.5">
+                    {barcodeProductName}
+                  </div>
+                  <SvgBarcode code={barcodeSku} />
+                  <div className="font-mono text-[9px] font-bold text-slate-700 tracking-widest leading-none">
+                    {barcodeSku}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200 mt-0.5">
+                    <span className="text-slate-400 line-through text-[9px]">MRP: ₹{barcodeMrp}</span>
+                    <span className="font-extrabold text-slate-900 text-[11px]">OUR: ₹{barcodePrice}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL: Request Stock Transfer */}
