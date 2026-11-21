@@ -99,12 +99,57 @@ DEMO_BRANCHES = [
 ]
 
 
+@router.get("/registration-roles")
+def get_registration_roles():
+    """List operational roles permitted for employee self-registration.
+    Super Admin, Business Owner and administrative executive roles are strictly excluded.
+    """
+    return [
+        {
+            "slug": "cashier",
+            "name": "Cashier / Counter Billing Agent",
+            "badge": "POS Operations",
+            "description": "Counter POS billing terminal, active cart, barcode scanning & shift drawer settlements.",
+        },
+        {
+            "slug": "branch_manager",
+            "name": "Branch Manager",
+            "badge": "Branch Oversight",
+            "description": "Branch-level sales oversight, cashier shifts audit, stock requisitions & deliveries dispatch.",
+        },
+        {
+            "slug": "inventory_manager",
+            "name": "Inventory & Stock Manager",
+            "badge": "Warehouse & Stock",
+            "description": "Multi-branch stock balances, inter-branch transfers, SKU barcodes & product master catalog.",
+        },
+        {
+            "slug": "accountant",
+            "name": "Accountant",
+            "badge": "Finance & Audit",
+            "description": "Cashier float reconciliation, end-of-day discrepancy verification, customer credit ledger & reports.",
+        },
+        {
+            "slug": "sales_executive",
+            "name": "Sales Executive",
+            "badge": "In-Store Sales",
+            "description": "Customer orders, billing counter sales, customer CRM lookup and pricing discounts.",
+        },
+        {
+            "slug": "employee",
+            "name": "Store & Delivery Staff",
+            "badge": "Logistics & Floor",
+            "description": "Order item picking, parcel packing, mobile delivery runs & OTP verification.",
+        },
+    ]
+
+
 @router.post("/register", response_model=UserSummaryResponse, status_code=status.HTTP_201_CREATED)
 def register(
     request: UserRegisterRequest,
     db: Session = Depends(get_db),
 ) -> UserSummaryResponse:
-    """Self-registration for employees with PENDING approval status."""
+    """Self-registration for employees with immediate assignment to the selected operational role."""
     return UserService.register_user(db, request)
 
 

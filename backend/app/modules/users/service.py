@@ -943,7 +943,7 @@ class UserService:
         request: UserRegisterRequest,
         org_id: str | None = None,
     ) -> UserSummaryResponse:
-        """Self-registration for new employees. Account is created in PENDING status."""
+        """Self-registration for employees with immediate assignment to the selected operational role."""
         target_org_id = org_id
         if not target_org_id:
             org = db.scalar(select(Organization).order_by(Organization.created_at))
@@ -954,17 +954,20 @@ class UserService:
                 )
             target_org_id = org.id
 
+        # Normalize phone
+        clean_phone = request.phone.strip()
+
         # Validate unique mobile number in organization
         existing_phone = db.scalar(
-            select(User.id).where(User.organization_id == target_org_id, User.phone == request.phone)
+            select(User.id).where(User.organization_id == target_org_id, User.phone == clean_phone)
         )
         if existing_phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Mobile number '{request.phone}' is already registered in this organization",
+                detail=f"Mobile number '{clean_phone}' is already registered. Please sign in with your credentials.",
             )
 
-        email_val = request.email or f"{request.phone}@siddeshwar.internal"
+        email_val = request.email or f"{clean_phone}@siddeshwar.internal"
         existing_email = db.scalar(
             select(User.id).where(User.organization_id == target_org_id, User.email == email_val)
         )
@@ -974,20 +977,67 @@ class UserService:
                 detail=f"Email '{email_val}' is already registered in this organization",
             )
 
+        # Enforce that Super Admin / Admin roles cannot be self-registered
+        role_slug_req = (request.requested_role_slug or request.role_slug or "cashier").strip().lower().replace("-", "_")
+        FORBIDDEN_SELF_ROLES = {"super_admin", "admin", "business_owner", "org_admin", "general_manager"}
+        if role_slug_req in FORBIDDEN_SELF_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Administrative roles (Super Admin, Business Owner, General Manager) cannot be self-registered. An authorized administrator must provision them.",
+            )
+
+        # Match requested role from database
+        matched_role = db.scalar(select(Role).where(Role.slug == role_slug_req))
+        if not matched_role:
+            matched_role = db.scalar(select(Role).where(Role.slug == "cashier")) or db.scalar(
+                select(Role).where(Role.slug == "employee")
+            )
+
         new_user = User(
             id=generate_uuid(),
             organization_id=target_org_id,
             email=email_val,
-            phone=request.phone,
+            phone=clean_phone,
             password_hash=hash_password(request.password),
             full_name=request.full_name,
             is_active=True,
-            is_verified=False,
-            approval_status="PENDING",
-            requested_role_slug=request.requested_role_slug,
+            is_verified=True,
+            approval_status="APPROVED",
+            requested_role_slug=matched_role.slug if matched_role else role_slug_req,
         )
         db.add(new_user)
         db.flush()
+
+        # Assign the operational role as primary role
+        if matched_role:
+            db.add(
+                UserRoleAssignment(
+                    id=generate_uuid(),
+                    user_id=new_user.id,
+                    role_id=matched_role.id,
+                    organization_id=target_org_id,
+                    branch_id=None,
+                    is_active=True,
+                    is_primary=True,
+                    status="ACTIVE",
+                    assigned_at=datetime.now(UTC),
+                )
+            )
+
+        # Assign default branch access
+        flagship_branch = db.scalar(
+            select(Branch).where(Branch.organization_id == target_org_id, Branch.is_active.is_(True)).order_by(Branch.created_at)
+        )
+        if flagship_branch:
+            db.add(
+                UserBranchAccess(
+                    id=generate_uuid(),
+                    user_id=new_user.id,
+                    branch_id=flagship_branch.id,
+                    is_default=True,
+                    is_active=True,
+                )
+            )
 
         db.add(
             AuditLog(
@@ -1000,8 +1050,8 @@ class UserService:
                 new_values={
                     "phone": new_user.phone,
                     "full_name": new_user.full_name,
-                    "requested_role_slug": new_user.requested_role_slug,
-                    "approval_status": "PENDING",
+                    "role_slug": matched_role.slug if matched_role else role_slug_req,
+                    "approval_status": "APPROVED",
                 },
             )
         )

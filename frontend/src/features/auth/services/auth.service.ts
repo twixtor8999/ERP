@@ -4,6 +4,21 @@ import { type User } from "@/types/common";
 import { type LoginFormData } from "../schemas/login.schema";
 import { type LoginResponse } from "../types";
 
+export interface RegisterFormData {
+  full_name: string;
+  phone: string;
+  password: string;
+  role_slug: string;
+  email?: string;
+}
+
+export interface RegistrationRoleItem {
+  slug: string;
+  name: string;
+  badge: string;
+  description: string;
+}
+
 export const authService = {
   async login(credentials: LoginFormData): Promise<LoginResponse> {
     const response = await apiClient.post<LoginResponse>(
@@ -11,6 +26,19 @@ export const authService = {
       credentials
     );
     tokenStorage.setAccessToken(response.data.access_token);
+    return response.data;
+  },
+
+  async register(data: RegisterFormData): Promise<any> {
+    const response = await apiClient.post("/api/v1/auth/register", {
+      ...data,
+      requested_role_slug: data.role_slug,
+    });
+    return response.data;
+  },
+
+  async getRegistrationRoles(): Promise<RegistrationRoleItem[]> {
+    const response = await apiClient.get<RegistrationRoleItem[]>("/api/v1/auth/registration-roles");
     return response.data;
   },
 

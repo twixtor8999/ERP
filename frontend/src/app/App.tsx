@@ -28,29 +28,9 @@ export function App() {
           }
         }
       } catch {
-        // Initial state without authenticated session
+        // No active authenticated session — user must log in
         if (isMounted) {
-          // Provide fallback demo context for developer inspection if needed
-          const demoBranches = [
-            { id: "br_hq", code: "HQ-01", name: "Main Branch (HQ)", city: "Pune", isHeadquarters: true },
-            { id: "br_south", code: "BR-02", name: "South Market Branch", city: "Pune", isHeadquarters: false },
-          ];
-          setAvailableBranches(demoBranches);
-          const defaultBranch = demoBranches[0];
-          if (defaultBranch) {
-            setActiveBranch(defaultBranch);
-          }
-          setUser({
-            id: "usr_admin_01",
-            email: "admin@siddeshwar.in",
-            fullName: "Enterprise Admin",
-            role: "SUPER_ADMIN",
-            organizationId: "org_siddeshwar",
-            organizationName: "Siddeshwar Enterprises",
-            allowedBranches: demoBranches,
-            activeBranchId: "br_hq",
-            permissions: ["*"],
-          });
+          setUser(null);
         }
       } finally {
         if (isMounted) {

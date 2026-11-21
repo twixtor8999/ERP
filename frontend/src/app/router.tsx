@@ -84,7 +84,11 @@ export const router = createBrowserRouter([
   // Internal ERP Routes
   {
     path: "/login",
-    element: <LoginPage />,
+    element: <LoginPage initialTab="login" />,
+  },
+  {
+    path: "/register",
+    element: <LoginPage initialTab="register" />,
   },
   {
     path: "/",
