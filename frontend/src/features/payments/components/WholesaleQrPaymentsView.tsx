@@ -1,0 +1,472 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, Download, Camera, X } from "lucide-react";
+import { toast } from "sonner";
+
+export interface QrPaymentRow {
+  sl: number;
+  customerName: string;
+  vehicleNo: string;
+  village: string;
+  utrNumber: string;
+  invoiceNumber: string;
+  orderNumber: string;
+  orderTotal: number;
+  cash: number;
+  bankPaid: number;
+  qrReceived: number;
+  txnStatus: "Success" | "UTR missing" | "—";
+  matched: "Yes" | string;
+  isMatched: boolean;
+  screenshotUrl?: string;
+}
+
+const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
+  {
+    sl: 1,
+    customerName: "Ramesh M Genni",
+    vehicleNo: "KA28AA6256",
+    village: "Tamba",
+    utrNumber: "432198001244",
+    invoiceNumber: "INV-1024",
+    orderNumber: "ORD-1024",
+    orderTotal: 6800,
+    cash: 0,
+    bankPaid: 0,
+    qrReceived: 6800,
+    txnStatus: "Success",
+    matched: "Yes",
+    isMatched: true,
+    screenshotUrl: "/favicon.png",
+  },
+  {
+    sl: 2,
+    customerName: "B M Kirana Store",
+    vehicleNo: "KA28AA6256",
+    village: "Bijapur (Rural)",
+    utrNumber: "432198005512",
+    invoiceNumber: "INV-1025",
+    orderNumber: "ORD-1025",
+    orderTotal: 15000,
+    cash: 10000,
+    bankPaid: 0,
+    qrReceived: 5000,
+    txnStatus: "Success",
+    matched: "Yes",
+    isMatched: true,
+  },
+  {
+    sl: 3,
+    customerName: "Hanamant Tonashyal",
+    vehicleNo: "KA28AC0349",
+    village: "Bijapur (Rural)",
+    utrNumber: "",
+    invoiceNumber: "INV-1026",
+    orderNumber: "ORD-1026",
+    orderTotal: 4000,
+    cash: 0,
+    bankPaid: 0,
+    qrReceived: 4000,
+    txnStatus: "UTR missing",
+    matched: "Yes",
+    isMatched: true,
+  },
+];
+
+export function WholesaleQrPaymentsView() {
+  const navigate = useNavigate();
+
+  // Date filters
+  const [fromDate, setFromDate] = useState("2026-11-22");
+  const [toDate, setToDate] = useState("2026-11-22");
+  const [filterType, setFilterType] = useState<"all" | "qr">("all");
+  const [pageSearch, setPageSearch] = useState("");
+
+  // Invoice QR customer amount change toggle
+  const [allowCustomerAmountChange, setAllowCustomerAmountChange] = useState(true);
+
+  // Active screenshot preview modal
+  const [selectedScreenshotRow, setSelectedScreenshotRow] = useState<QrPaymentRow | null>(null);
+
+  // Live Records
+  const [payments] = useState<QrPaymentRow[]>(SAMPLE_QR_PAYMENTS);
+
+  // Filtering
+  const filteredPayments = payments.filter((r) => {
+    if (filterType === "qr" && r.qrReceived <= 0) return false;
+    if (!pageSearch) return true;
+    const q = pageSearch.toLowerCase();
+    return (
+      r.customerName.toLowerCase().includes(q) ||
+      r.vehicleNo.toLowerCase().includes(q) ||
+      r.village.toLowerCase().includes(q) ||
+      r.utrNumber.toLowerCase().includes(q) ||
+      r.invoiceNumber.toLowerCase().includes(q) ||
+      r.orderNumber.toLowerCase().includes(q)
+    );
+  });
+
+  // 6 KPI Metric Calculations matching Reference App Screenshot 1
+  const ordersCount = filteredPayments.length;
+  const totalOrderAmount = filteredPayments.reduce((a, b) => a + b.orderTotal, 0);
+  const totalCash = filteredPayments.reduce((a, b) => a + b.cash, 0);
+  const totalBankPaid = filteredPayments.reduce((a, b) => a + b.bankPaid, 0);
+  const totalQrReceived = filteredPayments.reduce((a, b) => a + b.qrReceived, 0);
+  const qrTxnCount = filteredPayments.filter((r) => r.qrReceived > 0).length;
+  const notMatchedCount = filteredPayments.filter((r) => !r.isMatched).length;
+
+  const handleExport = () => {
+    toast.success("QR Payments Report Exported", {
+      description: `Downloaded QR_Payments_${fromDate}_to_${toDate}.xlsx`,
+    });
+  };
+
+  const handleView = () => {
+    toast.info("Filter Applied", {
+      description: `Showing ${filterType === "all" ? "all payments" : "QR payments only"} from ${fromDate} to ${toDate}`,
+    });
+  };
+
+  return (
+    <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-12">
+      {/* Top Bar: Back button matching Reference App */}
+      <div>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
+        </button>
+      </div>
+
+      {/* Heading Title & Subtitle matching Reference App Screenshot 1 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
+            QR Payments
+          </h1>
+          <p className="text-xs text-slate-500 font-normal mt-0.5">
+            Every delivered order with Cash, Bank and QR money, from the Invoice / Delivery entries.
+          </p>
+        </div>
+
+        {/* ⬇ Export Button */}
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>⬇ Export</span>
+        </button>
+      </div>
+
+      {/* Search Input matching Screenshot 1 */}
+      <div className="relative max-w-lg">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+        <input
+          type="text"
+          placeholder="Search in this page..."
+          value={pageSearch}
+          onChange={(e) => setPageSearch(e.target.value)}
+          className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
+        />
+      </div>
+
+      {/* Filter Strip Card matching Reference App Screenshot 1 */}
+      <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-700">
+          <div className="flex items-center gap-2">
+            <span>From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span>To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span>Show</span>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+              className="border border-slate-300 rounded-md px-2.5 py-1 text-xs font-bold bg-white focus:outline-none"
+            >
+              <option value="all">All payments</option>
+              <option value="qr">QR payments only</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleView}
+            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-4 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            View
+          </button>
+        </div>
+      </div>
+
+      {/* 6 Metric KPI Cards matching Reference App Screenshot 1 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Orders */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Orders</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {ordersCount}
+          </p>
+        </div>
+
+        {/* Order total */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Order total</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalOrderAmount > 0 ? `₹${totalOrderAmount.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* Cash */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Cash</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalCash > 0 ? `₹${totalCash.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* Bank paid */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Bank paid</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalBankPaid > 0 ? `₹${totalBankPaid.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* QR received */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">QR received</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalQrReceived > 0 ? `₹${totalQrReceived.toLocaleString("en-IN")}` : "0"}
+          </p>
+          <small className="text-[11px] text-slate-400 block font-normal">{qrTxnCount} txn</small>
+        </div>
+
+        {/* Not matched */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Not matched</span>
+          <p className={`text-2xl font-black font-mono ${notMatchedCount > 0 ? "text-rose-600" : "text-slate-900"}`}>
+            {notMatchedCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Table matching Reference App Screenshot 1 */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+              <th className="py-2.5 px-3 text-left">Sl No</th>
+              <th className="py-2.5 px-3 text-left">Customer Name</th>
+              <th className="py-2.5 px-3 text-left">Vehicle No</th>
+              <th className="py-2.5 px-3 text-left">Village</th>
+              <th className="py-2.5 px-3 text-left">UTR Number</th>
+              <th className="py-2.5 px-3 text-left">Invoice Number</th>
+              <th className="py-2.5 px-3 text-left">Order Number</th>
+              <th className="py-2.5 px-3 text-right">Order Total</th>
+              <th className="py-2.5 px-3 text-right">Cash</th>
+              <th className="py-2.5 px-3 text-right">Bank Paid</th>
+              <th className="py-2.5 px-3 text-right">QR Received</th>
+              <th className="py-2.5 px-3 text-center">Txn Status</th>
+              <th className="py-2.5 px-3 text-center">Matched</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold">
+            {filteredPayments.length === 0 ? (
+              <tr className="bg-[#0b1a30]">
+                <td colSpan={13} className="py-4 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
+                  No payments in these dates.
+                </td>
+              </tr>
+            ) : (
+              filteredPayments.map((r) => (
+                <tr key={r.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
+                  <td className="py-3 px-3 font-bold text-slate-900">{r.customerName}</td>
+                  <td className="py-3 px-3 font-mono text-slate-700">{r.vehicleNo || "—"}</td>
+                  <td className="py-3 px-3 text-slate-700">{r.village || "—"}</td>
+                  <td className="py-3 px-3">
+                    {r.utrNumber ? (
+                      <div className="flex items-center gap-1.5 font-mono text-slate-900">
+                        <span>{r.utrNumber}</span>
+                        {r.screenshotUrl && (
+                          <button
+                            onClick={() => setSelectedScreenshotRow(r)}
+                            className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                            title="View Payment Screenshot"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-normal">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 font-mono text-slate-700">{r.invoiceNumber || "—"}</td>
+                  <td className="py-3 px-3 font-mono text-slate-700">{r.orderNumber}</td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    ₹{r.orderTotal.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-700">
+                    {r.cash > 0 ? `₹${r.cash.toLocaleString("en-IN")}` : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-700">
+                    {r.bankPaid > 0 ? `₹${r.bankPaid.toLocaleString("en-IN")}` : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-blue-700">
+                    {r.qrReceived > 0 ? `₹${r.qrReceived.toLocaleString("en-IN")}` : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    {r.txnStatus === "Success" ? (
+                      <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                        Success
+                      </span>
+                    ) : r.txnStatus === "UTR missing" ? (
+                      <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                        UTR missing
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    {r.isMatched ? (
+                      <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                        Yes
+                      </span>
+                    ) : (
+                      <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                        {r.matched}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {filteredPayments.length > 0 && (
+            <tfoot>
+              <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3 font-black">Total</td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalOrderAmount.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalCash.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalBankPaid.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono text-blue-700">₹{totalQrReceived.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {/* Bottom Information Card matching Reference App Screenshot 1 */}
+      <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1.5">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-900 select-none cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allowCustomerAmountChange}
+            onChange={(e) => {
+              setAllowCustomerAmountChange(e.target.checked);
+              toast.info(
+                e.target.checked
+                  ? "Customer can now change the QR amount to pay part of the bill."
+                  : "QR amount is now fixed to the full bill amount."
+              );
+            }}
+            className="rounded border-slate-300 text-blue-600 focus:ring-0 w-4 h-4"
+          />
+          <span>Invoice QR: customer can change the amount (pay part of the bill)</span>
+        </label>
+        <p className="text-[11px] text-slate-500 font-normal leading-relaxed pl-6">
+          The QR always opens with the full bill amount. With this on, the customer can type a smaller amount in GPay / PhonePe / Paytm. Some UPI apps may still keep the amount fixed; then use &quot;📱 Show QR for this amount&quot; on the Delivery screen.
+        </p>
+      </div>
+
+      {/* Screenshot Preview Modal */}
+      {selectedScreenshotRow && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-[#132038]">
+                  QR Payment Screenshot
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {selectedScreenshotRow.invoiceNumber} · UTR {selectedScreenshotRow.utrNumber}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedScreenshotRow(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="bg-slate-50 p-3 rounded-xl text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Customer:</span>
+                  <span className="font-bold text-slate-900">{selectedScreenshotRow.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">QR Amount:</span>
+                  <span className="font-mono font-bold text-blue-700">
+                    ₹{selectedScreenshotRow.qrReceived.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+
+              {selectedScreenshotRow.screenshotUrl ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden p-2 bg-slate-100 flex items-center justify-center">
+                  <img
+                    src={selectedScreenshotRow.screenshotUrl}
+                    alt="Payment Confirmation"
+                    className="max-h-[300px] object-contain rounded-lg"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 text-center py-6">No image file attached</p>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedScreenshotRow(null)}
+                className="px-4 py-1.5 bg-[#132038] text-white rounded-lg text-xs font-bold hover:bg-[#1c2e4f]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

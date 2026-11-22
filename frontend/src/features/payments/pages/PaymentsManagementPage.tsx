@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SalesVsCollectionView } from "../components/SalesVsCollectionView";
+import { WholesaleQrPaymentsView } from "../components/WholesaleQrPaymentsView";
 import { PaymentCollectionModal } from "../components/PaymentCollectionModal";
 import type { PaymentTransaction, PaymentSummary, PaymentMethod, PaymentStatus } from "../types";
 
@@ -34,8 +35,13 @@ export function PaymentsManagementPage() {
   const tab = searchParams.get("tab");
   const mode = searchParams.get("mode");
 
+  // 1:1 QR Payments tab matching Siddeshwar Enterprises reference app
+  if (tab === "upi" && mode !== "ledger") {
+    return <WholesaleQrPaymentsView />;
+  }
+
   // Default to 1:1 Sales vs Collection matching Siddeshwar Enterprises reference app
-  if (tab !== "upi" && mode !== "ledger") {
+  if (mode !== "ledger") {
     return <SalesVsCollectionView />;
   }
 
