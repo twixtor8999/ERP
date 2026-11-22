@@ -3113,7 +3113,7 @@ def get_crm_incentive_products(
             "progress_text": "1/5 • 4 more",
             "sold_pcs": 1,
             "eligible_amount": 0,
-            "image_url": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-01-aramane-detergent.png",
         },
         {
             "id": "inc-02",
@@ -3128,7 +3128,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹5",
             "sold_pcs": 1,
             "eligible_amount": 5,
-            "image_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-02-daawat-rice.png",
         },
         {
             "id": "inc-03",
@@ -3143,7 +3143,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹60",
             "sold_pcs": 6,
             "eligible_amount": 60,
-            "image_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-03-jasmine-rice.png",
         },
         {
             "id": "inc-04",
@@ -3158,7 +3158,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹170",
             "sold_pcs": 17,
             "eligible_amount": 170,
-            "image_url": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-04-sun-royal-oil.png",
         },
         {
             "id": "inc-05",
@@ -3173,7 +3173,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹150",
             "sold_pcs": 15,
             "eligible_amount": 150,
-            "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-05-trulove-bourbon.png",
         },
         {
             "id": "inc-06",
@@ -3188,7 +3188,7 @@ def get_crm_incentive_products(
             "progress_text": "0/10 • 10 more",
             "sold_pcs": 0,
             "eligible_amount": 0,
-            "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-06-tc-chocolate.png",
         },
         {
             "id": "inc-07",
@@ -3203,7 +3203,7 @@ def get_crm_incentive_products(
             "progress_text": "4/10 • 6 more",
             "sold_pcs": 4,
             "eligible_amount": 0,
-            "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-07-to-orange.png",
         },
         {
             "id": "inc-08",
@@ -3218,7 +3218,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹70",
             "sold_pcs": 7,
             "eligible_amount": 70,
-            "image_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-08-zeeba-jeera-rice.png",
         },
         {
             "id": "inc-09",
@@ -3233,7 +3233,7 @@ def get_crm_incentive_products(
             "progress_text": "0/1 • 1 more",
             "sold_pcs": 0,
             "eligible_amount": 0,
-            "image_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-09-zeeba-steam-rice.png",
         },
         {
             "id": "inc-10",
@@ -3248,7 +3248,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹30",
             "sold_pcs": 6,
             "eligible_amount": 30,
-            "image_url": "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=150&auto=format&fit=crop&q=80",
+            "image_url": "/assets/crm/inc-10-water-bottle.png",
         },
     ]
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -28,7 +28,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeStream, type RealtimeActivityEvent } from "@/lib/realtime/useRealtimeStream";
 import { BusinessOwnerDashboard } from "../components/BusinessOwnerDashboard";
-import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 
 // Role mapping helper
 function getRoleDashboardView(role?: string): string {
@@ -240,7 +239,7 @@ export function DashboardPage() {
       {effectiveView === "accounting" && <AccountantDashboard branchId={selectedBranchId || activeBranch?.id} />}
       {effectiveView === "inventory" && <InventoryDashboard branchId={selectedBranchId || activeBranch?.id} />}
       {effectiveView === "sales" && <SalesDashboard />}
-      {effectiveView === "crm" && <CrmTelecallerPortalPage />}
+      {effectiveView === "crm" && <Navigate to="/crm" replace />}
       {effectiveView === "employee" && <GeneralEmployeeDashboard />}
       {!["owner", "pos", "branch-manager", "accounting", "inventory", "sales", "admin", "crm", "employee"].includes(effectiveView) && (
         <GeneralEmployeeDashboard />

@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   TrendingUp,
-  RotateCcw,
   Loader2,
   Calendar,
   Check,
@@ -63,6 +62,19 @@ interface IncentiveProduct {
   eligible_amount: number;
   image_url: string;
 }
+
+const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
+  "inc-01": "/assets/crm/inc-01-aramane-detergent.png",
+  "inc-02": "/assets/crm/inc-02-daawat-rice.png",
+  "inc-03": "/assets/crm/inc-03-jasmine-rice.png",
+  "inc-04": "/assets/crm/inc-04-sun-royal-oil.png",
+  "inc-05": "/assets/crm/inc-05-trulove-bourbon.png",
+  "inc-06": "/assets/crm/inc-06-tc-chocolate.png",
+  "inc-07": "/assets/crm/inc-07-to-orange.png",
+  "inc-08": "/assets/crm/inc-08-zeeba-jeera-rice.png",
+  "inc-09": "/assets/crm/inc-09-zeeba-steam-rice.png",
+  "inc-10": "/assets/crm/inc-10-water-bottle.png",
+};
 
 interface CallingCustomer {
   id: string;
@@ -700,8 +712,8 @@ export function CrmTelecallerPortalPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#0d1b4c] via-[#0f3aa8] to-[#eef1f8] py-0 sm:py-6 px-0 sm:px-4 flex justify-center items-start select-none antialiased font-sans relative">
       {/* Floating Synced Badge matching Screenshot on the left */}
       <div className="fixed left-6 top-1/2 -translate-y-1/2 z-30 hidden 2xl:flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200/80 text-xs font-semibold text-slate-700">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span>Synced {syncTime || "07:30 pm"}</span>
+        <span className={`w-2 h-2 rounded-full ${loading ? "bg-amber-400 animate-spin" : "bg-emerald-500 animate-pulse"}`} />
+        <span>{loading ? "Syncing..." : `Synced ${syncTime || "07:30 pm"}`}</span>
       </div>
 
       {/* Main 820px Card Container matching Reference Screenshot */}
@@ -735,17 +747,6 @@ export function CrmTelecallerPortalPage() {
                 <span>Home</span>
               </button>
             )}
-            <button
-              onClick={() => {
-                loadDashboardData();
-                loadReportsAndOrders();
-                toast.info("Refreshed live data from Central Depot");
-              }}
-              title="Refresh"
-              className="p-1.5 rounded-full hover:bg-blue-800 text-blue-200 transition-colors cursor-pointer active:scale-90"
-            >
-              <RotateCcw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            </button>
           </div>
         </header>
 
@@ -1021,8 +1022,14 @@ export function CrmTelecallerPortalPage() {
                 {/* 10 Top Selling Products Grid (2 rows of 5) */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
                   {incentiveProducts.map((p) => {
-                    const isBoxPlaceholder = p.id === "inc-06" || p.id === "inc-07";
-                    const boxInitials = p.id === "inc-06" ? "TC" : "TO";
+                    const imgSrc = PRODUCT_IMAGE_FALLBACKS[p.id] || p.image_url;
+                    const badgeBg =
+                      p.id === "inc-03" || p.id === "inc-08"
+                        ? "bg-[#7e22ce] text-white"
+                        : p.id === "inc-06" || p.id === "inc-10"
+                        ? "bg-[#0284c7] text-white"
+                        : "bg-[#1d4ed8] text-white";
+
                     return (
                       <button
                         key={p.id}
@@ -1033,24 +1040,14 @@ export function CrmTelecallerPortalPage() {
                         <div className="space-y-1.5">
                           {/* Thumbnail */}
                           <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
-                            {isBoxPlaceholder ? (
-                              <div className="flex flex-col items-center justify-center text-center">
-                                <span className="text-xl font-black text-teal-700 leading-none">
-                                  {boxInitials}
-                                </span>
-                                <span className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
-                                  144PCS BOX
-                                </span>
-                              </div>
-                            ) : (
-                              <img
-                                src={p.image_url}
-                                alt={p.name}
-                                className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                              />
-                            )}
+                            <img
+                              src={imgSrc}
+                              alt={p.name}
+                              className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
                             {p.badge && (
-                              <span className="absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-700 text-white uppercase shadow-xs">
+                              <span className={`absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase shadow-xs ${badgeBg}`}>
                                 {p.badge}
                               </span>
                             )}
@@ -1066,6 +1063,11 @@ export function CrmTelecallerPortalPage() {
                         </div>
 
                         <div className="mt-2.5 space-y-1">
+                          <div className="flex justify-center">
+                            <span className="bg-[#dc2626] text-white text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
+                              Incentive
+                            </span>
+                          </div>
                           <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
                             {p.incentive_text}
                           </div>
@@ -1091,7 +1093,7 @@ export function CrmTelecallerPortalPage() {
                   <button
                     type="button"
                     onClick={() => setActiveView("targets")}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#1e3a8a] text-white font-bold text-xs hover:bg-blue-800 transition-colors cursor-pointer active:scale-95 shadow-xs"
+                    className="px-3.5 py-1.5 rounded-full bg-[#1e293b] text-white font-bold text-xs hover:bg-[#0f172a] transition-colors cursor-pointer active:scale-95 shadow-xs"
                   >
                     View full scheme (+2)
                   </button>
