@@ -39,6 +39,7 @@ import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
 import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
 import { PnlPage } from "@/features/pnl";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
+import { MyProfilePage } from "@/features/profile/pages/MyProfilePage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
 import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
 import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
@@ -308,6 +309,14 @@ export const router = createBrowserRouter([
       {
         path: "plans",
         element: <Navigate to="/plans-billing" replace />,
+      },
+      {
+        path: "profile",
+        element: <MyProfilePage />,
+      },
+      {
+        path: "my-profile",
+        element: <Navigate to="/profile" replace />,
       },
       {
         path: "audit-logs",
