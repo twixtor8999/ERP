@@ -53,16 +53,6 @@ class UserService:
         current_user_id: str | None = None,
     ) -> UserSummaryResponse:
         """Create a new user account with mobile phone and email credentials."""
-        # Check duplicate email in organization
-        existing_email = db.scalar(
-            select(User.id).where(User.organization_id == org_id, User.email == request.email)
-        )
-        if existing_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User with email '{request.email}' already exists in this organization",
-            )
-
         # Check duplicate phone in organization
         existing_phone = db.scalar(
             select(User.id).where(User.organization_id == org_id, User.phone == request.phone)
@@ -73,10 +63,21 @@ class UserService:
                 detail=f"User with mobile number '{request.phone}' already exists in this organization",
             )
 
+        resolved_email = request.email or f"{request.phone}@siddeshwar.in"
+        # Check duplicate email in organization
+        existing_email = db.scalar(
+            select(User.id).where(User.organization_id == org_id, User.email == resolved_email)
+        )
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User with email '{resolved_email}' already exists in this organization",
+            )
+
         new_user = User(
             id=generate_uuid(),
             organization_id=org_id,
-            email=request.email,
+            email=resolved_email,
             phone=request.phone,
             password_hash=hash_password(request.password),
             full_name=request.full_name,

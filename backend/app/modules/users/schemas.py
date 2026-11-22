@@ -7,10 +7,10 @@ from pydantic import BaseModel, EmailStr, Field
 
 # --- User Schemas ---
 class UserCreateRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr | None = None
     phone: str = Field(..., min_length=10, max_length=20)
     full_name: str = Field(..., min_length=2, max_length=150)
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=6)
     initial_role_slug: str | None = None
     initial_branch_id: str | None = None
 
