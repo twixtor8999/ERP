@@ -109,7 +109,17 @@ export const navigationItems: NavItem[] = [
     ],
   },
   { title: "Stock Split", href: "/inventory?tab=split" },
-  { title: "SKU's", href: "/products" },
+  {
+    title: "SKU's",
+    href: "/products",
+    children: [
+      { title: "1) SKU List", href: "/products?tab=list" },
+      { title: "2) Create New SKU", href: "/products?tab=create" },
+      { title: "3) Aging Stocks", href: "/products?tab=aging" },
+      { title: "4) SKU's Wise Margin", href: "/products?tab=margin" },
+      { title: "5) Category Wise Sales", href: "/products?tab=categories" },
+    ],
+  },
   { title: "Employees", href: "/employees" },
   { title: "Incentive Scheme", href: "/incentives" },
   {
