@@ -1,0 +1,350 @@
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, Download, Eye, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  INITIAL_CRM_STAFF,
+  INITIAL_CRM_ORDERS,
+  type CrmStaffMember,
+  type CrmOrderRecord,
+} from "../data/mockCrmReports";
+
+export function CrmTeamReportView() {
+  const navigate = useNavigate();
+  const [fromDate, setFromDate] = useState("2026-11-22");
+  const [toDate, setToDate] = useState("2026-11-22");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [staff] = useState<CrmStaffMember[]>(INITIAL_CRM_STAFF);
+  const [orders] = useState<CrmOrderRecord[]>(INITIAL_CRM_ORDERS);
+  const [viewStaff, setViewStaff] = useState<CrmStaffMember | null>(null);
+
+  const filteredStaff = useMemo(() => {
+    if (!searchQuery.trim()) return staff;
+    const q = searchQuery.toLowerCase().trim();
+    return staff.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.phone.includes(q) ||
+        s.role.toLowerCase().includes(q)
+    );
+  }, [staff, searchQuery]);
+
+  // Telecaller summary totals
+  const totalNotReachable = useMemo(() => staff.reduce((a, s) => a + s.callResults.notReachable, 0), [staff]);
+  const totalShopClosed = useMemo(() => staff.reduce((a, s) => a + s.callResults.shopClosed, 0), [staff]);
+  const totalCallBack = useMemo(() => staff.reduce((a, s) => a + s.callResults.callLater, 0), [staff]);
+  const totalStockAvail = useMemo(() => staff.reduce((a, s) => a + s.callResults.stockAvailable, 0), [staff]);
+  const totalNotInterested = useMemo(() => staff.reduce((a, s) => a + s.callResults.notInterested, 0), [staff]);
+  const totalOrderPlaced = useMemo(() => staff.reduce((a, s) => a + s.callResults.orderPlaced, 0), [staff]);
+  const totalCalls = totalNotReachable + totalShopClosed + totalCallBack + totalStockAvail + totalNotInterested + totalOrderPlaced;
+
+  // Sales summary totals
+  const totalOrderCount = useMemo(() => staff.reduce((a, s) => a + s.ordersCount, 0), [staff]);
+  const totalSalesAmount = useMemo(() => staff.reduce((a, s) => a + s.totalSales, 0), [staff]);
+
+  const handleExport = () => {
+    toast.success(`Exporting Team CRM Report (${fromDate} to ${toDate}) to Excel...`);
+  };
+
+  const handleSubmitDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast.success(`Team CRM Report loaded for ${fromDate} to ${toDate}`);
+  };
+
+  const selectedStaffOrders = useMemo(() => {
+    if (!viewStaff) return [];
+    return orders.filter((o) => o.staffName === viewStaff.name);
+  }, [viewStaff, orders]);
+
+  return (
+    <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
+      {/* Top Bar with Back Button & Date Filter & Export */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md transition-colors shadow-sm"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back
+          </button>
+
+          <form onSubmit={handleSubmitDate} className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-gray-600 font-medium">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+            />
+            <span className="text-gray-600 font-medium">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-3.5 py-1 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded transition-colors shadow-sm"
+            >
+              Submit
+            </button>
+          </form>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded transition-colors shadow-sm"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export
+        </button>
+      </div>
+
+      {/* Page Title & Subtitle */}
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-[#0d1b4c]">
+          Team CRM Report
+        </h1>
+        <p className="text-xs md:text-sm text-gray-500 mt-1">
+          Telecaller and sales report of every CRM, in the dates above.
+        </p>
+      </div>
+
+      {/* Search Input Filter */}
+      <div className="relative max-w-md">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search in this page..."
+          className="w-full pl-9 pr-4 py-2 text-xs md:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+        />
+        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+      </div>
+
+      {/* Section 1: Telecaller Report (Green Header) matching Screenshot 6 */}
+      <div className="bg-white border border-[#3aa35c] rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-[#3aa35c] text-white py-2 px-4 text-center font-bold text-sm">
+          Telecaller Report
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs md:text-sm border-collapse">
+            <thead>
+              <tr className="bg-[#3aa35c] text-white border-t border-green-600">
+                <th className="py-2.5 px-3 font-semibold text-center w-12">Sl</th>
+                <th className="py-2.5 px-3 font-semibold min-w-[160px]">Name</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Number not reachable / wrong</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Shop closed</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Call back later</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Stock available, order later</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Not interested</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Order placed</th>
+                <th className="py-2.5 px-3 font-semibold text-center font-bold">Total</th>
+                <th className="py-2.5 px-3 font-semibold text-center w-20">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredStaff.map((s, idx) => {
+                const staffCallTotal = Object.values(s.callResults).reduce((a, b) => a + b, 0);
+                return (
+                  <tr key={s.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-2.5 px-3 text-center text-gray-500 font-medium">{idx + 1}</td>
+                    <td className="py-2.5 px-3 font-bold text-gray-900">{s.name}</td>
+                    <td className="py-2.5 px-3 text-center text-gray-700">{s.callResults.notReachable}</td>
+                    <td className="py-2.5 px-3 text-center text-gray-700">{s.callResults.shopClosed}</td>
+                    <td className="py-2.5 px-3 text-center text-gray-700">{s.callResults.callLater}</td>
+                    <td className="py-2.5 px-3 text-center text-gray-700">{s.callResults.stockAvailable}</td>
+                    <td className="py-2.5 px-3 text-center text-gray-700">{s.callResults.notInterested}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-emerald-700">{s.callResults.orderPlaced}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-gray-900">{staffCallTotal}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setViewStaff(s)}
+                        className="px-2.5 py-1 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded transition-colors inline-flex items-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-gray-50 font-bold border-t border-gray-200 text-xs">
+              <tr>
+                <td className="py-2.5 px-3"></td>
+                <td className="py-2.5 px-3 font-bold">Total</td>
+                <td className="py-2.5 px-3 text-center">{totalNotReachable}</td>
+                <td className="py-2.5 px-3 text-center">{totalShopClosed}</td>
+                <td className="py-2.5 px-3 text-center">{totalCallBack}</td>
+                <td className="py-2.5 px-3 text-center">{totalStockAvail}</td>
+                <td className="py-2.5 px-3 text-center">{totalNotInterested}</td>
+                <td className="py-2.5 px-3 text-center text-emerald-700">{totalOrderPlaced}</td>
+                <td className="py-2.5 px-3 text-center">{totalCalls}</td>
+                <td className="py-2.5 px-3 text-center"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Section 2: Sale Report (Green Header) matching Screenshot 6 */}
+      <div className="bg-white border border-[#3aa35c] rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-[#3aa35c] text-white py-2 px-4 text-center font-bold text-sm">
+          Sale Report
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs md:text-sm border-collapse">
+            <thead>
+              <tr className="bg-[#3aa35c] text-white border-t border-green-600">
+                <th className="py-2.5 px-3 font-semibold text-center w-12">Sl</th>
+                <th className="py-2.5 px-3 font-semibold min-w-[200px]">Name</th>
+                <th className="py-2.5 px-3 font-semibold text-center">Order Count</th>
+                <th className="py-2.5 px-3 font-semibold text-right">Order Total</th>
+                <th className="py-2.5 px-3 font-semibold text-center w-24">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredStaff.map((s, idx) => (
+                <tr key={s.id} className="hover:bg-gray-50/80 transition-colors">
+                  <td className="py-2.5 px-3 text-center text-gray-500 font-medium">{idx + 1}</td>
+                  <td className="py-2.5 px-3 font-bold text-gray-900">{s.name}</td>
+                  <td className="py-2.5 px-3 text-center font-bold text-gray-800">{s.ordersCount}</td>
+                  <td className="py-2.5 px-3 text-right font-bold text-gray-900">
+                    {s.totalSales.toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setViewStaff(s)}
+                      className="px-2.5 py-1 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded transition-colors inline-flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 font-bold border-t border-gray-200 text-xs">
+              <tr>
+                <td className="py-2.5 px-3"></td>
+                <td className="py-2.5 px-3 font-bold">Total</td>
+                <td className="py-2.5 px-3 text-center">{totalOrderCount}</td>
+                <td className="py-2.5 px-3 text-right">{totalSalesAmount.toLocaleString()}</td>
+                <td className="py-2.5 px-3 text-center"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Staff View Modal */}
+      {viewStaff && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
+              <div>
+                <h3 className="font-bold text-base">{viewStaff.name}</h3>
+                <p className="text-xs text-blue-200">
+                  {fromDate} to {toDate} · {viewStaff.ordersCount} order(s) · ₹{viewStaff.totalSales.toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewStaff(null)}
+                className="text-gray-300 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4">
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Orders</h4>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
+                      <tr>
+                        <th className="p-2.5">Order No</th>
+                        <th className="p-2.5">Date & Time</th>
+                        <th className="p-2.5">Customer</th>
+                        <th className="p-2.5">Village</th>
+                        <th className="p-2.5 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {selectedStaffOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-gray-400">
+                            No orders in these dates
+                          </td>
+                        </tr>
+                      ) : (
+                        selectedStaffOrders.map((o) => (
+                          <tr key={o.id} className="hover:bg-gray-50">
+                            <td className="p-2.5 font-mono font-bold text-blue-700">{o.orderNo}</td>
+                            <td className="p-2.5 text-gray-600">{o.orderDate} {o.orderTime}</td>
+                            <td className="p-2.5 font-bold text-gray-900">{o.customerName}</td>
+                            <td className="p-2.5 text-gray-600">{o.village}</td>
+                            <td className="p-2.5 text-right font-bold text-gray-900">₹{o.total.toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Call Summary</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <span className="text-gray-500">Number not reachable:</span>
+                    <div className="font-bold text-gray-900">{viewStaff.callResults.notReachable}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <span className="text-gray-500">Shop closed:</span>
+                    <div className="font-bold text-gray-900">{viewStaff.callResults.shopClosed}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <span className="text-gray-500">Call back later:</span>
+                    <div className="font-bold text-gray-900">{viewStaff.callResults.callLater}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <span className="text-gray-500">Stock available:</span>
+                    <div className="font-bold text-gray-900">{viewStaff.callResults.stockAvailable}</div>
+                  </div>
+                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <span className="text-gray-500">Not interested:</span>
+                    <div className="font-bold text-gray-900">{viewStaff.callResults.notInterested}</div>
+                  </div>
+                  <div className="bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                    <span className="text-emerald-800">Order placed:</span>
+                    <div className="font-bold text-emerald-800">{viewStaff.callResults.orderPlaced}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewStaff(null)}
+                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

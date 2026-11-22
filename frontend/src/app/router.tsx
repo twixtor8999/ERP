@@ -31,6 +31,7 @@ import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage"
 import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
 import { CustomersPage } from "@/features/customers/pages/CustomersPage";
+import { CrmReportsPage } from "@/features/crm/pages/CrmReportsPage";
 import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
@@ -53,6 +54,10 @@ function CrmRouteResolver() {
   }
   if (searchParams.get("view") === "b2b") {
     return <Navigate to="/b2b?tab=cart" replace />;
+  }
+  if (searchParams.get("view") === "reports" || searchParams.get("tab")) {
+    const tab = searchParams.get("tab") || "dashboard";
+    return <Navigate to={`/crm-report?tab=${tab}`} replace />;
   }
   return <CrmTelecallerPortalPage />;
 }
@@ -188,7 +193,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "crm",
-        element: <Navigate to="/crm" replace />,
+        element: <CrmReportsPage />,
+      },
+      {
+        path: "crm-report",
+        element: <CrmReportsPage />,
       },
       {
         path: "b2b",
