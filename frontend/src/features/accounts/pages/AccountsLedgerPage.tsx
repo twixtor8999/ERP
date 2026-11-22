@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { WholesaleAccountsView } from "../components/WholesaleAccountsView";
 import { BookOpen, Wallet, ArrowUpRight, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +17,14 @@ interface AccountItem {
 }
 
 export function AccountsLedgerPage() {
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+
+  // Default to 1:1 Tally style Accounts matching Siddeshwar Enterprises reference app
+  if (mode !== "chart") {
+    return <WholesaleAccountsView />;
+  }
+
   const [accounts, setAccounts] = useState<AccountItem[]>([]);
   const [loading, setLoading] = useState(true);
 

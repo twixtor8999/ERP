@@ -12,7 +12,19 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   const location = useLocation();
-  const [reportsExpanded, setReportsExpanded] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    Reports: true,
+    Orders: true,
+    B2B: true,
+    Customer: true,
+  });
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  };
 
   const currentPath = location.pathname;
   const currentSearch = location.search;
@@ -25,14 +37,32 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.href === "/dashboard") {
       return currentPath === "/dashboard" || currentPath.startsWith("/dashboard/");
     }
-    if (item.href === "/pos") {
-      return currentPath === "/pos" || currentPath === "/billing";
+    if (item.href === "/pos" || item.href === "/place-order") {
+      return currentPath === "/pos" || currentPath === "/place-order" || currentPath === "/billing";
     }
-    if (item.href === "/crm?view=callings") {
-      return currentPath === "/crm" && currentSearch.includes("callings");
+    if (item.href === "/callings" || item.href === "/crm?view=callings") {
+      return currentPath === "/callings" || (currentPath === "/crm" && currentSearch.includes("callings"));
+    }
+    if (item.href.startsWith("/orders?tab=")) {
+      return currentPath === "/orders" && fullUrl === item.href;
+    }
+    if (item.href === "/orders") {
+      return currentPath === "/orders" && (!currentSearch || currentSearch === "?tab=packing");
+    }
+    if (item.href.startsWith("/b2b?tab=")) {
+      return currentPath === "/b2b" && fullUrl === item.href;
+    }
+    if (item.href === "/b2b") {
+      return currentPath === "/b2b" && (!currentSearch || currentSearch === "?tab=cart");
+    }
+    if (item.href.startsWith("/customers?tab=")) {
+      return currentPath === "/customers" && fullUrl === item.href;
+    }
+    if (item.href === "/customers") {
+      return currentPath === "/customers" && (!currentSearch || currentSearch === "?tab=list");
     }
     if (item.href === "/crm?view=b2b") {
-      return currentPath === "/crm" && currentSearch.includes("b2b");
+      return currentPath === "/b2b" || (currentPath === "/crm" && currentSearch.includes("b2b"));
     }
     if (item.href === "/crm?view=reports") {
       return currentPath === "/crm" && currentSearch.includes("reports");
@@ -70,17 +100,18 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   return (
     <nav className="space-y-0.5">
       {filteredItems.map((item) => {
-        // If it has children (like Reports)
+        // If it has children (like Reports and Orders)
         if (item.children && item.children.length > 0) {
+          const isExpanded = expandedSections[item.title] ?? true;
           const isParentActive =
-            currentPath.startsWith("/reports") ||
+            currentPath.startsWith(item.href) ||
             item.children.some((c) => isItemActive(c));
 
           return (
             <div key={item.title} className="space-y-0.5">
               <button
                 type="button"
-                onClick={() => setReportsExpanded(!reportsExpanded)}
+                onClick={() => toggleSection(item.title)}
                 className={cn(
                   "w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-bold rounded-lg transition-colors text-left",
                   isParentActive
@@ -89,14 +120,14 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                 )}
               >
                 <span>{item.title}</span>
-                {reportsExpanded ? (
+                {isExpanded ? (
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 ) : (
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 )}
               </button>
 
-              {reportsExpanded && (
+              {isExpanded && (
                 <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2">
                   {item.children.map((child) => {
                     const active = isItemActive(child);

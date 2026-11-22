@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { WholesaleSettlementView } from "../components/WholesaleSettlementView";
 import {
   AlertTriangle,
   Clock,
@@ -90,6 +92,14 @@ interface VehicleSettlementRow {
 }
 
 export function SettlementsPage() {
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+
+  // Default to 1:1 Wholesale Vehicle Settlement matching Siddeshwar Enterprises reference app
+  if (mode !== "cashier" && mode !== "retail") {
+    return <WholesaleSettlementView />;
+  }
+
   const { activeBranch } = useBranchStore();
   const [activeTab, setActiveTab] = useState<"vehicle" | "shifts" | "daybook">("vehicle");
   const [shifts, setShifts] = useState<CashierShiftRow[]>([]);

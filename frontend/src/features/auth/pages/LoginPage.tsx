@@ -161,9 +161,9 @@ export function LoginPage() {
             <div className="text-center space-y-2">
               <div className="inline-block relative">
                 <img
-                  src="/siddeshwar-logo.png"
-                  alt="Siddeshwar Enterprises Logo"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-amber-500/40 shadow-sm mx-auto"
+                  src="/pk-ai-logo.png"
+                  alt="PK AI Smart Bazar Logo"
+                  className="w-20 h-20 rounded-2xl object-contain border border-slate-200 shadow-sm mx-auto bg-white p-1.5"
                 />
               </div>
               <div>

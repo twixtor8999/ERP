@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
@@ -18,6 +18,8 @@ import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPag
 import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
 import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
 import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
+import { PlaceOrderWholesaleView } from "@/features/billing/components/PlaceOrderWholesaleView";
+import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheetView";
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
@@ -28,7 +30,7 @@ import { UsersManagementPage } from "@/features/users/pages/UsersManagementPage"
 import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage";
 import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
-import { CustomersCrmPage } from "@/features/customers/pages/CustomersCrmPage";
+import { CustomersPage } from "@/features/customers/pages/CustomersPage";
 import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
@@ -40,8 +42,20 @@ import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
 import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
 import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
 import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
+import { B2bPage } from "@/features/b2b/pages/B2bPage";
 
 import { useAuthStore } from "@/stores/auth.store";
+
+function CrmRouteResolver() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("view") === "callings") {
+    return <Navigate to="/callings" replace />;
+  }
+  if (searchParams.get("view") === "b2b") {
+    return <Navigate to="/b2b?tab=cart" replace />;
+  }
+  return <CrmTelecallerPortalPage />;
+}
 
 function RoleBasedHomeRedirect() {
   const { user } = useAuthStore();
@@ -116,7 +130,7 @@ export const router = createBrowserRouter([
     path: "/crm",
     element: (
       <ProtectedRoute>
-        <CrmTelecallerPortalPage />
+        <CrmRouteResolver />
       </ProtectedRoute>
     ),
   },
@@ -153,6 +167,14 @@ export const router = createBrowserRouter([
         element: <PosBillingPage />,
       },
       {
+        path: "place-order",
+        element: <PlaceOrderWholesaleView />,
+      },
+      {
+        path: "callings",
+        element: <CallingsRunSheetView />,
+      },
+      {
         path: "pos-billing",
         element: <Navigate to="/pos" replace />,
       },
@@ -169,8 +191,16 @@ export const router = createBrowserRouter([
         element: <Navigate to="/crm" replace />,
       },
       {
+        path: "b2b",
+        element: <B2bPage />,
+      },
+      {
         path: "customers",
-        element: <CustomersCrmPage />,
+        element: <CustomersPage />,
+      },
+      {
+        path: "route-planner",
+        element: <Navigate to="/customers?tab=routes" replace />,
       },
       {
         path: "duplicate-check",
