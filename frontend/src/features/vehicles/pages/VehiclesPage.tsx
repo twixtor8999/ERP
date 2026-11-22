@@ -34,6 +34,40 @@ interface VehicleItem {
   is_active: boolean;
 }
 
+export const KARNATAKA_LOCATIONS = [
+  { name: "Nagathan", taluk: "Vijayapura", pincode: "586112" },
+  { name: "Mamadapur", taluk: "Vijayapura", pincode: "586113" },
+  { name: "Babaleshwar", taluk: "Vijayapura", pincode: "586113" },
+  { name: "Tikota", taluk: "Vijayapura", pincode: "586130" },
+  { name: "Indi", taluk: "Indi", pincode: "586209" },
+  { name: "Chadchan", taluk: "Chadchan", pincode: "586205" },
+  { name: "Sindagi", taluk: "Sindagi", pincode: "586128" },
+  { name: "Devar Hippargi", taluk: "Devar Hippargi", pincode: "586115" },
+  { name: "Muddebihal", taluk: "Muddebihal", pincode: "586212" },
+  { name: "Talikoti", taluk: "Talikoti", pincode: "586214" },
+  { name: "Basavana Bagewadi", taluk: "Basavana Bagewadi", pincode: "586203" },
+  { name: "Kolhar", taluk: "Kolhar", pincode: "586210" },
+  { name: "Nidagundi", taluk: "Nidagundi", pincode: "586213" },
+  { name: "Jamkhandi", taluk: "Bagalkot", pincode: "587301" },
+  { name: "Mudhol", taluk: "Bagalkot", pincode: "587313" },
+  { name: "Bilagi", taluk: "Bagalkot", pincode: "587116" },
+  { name: "Bagalkot", taluk: "Bagalkot", pincode: "587101" },
+  { name: "Badami", taluk: "Bagalkot", pincode: "587201" },
+  { name: "Ilkal", taluk: "Bagalkot", pincode: "587125" },
+  { name: "Guledgudda", taluk: "Bagalkot", pincode: "587203" },
+  { name: "Athani", taluk: "Belagavi", pincode: "591304" },
+  { name: "Gokak", taluk: "Belagavi", pincode: "591307" },
+  { name: "Chikkodi", taluk: "Belagavi", pincode: "591201" },
+  { name: "Raybag", taluk: "Belagavi", pincode: "591317" },
+  { name: "Sankeshwar", taluk: "Belagavi", pincode: "591313" },
+  { name: "Bailhongal", taluk: "Belagavi", pincode: "591102" },
+  { name: "Belagavi City", taluk: "Belagavi", pincode: "590001" },
+  { name: "Dharwad", taluk: "Dharwad", pincode: "580001" },
+  { name: "Hubballi", taluk: "Hubballi", pincode: "580020" },
+  { name: "Gadag", taluk: "Gadag", pincode: "582101" },
+  { name: "Vijayapura City", taluk: "Vijayapura", pincode: "586101" },
+];
+
 interface TripStop {
   id?: string;
   customer_name: string;
@@ -103,6 +137,7 @@ export function VehiclesPage() {
   const [completeFuel, setCompleteFuel] = useState("1200");
   const [completeToll, setCompleteToll] = useState("150");
   const [completeBatta, setCompleteBatta] = useState("300");
+  const [completeRent, setCompleteRent] = useState("0");
   const [completeCod, setCompleteCod] = useState("");
   const [completeOdo, setCompleteOdo] = useState("");
   const [isSubmittingComplete, setIsSubmittingComplete] = useState(false);
@@ -208,6 +243,7 @@ export function VehiclesPage() {
     setCompleteFuel("1200");
     setCompleteToll("150");
     setCompleteBatta("300");
+    setCompleteRent("0");
     setCompleteOdo(trip.start_odometer ? (trip.start_odometer + 65).toString() : "");
   };
 
@@ -215,15 +251,16 @@ export function VehiclesPage() {
     if (!completingTrip) return;
     try {
       setIsSubmittingComplete(true);
+      const totalTollAndRent = (parseFloat(completeToll) || 0) + (parseFloat(completeRent) || 0);
       await apiClient.post(`/api/v1/admin/trips/${completingTrip.id}/complete`, {
         fuel_expense: parseFloat(completeFuel) || 0,
-        toll_expense: parseFloat(completeToll) || 0,
+        toll_expense: totalTollAndRent,
         driver_allowance: parseFloat(completeBatta) || 0,
         cod_collected: parseFloat(completeCod) || 0,
         end_odometer: completeOdo ? parseInt(completeOdo) : null,
       });
-      toast.success("Trip Completed & Diesel Logged", {
-        description: `Collected ₹${completeCod}. Fuel expense ₹${completeFuel} recorded.`,
+      toast.success("Trip Completed & Trip Expenses Logged", {
+        description: `Collected ₹${completeCod}. Logged Diesel: ₹${completeFuel}, Allowance: ₹${completeBatta}, Toll/Rent: ₹${totalTollAndRent}.`,
       });
       setCompletingTrip(null);
       loadData();
@@ -497,10 +534,28 @@ export function VehiclesPage() {
                   <Input
                     value={routeName}
                     onChange={(e) => setRouteName(e.target.value)}
-                    placeholder="e.g. Nagathan - Mamadapur Road"
+                    placeholder="e.g. Vijayapura - Nagathan - Mamadapur"
                     className="h-9 text-xs"
                     required
                   />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {[
+                      "Vijayapura - Nagathan - Mamadapur",
+                      "Vijayapura - Tikota - Babaleshwar",
+                      "Vijayapura - Indi - Chadchan",
+                      "Vijayapura - Sindagi - Hippargi",
+                      "Vijayapura - Jamkhandi - Mudhol",
+                    ].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRouteName(r)}
+                        className="text-[10px] bg-slate-100 hover:bg-blue-50 hover:text-blue-700 px-2 py-0.5 rounded border border-slate-200 transition-colors"
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -553,6 +608,14 @@ export function VehiclesPage() {
                   </Button>
                 </div>
 
+                <datalist id="karnataka-villages-list">
+                  {KARNATAKA_LOCATIONS.map((loc) => (
+                    <option key={loc.name} value={`${loc.name}, ${loc.taluk} - ${loc.pincode}`}>
+                      {loc.name} ({loc.taluk} Dist, Pin: {loc.pincode})
+                    </option>
+                  ))}
+                </datalist>
+
                 <div className="space-y-2">
                   {stops.map((s, idx) => (
                     <div key={idx} className="p-3 bg-slate-50 border rounded-lg space-y-2 relative">
@@ -583,13 +646,16 @@ export function VehiclesPage() {
                           className="h-8 text-xs font-mono bg-white"
                           required
                         />
-                        <Input
-                          placeholder="Village / Address"
-                          value={s.delivery_address}
-                          onChange={(e) => handleStopChange(idx, "delivery_address", e.target.value)}
-                          className="h-8 text-xs bg-white"
-                          required
-                        />
+                        <div>
+                          <Input
+                            list="karnataka-villages-list"
+                            placeholder="Village / Town (Type to search)"
+                            value={s.delivery_address}
+                            onChange={(e) => handleStopChange(idx, "delivery_address", e.target.value)}
+                            className="h-8 text-xs bg-white"
+                            required
+                          />
+                        </div>
                         <Input
                           type="number"
                           placeholder="COD Amount (₹)"
@@ -599,6 +665,30 @@ export function VehiclesPage() {
                           }
                           className="h-8 text-xs font-mono font-bold bg-white text-right"
                         />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
+                        <span className="text-[10px] text-slate-400">Quick Auto-Fill:</span>
+                        {[
+                          { name: "Nagathan", pin: "586112" },
+                          { name: "Mamadapur", pin: "586113" },
+                          { name: "Tikota", pin: "586130" },
+                          { name: "Babaleshwar", pin: "586113" },
+                          { name: "Indi", pin: "586209" },
+                          { name: "Chadchan", pin: "586205" },
+                          { name: "Sindagi", pin: "586128" },
+                          { name: "Muddebihal", pin: "586212" },
+                        ].map((v) => (
+                          <button
+                            key={v.name}
+                            type="button"
+                            onClick={() =>
+                              handleStopChange(idx, "delivery_address", `Main Bazaar, ${v.name} - ${v.pin}`)
+                            }
+                            className="text-[10px] bg-white hover:bg-blue-50 hover:text-blue-700 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 transition-colors"
+                          >
+                            + {v.name}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -702,15 +792,51 @@ export function VehiclesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">End Odometer (KM)</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Vehicle Rent / Lease (₹)</label>
                   <Input
                     type="number"
-                    value={completeOdo}
-                    onChange={(e) => setCompleteOdo(e.target.value)}
+                    value={completeRent}
+                    onChange={(e) => setCompleteRent(e.target.value)}
                     className="font-mono text-xs"
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">End Odometer (KM)</label>
+                <Input
+                  type="number"
+                  value={completeOdo}
+                  onChange={(e) => setCompleteOdo(e.target.value)}
+                  className="font-mono text-xs"
+                  placeholder="e.g. 45320"
+                />
+              </div>
+
+              {/* Net Cash Handover Summary */}
+              {(() => {
+                const cod = parseFloat(completeCod) || 0;
+                const fuel = parseFloat(completeFuel) || 0;
+                const toll = parseFloat(completeToll) || 0;
+                const batta = parseFloat(completeBatta) || 0;
+                const rent = parseFloat(completeRent) || 0;
+                const totalExpenses = fuel + toll + batta + rent;
+                const netCash = cod - totalExpenses;
+                return (
+                  <div className="p-3 bg-slate-50 border rounded-lg space-y-1.5 text-xs">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Total Route Expenses (Diesel + Batta + Toll + Rent):</span>
+                      <span className="font-mono font-semibold text-rose-600">₹{totalExpenses.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-900 pt-1 border-t">
+                      <span>Net Cash Handover to Counter Cashier:</span>
+                      <span className={`font-mono text-sm ${netCash >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                        ₹{netCash.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="pt-2 flex justify-end gap-2 border-t">
                 <Button variant="outline" onClick={() => setCompletingTrip(null)}>

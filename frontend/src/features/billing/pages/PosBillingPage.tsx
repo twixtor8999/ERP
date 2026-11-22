@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useId } from "react";
+import { useState, useEffect, useCallback, useId, useRef } from "react";
 import {
   Receipt,
   Search,
@@ -17,7 +17,7 @@ import {
   CreditCard,
   Banknote,
   BookOpen,
-  MessageCircle,
+  Calculator,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -86,6 +86,7 @@ interface InvoiceResult {
 }
 
 export function PosBillingPage() {
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
   const barcodeSearchId = useId();
   const customerNameId = useId();
   const customerPhoneId = useId();
@@ -105,6 +106,21 @@ export function PosBillingPage() {
   const [openingFloatInput, setOpeningFloatInput] = useState("2000.00");
   const [closingCashInput, setClosingCashInput] = useState("");
   const [closingNotesInput, setClosingNotesInput] = useState("");
+  const [useDenominations, setUseDenominations] = useState(true);
+  const [denominations, setDenominations] = useState<Record<string, number>>({
+    "500": 0,
+    "200": 0,
+    "100": 0,
+    "50": 0,
+    "20": 0,
+    "10": 0,
+    "5": 0,
+    "2": 0,
+    "1": 0,
+  });
+
+  // Thermal Print Width (58mm 2-inch vs 80mm 3-inch)
+  const [thermalWidth, setThermalWidth] = useState<"58mm" | "80mm">("80mm");
 
   // Product search & Cart
   const [searchQuery, setSearchQuery] = useState("");
@@ -177,6 +193,25 @@ export function PosBillingPage() {
     }
   };
 
+  // Auto-focus barcode input on load, cart update, and modal dismiss
+  useEffect(() => {
+    if (!showOpenShiftModal && !showCloseShiftModal && !completedInvoice) {
+      const timer = setTimeout(() => barcodeInputRef.current?.focus(), 60);
+      return () => clearTimeout(timer);
+    }
+  }, [showOpenShiftModal, showCloseShiftModal, completedInvoice, cart.length]);
+
+  const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (searchResults.length > 0) {
+        addToCart(searchResults[0]!);
+      } else if (searchQuery.trim()) {
+        handleSearch(searchQuery);
+      }
+    }
+  };
+
   const addToCart = (product: ProductLookupItem) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.variant_id === product.variant_id);
@@ -189,6 +224,7 @@ export function PosBillingPage() {
     });
     setSearchQuery("");
     setSearchResults([]);
+    setTimeout(() => barcodeInputRef.current?.focus(), 40);
   };
 
   const updateCartQty = (variantId: string, delta: number) => {
@@ -245,13 +281,27 @@ export function PosBillingPage() {
     }
   };
 
+  const calculatedCountedCash = useDenominations
+    ? (denominations["500"] || 0) * 500 +
+      (denominations["200"] || 0) * 200 +
+      (denominations["100"] || 0) * 100 +
+      (denominations["50"] || 0) * 50 +
+      (denominations["20"] || 0) * 20 +
+      (denominations["10"] || 0) * 10 +
+      (denominations["5"] || 0) * 5 +
+      (denominations["2"] || 0) * 2 +
+      (denominations["1"] || 0) * 1
+    : parseFloat(closingCashInput) || 0;
+
   const handleCloseShift = async () => {
     if (!currentShift) return;
     try {
       setErrorMessage(null);
       await apiClient.post("/api/v1/pos/shifts/close", {
-        closing_cash: parseFloat(closingCashInput) || 0,
+        closing_cash: calculatedCountedCash,
+        actual_counted_cash: calculatedCountedCash,
         notes: closingNotesInput,
+        denominations: useDenominations ? denominations : undefined,
       });
       setShowCloseShiftModal(false);
       setCurrentShift(null);
@@ -293,43 +343,6 @@ export function PosBillingPage() {
     } else {
       setCustomerKhataBalance(null);
     }
-  };
-
-  const generateWhatsAppReceiptUrl = (invoice: InvoiceResult) => {
-    const rawPhone = (invoice.customer_phone || customerPhone || "").replace(/\D/g, "");
-    if (!rawPhone) return "";
-    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-
-    let msg = `*🧾 Siddeshwar Enterprises — Cash Memo*\n`;
-    msg += `*Bill No:* ${invoice.invoice_number}\n`;
-    msg += `*Date:* ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}\n`;
-    msg += `*Cashier:* ${invoice.cashier_name}\n`;
-    if (invoice.customer_name) {
-      msg += `*Customer:* ${invoice.customer_name}\n`;
-    }
-    msg += `───────────────────────\n`;
-    (invoice.items || []).forEach((it) => {
-      msg += `• ${it.product_name} x ${it.quantity} = ₹${Number(it.total).toFixed(2)}\n`;
-    });
-    msg += `───────────────────────\n`;
-    msg += `*Total Amount:* ₹${Number(invoice.total_amount).toFixed(2)}\n`;
-    if (Number(invoice.cash_paid) > 0) {
-      msg += `*Paid (Cash):* ₹${Number(invoice.cash_paid).toFixed(2)}\n`;
-    }
-    if (Number(invoice.upi_paid) > 0) {
-      msg += `*Paid (UPI QR):* ₹${Number(invoice.upi_paid).toFixed(2)}\n`;
-    }
-    const khataVal = Number(invoice.khata_amount || invoice.balance_amount || 0);
-    if (khataVal > 0) {
-      msg += `*Added to Khata (Udhaar):* ₹${khataVal.toFixed(2)}\n`;
-    }
-    if (invoice.customer_current_balance !== undefined) {
-      msg += `*Remaining Khata Balance:* ₹${Number(invoice.customer_current_balance).toFixed(2)}\n`;
-    }
-    msg += `───────────────────────\n`;
-    msg += `Thank you for your business! 🙏\nSiddeshwar Enterprises`;
-
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
   const handleCheckoutInvoice = async () => {
@@ -493,10 +506,12 @@ export function PosBillingPage() {
               <div className="relative">
                 <label htmlFor={barcodeSearchId} className="sr-only">Barcode or SKU Search</label>
                 <Input
+                  ref={barcodeInputRef}
                   id={barcodeSearchId}
                   placeholder="Scan barcode or type SKU (e.g. DAL-TUR-1KG)..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
+                  onKeyDown={handleBarcodeKeyDown}
                   className="font-mono text-base pr-10"
                   autoFocus
                 />
@@ -1040,85 +1055,164 @@ export function PosBillingPage() {
         </div>
       )}
 
-      {/* MODAL: Close Shift */}
+      {/* MODAL: Close Shift & End-of-Day Register Reconciliation */}
       {showCloseShiftModal && currentShift && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg shadow-xl border">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" /> Close Shift & Reconcile Drawer
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-xl shadow-2xl border my-auto">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-primary" /> Close Shift & Cash Drawer Reconciliation
+                </span>
+                <Badge variant="outline" className="font-mono text-xs">
+                  Shift: {currentShift.shift_number}
+                </Badge>
               </CardTitle>
               <CardDescription>
-                Reconcile physical cash drawer tally for shift {currentShift.shift_number}.
+                Tally physical currency notes in the counter register to calculate discrepancy against recorded sales.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg text-sm">
+            <CardContent className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-muted/40 rounded-lg text-xs">
                 <div>
-                  <span className="text-xs text-muted-foreground block">Opening Float:</span>
-                  <span className="font-mono font-bold">₹ {Number(currentShift.opening_float).toFixed(2)}</span>
+                  <span className="text-muted-foreground block text-[11px]">Opening Float:</span>
+                  <span className="font-mono font-bold text-foreground">₹{Number(currentShift.opening_float).toFixed(2)}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Cash Sales Today:</span>
-                  <span className="font-mono font-bold text-emerald-600">₹ {Number(currentShift.cash_sales).toFixed(2)}</span>
+                  <span className="text-muted-foreground block text-[11px]">Cash Sales:</span>
+                  <span className="font-mono font-bold text-emerald-600">₹{Number(currentShift.cash_sales).toFixed(2)}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">UPI Sales (Digital):</span>
-                  <span className="font-mono font-bold text-blue-600">₹ {Number(currentShift.upi_sales).toFixed(2)}</span>
+                  <span className="text-muted-foreground block text-[11px]">UPI Sales:</span>
+                  <span className="font-mono font-bold text-blue-600">₹{Number(currentShift.upi_sales).toFixed(2)}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Expected Cash Drawer:</span>
-                  <span className="font-mono font-bold text-primary">₹ {Number(currentShift.expected_cash).toFixed(2)}</span>
+                  <span className="text-muted-foreground block text-[11px]">Expected Cash:</span>
+                  <span className="font-mono font-bold text-primary">₹{Number(currentShift.expected_cash).toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor={countedCashId} className="text-xs font-semibold text-muted-foreground">
-                  Actual Physical Counted Cash (₹ INR)
-                </label>
-                <Input
-                  id={countedCashId}
-                  type="number"
-                  step="0.01"
-                  value={closingCashInput}
-                  onChange={(e) => setClosingCashInput(e.target.value)}
-                  className="font-mono text-lg font-bold"
-                  autoFocus
-                />
-                {closingCashInput && (
-                  <div className="text-xs font-medium flex items-center gap-1.5">
-                    {parseFloat(closingCashInput) - Number(currentShift.expected_cash) === 0 ? (
-                      <span className="text-emerald-600 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Perfect drawer balance (₹ 0.00 discrepancy)
-                      </span>
-                    ) : (
-                      <span className="text-destructive flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Drawer Discrepancy: ₹{" "}
-                        {(parseFloat(closingCashInput) - Number(currentShift.expected_cash)).toFixed(2)}
-                      </span>
-                    )}
+              {/* Mode Toggle: Denomination Counter vs Direct Input */}
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="text-xs font-semibold text-muted-foreground">Count Method:</span>
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={useDenominations ? "default" : "outline"}
+                    onClick={() => setUseDenominations(true)}
+                    className="h-7 text-xs font-bold"
+                  >
+                    Denomination Counter (₹500, ₹200...)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={!useDenominations ? "default" : "outline"}
+                    onClick={() => {
+                      setUseDenominations(false);
+                      setClosingCashInput(String(currentShift.expected_cash));
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    Direct Lump Sum
+                  </Button>
+                </div>
+              </div>
+
+              {useDenominations ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-foreground flex justify-between">
+                    <span>Currency Denominations Breakdown:</span>
+                    <span className="text-muted-foreground font-mono">Count × Value</span>
                   </div>
-                )}
+                  <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg border text-xs">
+                    {(["500", "200", "100", "50", "20", "10", "5", "2", "1"] as const).map((denom) => {
+                      const count = denominations[denom] || 0;
+                      const val = parseInt(denom);
+                      const subtotal = count * val;
+                      return (
+                        <div key={denom} className="flex items-center gap-1.5 bg-white p-1.5 rounded border border-slate-200">
+                          <span className="w-10 font-bold font-mono text-slate-700">₹{denom}</span>
+                          <span className="text-slate-400 text-[10px]">×</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={count === 0 ? "" : count}
+                            onChange={(e) => {
+                              const qty = Math.max(0, parseInt(e.target.value) || 0);
+                              setDenominations((prev) => ({ ...prev, [denom]: qty }));
+                            }}
+                            className="h-7 text-xs font-mono font-bold text-center bg-slate-50"
+                          />
+                          <span className="w-14 text-right font-mono text-[11px] text-slate-600 font-semibold truncate">
+                            ₹{subtotal}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label htmlFor={countedCashId} className="text-xs font-semibold text-muted-foreground">
+                    Actual Physical Counted Cash (₹ INR)
+                  </label>
+                  <Input
+                    id={countedCashId}
+                    type="number"
+                    step="0.01"
+                    value={closingCashInput}
+                    onChange={(e) => setClosingCashInput(e.target.value)}
+                    className="font-mono text-lg font-bold"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {/* Total Counted & Discrepancy Alert */}
+              <div className="p-3 bg-muted/60 rounded-lg flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Total Physical Counted Cash:</span>
+                  <span className="font-mono text-lg font-extrabold text-foreground">
+                    ₹ {calculatedCountedCash.toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground block">Drawer Discrepancy:</span>
+                  {calculatedCountedCash - Number(currentShift.expected_cash) === 0 ? (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-mono text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> ₹0.00 (Balanced)
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive" className="font-mono text-xs font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                      {calculatedCountedCash - Number(currentShift.expected_cash) > 0 ? "+" : ""}
+                      ₹{(calculatedCountedCash - Number(currentShift.expected_cash)).toFixed(2)}
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label htmlFor={shiftNotesId} className="text-xs font-semibold text-muted-foreground">
-                  Shift Notes / Discrepancy Explanation
+                  Shift Notes / Handover Remarks
                 </label>
                 <Input
                   id={shiftNotesId}
-                  placeholder="Optional handover remarks..."
+                  placeholder="Optional register closing remarks or discrepancy explanation..."
                   value={closingNotesInput}
                   onChange={(e) => setClosingNotesInput(e.target.value)}
                   className="text-xs"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={() => setShowCloseShiftModal(false)}>
                   Cancel
                 </Button>
-                <Button className="bg-destructive hover:bg-destructive/90 text-white" onClick={handleCloseShift}>
+                <Button className="bg-destructive hover:bg-destructive/90 text-white font-bold" onClick={handleCloseShift}>
                   Reconcile & Close Shift
                 </Button>
               </div>
@@ -1127,114 +1221,184 @@ export function PosBillingPage() {
         </div>
       )}
 
-      {/* MODAL: Invoice Receipt Printout */}
+      {/* MODAL: Invoice Receipt Thermal Printout (2-inch / 3-inch) */}
       {completedInvoice && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-2xl border bg-card">
-            <CardHeader className="text-center pb-2 border-b">
-              <div className="mx-auto w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
-                <CheckCircle2 className="w-6 h-6" />
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card
+            className={`shadow-2xl border bg-card my-auto transition-all ${
+              thermalWidth === "58mm" ? "w-full max-w-xs" : "w-full max-w-sm"
+            }`}
+          >
+            {/* Header / Paper Width Switch */}
+            <div className="p-3 bg-muted/40 border-b flex items-center justify-between text-xs print:hidden">
+              <span className="font-bold text-muted-foreground flex items-center gap-1.5">
+                <Printer className="w-4 h-4 text-primary" /> Thermal Print Memo
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant={thermalWidth === "58mm" ? "default" : "outline"}
+                  onClick={() => setThermalWidth("58mm")}
+                  className="h-6 text-[10px] px-2 font-bold"
+                >
+                  2&quot; (58mm)
+                </Button>
+                <Button
+                  size="sm"
+                  variant={thermalWidth === "80mm" ? "default" : "outline"}
+                  onClick={() => setThermalWidth("80mm")}
+                  className="h-6 text-[10px] px-2 font-bold"
+                >
+                  3&quot; (80mm)
+                </Button>
               </div>
-              <CardTitle className="text-lg">Siddeshwar Enterprises</CardTitle>
-              <CardDescription className="text-xs">
-                GSTIN: 27AAAAA0000A1Z5 | {activeBranch?.name || "Main Branch"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-3 text-xs font-mono">
-              <div className="flex justify-between border-b pb-2">
-                <div>
-                  <div className="font-bold text-foreground">INV: #{completedInvoice.invoice_number}</div>
-                  <div className="text-muted-foreground">Date: {new Date(completedInvoice.invoice_date).toLocaleString()}</div>
-                  {completedInvoice.customer_name && (
-                    <div className="text-foreground font-semibold mt-0.5">
-                      Customer: {completedInvoice.customer_name} {completedInvoice.customer_phone ? `(${completedInvoice.customer_phone})` : ""}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-muted-foreground">Cashier: {completedInvoice.cashier_name}</div>
-                  <div className="text-primary font-semibold uppercase">{completedInvoice.payment_method || "CASH"}</div>
-                </div>
+            </div>
+
+            {/* Thermal Print Slip Area */}
+            <div className="p-4 space-y-3 text-xs font-mono bg-white text-black thermal-print-slip">
+              <div className="text-center space-y-0.5 border-b border-dashed border-black pb-2">
+                <div className="font-extrabold text-sm uppercase tracking-wide">Siddeshwar Enterprises</div>
+                <div className="text-[10px] text-gray-700">Retail & Wholesale Superstore</div>
+                <div className="text-[10px] text-gray-600">GSTIN: 29ABCDE1234F1Z5</div>
+                <div className="text-[10px] text-gray-600">{activeBranch?.name || "Main Branch • Vijayapura"}</div>
               </div>
 
-              <table className="w-full">
+              <div className="border-b border-dashed border-black pb-2 space-y-0.5 text-[11px]">
+                <div className="flex justify-between font-bold">
+                  <span>BILL #{completedInvoice.invoice_number}</span>
+                  <span>{completedInvoice.payment_method || "CASH"}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-700">
+                  <span>Date: {new Date(completedInvoice.invoice_date).toLocaleDateString("en-IN")}</span>
+                  <span>Time: {new Date(completedInvoice.invoice_date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <div className="text-[10px] text-gray-700">Cashier: {completedInvoice.cashier_name}</div>
+                {completedInvoice.customer_name && (
+                  <div className="font-bold pt-0.5 text-[11px]">
+                    Customer: {completedInvoice.customer_name} {completedInvoice.customer_phone ? `(${completedInvoice.customer_phone})` : ""}
+                  </div>
+                )}
+              </div>
+
+              {/* Itemized Table */}
+              <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="border-b text-muted-foreground text-left">
+                  <tr className="border-b border-dashed border-black text-left">
                     <th className="py-1">Item</th>
                     <th className="py-1 text-center">Qty</th>
                     <th className="py-1 text-right">Price</th>
                     <th className="py-1 text-right">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-dotted divide-gray-300">
                   {(completedInvoice.items || []).map((i, idx) => (
                     <tr key={idx}>
-                      <td className="py-1">{i.product_name}</td>
-                      <td className="py-1 text-center">{i.quantity}</td>
+                      <td className="py-1 pr-1 leading-tight font-medium">{i.product_name}</td>
+                      <td className="py-1 text-center font-bold">{i.quantity}</td>
                       <td className="py-1 text-right">₹{Number(i.unit_price).toFixed(2)}</td>
-                      <td className="py-1 text-right">₹{Number(i.total).toFixed(2)}</td>
+                      <td className="py-1 text-right font-bold">₹{Number(i.total).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              <div className="border-t pt-2 space-y-1 font-bold text-sm">
-                <div className="flex justify-between">
-                  <span>Total Amount:</span>
+              {/* Totals & Split Tender */}
+              <div className="border-t border-dashed border-black pt-2 space-y-1">
+                <div className="flex justify-between font-extrabold text-sm border-b border-black pb-1">
+                  <span>NET TOTAL:</span>
                   <span>₹ {Number(completedInvoice.total_amount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-xs font-normal text-muted-foreground">
-                  <span>Tax Breakdown (GST):</span>
+                <div className="flex justify-between text-[10px] text-gray-600">
+                  <span>GST Breakdown:</span>
                   <span>₹ {Number(completedInvoice.tax_amount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-xs font-normal text-emerald-600 flex-wrap gap-x-3">
-                  {Number(completedInvoice.cash_paid) > 0 && <span>Paid Cash: ₹ {Number(completedInvoice.cash_paid).toFixed(2)}</span>}
-                  {Number(completedInvoice.upi_paid) > 0 && <span>Paid UPI: ₹ {Number(completedInvoice.upi_paid).toFixed(2)}</span>}
+
+                <div className="pt-1 space-y-0.5 text-[11px]">
+                  {Number(completedInvoice.cash_paid) > 0 && (
+                    <div className="flex justify-between text-gray-800">
+                      <span>Paid Cash:</span>
+                      <span className="font-bold">₹ {Number(completedInvoice.cash_paid).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(completedInvoice.upi_paid) > 0 && (
+                    <div className="flex justify-between text-gray-800">
+                      <span>Paid UPI QR:</span>
+                      <span className="font-bold">₹ {Number(completedInvoice.upi_paid).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(completedInvoice.card_paid) > 0 && (
+                    <div className="flex justify-between text-gray-800">
+                      <span>Paid Card:</span>
+                      <span className="font-bold">₹ {Number(completedInvoice.card_paid).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(completedInvoice.khata_amount || completedInvoice.balance_amount || 0) > 0 && (
+                    <div className="flex justify-between font-bold text-red-700 bg-red-50 p-1 border border-red-200 rounded">
+                      <span>Added to Khata (Udhaar):</span>
+                      <span>₹ {Number(completedInvoice.khata_amount || completedInvoice.balance_amount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {completedInvoice.customer_current_balance !== undefined && (
+                    <div className="flex justify-between text-[10px] text-gray-700 pt-0.5">
+                      <span>Total Pending Khata Balance:</span>
+                      <span className="font-bold font-mono">₹ {Number(completedInvoice.customer_current_balance).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
-                {Number(completedInvoice.khata_amount || completedInvoice.balance_amount || 0) > 0 && (
-                  <div className="flex justify-between text-xs font-bold text-rose-600 bg-rose-50 p-1.5 rounded border border-rose-200">
-                    <span>Added to Khata (Udhaar):</span>
-                    <span>₹ {Number(completedInvoice.khata_amount || completedInvoice.balance_amount).toFixed(2)}</span>
-                  </div>
-                )}
-                {completedInvoice.customer_current_balance !== undefined && (
-                  <div className="flex justify-between text-[11px] font-semibold text-muted-foreground pt-0.5">
-                    <span>Remaining Customer Khata Balance:</span>
-                    <span className="font-mono text-foreground">₹ {Number(completedInvoice.customer_current_balance).toFixed(2)}</span>
-                  </div>
-                )}
               </div>
 
-              <div className="flex gap-2 pt-3">
-                {completedInvoice.customer_phone && (
-                  <Button
-                    className="flex-1 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                    onClick={() => {
-                      const url = generateWhatsAppReceiptUrl(completedInvoice);
-                      if (url) window.open(url, "_blank");
-                    }}
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp Receipt
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-1 text-xs"
-                  onClick={() => window.print()}
-                >
-                  <Printer className="w-3.5 h-3.5" /> Thermal Print
-                </Button>
-                <Button
-                  className="flex-1 text-xs bg-primary text-primary-foreground"
-                  onClick={() => setCompletedInvoice(null)}
-                >
-                  Next Bill
-                </Button>
+              {/* Thermal Memo Footer */}
+              <div className="border-t border-dashed border-black pt-2 text-center space-y-0.5 text-[10px] text-gray-600">
+                <div className="font-bold text-black">Thank you for shopping with us! 🙏</div>
+                <div>Goods once sold can be exchanged within 48 hours.</div>
               </div>
-            </CardContent>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-3 bg-muted/40 border-t flex gap-2 print:hidden">
+              <Button
+                variant="outline"
+                className="flex-1 gap-1.5 text-xs font-bold"
+                onClick={() => window.print()}
+              >
+                <Printer className="w-3.5 h-3.5" /> Thermal Print ({thermalWidth})
+              </Button>
+              <Button
+                className="flex-1 text-xs font-bold bg-primary text-primary-foreground"
+                onClick={() => {
+                  setCompletedInvoice(null);
+                  setTimeout(() => barcodeInputRef.current?.focus(), 60);
+                }}
+              >
+                Next Bill (Enter)
+              </Button>
+            </div>
           </Card>
         </div>
       )}
+
+      {/* PRINT-ONLY CSS FOR CLEAN THERMAL PRINTER SLIPS (2-inch 58mm / 3-inch 80mm) */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .thermal-print-slip, .thermal-print-slip * {
+            visibility: visible;
+          }
+          .thermal-print-slip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: ${thermalWidth === "58mm" ? "54mm" : "76mm"} !important;
+            padding: 2mm !important;
+            margin: 0 !important;
+            background: white !important;
+            color: black !important;
+            font-size: ${thermalWidth === "58mm" ? "10px" : "11px"} !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

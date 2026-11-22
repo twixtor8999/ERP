@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { BarcodeStickerSheetModal } from "../components/BarcodeStickerSheetModal";
 
 interface Variant {
   id: string;
@@ -124,6 +125,9 @@ export function ProductsCatalogPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
+
+  // A4 Barcode Stickers Modal State
+  const [isBarcodeStickerModalOpen, setIsBarcodeStickerModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -423,6 +427,16 @@ export function ProductsCatalogPage() {
 
         {/* Global Catalog Actions */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBarcodeStickerModalOpen(true)}
+            className="border-purple-300 text-purple-700 hover:bg-purple-50 flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+          >
+            <Tag className="w-4 h-4 text-purple-600" />
+            A4 Barcode Stickers
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -1323,6 +1337,25 @@ export function ProductsCatalogPage() {
           </div>
         </div>
       )}
+
+      {/* A4 BARCODE & PRICE STICKER SHEET MODAL */}
+      <BarcodeStickerSheetModal
+        isOpen={isBarcodeStickerModalOpen}
+        onClose={() => setIsBarcodeStickerModalOpen(false)}
+        products={products.map((p) => {
+          const primary = p.variants[0];
+          return {
+            id: p.id,
+            name: p.name,
+            display_name: p.display_name,
+            sku: primary?.sku || p.code,
+            barcode: primary?.barcode || null,
+            mrp: primary?.mrp || primary?.selling_price || 0,
+            selling_price: primary?.selling_price || 0,
+            category: p.category,
+          };
+        })}
+      />
     </div>
   );
 }

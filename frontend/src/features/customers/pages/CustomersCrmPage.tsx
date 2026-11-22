@@ -4,7 +4,6 @@ import {
   Plus,
   Search,
   Loader2,
-  MessageCircle,
   DollarSign,
   CheckCircle2,
   Phone,
@@ -12,6 +11,9 @@ import {
   ArrowDownCircle,
   RefreshCw,
   Wallet,
+  Printer,
+  FileText,
+  Copy,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -64,6 +66,9 @@ export function CustomersCrmPage() {
 
   // Payment Confirmation Success Modal
   const [successPayment, setSuccessPayment] = useState<PaymentSuccessInfo | null>(null);
+
+  // Statement / Reminder Slip Modal
+  const [statementCustomer, setStatementCustomer] = useState<CustomerItem | null>(null);
 
   const loadCustomers = async () => {
     try {
@@ -191,23 +196,10 @@ export function CustomersCrmPage() {
     }
   };
 
-  const sendWhatsAppReminder = (c: CustomerItem) => {
-    const rawPhone = (c.phone || "").replace(/\D/g, "");
-    if (!rawPhone) {
-      toast.error("No valid phone number for WhatsApp");
-      return;
-    }
-    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-    const msg = `Namaste ${c.full_name} ji 🙏\n\nThis is a friendly reminder from *Siddeshwar Enterprises*.\nYour outstanding Khata (Udhaar) balance is *₹${c.current_balance.toFixed(2)}*.\n\nKindly clear this pending amount via Cash or PhonePe/GPay UPI at your earliest convenience.\n\nThank you for your business! 🙏\n*Siddeshwar Enterprises*`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
-  };
-
-  const sendWhatsAppPaymentReceipt = (data: PaymentSuccessInfo) => {
-    const rawPhone = (data.customer_phone || "").replace(/\D/g, "");
-    if (!rawPhone) return;
-    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-    const msg = `🧾 *Payment Acknowledgment — Siddeshwar Enterprises*\n\nCustomer: *${data.customer_name}*\nReceipt No: *#${data.transaction_number}*\nAmount Received: *₹${data.amount_paid.toFixed(2)}*\nRemaining Khata Balance: *₹${data.remaining_balance.toFixed(2)}*\nDate: *${new Date().toLocaleDateString("en-IN")}*\n\nThank you for your payment! 🙏\n*Siddeshwar Enterprises*`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const handleCopyReminderNotice = (c: CustomerItem) => {
+    const text = `Siddeshwar Enterprises • Khata Due Notice\nCustomer: ${c.full_name} (${c.phone})\nAccount Code: ${c.customer_code}\nOutstanding Khata Balance: ₹${c.current_balance.toFixed(2)}\nDate: ${new Date().toLocaleDateString("en-IN")}\nKindly clear the pending balance via Cash or UPI.\nThank you!`;
+    navigator.clipboard.writeText(text);
+    toast.success("Notice Copied to Clipboard", { description: `Khata statement summary for ${c.full_name} copied.` });
   };
 
   return (
@@ -392,11 +384,11 @@ export function CustomersCrmPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => sendWhatsAppReminder(c)}
-                                className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold gap-1 px-2"
-                                title="Send WhatsApp Payment Reminder"
+                                onClick={() => setStatementCustomer(c)}
+                                className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold gap-1 px-2 shadow-xs"
+                                title="Customer Khata Statement & Dues Notice"
                               >
-                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" /> Reminder
+                                <FileText className="w-3.5 h-3.5 text-blue-600" /> Statement Slip
                               </Button>
                             </>
                           ) : (
@@ -583,12 +575,91 @@ export function CustomersCrmPage() {
             <div className="flex flex-col gap-2 pt-2">
               <Button
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 text-xs h-9"
-                onClick={() => sendWhatsAppPaymentReceipt(successPayment)}
+                onClick={() => window.print()}
               >
-                <MessageCircle className="w-4 h-4" /> Share WhatsApp Receipt
+                <Printer className="w-4 h-4" /> Print Payment Receipt Slip
               </Button>
               <Button variant="outline" className="w-full text-xs h-8" onClick={() => setSuccessPayment(null)}>
                 Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Customer Khata Statement & Dues Slip */}
+      {statementCustomer && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Customer Khata Statement</h3>
+                  <p className="text-xs text-slate-500">Official Udhaar summary & dues notice</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setStatementCustomer(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 border rounded-xl space-y-3 font-mono text-xs">
+              <div className="text-center pb-2 border-b">
+                <div className="font-bold text-sm text-slate-900">Siddeshwar Enterprises</div>
+                <div className="text-[11px] text-slate-500">Retail & Wholesale Merchants</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Date: {new Date().toLocaleDateString("en-IN")}</div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Customer Name:</span>
+                  <span className="font-bold text-slate-900">{statementCustomer.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Account Code:</span>
+                  <span className="font-bold text-slate-900">{statementCustomer.customer_code}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Registered Phone:</span>
+                  <span className="font-bold text-slate-900">{statementCustomer.phone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Credit Limit:</span>
+                  <span className="text-slate-700">₹ {statementCustomer.credit_limit.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg flex justify-between items-center text-xs">
+                <span className="font-bold text-rose-800">Total Outstanding Udhaar:</span>
+                <span className="font-black text-sm text-rose-900">
+                  ₹ {statementCustomer.current_balance.toFixed(2)}
+                </span>
+              </div>
+
+              <p className="text-[10px] text-slate-400 text-center pt-1 font-sans">
+                Kindly clear this pending balance via Cash or UPI at the store counter.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs gap-1.5 h-9"
+                onClick={() => handleCopyReminderNotice(statementCustomer)}
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy Notice
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 h-9"
+                onClick={() => window.print()}
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Statement
               </Button>
             </div>
           </div>
