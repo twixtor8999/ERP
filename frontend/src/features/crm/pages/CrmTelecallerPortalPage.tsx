@@ -667,15 +667,15 @@ export function CrmTelecallerPortalPage() {
   };
 
   const userName = user?.fullName?.trim() || "Pushpa Patil";
-  const userInitial = (userName[0] || "P").toUpperCase();
+  const userInitial = (userName.charAt(0) || "P").toUpperCase();
   const userDoubleInitials = useMemo(() => {
-    const parts = userName.split(/\s+/);
-    const first = parts[0] || "";
-    const second = parts[1] || "";
-    if (first && second) {
-      return (first.charAt(0) + second.charAt(0)).toUpperCase();
+    const parts = userName.split(/\s+/).filter(Boolean);
+    const firstChar = parts[0]?.charAt(0) || "";
+    const secondChar = parts[1]?.charAt(0) || "";
+    if (firstChar && secondChar) {
+      return (firstChar + secondChar).toUpperCase();
     }
-    return userName.slice(0, 2).toUpperCase();
+    return userName.slice(0, 2).toUpperCase() || "PP";
   }, [userName]);
 
   const userEmployeeId = useMemo(() => {
