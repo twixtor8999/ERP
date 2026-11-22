@@ -15,9 +15,19 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
 }) => {
   const [returnType, setReturnType] = useState<'1' | '2' | '3b' | '9'>(initialReturnTab);
   const [filingMode, setFilingMode] = useState('Monthly');
-  const [returnMonth, setReturnMonth] = useState('2026-10');
+  const [returnMonth, setReturnMonth] = useState('2026-11');
   const [financialYear, setFinancialYear] = useState('FY 2025-26');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const isNov = returnMonth === '2026-11';
+  const periodLabel = returnType === '9' ? financialYear : (isNov ? 'November 2026' : 'October 2026');
+  const dueDateLabel = returnType === '1' 
+    ? (isNov ? '11-12-2026' : '11-11-2026') 
+    : returnType === '2' 
+    ? 'Generated on the portal on the 14th — match these bills before filing GSTR-3B' 
+    : returnType === '3b' 
+    ? (isNov ? '20-12-2026' : '20-11-2026') 
+    : '31-12-2026';
 
   // Subtitles per GSTR tab matching screenshots 1-4
   const SUBTITLES: Record<string, string> = {
@@ -198,7 +208,7 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
         <div>
           <span className="text-slate-500 block">Period</span>
           <b className="text-slate-900 font-bold text-sm">
-            {returnType === '9' ? financialYear : 'October 2026'}
+            {periodLabel}
           </b>
         </div>
         <div>
@@ -212,13 +222,7 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
               : 'GSTR 9 due'}
           </span>
           <b className="text-slate-900 font-bold text-sm">
-            {returnType === '1'
-              ? '11-11-2026'
-              : returnType === '2'
-              ? 'Generated on the portal on the 14th — match these bills before filing GSTR-3B'
-              : returnType === '3b'
-              ? '20-11-2026'
-              : '31-12-2026'}
+            {dueDateLabel}
           </b>
           {returnType === '9' && (
             <small className="block text-slate-500 text-[10px] mt-0.5">
@@ -234,7 +238,7 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Taxable value</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{isNov ? '₹17,45,280' : '₹0'}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">IGST</span>
@@ -242,19 +246,19 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">CGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{isNov ? '₹43,632' : '₹0'}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">SGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{isNov ? '₹43,632' : '₹0'}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Invoices</span>
-              <b className="text-base font-bold text-teal-800">0</b>
+              <b className="text-base font-bold text-teal-800">{isNov ? '512' : '0'}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Credit notes</span>
-              <b className="text-base font-bold text-teal-800">0</b>
+              <b className="text-base font-bold text-teal-800">{isNov ? '153' : '0'}</b>
             </div>
           </>
         )}

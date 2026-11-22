@@ -23,9 +23,9 @@ export function WholesaleStockSplitView() {
 
   // Filter States for list view
   const [searchQuery, setSearchQuery] = useState("");
-  const [startDate, setStartDate] = useState("2026-11-22");
+  const [startDate, setStartDate] = useState("2026-11-01");
   const [endDate, setEndDate] = useState("2026-11-22");
-  const [appliedStartDate, setAppliedStartDate] = useState("2026-11-22");
+  const [appliedStartDate, setAppliedStartDate] = useState("2026-11-01");
   const [appliedEndDate, setAppliedEndDate] = useState("2026-11-22");
   const [page, setPage] = useState(0);
   const itemsPerPage = 10;
