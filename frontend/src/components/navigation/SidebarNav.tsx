@@ -25,11 +25,11 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.href === "/dashboard") {
       return currentPath === "/dashboard" || currentPath.startsWith("/dashboard/");
     }
-    if (item.href === "/pos") {
-      return currentPath === "/pos" || currentPath === "/billing";
+    if (item.href === "/pos" || item.href === "/place-order") {
+      return currentPath === "/pos" || currentPath === "/place-order" || currentPath === "/billing";
     }
-    if (item.href === "/crm?view=callings") {
-      return currentPath === "/crm" && currentSearch.includes("callings");
+    if (item.href === "/callings" || item.href === "/crm?view=callings") {
+      return currentPath === "/callings" || (currentPath === "/crm" && currentSearch.includes("callings"));
     }
     if (item.href === "/crm?view=b2b") {
       return currentPath === "/crm" && currentSearch.includes("b2b");

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useId } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { CallingsRunSheetView } from "../components/CallingsRunSheetView";
 import {
   Phone,
   ShoppingCart,
@@ -151,12 +152,22 @@ type CrmSubView =
 
 export function CrmTelecallerPortalPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view");
+
   const { user, logout } = useAuthStore();
   const { activeBranch } = useBranchStore();
 
-  const [activeView, setActiveView] = useState<CrmSubView>("home");
+  const [activeView, setActiveView] = useState<CrmSubView>(
+    viewParam === "callings" ? "callings" : "home"
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // If URL explicitly requests Callings run-sheet, render 1:1 Callings view
+  if (viewParam === "callings") {
+    return <CallingsRunSheetView />;
+  }
 
   // Prevent background body scroll when mobile drawer is open
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
@@ -18,6 +18,8 @@ import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPag
 import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
 import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
 import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
+import { PlaceOrderWholesaleView } from "@/features/billing/components/PlaceOrderWholesaleView";
+import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheetView";
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
@@ -42,6 +44,14 @@ import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
 import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
 
 import { useAuthStore } from "@/stores/auth.store";
+
+function CrmRouteResolver() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("view") === "callings") {
+    return <Navigate to="/callings" replace />;
+  }
+  return <CrmTelecallerPortalPage />;
+}
 
 function RoleBasedHomeRedirect() {
   const { user } = useAuthStore();
@@ -116,7 +126,7 @@ export const router = createBrowserRouter([
     path: "/crm",
     element: (
       <ProtectedRoute>
-        <CrmTelecallerPortalPage />
+        <CrmRouteResolver />
       </ProtectedRoute>
     ),
   },
@@ -151,6 +161,14 @@ export const router = createBrowserRouter([
       {
         path: "pos",
         element: <PosBillingPage />,
+      },
+      {
+        path: "place-order",
+        element: <PlaceOrderWholesaleView />,
+      },
+      {
+        path: "callings",
+        element: <CallingsRunSheetView />,
       },
       {
         path: "pos-billing",

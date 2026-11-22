@@ -21,7 +21,7 @@ export const navigationItems: NavItem[] = [
   { title: "Home Page", href: "/home" },
   { title: "Dashboard", href: "/dashboard" },
   { title: "Place Order", href: "/pos" },
-  { title: "Callings", href: "/crm?view=callings" },
+  { title: "Callings", href: "/callings" },
   { title: "Orders", href: "/orders" },
   { title: "Settlement", href: "/settlements" },
   { title: "Sales vs Collection", href: "/payments" },

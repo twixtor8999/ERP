@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useId, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import { PlaceOrderWholesaleView } from "../components/PlaceOrderWholesaleView";
 import {
   Receipt,
   Search,
@@ -86,6 +88,14 @@ interface InvoiceResult {
 }
 
 export function PosBillingPage() {
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+
+  // Default to wholesale Place Order view matching Siddeshwar Enterprises reference app
+  if (mode !== "counter" && mode !== "cashier") {
+    return <PlaceOrderWholesaleView />;
+  }
+
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const barcodeSearchId = useId();
   const customerNameId = useId();
