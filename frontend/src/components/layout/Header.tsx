@@ -30,6 +30,21 @@ export function Header() {
     return null;
   }, [location.pathname]);
 
+  const isHomePage = location.pathname === "/home" || location.pathname === "/";
+  if (isHomePage) {
+    return (
+      <header className="sticky top-0 z-40 flex lg:hidden h-14 w-full items-center justify-between border-b bg-white px-3 sm:px-4 shadow-xs">
+        <div className="flex items-center gap-2">
+          <MobileNav />
+          <span className="font-bold text-sm text-[#0f172a]">Home Page</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <UserMenu />
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b bg-card/80 px-2 sm:px-4 md:px-6 backdrop-blur">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">

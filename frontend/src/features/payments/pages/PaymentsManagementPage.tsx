@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CreditCard,
@@ -31,6 +32,8 @@ export function PaymentsManagementPage() {
   const { user } = useAuthStore();
   const { activeBranch, availableBranches } = useBranchStore();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const initialMethod = searchParams.get("tab") === "upi" ? "UPI" : "";
 
   const isOwnerOrAdmin =
     user?.role?.toLowerCase().includes("owner") ||
@@ -40,7 +43,7 @@ export function PaymentsManagementPage() {
   // Filters state
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [methodFilter, setMethodFilter] = useState<string>("");
+  const [methodFilter, setMethodFilter] = useState<string>(initialMethod);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Modals state

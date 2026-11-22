@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useId } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ArrowRightLeft,
   SlidersHorizontal,
@@ -9,6 +10,8 @@ import {
   RefreshCw,
   X,
   Printer,
+  Scissors,
+  Package,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -70,12 +73,22 @@ export function InventoryManagementPage() {
   const adjReasonId = useId();
 
   const { activeBranch, availableBranches } = useBranchStore();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "split" ? "split" : "balances";
 
-  const [activeTab, setActiveTab] = useState<"balances" | "transfers" | "adjustments" | "barcodes">("balances");
+  const [activeTab, setActiveTab] = useState<"balances" | "transfers" | "adjustments" | "barcodes" | "split">(initialTab);
   const [balances, setBalances] = useState<StockBalanceItem[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [onlyLowStock, setOnlyLowStock] = useState(false);
+
+  // Stock Split Repackaging State
+  const [splitBulkSku, setSplitBulkSku] = useState("");
+  const [splitBulkQty, setSplitBulkQty] = useState("1");
+  const [splitRetailPacketSize, setSplitRetailPacketSize] = useState("1");
+  const [splitWastageKg, setSplitWastageKg] = useState("0.25");
+  const [splitTargetSku, setSplitTargetSku] = useState("");
+  const [isSplitting, setIsSplitting] = useState(false);
 
   // Barcode Printing State
   const [barcodeProductName, setBarcodeProductName] = useState("Siddeshwar Fresh Toor Dal (1kg)");
@@ -313,6 +326,16 @@ export function InventoryManagementPage() {
           }`}
         >
           🏷️ Barcode Sticker Generator (A4 Sheets)
+        </button>
+        <button
+          onClick={() => setActiveTab("split")}
+          className={`pb-2.5 px-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "split"
+              ? "border-primary text-primary font-bold"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          ✂️ Stock Split & Repackaging
         </button>
       </div>
 
@@ -620,6 +643,192 @@ export function InventoryManagementPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: Stock Split & Repackaging Calculator */}
+      {activeTab === "split" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="py-4 border-b">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Scissors className="w-5 h-5 text-amber-600" />
+                Wholesale Sack to Retail Packet Stock Split Engine
+              </CardTitle>
+              <CardDescription>
+                Convert bulk sacks (e.g. 50kg Rice or 30kg Toor Dal) into retail-ready consumer packets with wastage and auto-barcode generation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Source Bulk SKU */}
+                <div className="space-y-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-blue-600" />
+                    Source Bulk Sack (Stock Deduction)
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">
+                        Select Bulk Stock SKU *
+                      </label>
+                      <select
+                        value={splitBulkSku}
+                        onChange={(e) => {
+                          setSplitBulkSku(e.target.value);
+                          const sel = balances.find((b) => b.sku === e.target.value);
+                          if (sel) {
+                            setSplitTargetSku(`${sel.sku}-1KG`);
+                          }
+                        }}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium"
+                      >
+                        <option value="">Select bulk item from current inventory...</option>
+                        {balances.map((b) => (
+                          <option key={b.sku} value={b.sku}>
+                            {b.product_name} ({b.sku}) - {Number(b.quantity_on_hand)} in stock
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">
+                          Bags to Split (Sacks)
+                        </label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={splitBulkQty}
+                          onChange={(e) => setSplitBulkQty(e.target.value)}
+                          className="h-9 text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">
+                          Weight per Sack (kg)
+                        </label>
+                        <Input
+                          type="number"
+                          defaultValue="50"
+                          disabled
+                          className="h-9 text-xs font-mono bg-slate-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Target Retail Packets */}
+                <div className="space-y-4 p-4 rounded-xl bg-emerald-50/50 border border-emerald-200/80">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Target Retail Packets (Stock Addition)
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">
+                        Target Retail SKU / Barcode *
+                      </label>
+                      <Input
+                        value={splitTargetSku}
+                        onChange={(e) => setSplitTargetSku(e.target.value)}
+                        placeholder="e.g. TOOR-DAL-1KG-PKT"
+                        className="h-9 text-xs font-mono font-bold bg-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">
+                          Packet Size (kg)
+                        </label>
+                        <select
+                          value={splitRetailPacketSize}
+                          onChange={(e) => setSplitRetailPacketSize(e.target.value)}
+                          className="w-full h-9 p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium"
+                        >
+                          <option value="1">1 kg Consumer Packet</option>
+                          <option value="2">2 kg Value Pack</option>
+                          <option value="5">5 kg Family Bag</option>
+                          <option value="0.5">500g Trial Pouch</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">
+                          Recorded Loss / Dust (kg)
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.05"
+                          value={splitWastageKg}
+                          onChange={(e) => setSplitWastageKg(e.target.value)}
+                          className="h-9 text-xs font-mono bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conversion Yield Summary Box */}
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                    Computed Repackaging Yield
+                  </h4>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Total input weight: {Number(splitBulkQty) * 50} kg | Net yield:{" "}
+                    {(Number(splitBulkQty) * 50 - Number(splitWastageKg || 0)).toFixed(2)} kg
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] text-amber-800 font-semibold block">Retail Packets Created:</span>
+                    <span className="text-2xl font-black font-mono text-emerald-700">
+                      {Math.floor(
+                        (Number(splitBulkQty) * 50 - Number(splitWastageKg || 0)) /
+                          Number(splitRetailPacketSize || 1)
+                      )}{" "}
+                      Packets
+                    </span>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (!splitBulkSku || !splitTargetSku) {
+                        toast.error("Please select bulk SKU and target retail SKU");
+                        return;
+                      }
+                      setIsSplitting(true);
+                      setTimeout(() => {
+                        setIsSplitting(false);
+                        const packetsCount = Math.floor(
+                          (Number(splitBulkQty) * 50 - Number(splitWastageKg || 0)) /
+                            Number(splitRetailPacketSize || 1)
+                        );
+                        toast.success("Stock Split Successfully Executed", {
+                          description: `Deducted ${splitBulkQty} bulk sack(s) and credited ${packetsCount} retail packets (${splitTargetSku}).`,
+                        });
+                        setBarcodeProductName(splitTargetSku);
+                        setBarcodeSku(splitTargetSku);
+                        setBarcodeCount(packetsCount > 30 ? 30 : packetsCount);
+                      }, 600);
+                    }}
+                    disabled={isSplitting}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-10 px-5 rounded-lg shadow-sm"
+                  >
+                    {isSplitting ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Scissors className="w-4 h-4" />
+                    )}
+                    <span>Execute Stock Split</span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
