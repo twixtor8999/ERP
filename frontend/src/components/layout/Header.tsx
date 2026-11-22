@@ -30,13 +30,20 @@ export function Header() {
     return null;
   }, [location.pathname]);
 
-  const isHomePage = location.pathname === "/home" || location.pathname === "/";
-  if (isHomePage) {
+  const isCleanPage =
+    location.pathname === "/home" ||
+    location.pathname === "/" ||
+    location.pathname === "/dashboard" ||
+    location.pathname.startsWith("/dashboard");
+
+  if (isCleanPage) {
     return (
       <header className="sticky top-0 z-40 flex lg:hidden h-14 w-full items-center justify-between border-b bg-white px-3 sm:px-4 shadow-xs">
         <div className="flex items-center gap-2">
           <MobileNav />
-          <span className="font-bold text-sm text-[#0f172a]">Home Page</span>
+          <span className="font-bold text-sm text-[#0f172a]">
+            {currentNav?.title || "Dashboard"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <UserMenu />

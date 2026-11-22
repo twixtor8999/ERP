@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeStream, type RealtimeActivityEvent } from "@/lib/realtime/useRealtimeStream";
 import { BusinessOwnerDashboard } from "../components/BusinessOwnerDashboard";
+import { BusinessDashboardView } from "../components/BusinessDashboardView";
 import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 
 // Role mapping helper
@@ -141,6 +142,11 @@ export function DashboardPage() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
 
   const effectiveView = roleView || userDashboard;
+
+  // 1:1 Pixel Match for Business Dashboard matching Siddeshwar Enterprises reference app
+  if (isExecutive && (!roleView || roleView === "admin" || roleView === "owner")) {
+    return <BusinessDashboardView />;
+  }
 
   // Real-time live activity stream
   const { events: liveEvents, status: wsStatus } = useRealtimeStream({
