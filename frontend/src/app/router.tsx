@@ -112,14 +112,6 @@ export const router = createBrowserRouter([
     element: <LoginPage initialTab="register" />,
   },
   {
-    path: "/crm",
-    element: (
-      <ProtectedRoute>
-        <CrmTelecallerPortalPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
     path: "/",
     element: (
       <ProtectedRoute>

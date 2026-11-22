@@ -190,8 +190,17 @@ def list_admin_products(
         alt_barcodes.setdefault(bc.product_variant_id, []).append(bc.barcode)
 
     res = []
+    # Batch preload all variants in ONE query to eliminate N+1 latency
+    prod_ids = [p.id for p in products]
+    all_variants = db.scalars(
+        select(ProductVariant).where(ProductVariant.product_id.in_(prod_ids))
+    ).all() if prod_ids else []
+    variants_by_prod: dict[str, list[ProductVariant]] = {}
+    for v in all_variants:
+        variants_by_prod.setdefault(v.product_id, []).append(v)
+
     for p in products:
-        variants = db.scalars(select(ProductVariant).where(ProductVariant.product_id == p.id)).all()
+        variants = variants_by_prod.get(p.id, [])
         prod_stock = sum(stocks.get(v.id, 0.0) for v in variants)
 
         # Status filter check
@@ -1467,24 +1476,29 @@ class CreateCustomerPayload(BaseModel):
 @router.get("/customers")
 def list_admin_customers(
     search: str | None = None,
+    limit: int = Query(default=300, ge=1, le=3000),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     stmt = (
         select(Customer)
         .where(Customer.organization_id == current_user.organization_id)
-        .order_by(Customer.created_at.desc())
     )
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Customer.phone.ilike(s),
+                Customer.first_name.ilike(s),
+                Customer.last_name.ilike(s),
+                Customer.customer_code.ilike(s),
+            )
+        )
+    stmt = stmt.order_by(Customer.created_at.desc()).limit(limit)
     customers = db.scalars(stmt).all()
 
     res = []
     for c in customers:
-        if search:
-            q = search.lower()
-            match = q in (c.phone or "") or q in (c.first_name or "").lower() or q in (c.last_name or "").lower()
-            if not match:
-                continue
-
         res.append({
             "id": c.id,
             "customer_code": c.customer_code,

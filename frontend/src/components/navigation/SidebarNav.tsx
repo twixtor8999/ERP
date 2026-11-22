@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Receipt,
@@ -115,6 +115,33 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onItemClick }: SidebarNavProps) {
   const { user } = useAuthStore();
+  const location = useLocation();
+
+  const isItemActive = (href: string) => {
+    const p = location.pathname;
+    if (href === "/dashboard") {
+      return p === "/dashboard" || p.startsWith("/dashboard/");
+    }
+    if (href === "/pos") {
+      return p === "/pos" || p === "/billing" || p.startsWith("/pos");
+    }
+    if (href === "/crm") {
+      return p === "/crm" || p.startsWith("/crm");
+    }
+    if (href === "/customers") {
+      return p === "/customers" || p.startsWith("/customers");
+    }
+    if (href === "/orders") {
+      return p === "/orders" || p.startsWith("/orders");
+    }
+    if (href === "/vehicles") {
+      return p === "/vehicles" || p === "/transport" || p.startsWith("/vehicles");
+    }
+    if (href === "/plans-billing") {
+      return p === "/plans-billing" || p === "/plans";
+    }
+    return p === href || (href !== "/" && p.startsWith(href));
+  };
 
   const filteredSections = navigationConfig
     .map((section) => ({
@@ -133,27 +160,38 @@ export function SidebarNav({ onItemClick }: SidebarNavProps) {
           <div className="space-y-1">
             {section.items.map((item) => {
               const Icon = iconMap[item.iconName] || CircleDot;
+              const active = isItemActive(item.href);
+
               return (
                 <NavLink
                   key={item.href}
                   to={item.href}
                   onClick={onItemClick}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )
-                  }
+                  className={cn(
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                    active
+                      ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-600/25 border-l-4 border-amber-400 pl-2.5"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white"
+                  )}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
+                  <Icon
+                    className={cn(
+                      "w-4 h-4 shrink-0 transition-transform duration-150 group-hover:scale-110",
+                      active
+                        ? "text-amber-300 drop-shadow-xs"
+                        : "text-slate-400 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                    )}
+                  />
                   <span className="truncate">{item.title}</span>
-                  {item.badge && (
-                    <span className="ml-auto rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  {active ? (
+                    <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-400 text-slate-950 uppercase tracking-wider shadow-xs shrink-0">
+                      Active
+                    </span>
+                  ) : item.badge ? (
+                    <span className="ml-auto rounded-full bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-400 shrink-0">
                       {item.badge}
                     </span>
-                  )}
+                  ) : null}
                 </NavLink>
               );
             })}

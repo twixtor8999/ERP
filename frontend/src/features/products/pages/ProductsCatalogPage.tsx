@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Package,
   Plus,
@@ -65,14 +66,53 @@ interface ProductItem {
 }
 
 export function ProductsCatalogPage() {
-  const [products, setProducts] = useState<ProductItem[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string; product_count: number }[]>([]);
-  const [taxes, setTaxes] = useState<{ id: string; description: string; percentage: string }[]>([]);
-  const [uoms, setUoms] = useState<{ id: string; name: string; symbol: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "LOW_STOCK" | "OUT_OF_STOCK">("ALL");
+
+  // Auxiliary lookups (Categories, Taxes, UOMs) cached for 15 minutes
+  const { data: lookups } = useQuery({
+    queryKey: ["admin-product-lookups"],
+    queryFn: async () => {
+      const [catsRes, taxesRes, uomsRes] = await Promise.all([
+        apiClient.get<{ id: string; name: string; product_count: number }[]>("/admin/categories"),
+        apiClient.get<{ id: string; description: string; percentage: string }[]>("/admin/taxes"),
+        apiClient.get<{ id: string; name: string; symbol: string }[]>("/admin/uoms"),
+      ]);
+      return {
+        categories: catsRes.data,
+        taxes: taxesRes.data,
+        uoms: uomsRes.data,
+      };
+    },
+    staleTime: 1000 * 60 * 15,
+  });
+
+  const categories = lookups?.categories || [];
+  const taxes = lookups?.taxes || [];
+  const uoms = lookups?.uoms || [];
+
+  // Products query cached with placeholderData for smooth transitions
+  const {
+    data: products = [],
+    isLoading: loading,
+    refetch: loadData,
+  } = useQuery<ProductItem[]>({
+    queryKey: ["admin-products", search, selectedCategory, statusFilter],
+    queryFn: async () => {
+      const res = await apiClient.get<ProductItem[]>("/admin/products", {
+        params: {
+          search: search || undefined,
+          category_id: selectedCategory || undefined,
+          status_filter: statusFilter,
+        },
+      });
+      return res.data;
+    },
+    staleTime: 1000 * 60 * 3, // 3 minutes instant cache
+    placeholderData: (prev) => prev,
+  });
 
   // Add Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -128,36 +168,6 @@ export function ProductsCatalogPage() {
 
   // A4 Barcode Stickers Modal State
   const [isBarcodeStickerModalOpen, setIsBarcodeStickerModalOpen] = useState(false);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [prodsRes, catsRes, taxesRes, uomsRes] = await Promise.all([
-        apiClient.get("/admin/products", {
-          params: {
-            search: search || undefined,
-            category_id: selectedCategory || undefined,
-            status_filter: statusFilter,
-          },
-        }),
-        apiClient.get("/admin/categories"),
-        apiClient.get("/admin/taxes"),
-        apiClient.get("/admin/uoms"),
-      ]);
-      setProducts(prodsRes.data);
-      setCategories(catsRes.data);
-      setTaxes(taxesRes.data);
-      setUoms(uomsRes.data);
-    } catch {
-      toast.error("Failed to load product catalog");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [search, selectedCategory, statusFilter]);
 
   // Derived KPI Stats
   const stats = useMemo(() => {
@@ -241,6 +251,7 @@ export function ProductsCatalogPage() {
       setWholesalePrice("");
       setMinSellingPrice("");
       setInitialStock("0");
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       loadData();
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
@@ -299,6 +310,7 @@ export function ProductsCatalogPage() {
 
       toast.success("Product Updated", { description: `${editingProduct.name} updated successfully.` });
       setEditingProduct(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       loadData();
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
@@ -390,6 +402,7 @@ export function ProductsCatalogPage() {
       toast.success("Import Completed", { description: res.data.message });
       setIsImportModalOpen(false);
       setImportText("");
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       loadData();
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err

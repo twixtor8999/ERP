@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   UserCheck,
   Plus,
@@ -43,10 +44,25 @@ interface PaymentSuccessInfo {
 }
 
 export function CustomersCrmPage() {
-  const [customers, setCustomers] = useState<CustomerItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"ALL" | "DUES" | "CLEAR">("ALL");
+
+  const {
+    data: customers = [],
+    isLoading: loading,
+    refetch: loadCustomers,
+  } = useQuery<CustomerItem[]>({
+    queryKey: ["admin-customers", search],
+    queryFn: async () => {
+      const res = await apiClient.get<CustomerItem[]>("/admin/customers", {
+        params: { search: search || undefined },
+      });
+      return res.data;
+    },
+    staleTime: 1000 * 60 * 3, // 3 minutes instant cache
+    placeholderData: (prev) => prev,
+  });
 
   // Registration modal
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -69,24 +85,6 @@ export function CustomersCrmPage() {
 
   // Statement / Reminder Slip Modal
   const [statementCustomer, setStatementCustomer] = useState<CustomerItem | null>(null);
-
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get<CustomerItem[]>("/admin/customers", {
-        params: { search: search || undefined },
-      });
-      setCustomers(res.data);
-    } catch {
-      toast.error("Failed to load customer directory");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCustomers();
-  }, [search]);
 
   // Aggregate KPIs
   const totalOutstandingKhata = useMemo(() => {
@@ -134,6 +132,7 @@ export function CustomersCrmPage() {
       setLastName("");
       setPhone("");
       setEmail("");
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       loadCustomers();
     } catch (err: unknown) {
       const msg =
@@ -184,6 +183,7 @@ export function CustomersCrmPage() {
       toast.success("Payment Received", {
         description: `₹${amt.toFixed(2)} credited to ${paymentCustomer.full_name}'s Khata.`,
       });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       loadCustomers();
     } catch (err: unknown) {
       const msg =
