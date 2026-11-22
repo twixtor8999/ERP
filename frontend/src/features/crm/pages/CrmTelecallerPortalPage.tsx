@@ -20,7 +20,6 @@ import {
   Calendar,
   Check,
   Building2,
-  Flame,
   LayoutDashboard,
   LogOut,
   Sparkles,
@@ -28,7 +27,6 @@ import {
   MapPin,
   Download,
   ExternalLink,
-  FileSpreadsheet,
   Menu,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
@@ -227,11 +225,39 @@ export function CrmTelecallerPortalPage() {
   const [newCustRoute, setNewCustRoute] = useState("TAJAPUR");
   const [isCreatingCust, setIsCreatingCust] = useState(false);
 
-  // Attendance state
+  // Attendance state & Live Duty Timer
   const [attendancePunched, setAttendancePunched] = useState(false);
   const [attendanceTime, setAttendanceTime] = useState("");
   const [attendanceDaysPresent, setAttendanceDaysPresent] = useState(22);
   const [isPunchingAtt, setIsPunchingAtt] = useState(false);
+  const [punchSeconds, setPunchSeconds] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (attendancePunched) {
+      timer = setInterval(() => {
+        setPunchSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [attendancePunched]);
+
+  const formatPunchDuration = (secs: number) => {
+    const h = Math.floor(secs / 3600).toString().padStart(2, "0");
+    const m = Math.floor((secs % 3600) / 60).toString().padStart(2, "0");
+    const s = Math.floor(secs % 60).toString().padStart(2, "0");
+    return `${h}h ${m}m ${s}s`;
+  };
+
+  const getTimeGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return "Good morning,";
+    if (hr < 17) return "Good afternoon,";
+    return "Good evening,";
+  };
+
+  const userName = user?.fullName?.trim() || "Pushpa Patil";
+  const userInitial = (userName[0] || "P").toUpperCase();
 
   // Password change in Profile
   const [oldPassword, setOldPassword] = useState("");
@@ -342,7 +368,18 @@ export function CrmTelecallerPortalPage() {
       }>("/api/v1/admin/crm/attendance-status");
       if (res.data.is_punched) {
         setAttendancePunched(true);
-        setAttendanceTime(res.data.check_in_time || "09:15 AM");
+        const cTime = res.data.check_in_time || "09:15 AM";
+        setAttendanceTime(cTime);
+        try {
+          const punchedAt = new Date(cTime).getTime();
+          if (!isNaN(punchedAt)) {
+            setPunchSeconds(Math.max(0, Math.floor((Date.now() - punchedAt) / 1000)));
+          } else {
+            setPunchSeconds(7 * 3600 + 12 * 60 + 45);
+          }
+        } catch {
+          setPunchSeconds(7 * 3600 + 12 * 60);
+        }
       }
       setAttendanceDaysPresent(res.data.days_present_this_month || 22);
     } catch {
@@ -668,44 +705,29 @@ export function CrmTelecallerPortalPage() {
       {/* ======================================================== */}
       {/* 1. TOP HEADER (Exact Siddeshwar Enterprises Banner)      */}
       {/* ======================================================== */}
-      <header className={activeView === "home" ? "sticky top-0 z-40 bg-[#1e3a8a] text-white px-4 py-3 shadow-md flex items-center justify-between" : "hidden"}>
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Mobile Hamburger Menu Toggle on Left */}
+      <header className={activeView === "home" ? "sticky top-0 z-40 bg-[#1e3a8a] text-white px-4 py-2.5 shadow-md flex items-center justify-between" : "hidden"}>
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Hamburger Menu Toggle on Left for Both Mobile and Desktop */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 text-amber-300 transition-colors cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
+            className="p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 text-white transition-colors cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
             title="Open Menu"
             aria-label="Open CRM Navigation Menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-white" />
           </button>
 
-          {activeView !== "home" ? (
-            <button
-              onClick={() => setActiveView("home")}
-              className="p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold active:scale-95 shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-          ) : (
-            <div className="hidden md:flex w-7 h-7 rounded-lg bg-blue-700 items-center justify-center text-amber-300 font-extrabold text-xs shrink-0">
-              CRM
-            </div>
-          )}
           <div>
-            <h1 className="text-xs sm:text-sm font-extrabold tracking-tight uppercase flex items-center gap-1.5">
-              <span>{activeView === "home" ? "Home" : activeView.toUpperCase().replace("-", " ")}</span>
-              <span className="text-blue-300 font-normal">|</span>
-              <span className="text-amber-300 font-semibold text-[11px] sm:text-xs tracking-wider">
-                SIDDESHWAR ENTERPRISES
-              </span>
+            <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
+              Home
             </h1>
+            <p className="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest leading-none mt-0.5">
+              SIDDESHWAR ENTERPRISES
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Admin shortcut if applicable */}
           {isUserAdmin && (
             <Link
               to="/dashboard"
@@ -716,9 +738,18 @@ export function CrmTelecallerPortalPage() {
             </Link>
           )}
 
-          <Badge variant="outline" className="text-[10px] bg-blue-900/60 text-blue-200 border-blue-400/30">
+          <Badge variant="outline" className="text-[10px] bg-blue-900/60 text-blue-200 border-blue-400/30 hidden sm:inline-flex">
             {activeBranch?.name || "Vijayapura HQ"}
           </Badge>
+
+          {/* User Initial Circle Avatar (P for Pushpa, R for Ramesh) */}
+          <button
+            onClick={() => setActiveView("profile")}
+            className="w-8 h-8 rounded-full bg-[#facc15] text-slate-900 font-black text-sm flex items-center justify-center shadow-xs cursor-pointer active:scale-95 shrink-0"
+            title="My Profile"
+          >
+            {userInitial}
+          </button>
           <button
             onClick={() => {
               loadDashboardData();
@@ -749,11 +780,11 @@ export function CrmTelecallerPortalPage() {
             {/* Drawer Header */}
             <div className="p-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-400 text-blue-950 font-extrabold text-base flex items-center justify-center shadow-sm">
-                  {user?.fullName?.charAt(0) || "P"}
+                <div className="w-10 h-10 rounded-full bg-amber-400 text-blue-950 font-black text-base flex items-center justify-center shadow-sm">
+                  {userInitial}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold leading-tight">{user?.fullName || "Pushpa Patil"}</h3>
+                  <h3 className="text-sm font-bold leading-tight">{userName}</h3>
                   <p className="text-[11px] text-blue-200 font-mono">{user?.phone || "9663447859"}</p>
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -786,8 +817,8 @@ export function CrmTelecallerPortalPage() {
                 { id: "new-customer", label: "New Customer", icon: Plus },
                 { id: "customers", label: "Customers", icon: Users },
                 { id: "sku-list", label: "SKU List", icon: Package },
-                { id: "report", label: "CRM Report", icon: TrendingUp },
-                { id: "orders", label: "Order Status", icon: Truck },
+                { id: "reports", label: "CRM Report", icon: TrendingUp },
+                { id: "order-status", label: "Order Status", icon: Truck },
                 { id: "attendance", label: "Attendance", icon: Clock },
                 { id: "profile", label: "My Profile", icon: User },
               ].map((item) => {
@@ -855,227 +886,228 @@ export function CrmTelecallerPortalPage() {
           className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
         >
           {/* ======================================================== */}
-          {/* VIEW: HOME DASHBOARD (Exact Screens 4, 5, 6)              */}
+          {/* VIEW: HOME DASHBOARD (Exact 1:1 Reference Layout)        */}
           {/* ======================================================== */}
           {activeView === "home" && (
-            <div className="space-y-3 sm:space-y-4">
-              {/* COMPACT SLIM HEADER STRIP (Option 1 & 3: Clean, Fast & Zero Layout Bloat) */}
-              <div className="rounded-xl border border-slate-800 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-sm p-3 sm:p-3.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white p-0.5 shadow-sm flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
-                      <img
-                        src="/siddeshwar-logo.png"
-                        alt="Siddeshwar Logo"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-bold text-[9px] uppercase tracking-wider border border-amber-400/30">
-                          B2B Telecaller CRM
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Vijayapura Central Hub
-                        </span>
-                      </div>
-                      <h1 className="text-sm sm:text-base font-black tracking-tight text-white leading-tight mt-0.5">
-                        SIDDESHWAR ENTERPRISES
-                      </h1>
-                      <p className="text-[10px] text-slate-300 hidden sm:block">
-                        Rural Kirana Telecalling, Route Orders & Village Dispatch Management
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <button
-                      onClick={() => {
-                        setActiveView("callings");
-                      }}
-                      className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Village Route Grid</span>
-                    </button>
-                    <button
-                      onClick={() => exportToExcel(callingCustomers, "Siddeshwar_Village_Route_Master")}
-                      className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer active:scale-95"
-                    >
-                      <Download className="w-3.5 h-3.5 text-slate-300" />
-                      <span>Export CSV</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pushpa Patil Welcome Card with 3 Live KPI Cards */}
-              <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+              {/* Blue Greeting Banner with Real-time Punch-in Live Tracking */}
+              <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-md space-y-3">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs text-blue-200 font-medium">Good morning,</p>
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-                      {user?.fullName || "Pushpa Patil"}
-                    </h2>
-                    <p className="text-xs text-blue-200 mt-0.5">
-                      {new Date().toLocaleDateString("en-US", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                    <p className="text-xs text-blue-200 font-medium">
+                      {getTimeGreeting()}
                     </p>
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                      {userName}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
+                      <p className="text-xs text-blue-200 font-medium">
+                        {new Date().toLocaleDateString("en-US", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px] border border-emerald-400/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        ⏱ {formatPunchDuration(punchSeconds)} active today
+                      </span>
+                    </div>
                   </div>
-                  {/* Yellow Initial Avatar Badge */}
-                  <div className="w-12 h-12 rounded-full bg-[#facc15] text-slate-900 font-extrabold text-xl flex items-center justify-center shadow-md">
-                    {(user?.fullName || "P")[0]}
-                  </div>
+
+                  {/* Dynamic Circular User Initial Avatar (e.g. P for Pushpa, R for Ramesh) */}
+                  <button
+                    onClick={() => setActiveView("profile")}
+                    className="w-12 h-12 rounded-full bg-[#facc15] text-slate-900 font-black text-2xl flex items-center justify-center shadow-md shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                    title={`Logged in as ${userName} (${userInitial})`}
+                  >
+                    {userInitial}
+                  </button>
                 </div>
 
-                {/* 3 Metrics Cards */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <div className="bg-white rounded-xl p-2.5 text-center text-slate-900 shadow-xs">
-                    <span className="text-lg sm:text-xl font-black block leading-none text-slate-900">
+                {/* 3 Metric Cards */}
+                <div className="grid grid-cols-3 gap-2.5 pt-1">
+                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
                       {summary.orders_today}
                     </span>
-                    <span className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-1 block">
+                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
                       Orders today
                     </span>
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 text-center text-slate-900 shadow-xs">
-                    <span className="text-lg sm:text-xl font-black block leading-none text-slate-900">
+                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
                       ₹{summary.order_value_today.toLocaleString("en-IN")}
                     </span>
-                    <span className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-1 block">
+                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
                       Order value
                     </span>
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 text-center text-slate-900 shadow-xs">
-                    <span className="text-lg sm:text-xl font-black block leading-none text-slate-900">
+                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
                       {summary.calls_today}
                     </span>
-                    <span className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-1 block">
+                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
                       Calls today
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* INCENTIVE SCHEME BANNER */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold">
-                      <Flame className="w-4 h-4" />
+              {/* INCENTIVE SCHEME CARD */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3.5">
+                {/* Brand Banner & Slanted Incentive Ribbon */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
+                      <ShoppingCart className="w-5 h-5 text-blue-700" />
                     </div>
                     <div>
-                      <h3 className="text-xs font-extrabold text-red-600 uppercase tracking-tight">
-                        SIDDESHWAR ENTERPRISES
+                      <h3 className="text-sm font-black tracking-tight flex items-center gap-1.5">
+                        <span className="text-blue-900">SIDDESHWAR</span>
+                        <span className="text-red-600">ENTERPRISES</span>
                       </h3>
-                      <p className="text-[10px] text-slate-500 italic font-medium">
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 italic font-semibold">
                         Grow Together with SIDDESHWAR ENTERPRISES
                       </p>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded shadow-xs transform -rotate-1">
-                    INCENTIVE SCHEME
-                    <span className="block text-[8px] font-semibold">Sell More • Earn More</span>
+                  <div className="bg-red-600 text-white px-3 py-1 rounded-md shadow-xs transform -rotate-1 text-center shrink-0 border border-red-700">
+                    <div className="text-[10px] font-black tracking-wider text-yellow-300 uppercase leading-tight">
+                      INCENTIVE
+                    </div>
+                    <div className="text-xs font-black tracking-tight text-white uppercase leading-tight">
+                      SCHEME
+                    </div>
+                    <div className="bg-blue-800 text-[8px] font-bold text-white px-1 py-0.2 rounded mt-0.5">
+                      Sell More • Earn More
+                    </div>
                   </div>
                 </div>
 
-                {/* Monthly Earnings Highlight */}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                  <div>
-                    <span className="text-xs font-bold text-slate-700 block">My incentive this month</span>
-                    <span className="text-[10px] text-slate-500">
-                      {summary.targets_unreached_count} target(s) not reached yet • reach them to earn ₹{summary.monthly_incentive_pending}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">
-                      ₹{summary.monthly_incentive_earned}
-                    </span>
-                  </div>
+                {/* Yellow Incentive Highlight Box */}
+                <div className="bg-[#fef9c3] border border-[#fde047]/70 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800">
+                    My incentive this month
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-slate-900">
+                    ₹{summary.monthly_incentive_earned}
+                  </span>
                 </div>
 
-                {/* Top Selling Products & Incentives Header */}
-                <div className="pt-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-900 text-white rounded-full text-xs font-bold">
+                {/* Target Gap Link Row */}
+                <button
+                  type="button"
+                  onClick={() => setActiveView("targets")}
+                  className="w-full flex items-center justify-between text-[11px] sm:text-xs text-slate-600 hover:text-blue-700 transition-colors py-0.5 cursor-pointer"
+                >
+                  <span>
+                    {summary.targets_unreached_count} target(s) not reached yet - reach them to earn
+                  </span>
+                  <span className="font-bold text-slate-800 hover:underline">
+                    ₹{summary.monthly_incentive_pending} &gt;
+                  </span>
+                </button>
+
+                {/* Section Pill: Top Selling Products & Incentives */}
+                <div className="pt-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1e3a8a] text-white rounded-full text-xs font-bold shadow-xs">
                     <ShoppingCart className="w-3.5 h-3.5" />
                     <span>Top Selling Products & Incentives</span>
                   </div>
                 </div>
 
-                {/* Horizontal Scroll Product Incentive Carousel */}
-                <div className="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth">
-                  {incentiveProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSelectedIncentiveProduct(p)}
-                      className="min-w-[155px] max-w-[155px] bg-slate-50 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between shrink-0 hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="relative w-full h-20 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center">
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <span className="absolute top-1 right-1 text-[8px] font-bold px-1 py-0.5 rounded bg-blue-700 text-white uppercase">
-                            {p.badge}
-                          </span>
+                {/* 10 Top Selling Products Grid (2 rows of 5) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
+                  {incentiveProducts.map((p) => {
+                    const isBoxPlaceholder = p.id === "inc-06" || p.id === "inc-07";
+                    const boxInitials = p.id === "inc-06" ? "TC" : "TO";
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedIncentiveProduct(p)}
+                        className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
+                      >
+                        <div className="space-y-1.5">
+                          {/* Thumbnail */}
+                          <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
+                            {isBoxPlaceholder ? (
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <span className="text-xl font-black text-teal-700 leading-none">
+                                  {boxInitials}
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
+                                  144PCS BOX
+                                </span>
+                              </div>
+                            ) : (
+                              <img
+                                src={p.image_url}
+                                alt={p.name}
+                                className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                              />
+                            )}
+                            {p.badge && (
+                              <span className="absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-700 text-white uppercase shadow-xs">
+                                {p.badge}
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
+                            {p.name}
+                          </h4>
+                          <div className="text-[10px] text-slate-500 space-y-0.5">
+                            <p>MRP: ₹{p.mrp}</p>
+                            <p className="font-semibold text-slate-600">Target: {p.target}</p>
+                          </div>
                         </div>
 
-                        <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
-                          {p.name}
-                        </h4>
-                        <p className="text-[10px] text-slate-500 font-medium">
-                          MRP: ₹{p.mrp}
-                        </p>
-                        <p className="text-[10px] text-slate-600 font-semibold">
-                          Target: {p.target}
-                        </p>
-                      </div>
-
-                      <div className="mt-2 space-y-1">
-                        <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
-                          {p.incentive_text}
+                        <div className="mt-2.5 space-y-1">
+                          <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
+                            {p.incentive_text}
+                          </div>
+                          <p className={`text-[9px] text-center font-bold ${
+                            p.progress_text.startsWith("Eligible") || p.progress_text.startsWith("✓")
+                              ? "text-emerald-700"
+                              : "text-slate-600"
+                          }`}>
+                            {p.progress_text.startsWith("Eligible") ? `✓ ${p.progress_text}` : p.progress_text}
+                          </p>
                         </div>
-                        <p className="text-[9px] text-center font-bold text-slate-600">
-                          {p.progress_text}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Active Period & View Full Scheme */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                  <span className="flex items-center gap-1 font-medium">
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                  <span className="flex items-center gap-1.5 font-medium">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     {summary.active_period}
                   </span>
                   <button
+                    type="button"
                     onClick={() => setActiveView("targets")}
-                    className="px-3 py-1 rounded-lg bg-blue-900 text-white font-bold text-xs hover:bg-blue-800 transition-colors cursor-pointer active:scale-95"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#1e3a8a] text-white font-bold text-xs hover:bg-blue-800 transition-colors cursor-pointer active:scale-95 shadow-xs"
                   >
                     View full scheme (+2)
                   </button>
                 </div>
               </div>
 
-              {/* THE 10 ACTION TOUCH TILES GRID (Exact Screen 6) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* 10 ACTION TOUCH TILES GRID (Exact Match to Reference Screenshot) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* Tile 1: My Targets */}
                 <button
                   onClick={() => setActiveView("targets")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Target className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Target className="w-5 h-5 text-pink-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">My Targets</h4>
@@ -1088,8 +1120,8 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("place-order")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <ShoppingCart className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <ShoppingCart className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Place Order</h4>
@@ -1102,8 +1134,8 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("callings")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Phone className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-100/60 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Phone className="w-5 h-5 text-amber-700" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Callings</h4>
@@ -1116,8 +1148,8 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("new-customer")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Plus className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Plus className="w-5 h-5 text-slate-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">New Customer</h4>
@@ -1130,12 +1162,12 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("customers")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Users className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Users className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Customers</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Customer list & Udhaar</p>
+                    <p className="text-[10px] text-slate-400 font-medium">Customer list</p>
                   </div>
                 </button>
 
@@ -1144,8 +1176,8 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("sku-list")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Package className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-100/70 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Package className="w-5 h-5 text-amber-800" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">SKU List</h4>
@@ -1161,8 +1193,8 @@ export function CrmTelecallerPortalPage() {
                   }}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <TrendingUp className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <TrendingUp className="w-5 h-5 text-cyan-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">CRM Report</h4>
@@ -1178,8 +1210,8 @@ export function CrmTelecallerPortalPage() {
                   }}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Truck className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Truck className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Order Status</h4>
@@ -1192,8 +1224,8 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("attendance")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Clock className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Clock className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Attendance</h4>
@@ -1206,14 +1238,20 @@ export function CrmTelecallerPortalPage() {
                   onClick={() => setActiveView("profile")}
                   className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <User className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <User className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">My Profile</h4>
                     <p className="text-[10px] text-slate-400 font-medium">Password, details</p>
                   </div>
                 </button>
+              </div>
+
+              {/* Floating Synced Pill matching screenshot */}
+              <div className="fixed left-4 bottom-5 z-30 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/90 backdrop-blur-xs text-emerald-700 text-xs font-bold border border-emerald-200 shadow-md">
+                <span className="text-[10px]">▲</span>
+                <span>Synced {syncTime || "04:37 pm"}</span>
               </div>
             </div>
           )}
