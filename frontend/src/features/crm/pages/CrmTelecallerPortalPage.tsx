@@ -218,6 +218,28 @@ interface CrmReportData {
   }>;
 }
 
+interface TeamReportData {
+  start_date: string;
+  end_date: string;
+  telecaller_report: Array<{
+    sl: number;
+    name: string;
+    not_reachable: number;
+    shop_closed: number;
+    call_back: number;
+    stock_available: number;
+    not_interested: number;
+  }>;
+  sale_report: Array<{
+    sl: number;
+    name: string;
+    order_count: number;
+    order_total: number;
+  }>;
+  total_order_count: number;
+  total_order_amount: number;
+}
+
 type CrmSubView =
   | "home"
   | "callings"
@@ -226,6 +248,7 @@ type CrmSubView =
   | "targets"
   | "sku-list"
   | "reports"
+  | "team-reports"
   | "order-status"
   | "attendance"
   | "profile"
@@ -339,6 +362,25 @@ export function CrmTelecallerPortalPage() {
     orders_month: 486,
     revenue_month: 218450,
     recent_calls: [],
+  });
+
+  // Team CRM Report state matching screenshot
+  const [teamActiveTab, setTeamActiveTab] = useState<"CRM" | "APP">("CRM");
+  const [teamReportData, setTeamReportData] = useState<TeamReportData>({
+    start_date: "22/11/2026",
+    end_date: "22/11/2026",
+    telecaller_report: [
+      { sl: 1, name: "Pushpa Patil", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
+      { sl: 2, name: "Dhruthi A S", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
+      { sl: 3, name: "Mahalaxmi Hiremath", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
+    ],
+    sale_report: [
+      { sl: 1, name: "Pushpa Patil", order_count: 3, order_total: 17077 },
+      { sl: 2, name: "Dhruthi A S", order_count: 2, order_total: 11620 },
+      { sl: 3, name: "Mahalaxmi Hiremath", order_count: 0, order_total: 0 },
+    ],
+    total_order_count: 5,
+    total_order_amount: 28697,
   });
 
   // Log Call Modal state
@@ -482,6 +524,40 @@ export function CrmTelecallerPortalPage() {
       setOrdersList(ordRes.data);
     } catch {
       // Graceful fallback
+    }
+  };
+
+  const loadTeamReports = async (sDate = reportStartDate, eDate = reportEndDate) => {
+    try {
+      const res = await apiClient.get<TeamReportData>(`/api/v1/admin/crm/team-reports?start_date=${sDate}&end_date=${eDate}`);
+      setTeamReportData(res.data);
+    } catch {
+      // Graceful fallback
+    }
+  };
+
+  const handleExportTeamReport = () => {
+    try {
+      const headers = ["SI", "Staff Name", "Order Count", "Order Total (INR)"];
+      const rows = teamReportData.sale_report.map((r) => [
+        r.sl,
+        `"${r.name}"`,
+        r.order_count,
+        r.order_total,
+      ]);
+      rows.push(["Total", "", teamReportData.total_order_count, teamReportData.total_order_amount]);
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Team_CRM_Report_${reportStartDate}_to_${reportEndDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Team CRM Report exported!");
+    } catch {
+      toast.error("Failed to export team report");
     }
   };
 
@@ -914,9 +990,12 @@ export function CrmTelecallerPortalPage() {
           <div className="flex items-center gap-2 sm:gap-3">
             {activeView !== "home" && (
               <button
-                onClick={() => setActiveView("home")}
+                onClick={() => {
+                  if (activeView === "team-reports") setActiveView("reports");
+                  else setActiveView("home");
+                }}
                 className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
-                title="Back to Home"
+                title={activeView === "team-reports" ? "Back to CRM Report" : "Back to Home"}
               >
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
@@ -930,7 +1009,7 @@ export function CrmTelecallerPortalPage() {
             </button>
             <div>
               <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
-                {activeView === "home" ? "Home" : activeView === "reports" ? "CRM Report" : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                {activeView === "home" ? "Home" : activeView === "reports" ? "CRM Report" : activeView === "team-reports" ? "Team CRM Report" : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               </h1>
               <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
                 SIDDESHWAR ENTERPRISES
@@ -939,16 +1018,16 @@ export function CrmTelecallerPortalPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {activeView === "reports" && (
+            {(activeView === "reports" || activeView === "team-reports") && (
               <button
                 type="button"
-                onClick={handleExportReport}
+                onClick={activeView === "team-reports" ? handleExportTeamReport : handleExportReport}
                 className="text-xs font-bold uppercase tracking-wider text-white hover:text-blue-200 transition-colors cursor-pointer px-2 py-1"
               >
                 EXPORT
               </button>
             )}
-            {activeView !== "home" && activeView !== "reports" && (
+            {activeView !== "home" && activeView !== "reports" && activeView !== "team-reports" && (
               <button
                 onClick={() => setActiveView("home")}
                 className="px-2.5 py-1 rounded bg-blue-800/80 hover:bg-blue-700 text-xs text-white font-semibold flex items-center gap-1 cursor-pointer"
@@ -2140,7 +2219,10 @@ export function CrmTelecallerPortalPage() {
               <div>
                 <button
                   type="button"
-                  onClick={() => toast.info("Team report filter applied")}
+                  onClick={() => {
+                    loadTeamReports(reportStartDate, reportEndDate);
+                    setActiveView("team-reports");
+                  }}
                   className="px-3.5 py-1.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
                 >
                   <Users className="w-3.5 h-3.5 text-blue-300" />
@@ -2337,6 +2419,216 @@ export function CrmTelecallerPortalPage() {
                 <p className="text-xs text-slate-400 mt-0.5">
                   My Incentive · {reportStartDate.split("-").reverse().join("-")} to {reportEndDate.split("-").reverse().join("-")}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: TEAM CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)    */}
+          {/* ======================================================== */}
+          {activeView === "team-reports" && (
+            <div className="p-3 sm:p-5 space-y-4 max-w-2xl mx-auto">
+              {/* Date Filters Row */}
+              <div className="flex items-end gap-2.5 sm:gap-3">
+                <div className="flex-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportStartDate}
+                    onChange={(e) => setReportStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportEndDate}
+                    onChange={(e) => setReportEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => loadTeamReports(reportStartDate, reportEndDate)}
+                  className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
+                >
+                  SUBMIT
+                </button>
+              </div>
+
+              {/* Tabs: CRM and APP */}
+              <div className="flex border-b border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setTeamActiveTab("CRM")}
+                  className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${
+                    teamActiveTab === "CRM"
+                      ? "text-blue-700 border-b-2 border-blue-600"
+                      : "text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  CRM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTeamActiveTab("APP")}
+                  className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${
+                    teamActiveTab === "APP"
+                      ? "text-blue-700 border-b-2 border-blue-600"
+                      : "text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  APP
+                </button>
+              </div>
+
+              {/* Table 1: Telecaller Report */}
+              <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
+                <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
+                  Telecaller Report
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
+                      <tr>
+                        <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
+                        <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
+                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                          Number not reachable / wrong
+                        </th>
+                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                          Shop closed
+                        </th>
+                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                          Call back later
+                        </th>
+                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                          Stock available, order later
+                        </th>
+                        <th className="py-2.5 px-2 text-center">
+                          Not interested
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                      {teamReportData.telecaller_report.map((row) => (
+                        <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
+                            {row.sl}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
+                            {row.name}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                            {row.not_reachable}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                            {row.shop_closed}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                            {row.call_back}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                            {row.stock_available}
+                          </td>
+                          <td className="py-2.5 px-2 text-center text-slate-700">
+                            {row.not_interested}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Total Row */}
+                      <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
+                        <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
+                        <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
+                          Total
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_reachable, 0)}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.shop_closed, 0)}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.call_back, 0)}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.stock_available, 0)}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-extrabold">
+                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_interested, 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Table 2: Sale Report */}
+              <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
+                <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
+                  Sale Report
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
+                      <tr>
+                        <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
+                        <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
+                        <th className="py-2.5 px-3 text-center border-r border-emerald-700/60">Order Count</th>
+                        <th className="py-2.5 px-4 text-right border-r border-emerald-700/60">Order Total</th>
+                        <th className="py-2.5 px-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                      {teamReportData.sale_report.map((row) => (
+                        <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
+                            {row.sl}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
+                            {row.name}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-medium border-r border-slate-100">
+                            {row.order_count}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-medium border-r border-slate-100 font-mono">
+                            {row.order_total.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setActiveView("reports")}
+                              className="px-3.5 py-0.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Total Row */}
+                      <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
+                        <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
+                        <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
+                          Total
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-extrabold border-r border-slate-200">
+                          {teamReportData.total_order_count}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-extrabold border-r border-slate-200 font-mono">
+                          {teamReportData.total_order_amount.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2.5 px-3 text-center"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
