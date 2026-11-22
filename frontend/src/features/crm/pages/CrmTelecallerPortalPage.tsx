@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
-import { useBranchStore } from "@/stores/branch.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -388,12 +387,12 @@ export function CrmTelecallerPortalPage() {
   const viewParam = searchParams.get("view");
 
   const { user, logout } = useAuthStore();
-  const { activeBranch } = useBranchStore();
 
   const [activeView, setActiveView] = useState<CrmSubView>(
     viewParam === "callings" ? "callings" : "home"
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // If URL explicitly requests Callings run-sheet, render 1:1 Callings view
@@ -1371,108 +1370,177 @@ export function CrmTelecallerPortalPage() {
             }}
           />
 
-          {/* Slide-out drawer panel with fixed height and contained overscroll */}
+          {/* Slide-out drawer panel with exact dark navy styling matching reference screenshot */}
           <div
-            className="relative w-72 max-w-[85vw] bg-white h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
+            className="relative w-72 max-w-[85vw] bg-[#1e293b] text-slate-100 h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
             style={{ height: "100dvh", maxHeight: "100dvh" }}
           >
-            {/* Drawer Header - Permanently Pinned */}
-            <div className="p-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-400 text-blue-950 font-black text-base flex items-center justify-center shadow-sm">
-                  {userInitial}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold leading-tight">{userName}</h3>
-                  <p className="text-[11px] text-blue-200 font-mono">{user?.phone || "9663447859"}</p>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Online • Telecaller
-                  </span>
-                </div>
-              </div>
+            {/* Drawer Top Bar / Close Header */}
+            <div className="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between shrink-0 bg-[#1e293b]">
               <button
+                type="button"
+                onClick={() => {
+                  setActiveView("home");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="text-left cursor-pointer group"
+              >
+                <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                  SIDDESHWAR CRM
+                </h3>
+                <p className="text-[11px] text-slate-400 font-mono">{userName}</p>
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1 rounded-lg text-blue-200 hover:text-white hover:bg-blue-700/60 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
                 title="Close Menu"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Quick Incentive Pill in Drawer - Pinned */}
-            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200/60 flex items-center justify-between text-xs shrink-0">
-              <span className="font-semibold text-amber-900">Month Incentive</span>
-              <span className="font-extrabold text-amber-700 font-mono">₹{summary.monthly_incentive_earned}</span>
-            </div>
+            {/* Menu Items (1:1 with media_1795372025153_de6d7870.png) */}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              {/* Team CRM Reports */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("team-reports");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                Team CRM Reports
+              </button>
 
-            {/* Navigation Links list with overscroll containment */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1 overscroll-contain touch-pan-y">
-              {[
-                { id: "home", label: "Home Dashboard", icon: Building2 },
-                { id: "targets", label: "My Targets", icon: Target },
-                { id: "place-order", label: "Place Order", icon: ShoppingCart },
-                { id: "callings", label: "Callings", icon: Phone },
-                { id: "new-customer", label: "New Customer", icon: Plus },
-                { id: "customers", label: "Customers", icon: Users },
-                { id: "sku-list", label: "SKU List", icon: Package },
-                { id: "reports", label: "CRM Report", icon: TrendingUp },
-                { id: "order-status", label: "Order Status", icon: Truck },
-                { id: "attendance", label: "Attendance", icon: Clock },
-                { id: "profile", label: "My Profile", icon: User },
-              ].map((item) => {
-                const IconComponent = item.icon;
-                const isActive = activeView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveView(item.id as CrmSubView);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer active:scale-98 ${
-                      isActive
-                        ? "bg-blue-900 text-white shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    <IconComponent className={`w-4 h-4 ${isActive ? "text-amber-300" : "text-slate-400"}`} />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
+              {/* Order Status */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("order-status");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                Order Status
+              </button>
 
-              {isUserAdmin && (
-                <Link
-                  to="/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-blue-700 hover:bg-blue-50 transition-colors mt-2 border border-blue-200/80"
-                >
-                  <LayoutDashboard className="w-4 h-4 text-blue-600" />
-                  <span>Go to ERP Admin Hub</span>
-                </Link>
-              )}
-            </div>
+              {/* Incentive Schemes */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("incentive-scheme");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                Incentive Schemes
+              </button>
 
-            {/* Drawer Footer - Permanently Pinned */}
-            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs shrink-0">
+              {/* My Targets */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("targets");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                My Targets
+              </button>
+
+              {/* Customer (Collapsible Accordion Group with ▲ / ▼) */}
               <div>
-                <p className="text-[10px] text-slate-500 font-medium">Assigned Hub</p>
-                <p className="text-xs font-bold text-slate-800">{activeBranch?.name || "Vijayapura Central Hub"}</p>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerMenuOpen((prev) => !prev)}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>Customer</span>
+                  <span className="text-[10px] text-slate-400">
+                    {isCustomerMenuOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {isCustomerMenuOpen && (
+                  <div className="bg-[#172033]">
+                    {/* New Customer */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveView("new-customer");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                    >
+                      New Customer
+                    </button>
+
+                    {/* Customer List */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveView("customers");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                    >
+                      Customer List
+                    </button>
+                  </div>
+                )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
+
+              {/* SKU List */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("sku-list");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                SKU List
+              </button>
+
+              {/* My Profile */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("profile");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+              >
+                My Profile
+              </button>
+
+              {/* Logout */}
+              <button
+                type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   logout();
                   navigate("/login");
                 }}
-                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5"
+                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer block"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </Button>
+                Logout
+              </button>
+
+              {isUserAdmin && (
+                <div className="p-4 pt-6">
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-800 border border-slate-700 transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span>Go to ERP Admin Hub</span>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>,
