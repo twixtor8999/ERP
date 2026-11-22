@@ -51,14 +51,12 @@ export function Sidebar() {
           <div className="space-y-2.5">
             {/* White PK AI Brand Card matching Reference App */}
             <div className="flex justify-center">
-              <div className="bg-white rounded-xl p-1.5 w-14 h-13 shadow-sm flex flex-col items-center justify-center border border-slate-200">
-                <div className="flex items-center gap-0.5 font-black text-sm tracking-tight leading-none">
-                  <span className="text-amber-500 font-serif italic text-base">P</span>
-                  <span className="text-blue-700 text-sm">K</span>
-                </div>
-                <span className="text-blue-900 text-[9px] font-black uppercase tracking-widest mt-0.5">
-                  AI
-                </span>
+              <div className="bg-white rounded-2xl p-1 w-14 h-14 shadow-sm flex items-center justify-center border border-slate-200">
+                <img
+                  src="/pk-ai-logo.png"
+                  alt="PK AI Smart Bazar"
+                  className="w-full h-full object-contain rounded-xl"
+                />
               </div>
             </div>
 
@@ -85,9 +83,12 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="flex justify-center py-1">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-black text-blue-800 shadow-sm">
-              <span className="text-amber-500 font-serif italic text-lg">P</span>
-              <span className="text-blue-700 text-xs">K</span>
+            <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center border border-slate-200 shadow-sm">
+              <img
+                src="/pk-ai-logo.png"
+                alt="PK AI Smart Bazar"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
         )}

@@ -81,12 +81,12 @@ export function MobileNav() {
         <div className="p-3 border-b border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2.5">
           <div className="flex items-center justify-between">
             {/* White PK AI Brand Card matching Screenshot 2 */}
-            <div className="bg-white rounded-lg px-2 py-1 shadow-sm flex items-center gap-1.5 border border-slate-200">
-              <span className="text-amber-500 font-serif italic text-base font-black">P</span>
-              <span className="text-blue-700 font-black text-sm">K</span>
-              <span className="text-blue-900 text-[10px] font-bold uppercase tracking-widest bg-blue-100 px-1 py-0.2 rounded">
-                AI
-              </span>
+            <div className="bg-white rounded-xl p-1 shadow-sm flex items-center justify-center border border-slate-200 w-11 h-11">
+              <img
+                src="/pk-ai-logo.png"
+                alt="PK AI"
+                className="w-full h-full object-contain"
+              />
             </div>
 
             <Button
