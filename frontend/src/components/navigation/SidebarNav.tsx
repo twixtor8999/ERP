@@ -15,6 +15,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     Reports: true,
     Orders: true,
+    B2B: true,
   });
 
   const toggleSection = (title: string) => {
@@ -47,8 +48,14 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.href === "/orders") {
       return currentPath === "/orders" && (!currentSearch || currentSearch === "?tab=packing");
     }
+    if (item.href.startsWith("/b2b?tab=")) {
+      return currentPath === "/b2b" && fullUrl === item.href;
+    }
+    if (item.href === "/b2b") {
+      return currentPath === "/b2b" && (!currentSearch || currentSearch === "?tab=cart");
+    }
     if (item.href === "/crm?view=b2b") {
-      return currentPath === "/crm" && currentSearch.includes("b2b");
+      return currentPath === "/b2b" || (currentPath === "/crm" && currentSearch.includes("b2b"));
     }
     if (item.href === "/crm?view=reports") {
       return currentPath === "/crm" && currentSearch.includes("reports");

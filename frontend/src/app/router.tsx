@@ -42,6 +42,7 @@ import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
 import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
 import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
 import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
+import { B2bPage } from "@/features/b2b/pages/B2bPage";
 
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -49,6 +50,9 @@ function CrmRouteResolver() {
   const [searchParams] = useSearchParams();
   if (searchParams.get("view") === "callings") {
     return <Navigate to="/callings" replace />;
+  }
+  if (searchParams.get("view") === "b2b") {
+    return <Navigate to="/b2b?tab=cart" replace />;
   }
   return <CrmTelecallerPortalPage />;
 }
@@ -185,6 +189,10 @@ export const router = createBrowserRouter([
       {
         path: "crm",
         element: <Navigate to="/crm" replace />,
+      },
+      {
+        path: "b2b",
+        element: <B2bPage />,
       },
       {
         path: "customers",

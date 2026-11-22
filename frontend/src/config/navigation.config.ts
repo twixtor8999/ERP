@@ -37,7 +37,14 @@ export const navigationItems: NavItem[] = [
   { title: "Sales vs Collection", href: "/payments" },
   { title: "Accounts", href: "/accounts" },
   { title: "QR Payments", href: "/payments?tab=upi" },
-  { title: "B2B", href: "/crm?view=b2b" },
+  {
+    title: "B2B",
+    href: "/b2b",
+    children: [
+      { title: "1) My Cart", href: "/b2b?tab=cart" },
+      { title: "2) Orders List", href: "/b2b?tab=orders" },
+    ],
+  },
   { title: "Customer", href: "/customers" },
   { title: "Vehicle", href: "/vehicles" },
   { title: "Purchase", href: "/purchases" },
