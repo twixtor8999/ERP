@@ -78,8 +78,13 @@ export const navigationConfig: NavSection[] = [
     items: [
       {
         title: "Customer Directory & Khata",
-        href: "/crm",
+        href: "/customers",
         iconName: "Users",
+      },
+      {
+        title: "Telecaller CRM & Run-Sheet",
+        href: "/crm",
+        iconName: "UserCheck",
       },
     ],
   },

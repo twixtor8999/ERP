@@ -93,7 +93,12 @@ function isItemPermitted(role: string | undefined, href: string): boolean {
 
   // Sales Executive: counter sales, online orders, customer CRM
   if (r.includes("sales")) {
-    return ["/billing", "/pos", "/orders", "/crm", "/products", "/reports"].includes(href);
+    return ["/billing", "/pos", "/orders", "/crm", "/customers", "/products", "/reports"].includes(href);
+  }
+
+  // Telecaller / CRM Staff: Customer Directory, Calling Run-Sheets
+  if (r.includes("crm") || r.includes("telecaller")) {
+    return href === "/crm" || href === "/customers";
   }
 
   // Store & Delivery Staff: delivery runs
