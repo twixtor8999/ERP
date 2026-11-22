@@ -31,11 +31,15 @@ import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage"
 import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
 import { CustomersPage } from "@/features/customers/pages/CustomersPage";
+import { CrmReportsPage } from "@/features/crm/pages/CrmReportsPage";
 import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
 import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
+import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
+import { PnlPage } from "@/features/pnl";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
+import { MyProfilePage } from "@/features/profile/pages/MyProfilePage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
 import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
 import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
@@ -53,6 +57,10 @@ function CrmRouteResolver() {
   }
   if (searchParams.get("view") === "b2b") {
     return <Navigate to="/b2b?tab=cart" replace />;
+  }
+  if (searchParams.get("view") === "reports" || searchParams.get("tab")) {
+    const tab = searchParams.get("tab") || "dashboard";
+    return <Navigate to={`/crm-report?tab=${tab}`} replace />;
   }
   return <CrmTelecallerPortalPage />;
 }
@@ -188,7 +196,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "crm",
-        element: <Navigate to="/crm" replace />,
+        element: <CrmReportsPage />,
+      },
+      {
+        path: "crm-report",
+        element: <CrmReportsPage />,
       },
       {
         path: "b2b",
@@ -213,6 +225,10 @@ export const router = createBrowserRouter([
       {
         path: "inventory",
         element: <InventoryManagementPage />,
+      },
+      {
+        path: "stock-split",
+        element: <Navigate to="/inventory?tab=split" replace />,
       },
       {
         path: "purchases",
@@ -241,6 +257,18 @@ export const router = createBrowserRouter([
       {
         path: "reports",
         element: <ReportsPage />,
+      },
+      {
+        path: "ca-reports",
+        element: <CaReportsPage />,
+      },
+      {
+        path: "p-and-l",
+        element: <PnlPage />,
+      },
+      {
+        path: "pnl",
+        element: <Navigate to="/p-and-l" replace />,
       },
       {
         path: "employees",
@@ -281,6 +309,14 @@ export const router = createBrowserRouter([
       {
         path: "plans",
         element: <Navigate to="/plans-billing" replace />,
+      },
+      {
+        path: "profile",
+        element: <MyProfilePage />,
+      },
+      {
+        path: "my-profile",
+        element: <Navigate to="/profile" replace />,
       },
       {
         path: "audit-logs",

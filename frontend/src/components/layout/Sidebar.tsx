@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ export function Sidebar() {
   const [menuSearch, setMenuSearch] = useState("");
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isProfileActive = location.pathname === "/profile" || location.pathname === "/my-profile";
 
   // Current time formatted as hh:mm a for the live synced pill
   const [syncTime, setSyncTime] = useState("");
@@ -104,17 +107,38 @@ export function Sidebar() {
         {!collapsed ? (
           <>
             <div className="flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-2 overflow-hidden">
+              <button
+                onClick={() => navigate("/profile")}
+                className={cn(
+                  "flex items-center gap-2 overflow-hidden flex-1 text-left p-1 rounded-lg transition group",
+                  isProfileActive
+                    ? "bg-[#f59e0b] text-slate-950 font-bold shadow-2xs"
+                    : "hover:bg-slate-800/60"
+                )}
+                title="Open My Profile"
+              >
                 <div className="w-7 h-7 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm shrink-0">
                   {userInitials}
                 </div>
                 <div className="overflow-hidden leading-tight">
-                  <span className="text-[9px] text-slate-400 block truncate leading-none">My Profile</span>
-                  <p className="text-xs font-bold text-white truncate max-w-[110px] mt-0.5">
+                  <span
+                    className={cn(
+                      "text-[9px] block truncate leading-none",
+                      isProfileActive ? "text-slate-900 font-semibold" : "text-slate-400"
+                    )}
+                  >
+                    My Profile
+                  </span>
+                  <p
+                    className={cn(
+                      "text-xs font-bold truncate max-w-[110px] mt-0.5",
+                      isProfileActive ? "text-slate-950" : "text-white"
+                    )}
+                  >
                     {user?.fullName || "Vijaykumar Shantagiri"}
                   </p>
                 </div>
-              </div>
+              </button>
 
               <button
                 onClick={() => {
@@ -139,7 +163,11 @@ export function Sidebar() {
         ) : (
           <div className="flex flex-col items-center gap-2">
             <div
-              className="w-8 h-8 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm"
+              onClick={() => navigate("/profile")}
+              className={cn(
+                "w-8 h-8 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm cursor-pointer transition",
+                isProfileActive && "ring-2 ring-amber-400"
+              )}
               title={user?.fullName || "User Profile"}
             >
               {userInitials}

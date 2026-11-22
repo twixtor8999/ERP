@@ -17,6 +17,16 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Orders: true,
     B2B: true,
     Customer: true,
+    Vehicle: true,
+    Purchase: true,
+    "CRM Report": true,
+    Expenses: true,
+    Inventory: true,
+    "SKU's": true,
+    Employees: true,
+    "Incentive Scheme": true,
+    "CA Reports": true,
+    "P & L": true,
   });
 
   const toggleSection = (title: string) => {
@@ -61,6 +71,30 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.href === "/customers") {
       return currentPath === "/customers" && (!currentSearch || currentSearch === "?tab=list");
     }
+    if (item.href.startsWith("/vehicles?tab=")) {
+      return currentPath === "/vehicles" && fullUrl === item.href;
+    }
+    if (item.href === "/vehicles") {
+      return currentPath === "/vehicles" && (!currentSearch || currentSearch === "?tab=list");
+    }
+    if (item.href.startsWith("/purchases?tab=")) {
+      return currentPath === "/purchases" && fullUrl === item.href;
+    }
+    if (item.href === "/purchases") {
+      return currentPath === "/purchases" && (!currentSearch || currentSearch === "?tab=list");
+    }
+    if (item.href.startsWith("/crm-report?tab=")) {
+      return (currentPath === "/crm-report" || currentPath === "/crm") && (fullUrl === item.href || currentSearch.includes(item.href.split("?")[1] || ""));
+    }
+    if (item.href === "/crm-report" || item.href === "/crm?view=reports") {
+      return (currentPath === "/crm-report" || currentPath === "/crm") && (!currentSearch || currentSearch === "?tab=dashboard" || currentSearch.includes("reports"));
+    }
+    if (item.href.startsWith("/expenses?tab=")) {
+      return currentPath === "/expenses" && (fullUrl === item.href || currentSearch.includes(item.href.split("?")[1] || ""));
+    }
+    if (item.href === "/expenses") {
+      return currentPath === "/expenses" && (!currentSearch || currentSearch === "?tab=expenses");
+    }
     if (item.href === "/crm?view=b2b") {
       return currentPath === "/b2b" || (currentPath === "/crm" && currentSearch.includes("b2b"));
     }
@@ -68,16 +102,122 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return currentPath === "/crm" && currentSearch.includes("reports");
     }
     if (item.href.startsWith("/reports?type=")) {
-      return currentPath === "/reports" && fullUrl === item.href;
+      const typeParam = item.href.split("?")[1] || "";
+      if (item.href === "/reports?type=gst") {
+        return (
+          currentPath === "/reports" &&
+          (!currentSearch || currentSearch === "?type=gst" || currentSearch.includes("type=gst"))
+        );
+      }
+      return currentPath === "/reports" && currentSearch.includes(typeParam);
     }
     if (item.href === "/reports") {
-      return currentPath === "/reports";
+      return (
+        currentPath === "/reports" &&
+        (!currentSearch || currentSearch === "?type=gst" || currentSearch.includes("type=gst"))
+      );
     }
-    if (item.href === "/inventory?tab=split") {
-      return currentPath === "/inventory" && currentSearch.includes("split");
+    if (item.href.startsWith("/ca-reports?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/ca-reports?tab=gstr") {
+        return (
+          currentPath === "/ca-reports" &&
+          (!currentSearch || currentSearch === "?tab=gstr" || currentSearch.includes("tab=gstr"))
+        );
+      }
+      return currentPath === "/ca-reports" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/ca-reports") {
+      return (
+        currentPath === "/ca-reports" &&
+        (!currentSearch || currentSearch === "?tab=gstr" || currentSearch.includes("tab=gstr"))
+      );
+    }
+    if (item.href.startsWith("/p-and-l?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/p-and-l?tab=pl") {
+        return (
+          currentPath === "/p-and-l" &&
+          (!currentSearch || currentSearch === "?tab=pl" || currentSearch.includes("tab=pl"))
+        );
+      }
+      return currentPath === "/p-and-l" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/p-and-l") {
+      return (
+        currentPath === "/p-and-l" &&
+        (!currentSearch || currentSearch === "?tab=pl" || currentSearch.includes("tab=pl"))
+      );
+    }
+    if (item.href.startsWith("/inventory?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/inventory?tab=movement") {
+        return (
+          currentPath === "/inventory" &&
+          (!currentSearch ||
+            currentSearch === "?tab=movement" ||
+            currentSearch.includes("tab=imove") ||
+            currentSearch.includes("tab=idaily"))
+        );
+      }
+      return currentPath === "/inventory" && currentSearch.includes(tabParam);
     }
     if (item.href === "/inventory") {
-      return currentPath === "/inventory" && !currentSearch.includes("split");
+      return (
+        currentPath === "/inventory" &&
+        (!currentSearch ||
+          currentSearch === "?tab=movement" ||
+          currentSearch.includes("tab=imove") ||
+          currentSearch.includes("tab=idaily"))
+      );
+    }
+    if (item.href.startsWith("/products?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/products?tab=list") {
+        return (
+          currentPath === "/products" &&
+          (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=sku"))
+        );
+      }
+      return currentPath === "/products" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/products") {
+      return (
+        currentPath === "/products" &&
+        (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=sku"))
+      );
+    }
+    if (item.href.startsWith("/employees?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/employees?tab=list") {
+        return (
+          currentPath === "/employees" &&
+          (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=emp"))
+        );
+      }
+      return currentPath === "/employees" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/employees") {
+      return (
+        currentPath === "/employees" &&
+        (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=emp"))
+      );
+    }
+    if (item.href.startsWith("/incentives?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/incentives?tab=sku") {
+        return (
+          currentPath === "/incentives" &&
+          (!currentSearch || currentSearch === "?tab=sku" || currentSearch.includes("tab=incs"))
+        );
+      }
+      return currentPath === "/incentives" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/incentives") {
+      return (
+        currentPath === "/incentives" &&
+        (!currentSearch || currentSearch === "?tab=sku" || currentSearch.includes("tab=incs"))
+      );
     }
     if (item.href === "/payments?tab=upi") {
       return currentPath === "/payments" && currentSearch.includes("upi");
@@ -130,6 +270,16 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
               {isExpanded && (
                 <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2">
                   {item.children.map((child) => {
+                    if (child.title.startsWith("• ")) {
+                      return (
+                        <div
+                          key={child.title}
+                          className="pt-2 pb-0.5 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none"
+                        >
+                          {child.title}
+                        </div>
+                      );
+                    }
                     const active = isItemActive(child);
                     return (
                       <NavLink
