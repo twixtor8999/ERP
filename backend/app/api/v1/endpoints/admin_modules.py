@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Date, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import hash_password
 from app.core.websocket_manager import ws_manager
@@ -3256,31 +3256,40 @@ def get_crm_incentive_products(
 @router.get("/crm/callings")
 def get_crm_callings_sheet(
     route: str | None = Query(None),
+    village: str | None = Query(None),
+    beat_day: str | None = Query(None),
+    village_key: str | None = Query(None),
     search: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(2500, ge=1, le=5000),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
 
-    routes_list = [
-        "TAJAPUR",
-        "Tadavalaga",
-        "Tamba",
-        "Inchageri",
-        "Horti",
-        "Masimanal",
-        "Basavan Bagewadi",
-        "DEVARHIPARAGI",
-        "GOLASANGI",
-        "KANAMADI",
-        "mamadapur",
-        "Malaghan",
-        "Bijapur",
-        "Chimmalagi RC Route",
-    ]
+    DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-    q = select(Customer).where(Customer.organization_id == org_id)
+    # 1. Preload real last order dates from orders table
+    last_orders: dict[str, str] = {}
+    try:
+        order_rows = db.execute(
+            select(Order.customer_id, func.max(Order.created_at))
+            .where(Order.organization_id == org_id, Order.customer_id.isnot(None))
+            .group_by(Order.customer_id)
+        ).all()
+        for cid, max_dt in order_rows:
+            if cid and max_dt:
+                last_orders[str(cid)] = max_dt.strftime("%d-%m-%Y")
+    except Exception:
+        pass
+
+    # 2. Query real customers with eagerly loaded customer addresses
+    q = (
+        select(Customer)
+        .options(joinedload(Customer.addresses))
+        .where(Customer.organization_id == org_id)
+        .order_by(Customer.display_name.asc())
+        .limit(limit)
+    )
 
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -3293,53 +3302,79 @@ def get_crm_callings_sheet(
             )
         )
 
-    customers_raw = db.scalars(q.order_by(Customer.current_balance.desc()).limit(limit)).all()
+    customers_raw = db.scalars(q).unique().all()
 
     # Preload recent call logs
     c_ids = [c.id for c in customers_raw]
     recent_calls = {}
     if c_ids:
-        calls = db.scalars(
-            select(CallLog)
-            .where(CallLog.customer_id.in_(c_ids))
-            .order_by(CallLog.call_date.desc())
-        ).all()
-        for call in calls:
-            if call.customer_id not in recent_calls:
-                recent_calls[call.customer_id] = {
-                    "last_call_at": call.call_date.isoformat(),
-                    "last_remark": call.notes,
-                    "last_outcome": call.outcome,
-                }
+        try:
+            calls = db.scalars(
+                select(CallLog)
+                .where(CallLog.customer_id.in_(c_ids))
+                .order_by(CallLog.call_date.desc())
+            ).all()
+            for call in calls:
+                if call.customer_id not in recent_calls:
+                    recent_calls[call.customer_id] = {
+                        "last_call_at": call.call_date.isoformat(),
+                        "last_remark": call.notes,
+                        "last_outcome": call.outcome,
+                    }
+        except Exception:
+            pass
 
+    all_routes_set = set(["Bijapur"])
     customers_out = []
+
     for c in customers_raw:
         addr = c.addresses[0] if (hasattr(c, "addresses") and c.addresses) else None
-        village = addr.address_line1 if addr else (c.company_name or "Vijayapura")
-        taluka = addr.city if addr else "Vijayapura"
-        district = "Vijayapura"
-        pincode = addr.postal_code if addr else "586101"
-        route_assigned = routes_list[abs(hash(c.id)) % len(routes_list)]
-        beat_days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        beat_day = beat_days[abs(hash(c.id)) % len(beat_days)]
-        gmap_query = f"{village}, {taluka}, {district}, Karnataka, {pincode}"
+
+        # Route (normalized from city)
+        city_raw = (addr.city if addr and addr.city else "Bijapur").strip()
+        if "vijayapura" in city_raw.lower() or "bijapur" in city_raw.lower():
+            route_assigned = "Bijapur"
+        else:
+            route_assigned = city_raw or "Bijapur"
+        all_routes_set.add(route_assigned)
+
+        # Village (normalized from address_line1)
+        v_raw = (addr.address_line1 if addr and addr.address_line1 else "Bijapur (Rural)").strip()
+        if "http" in v_raw or "maps" in v_raw:
+            v_raw = v_raw.split(",")[0].strip()
+        village_name = v_raw or "Bijapur (Rural)"
+
+        # Village Key (from address_line2 or landmark)
+        vk_raw = (addr.address_line2 if addr and addr.address_line2 else "Nil").strip()
+        if "http" in vk_raw or "maps" in vk_raw:
+            vk_raw = "Nil"
+        v_key = vk_raw or "Nil"
+
+        # Deterministic Beat Day assigned per village (so all shops in that village share the beat day)
+        b_day = DAYS[abs(hash(village_name)) % len(DAYS)]
+
+        # Last Order Date
+        last_ord = last_orders.get(str(c.id), "—")
+
+        gmap_query = f"{village_name}, {route_assigned}, Vijayapura, Karnataka"
         gmap_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote_plus(gmap_query)}"
+
         customers_out.append(
             {
                 "id": c.id,
-                "name": c.first_name,
+                "name": c.first_name or c.display_name,
                 "shop_name": c.company_name or c.display_name,
                 "display_name": c.display_name,
                 "phone": c.phone,
                 "customer_code": c.customer_code,
-                "village": village,
-                "taluka": taluka,
-                "district": district,
-                "pincode": pincode,
+                "village": village_name,
+                "taluka": route_assigned,
+                "district": "Vijayapura",
+                "pincode": addr.postal_code if addr and addr.postal_code else "586101",
                 "route": route_assigned,
-                "beat_day": beat_day,
-                "village_key": "Nil",
-                "last_order_date": "20-11-2026",
+                "beat_day": b_day,
+                "village_key": v_key,
+                "last_order_date": last_ord,
                 "google_map_url": gmap_url,
                 "current_balance": float(c.current_balance or 0),
                 "credit_limit": float(c.credit_limit or 0),
@@ -3347,9 +3382,12 @@ def get_crm_callings_sheet(
             }
         )
 
+    # Sort routes with Bijapur first, then alphabetically
+    sorted_routes = sorted(list(all_routes_set), key=lambda r: (0 if r == "Bijapur" else 1, r))
+
     return {
-        "routes": routes_list,
-        "selected_route": route or "All Routes",
+        "routes": sorted_routes,
+        "selected_route": route or "Bijapur",
         "total_results": len(customers_out),
         "customers": customers_out,
     }

@@ -76,6 +76,9 @@ const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
   "inc-10": "/assets/crm/inc-10-water-bottle.png",
 };
 
+const BEAT_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "All Days"];
+const VILLAGE_KEYS = ["Nil", "All Keys", "V1", "V2", "V3", "V4", "V5"];
+
 interface CallingCustomer {
   id: string;
   name: string;
@@ -201,6 +204,9 @@ export function CrmTelecallerPortalPage() {
   const [routes, setRoutes] = useState<string[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<string>("Bijapur");
   const [selectedVillage, setSelectedVillage] = useState<string>("All villages");
+  const [selectedBeatDay, setSelectedBeatDay] = useState<string>("Sunday");
+  const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
+  const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>([]);
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [customerRouteFilter, setCustomerRouteFilter] = useState<string>("All Routes");
@@ -308,58 +314,17 @@ export function CrmTelecallerPortalPage() {
       const [sumRes, incRes, callRes, prodRes] = await Promise.all([
         apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
         apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
-        apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=100"),
+        apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500"),
         apiClient.get<ProductItem[]>("/api/v1/admin/products?limit=150"),
       ]);
 
       setSummary(sumRes.data);
       setIncentiveProducts(incRes.data);
-      const apiRoutes = callRes.data ? callRes.data.routes : [];
-      const mergedRoutes = Array.from(new Set(["Bijapur", "Basavan Bagewadi", "Indi", "Sindagi", "All Routes", ...apiRoutes]));
+      const apiRoutes = callRes.data && callRes.data.routes ? callRes.data.routes : [];
+      const mergedRoutes = Array.from(new Set(["Bijapur", ...apiRoutes, "All Routes"]));
       setRoutes(mergedRoutes);
 
-      let custList = callRes.data && callRes.data.customers ? callRes.data.customers : [];
-      if (!custList.some((c) => c.phone === "8105690366")) {
-        custList = [
-          {
-            id: "cust-demo-bm",
-            name: "B M",
-            shop_name: "B M kirana store",
-            display_name: "B M",
-            phone: "8105690366",
-            customer_code: "CUST-0001",
-            village: "Bijapur (Rural)",
-            taluka: "Vijayapura",
-            district: "Vijayapura",
-            pincode: "586101",
-            route: "Bijapur",
-            beat_day: "Sunday",
-            village_key: "Nil",
-            last_order_date: "20-11-2026",
-            current_balance: 0,
-            credit_limit: 10000,
-          },
-          {
-            id: "cust-demo-hanamant",
-            name: "Hanamant tonashyal",
-            shop_name: "Hanamant kirana store",
-            display_name: "Hanamant tonashyal",
-            phone: "9972241061",
-            customer_code: "CUST-0002",
-            village: "Bijapur (Rural)",
-            taluka: "Vijayapura",
-            district: "Vijayapura",
-            pincode: "586101",
-            route: "Bijapur",
-            beat_day: "Sunday",
-            village_key: "Nil",
-            last_order_date: "18-11-2026",
-            current_balance: 1450,
-            credit_limit: 15000,
-          },
-          ...custList,
-        ];
-      }
+      const custList = callRes.data && callRes.data.customers ? callRes.data.customers : [];
       setCallingCustomers(custList);
       setCatalog(prodRes.data);
     } catch {
@@ -499,19 +464,38 @@ export function CrmTelecallerPortalPage() {
   const availableVillages = useMemo(() => {
     const vSet = new Set<string>();
     callingCustomers.forEach((c) => {
-      if (c.village) vSet.add(c.village);
+      const matchRoute = selectedRoute === "All Routes" || (c.route || "").toLowerCase() === selectedRoute.toLowerCase();
+      const matchDay = selectedBeatDay === "All Days" || (c.beat_day || "").toLowerCase() === selectedBeatDay.toLowerCase();
+      if (matchRoute && matchDay && c.village) {
+        vSet.add(c.village);
+      }
     });
-    return ["All villages", ...Array.from(vSet)];
-  }, [callingCustomers]);
+    return ["All villages", ...Array.from(vSet).sort()];
+  }, [callingCustomers, selectedRoute, selectedBeatDay]);
 
-  // Filter Calling Customers by Route and Village
+  // Filter Calling Customers by Beat Day, Route, Village Key, Village, and Search in page
   const filteredCallings = useMemo(() => {
     return callingCustomers.filter((c) => {
-      const matchRoute = selectedRoute === "All Routes" || !c.route || c.route.toLowerCase() === selectedRoute.toLowerCase();
-      const matchVillage = selectedVillage === "All villages" || !c.village || c.village.toLowerCase() === selectedVillage.toLowerCase();
-      return matchRoute && matchVillage;
+      const matchRoute = selectedRoute === "All Routes" || (c.route || "").toLowerCase() === selectedRoute.toLowerCase();
+      const matchDay = selectedBeatDay === "All Days" || (c.beat_day || "").toLowerCase() === selectedBeatDay.toLowerCase();
+      const matchKey =
+        selectedVillageKey === "All Keys" ||
+        selectedVillageKey === "All" ||
+        (c.village_key || "Nil").toLowerCase() === selectedVillageKey.toLowerCase();
+      const matchVillage = selectedVillage === "All villages" || (c.village || "").toLowerCase() === selectedVillage.toLowerCase();
+      const term = callingSearch.toLowerCase().trim();
+      const matchSearch =
+        !term ||
+        c.display_name?.toLowerCase().includes(term) ||
+        c.shop_name?.toLowerCase().includes(term) ||
+        c.name?.toLowerCase().includes(term) ||
+        c.phone?.includes(term) ||
+        c.village?.toLowerCase().includes(term) ||
+        c.village_key?.toLowerCase().includes(term);
+
+      return matchRoute && matchDay && matchKey && matchVillage && matchSearch;
     });
-  }, [callingCustomers, selectedRoute, selectedVillage]);
+  }, [callingCustomers, selectedRoute, selectedBeatDay, selectedVillageKey, selectedVillage, callingSearch]);
 
   // Filter Customer Directory
   const filteredCustomers = useMemo(() => {
@@ -720,7 +704,16 @@ export function CrmTelecallerPortalPage() {
       <div className="w-full max-w-[820px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60">
         {/* Card Header matching Screenshot: ☰ Home | SIDDESHWAR ENTERPRISES */}
         <header className="bg-[#1e3a8a] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {activeView !== "home" && (
+              <button
+                onClick={() => setActiveView("home")}
+                className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
+                title="Back to Home"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+            )}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-1.5 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
@@ -1258,21 +1251,43 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: CALLINGS (EXACT 1:1 MATCH TO LEGACY APP VW.call)   */}
+          {/* VIEW: CALLINGS (EXACT 1:1 MATCH TO SCREENSHOT WITH REAL DATA) */}
           {/* ======================================================== */}
           {activeView === "callings" && (
             <div className="space-y-3.5">
-              {/* Header Title with Subtitle matching VW.call */}
-              <div className="pb-1">
-                <h2 className="text-lg font-bold text-slate-900">Callings</h2>
-                <p className="text-xs text-slate-500">Pick a route, go village by village, call each customer and take the order</p>
+              {/* Search in this page... input */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search in this page..."
+                  value={callingSearch}
+                  onChange={(e) => setCallingSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                />
               </div>
 
-              {/* Route & Village Filter Card */}
+              {/* 4-Dropdown Filter Card matching screenshot */}
               <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="min-w-[180px] flex-1">
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Route</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Beat Day</label>
+                    <select
+                      value={selectedBeatDay}
+                      onChange={(e) => {
+                        setSelectedBeatDay(e.target.value);
+                        setSelectedVillage("All villages");
+                      }}
+                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    >
+                      {BEAT_DAYS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Route Name</label>
                     <select
                       value={selectedRoute}
                       onChange={(e) => {
@@ -1287,121 +1302,127 @@ export function CrmTelecallerPortalPage() {
                     </select>
                   </div>
 
-                  <div className="min-w-[240px] flex-1">
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village</label>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village Key</label>
                     <select
-                      value={selectedVillage}
-                      onChange={(e) => setSelectedVillage(e.target.value)}
+                      value={selectedVillageKey}
+                      onChange={(e) => setSelectedVillageKey(e.target.value)}
                       className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
-                      <option value="All villages">All villages ({availableVillages.length})</option>
-                      {availableVillages.map((v, i) => (
-                        <option key={v} value={v}>
-                          V{i + 1} – {v} ({callingCustomers.filter(c => (c.village || "") === v).length})
-                        </option>
+                      {VILLAGE_KEYS.map((k) => (
+                        <option key={k} value={k}>{k}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      disabled={availableVillages.indexOf(selectedVillage) <= 0}
-                      onClick={() => {
-                        const idx = availableVillages.indexOf(selectedVillage);
-                        const prevVil = availableVillages[idx - 1];
-                        if (idx > 0 && prevVil) setSelectedVillage(prevVil);
-                      }}
-                      className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                    >
-                      ← Previous village
-                    </button>
-                    <button
-                      disabled={availableVillages.indexOf(selectedVillage) >= availableVillages.length - 1}
-                      onClick={() => {
-                        const idx = availableVillages.indexOf(selectedVillage);
-                        const nextVil = availableVillages[idx + 1];
-                        const firstVil = availableVillages[0];
-                        if (idx >= 0 && idx < availableVillages.length - 1 && nextVil) {
-                          setSelectedVillage(nextVil);
-                        } else if (selectedVillage === "All villages" && firstVil) {
-                          setSelectedVillage(firstVil);
-                        }
-                      }}
-                      className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
-                    >
-                      Next village →
-                    </button>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village</label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedVillage}
+                        onChange={(e) => setSelectedVillage(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="All villages">
+                          All villages ({availableVillages.length > 1 ? availableVillages.length - 1 : 0})
+                        </option>
+                        {availableVillages.slice(1).map((v, i) => (
+                          <option key={v} value={v}>
+                            V{i + 1} – {v} ({callingCustomers.filter(c => (c.village || "") === v).length})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={availableVillages.indexOf(selectedVillage) <= 1 && selectedVillage !== "All villages"}
+                        onClick={() => {
+                          const villagesOnly = availableVillages.slice(1);
+                          const curIdx = villagesOnly.indexOf(selectedVillage);
+                          const prevVil = villagesOnly[curIdx - 1];
+                          if (curIdx > 0 && prevVil) {
+                            setSelectedVillage(prevVil);
+                          } else {
+                            setSelectedVillage("All villages");
+                          }
+                        }}
+                        className="px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
+                      >
+                        ← Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const villagesOnly = availableVillages.slice(1);
+                          const firstVil = villagesOnly[0];
+                          if (selectedVillage === "All villages") {
+                            if (firstVil) setSelectedVillage(firstVil);
+                          } else {
+                            const curIdx = villagesOnly.indexOf(selectedVillage);
+                            const nextVil = villagesOnly[curIdx + 1];
+                            if (curIdx >= 0 && curIdx < villagesOnly.length - 1 && nextVil) {
+                              setSelectedVillage(nextVil);
+                            }
+                          }
+                        }}
+                        className="px-3 py-2 text-xs font-bold rounded-lg bg-[#132038] hover:bg-[#0c1626] text-white transition-colors cursor-pointer shadow-xs shrink-0"
+                      >
+                        Next →
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Route & Village Summary Text */}
+                {/* Summary Text matching screenshot: Sunday · Bijapur · 1 village(s) · 2 customer(s) */}
                 <p className="text-xs text-slate-500 font-medium">
-                  Route {selectedRoute} · {availableVillages.length} village(s) · {filteredCallings.length} customer(s)
-                  {selectedVillage !== "All villages" && (
-                    <span> · now V{availableVillages.indexOf(selectedVillage) + 1} of {availableVillages.length}: <b>{selectedVillage}</b></span>
-                  )}
+                  {selectedBeatDay} · {selectedRoute} · {availableVillages.length > 1 ? availableVillages.length - 1 : 0} village(s) · {filteredCallings.length} customer(s)
                 </p>
               </div>
 
-              {/* Exact Clean White Table matching VW.call */}
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+              {/* Exact Dark Navy Table Matching User's Screenshot media_1795359120201_407a8bf0.png */}
+              <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0a1733] shadow-md">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[11px]">
+                  <thead className="bg-[#2563eb] text-white uppercase font-bold text-[11px]">
                     <tr>
-                      <th className="py-2.5 px-3 w-10 text-center font-bold">Sl</th>
-                      <th className="py-2.5 px-3 font-bold">Customer Name</th>
-                      <th className="py-2.5 px-3 font-bold">Mobile No</th>
-                      <th className="py-2.5 px-3 font-bold">Last order</th>
-                      <th className="py-2.5 px-3 font-bold">Days since</th>
-                      <th className="py-2.5 px-3 font-bold">Balance</th>
-                      <th className="py-2.5 px-3 text-right font-bold">Actions</th>
+                      <th className="py-3 px-3 w-12 text-center font-bold">Sl</th>
+                      <th className="py-3 px-3 font-bold">Customer Name</th>
+                      <th className="py-3 px-3 font-bold">Village</th>
+                      <th className="py-3 px-3 font-bold">Village Key</th>
+                      <th className="py-3 px-3 font-bold">Mobile No</th>
+                      <th className="py-3 px-3 font-bold">Last order</th>
+                      <th className="py-3 px-3 text-right font-bold w-48"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                  <tbody className="divide-y divide-slate-800/80 bg-[#0a1733] text-slate-200">
                     {filteredCallings.map((c, idx) => (
-                      <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-3 text-center font-mono text-slate-400 font-medium">{idx + 1}</td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-slate-900 text-sm">{c.display_name || c.name}</div>
-                          {c.shop_name && <div className="text-[11px] text-slate-400">{c.shop_name}</div>}
+                      <tr key={c.id} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="py-3.5 px-3 text-center font-mono text-blue-400 font-bold">{idx + 1}</td>
+                        <td className="py-3.5 px-3">
+                          <div className="font-bold text-blue-400 text-sm">{c.display_name || c.name}</div>
+                          {c.shop_name && <div className="text-[11px] text-slate-400 mt-0.5">{c.shop_name}</div>}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-600">
+                        <td className="py-3.5 px-3 text-slate-300 font-medium">{c.village}</td>
+                        <td className="py-3.5 px-3 text-slate-400 font-mono">{c.village_key || "Nil"}</td>
+                        <td className="py-3.5 px-3 text-blue-400 font-mono font-bold">
                           <span className="select-all">{c.phone}</span>
                         </td>
-                        <td className="py-3 px-3 text-slate-600 font-medium">{c.last_order_date || "Never"}</td>
-                        <td className="py-3 px-3">
-                          <span className={c.last_order_date ? "text-slate-700" : "text-slate-400"}>
-                            {c.last_order_date ? "2" : "—"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-slate-800">
-                          {c.current_balance > 0 ? `₹${c.current_balance.toLocaleString("en-IN")}` : "0"}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center gap-1.5 justify-end">
+                        <td className="py-3.5 px-3 text-slate-300 font-mono font-medium">{c.last_order_date || "—"}</td>
+                        <td className="py-3.5 px-3 text-right">
+                          <div className="flex items-center gap-2 justify-end">
                             <a
                               href={`tel:+91${c.phone}`}
-                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center gap-1 shadow-xs transition-colors"
+                              className="px-3 py-1.5 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs inline-flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                             >
-                              <span>📞 Call</span>
+                              <span>📞 Call Now</span>
                             </a>
                             <button
+                              type="button"
                               onClick={() => {
                                 navigator.clipboard.writeText(c.phone);
                                 toast.success(`Copied: ${c.phone}`);
                               }}
-                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold border border-slate-300 transition-colors cursor-pointer shadow-xs"
                             >
                               Copy
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOrderCustomer(c);
-                                setActiveView("place-order");
-                              }}
-                              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                            >
-                              Place Order
                             </button>
                           </div>
                         </td>
@@ -1409,8 +1430,8 @@ export function CrmTelecallerPortalPage() {
                     ))}
                     {filteredCallings.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 text-xs font-medium">
-                          No customers in this village.
+                        <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-medium">
+                          No customer calls found for the selected beat day or route.
                         </td>
                       </tr>
                     )}
