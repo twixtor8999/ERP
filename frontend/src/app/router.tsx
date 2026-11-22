@@ -195,10 +195,6 @@ export const router = createBrowserRouter([
         element: <DeliveryStaffDashboardPage />,
       },
       {
-        path: "crm",
-        element: <CrmReportsPage />,
-      },
-      {
         path: "crm-report",
         element: <CrmReportsPage />,
       },
