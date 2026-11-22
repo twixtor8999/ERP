@@ -21,6 +21,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Purchase: true,
     "CRM Report": true,
     Expenses: true,
+    Inventory: true,
   });
 
   const toggleSection = (title: string) => {
@@ -101,11 +102,27 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.href === "/reports") {
       return currentPath === "/reports";
     }
-    if (item.href === "/inventory?tab=split") {
-      return currentPath === "/inventory" && currentSearch.includes("split");
+    if (item.href.startsWith("/inventory?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/inventory?tab=movement") {
+        return (
+          currentPath === "/inventory" &&
+          (!currentSearch ||
+            currentSearch === "?tab=movement" ||
+            currentSearch.includes("tab=imove") ||
+            currentSearch.includes("tab=idaily"))
+        );
+      }
+      return currentPath === "/inventory" && currentSearch.includes(tabParam);
     }
     if (item.href === "/inventory") {
-      return currentPath === "/inventory" && !currentSearch.includes("split");
+      return (
+        currentPath === "/inventory" &&
+        (!currentSearch ||
+          currentSearch === "?tab=movement" ||
+          currentSearch.includes("tab=imove") ||
+          currentSearch.includes("tab=idaily"))
+      );
     }
     if (item.href === "/payments?tab=upi") {
       return currentPath === "/payments" && currentSearch.includes("upi");
