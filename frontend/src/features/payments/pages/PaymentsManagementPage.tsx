@@ -25,15 +25,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SalesVsCollectionView } from "../components/SalesVsCollectionView";
 import { PaymentCollectionModal } from "../components/PaymentCollectionModal";
 import type { PaymentTransaction, PaymentSummary, PaymentMethod, PaymentStatus } from "../types";
 
 export function PaymentsManagementPage() {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get("tab");
+  const mode = searchParams.get("mode");
+
+  // Default to 1:1 Sales vs Collection matching Siddeshwar Enterprises reference app
+  if (tab !== "upi" && mode !== "ledger") {
+    return <SalesVsCollectionView />;
+  }
+
   const { user } = useAuthStore();
   const { activeBranch, availableBranches } = useBranchStore();
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-  const initialMethod = searchParams.get("tab") === "upi" ? "UPI" : "";
+  const initialMethod = tab === "upi" ? "UPI" : "";
 
   const isOwnerOrAdmin =
     user?.role?.toLowerCase().includes("owner") ||

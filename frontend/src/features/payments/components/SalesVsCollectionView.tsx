@@ -1,0 +1,380 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, Download, X } from "lucide-react";
+import { toast } from "sonner";
+
+export interface SvcRecord {
+  id: string;
+  date: string;
+  vehicle: string;
+  orders: number;
+  invoiceAmt: number;
+  returns: number;
+  netSales: number;
+  cash: number;
+  qr: number;
+  bank: number;
+  diff: number;
+  remarks: string;
+  enteredBy: string;
+  denominations?: Record<string, number>;
+}
+
+const SAMPLE_SVC_RECORDS: SvcRecord[] = [
+  {
+    id: "svc-1",
+    date: "22-11-2026",
+    vehicle: "KA28AA6256",
+    orders: 4,
+    invoiceAmt: 22450,
+    returns: 650,
+    netSales: 21800,
+    cash: 15000,
+    qr: 6800,
+    bank: 0,
+    diff: 0,
+    remarks: "Full route settlement completed",
+    enteredBy: "Vijaykumar Shantagiri",
+    denominations: { "500": 26, "200": 8, "100": 4 },
+  },
+  {
+    id: "svc-2",
+    date: "22-11-2026",
+    vehicle: "KA28AC0349",
+    orders: 2,
+    invoiceAmt: 6247,
+    returns: 0,
+    netSales: 6247,
+    cash: 4000,
+    qr: 2247,
+    bank: 0,
+    diff: 0,
+    remarks: "Rural Bijapur beat clear",
+    enteredBy: "Vijaykumar Shantagiri",
+    denominations: { "500": 8 },
+  },
+];
+
+export function SalesVsCollectionView() {
+  const navigate = useNavigate();
+
+  const [fromDate, setFromDate] = useState("2026-11-22");
+  const [toDate, setToDate] = useState("2026-11-22");
+  const [pageSearch, setPageSearch] = useState("");
+
+  const [records] = useState<SvcRecord[]>(SAMPLE_SVC_RECORDS);
+  const [selectedRecord, setSelectedRecord] = useState<SvcRecord | null>(null);
+
+  const filteredRecords = records.filter((r) => {
+    if (!pageSearch) return true;
+    const q = pageSearch.toLowerCase();
+    return (
+      r.vehicle.toLowerCase().includes(q) ||
+      r.date.includes(q) ||
+      r.remarks.toLowerCase().includes(q) ||
+      r.enteredBy.toLowerCase().includes(q)
+    );
+  });
+
+  // 4 KPI Summary Totals matching Screenshot 2
+  const totalNetSales = filteredRecords.reduce((acc, r) => acc + r.netSales, 0);
+  const totalCash = filteredRecords.reduce((acc, r) => acc + r.cash, 0);
+  const totalQrBank = filteredRecords.reduce((acc, r) => acc + r.qr + r.bank, 0);
+  const totalDiff = filteredRecords.reduce((acc, r) => acc + r.diff, 0);
+
+  // Table Totals
+  const totalOrders = filteredRecords.reduce((acc, r) => acc + r.orders, 0);
+  const totalInvoice = filteredRecords.reduce((acc, r) => acc + r.invoiceAmt, 0);
+  const totalReturns = filteredRecords.reduce((acc, r) => acc + r.returns, 0);
+  const totalQR = filteredRecords.reduce((acc, r) => acc + r.qr, 0);
+  const totalBank = filteredRecords.reduce((acc, r) => acc + r.bank, 0);
+
+  const handleExport = () => {
+    toast.success("Exporting Sales vs Collection Excel Report...", {
+      description: `Saved as Sales_vs_Collection_${fromDate}_to_${toDate}.xlsx`,
+    });
+  };
+
+  return (
+    <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-10">
+      {/* Top Bar: Back button matching Reference App */}
+      <div>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
+        </button>
+      </div>
+
+      {/* Date Filter & Export Strip matching Reference App */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
+          <span>From</span>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
+          />
+          <span>To</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
+          />
+          <button
+            onClick={() => toast.info("Filter Applied", { description: `Loaded report for ${fromDate} to ${toDate}` })}
+            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            Submit
+          </button>
+        </div>
+
+        {/* ⬇ Export Button */}
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>⬇ Export</span>
+        </button>
+      </div>
+
+      {/* Heading Title & Description matching Screenshot 2 */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
+          Sales vs Collection
+        </h1>
+        <p className="text-xs text-slate-500 font-normal mt-0.5">
+          Net sales of every vehicle against Cash (notes) + QR + Bank collected
+        </p>
+      </div>
+
+      {/* Search Input matching Screenshot 2 */}
+      <div className="relative max-w-lg">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+        <input
+          type="text"
+          placeholder="Search in this page..."
+          value={pageSearch}
+          onChange={(e) => setPageSearch(e.target.value)}
+          className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
+        />
+      </div>
+
+      {/* 4 Metric KPI Cards matching Reference App Screenshot 2 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Net sales */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Net sales</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalNetSales > 0 ? `₹${totalNetSales.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* Cash */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Cash</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalCash > 0 ? `₹${totalCash.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* QR + Bank */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">QR + Bank</span>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {totalQrBank > 0 ? `₹${totalQrBank.toLocaleString("en-IN")}` : "0"}
+          </p>
+        </div>
+
+        {/* Short / Excess */}
+        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+          <span className="text-xs font-bold text-slate-500 block">Short / Excess</span>
+          <p className="text-2xl font-black font-mono">
+            {totalDiff === 0 ? (
+              <span className="text-emerald-600">0</span>
+            ) : totalDiff < 0 ? (
+              <span className="text-rose-600">−₹{Math.abs(totalDiff).toLocaleString("en-IN")}</span>
+            ) : (
+              <span className="text-amber-600">+₹{totalDiff.toLocaleString("en-IN")}</span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Sales vs Collection Table matching Screenshot 2 */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+              <th className="py-2.5 px-3 text-left">Date</th>
+              <th className="py-2.5 px-3 text-left">Vehicle</th>
+              <th className="py-2.5 px-3 text-center">Orders</th>
+              <th className="py-2.5 px-3 text-right">Invoice Amt</th>
+              <th className="py-2.5 px-3 text-right">Returns</th>
+              <th className="py-2.5 px-3 text-right">Net Sales</th>
+              <th className="py-2.5 px-3 text-right">Cash</th>
+              <th className="py-2.5 px-3 text-right">QR</th>
+              <th className="py-2.5 px-3 text-right">Bank</th>
+              <th className="py-2.5 px-3 text-center">Short / Excess</th>
+              <th className="py-2.5 px-3 text-left">Remarks</th>
+              <th className="py-2.5 px-3 text-left">Entered by</th>
+              <th className="py-2.5 px-2 text-center w-12"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold">
+            {filteredRecords.length === 0 ? (
+              <tr className="bg-[#0b1a30]">
+                <td colSpan={13} className="py-4 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
+                  No denomination saved in these dates.
+                </td>
+              </tr>
+            ) : (
+              filteredRecords.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <td className="py-3 px-3 text-slate-700 font-mono">{r.date}</td>
+                  <td className="py-3 px-3 font-mono font-bold text-slate-900">{r.vehicle}</td>
+                  <td className="py-3 px-3 text-center font-bold text-slate-800">{r.orders}</td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-800">
+                    ₹{r.invoiceAmt.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-500">
+                    {r.returns > 0 ? `₹${r.returns.toLocaleString("en-IN")}` : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    ₹{r.netSales.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-900 font-bold">
+                    ₹{r.cash.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-blue-600">
+                    ₹{r.qr.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-500">
+                    {r.bank > 0 ? `₹${r.bank.toLocaleString("en-IN")}` : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-center font-mono font-bold">
+                    {r.diff === 0 ? (
+                      <span className="text-emerald-600">✔ 0</span>
+                    ) : r.diff < 0 ? (
+                      <span className="text-rose-600">Short ₹{Math.abs(r.diff).toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span className="text-amber-600">Excess ₹{r.diff.toLocaleString("en-IN")}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate">{r.remarks}</td>
+                  <td className="py-3 px-3 text-slate-500">{r.enteredBy}</td>
+                  <td className="py-3 px-2 text-center">
+                    <button
+                      onClick={() => setSelectedRecord(r)}
+                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+
+          {/* Totals Row */}
+          {filteredRecords.length > 0 && (
+            <tfoot>
+              <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900 whitespace-nowrap">
+                <td className="py-3 px-3">Total</td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3 text-center">{totalOrders}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalInvoice.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalReturns.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalNetSales.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalCash.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalQR.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">₹{totalBank.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-center font-mono">
+                  {totalDiff === 0 ? (
+                    <span className="text-emerald-600">✔ 0</span>
+                  ) : totalDiff < 0 ? (
+                    <span className="text-rose-600">Short ₹{Math.abs(totalDiff).toLocaleString("en-IN")}</span>
+                  ) : (
+                    <span className="text-amber-600">Excess ₹{totalDiff.toLocaleString("en-IN")}</span>
+                  )}
+                </td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-2"></td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {/* Denomination Detail Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="bg-[#132038] text-white px-4 py-3 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-extrabold text-sm text-white">
+                  Denomination Breakdown · {selectedRecord.vehicle}
+                </h3>
+                <p className="text-[11px] text-slate-300">
+                  {selectedRecord.date} · Entered by {selectedRecord.enteredBy}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="text-slate-300 hover:text-white p-1 rounded-md"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                {Object.entries(selectedRecord.denominations || {}).map(([note, count]) => (
+                  <div key={note} className="px-3 py-2 flex items-center justify-between font-mono">
+                    <span className="font-bold text-slate-800">₹{note} Notes</span>
+                    <span className="text-slate-500">× {count}</span>
+                    <span className="font-black text-slate-900">
+                      = ₹{(Number(note) * count).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Counted Cash:</span>
+                  <span className="font-mono font-bold text-slate-900">₹{selectedRecord.cash.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">QR Payment:</span>
+                  <span className="font-mono font-bold text-blue-600">₹{selectedRecord.qr.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between font-bold pt-1 border-t border-slate-200">
+                  <span>Net Vehicle Sales:</span>
+                  <span className="font-mono font-black text-slate-900">
+                    ₹{selectedRecord.netSales.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
