@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Calendar, X, Download } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, Download } from "lucide-react";
 
 interface CrmStaffMember {
   id: string;
