@@ -17,6 +17,7 @@ from app.models import (
     Branch,
     BranchSetting,
     ChartOfAccount,
+    Employee,
     Organization,
     OrganizationSetting,
     PaymentMethod,
@@ -760,6 +761,60 @@ def bootstrap_organization(
                     branch_id=None,  # Organization-wide
                 )
             )
+
+    # 9. Seed Primary Demo Telecaller (Pushpa Patil: 9663447859 / 123456)
+    tele_user = session.scalar(select(User).where(User.phone == "9663447859"))
+    if not tele_user:
+        crm_role = session.scalar(select(Role).where(Role.slug.in_(["crm_executive", "telecaller"])))
+        tele_user = User(
+            id=generate_uuid(),
+            organization_id=org.id,
+            email="pushpa.patil@siddeshwar.com",
+            phone="9663447859",
+            full_name="Pushpa Patil",
+            password_hash=hash_password("123456"),
+            is_active=True,
+            is_verified=True,
+            approval_status="APPROVED",
+        )
+        session.add(tele_user)
+        session.flush()
+
+        session.add(
+            UserBranchAccess(
+                id=generate_uuid(),
+                user_id=tele_user.id,
+                branch_id=branch.id,
+                is_default=True,
+            )
+        )
+        if crm_role:
+            session.add(
+                UserRoleAssignment(
+                    id=generate_uuid(),
+                    user_id=tele_user.id,
+                    role_id=crm_role.id,
+                    organization_id=org.id,
+                    branch_id=branch.id,
+                )
+            )
+        session.add(
+            Employee(
+                id=generate_uuid(),
+                organization_id=org.id,
+                branch_id=branch.id,
+                user_id=tele_user.id,
+                employee_code="EMP-0004",
+                first_name="Pushpa",
+                last_name="Patil",
+                phone="9663447859",
+                email="pushpa.patil@siddeshwar.com",
+                status="ACTIVE",
+                salary_type="MONTHLY",
+                base_salary=Decimal("18500.00"),
+                is_active=True,
+            )
+        )
 
     session.flush()
     return org, branch, user

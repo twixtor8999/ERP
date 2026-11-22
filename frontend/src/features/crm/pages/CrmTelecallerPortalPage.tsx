@@ -468,17 +468,34 @@ export function CrmTelecallerPortalPage() {
 
   const handleLogCall = async () => {
     if (!activeCallCust) return;
+    const targetCustId = activeCallCust.id;
+    const noteText = callNotes.trim() || `Called (${callOutcome}) by ${user?.fullName || "Pushpa Patil"}`;
     setIsLoggingCall(true);
     try {
       await apiClient.post("/admin/crm/log-call", {
-        customer_id: activeCallCust.id,
+        customer_id: targetCustId,
         outcome: callOutcome,
-        notes: callNotes.trim() || `Called by ${user?.fullName || "Pushpa Patil"}`,
+        notes: noteText,
         duration_seconds: 60,
       });
       toast.success("Call Logged Successfully", {
         description: `Remark saved for ${activeCallCust.shop_name || activeCallCust.display_name}`,
       });
+      // Optimistic instant update of customer list & table
+      setCallingCustomers((prev) =>
+        prev.map((c) =>
+          c.id === targetCustId
+            ? {
+                ...c,
+                last_call: {
+                  last_call_at: new Date().toISOString(),
+                  last_remark: noteText,
+                  last_outcome: callOutcome,
+                },
+              }
+            : c
+        )
+      );
       setActiveCallCust(null);
       setCallNotes("");
       setSummary((prev) => ({ ...prev, calls_today: prev.calls_today + 1 }));
@@ -533,6 +550,7 @@ export function CrmTelecallerPortalPage() {
       setOrderItems({});
       setOrderPaidAmount("");
       setActiveView("home");
+      loadReportsAndOrders();
     } catch {
       toast.error("Failed to place order.");
     } finally {

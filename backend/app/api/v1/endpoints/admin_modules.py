@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Date, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.core.websocket_manager import ws_manager
 from app.database.dependencies import AuthContext, get_current_user
 from app.database.session import get_db
@@ -51,6 +52,7 @@ from app.models import (
     UnitConversion,
     UnitOfMeasure,
     User,
+    UserBranchAccess,
     UserRoleAssignment,
     Vehicle,
     Warehouse,
@@ -1744,8 +1746,12 @@ class CreateEmployeePayload(BaseModel):
     phone: str
     email: str | None = None
     branch_id: str | None = None
+    role: str = "crm_executive"
+    designation: str = "Telecaller / CRM Sales"
     salary_type: str = "MONTHLY"
     base_salary: Decimal = Decimal("18000.00")
+    create_login_account: bool = True
+    initial_password: str = "123456"
 
 
 @router.get("/employees")
@@ -1761,8 +1767,24 @@ def list_admin_employees(
 
     branches = {b.id: b.branch_name for b in db.scalars(select(Branch)).all()}
 
-    return [
-        {
+    user_ids = [e.user_id for e in emps if e.user_id]
+    user_roles: dict[str, str] = {}
+    if user_ids:
+        assignments = db.scalars(
+            select(UserRoleAssignment).where(UserRoleAssignment.user_id.in_(user_ids))
+        ).all()
+        roles_map = {r.id: r.slug for r in db.scalars(select(Role)).all()}
+        for a in assignments:
+            if a.user_id not in user_roles and a.role_id in roles_map:
+                user_roles[a.user_id] = roles_map[a.role_id]
+
+    results = []
+    for e in emps:
+        r_slug = user_roles.get(
+            e.user_id or "",
+            "crm_executive" if "telecaller" in (e.first_name + (e.last_name or "")).lower() else "employee",
+        )
+        results.append({
             "id": e.id,
             "employee_code": e.employee_code,
             "full_name": f"{e.first_name} {e.last_name or ''}".strip(),
@@ -1774,9 +1796,11 @@ def list_admin_employees(
             "base_salary": float(e.base_salary or 0),
             "is_active": e.is_active,
             "joining_date": e.joining_date.isoformat() if e.joining_date else None,
-        }
-        for e in emps
-    ]
+            "user_id": e.user_id,
+            "has_login": bool(e.user_id),
+            "role": r_slug,
+        })
+    return results
 
 
 @router.post("/employees", status_code=status.HTTP_201_CREATED)
@@ -1789,14 +1813,75 @@ def create_admin_employee(
     count = db.scalar(select(func.count(Employee.id)).where(Employee.organization_id == org_id)) or 0
     emp_code = f"EMP-{count + 1:04d}"
 
+    branch_id = payload.branch_id or current_user.active_branch_id
+    if not branch_id:
+        first_branch = db.scalar(select(Branch).where(Branch.organization_id == org_id))
+        branch_id = first_branch.id if first_branch else None
+
+    clean_phone = payload.phone.strip().replace(" ", "").replace("+91", "")
+    user_id = None
+
+    if payload.create_login_account:
+        existing_user = db.scalar(
+            select(User).where(
+                or_(
+                    User.phone == clean_phone,
+                    User.email == (payload.email or f"staff_{clean_phone}@siddeshwar.com"),
+                )
+            )
+        )
+        if existing_user:
+            user_id = existing_user.id
+        else:
+            new_user = User(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                email=payload.email or f"staff_{clean_phone}@siddeshwar.com",
+                phone=clean_phone,
+                full_name=f"{payload.first_name.strip()} {payload.last_name.strip() if payload.last_name else ''}".strip(),
+                password_hash=hash_password(payload.initial_password or "123456"),
+                is_active=True,
+                is_verified=True,
+                approval_status="APPROVED",
+            )
+            db.add(new_user)
+            db.flush()
+            user_id = new_user.id
+
+            if branch_id:
+                db.add(
+                    UserBranchAccess(
+                        id=str(uuid.uuid4()),
+                        user_id=new_user.id,
+                        branch_id=branch_id,
+                        is_default=True,
+                    )
+                )
+
+            target_slug = payload.role or "crm_executive"
+            role_obj = db.scalar(select(Role).where(Role.slug == target_slug))
+            if not role_obj:
+                role_obj = db.scalar(select(Role).where(Role.slug.in_(["crm_executive", "telecaller"])))
+            if role_obj:
+                db.add(
+                    UserRoleAssignment(
+                        id=str(uuid.uuid4()),
+                        user_id=new_user.id,
+                        role_id=role_obj.id,
+                        organization_id=org_id,
+                        branch_id=branch_id,
+                    )
+                )
+
     emp = Employee(
         id=str(uuid.uuid4()),
-        organization_id=current_user.organization_id,
-        branch_id=payload.branch_id,
+        organization_id=org_id,
+        branch_id=branch_id or "",
+        user_id=user_id,
         employee_code=emp_code,
         first_name=payload.first_name.strip(),
-        last_name=payload.last_name.strip() if payload.last_name else None,
-        phone=payload.phone.strip(),
+        last_name=payload.last_name.strip() if payload.last_name else "",
+        phone=clean_phone,
         email=payload.email.strip() if payload.email else None,
         status="ACTIVE",
         salary_type=payload.salary_type,
@@ -1805,7 +1890,15 @@ def create_admin_employee(
     )
     db.add(emp)
     db.commit()
-    return {"message": "Employee onboarded successfully", "employee_id": emp.id, "employee_code": emp_code}
+    db.refresh(emp)
+    return {
+        "message": "Employee onboarded successfully with telecaller login access",
+        "employee_id": emp.id,
+        "employee_code": emp_code,
+        "user_id": user_id,
+        "phone": clean_phone,
+        "role": payload.role or "crm_executive",
+    }
 
 
 # ---------------------------------------------------------------------------
