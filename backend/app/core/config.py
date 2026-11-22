@@ -28,6 +28,18 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://siddeshwar_user:siddeshwar_secure_pass_2026@localhost:5432/siddeshwar_erp",
         description="PostgreSQL connection string with psycopg 3 driver",
     )
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_database_url(cls, v: Any) -> str:
+        if isinstance(v, str):
+            # Railway, Render and Heroku default strings start with postgres:// or postgresql://
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+psycopg://", 1)
+            elif v.startswith("postgresql://") and not v.startswith("postgresql+psycopg://"):
+                return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        return str(v)
+
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_TIMEOUT: int = 30
@@ -50,6 +62,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "https://erp-9kr.pages.dev",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
