@@ -30,7 +30,7 @@ import { UsersManagementPage } from "@/features/users/pages/UsersManagementPage"
 import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage";
 import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
 import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
-import { CustomersCrmPage } from "@/features/customers/pages/CustomersCrmPage";
+import { CustomersPage } from "@/features/customers/pages/CustomersPage";
 import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
@@ -196,7 +196,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "customers",
-        element: <CustomersCrmPage />,
+        element: <CustomersPage />,
+      },
+      {
+        path: "route-planner",
+        element: <Navigate to="/customers?tab=routes" replace />,
       },
       {
         path: "duplicate-check",

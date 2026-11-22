@@ -16,6 +16,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Reports: true,
     Orders: true,
     B2B: true,
+    Customer: true,
   });
 
   const toggleSection = (title: string) => {
@@ -53,6 +54,12 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     }
     if (item.href === "/b2b") {
       return currentPath === "/b2b" && (!currentSearch || currentSearch === "?tab=cart");
+    }
+    if (item.href.startsWith("/customers?tab=")) {
+      return currentPath === "/customers" && fullUrl === item.href;
+    }
+    if (item.href === "/customers") {
+      return currentPath === "/customers" && (!currentSearch || currentSearch === "?tab=list");
     }
     if (item.href === "/crm?view=b2b") {
       return currentPath === "/b2b" || (currentPath === "/crm" && currentSearch.includes("b2b"));

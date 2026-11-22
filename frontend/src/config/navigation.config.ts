@@ -45,7 +45,15 @@ export const navigationItems: NavItem[] = [
       { title: "2) Orders List", href: "/b2b?tab=orders" },
     ],
   },
-  { title: "Customer", href: "/customers" },
+  {
+    title: "Customer",
+    href: "/customers",
+    children: [
+      { title: "1) New Customer", href: "/customers?tab=new" },
+      { title: "2) Customers List", href: "/customers?tab=list" },
+      { title: "3) Route Planner", href: "/customers?tab=routes" },
+    ],
+  },
   { title: "Vehicle", href: "/vehicles" },
   { title: "Purchase", href: "/purchases" },
   { title: "CRM Report", href: "/crm?view=reports" },
