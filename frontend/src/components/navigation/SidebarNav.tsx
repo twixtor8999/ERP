@@ -23,6 +23,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Expenses: true,
     Inventory: true,
     "SKU's": true,
+    Employees: true,
   });
 
   const toggleSection = (title: string) => {
@@ -139,6 +140,22 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return (
         currentPath === "/products" &&
         (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=sku"))
+      );
+    }
+    if (item.href.startsWith("/employees?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/employees?tab=list") {
+        return (
+          currentPath === "/employees" &&
+          (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=emp"))
+        );
+      }
+      return currentPath === "/employees" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/employees") {
+      return (
+        currentPath === "/employees" &&
+        (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=emp"))
       );
     }
     if (item.href === "/payments?tab=upi") {

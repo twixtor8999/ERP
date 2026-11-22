@@ -120,7 +120,17 @@ export const navigationItems: NavItem[] = [
       { title: "5) Category Wise Sales", href: "/products?tab=categories" },
     ],
   },
-  { title: "Employees", href: "/employees" },
+  {
+    title: "Employees",
+    href: "/employees",
+    children: [
+      { title: "1) Employee List", href: "/employees?tab=list" },
+      { title: "2) Attendance", href: "/employees?tab=attendance" },
+      { title: "3) Attendance List", href: "/employees?tab=att-list" },
+      { title: "4) Salary Slip", href: "/employees?tab=salary" },
+      { title: "5) Offer Letters", href: "/employees?tab=offers" },
+    ],
+  },
   { title: "Incentive Scheme", href: "/incentives" },
   {
     title: "Reports",
