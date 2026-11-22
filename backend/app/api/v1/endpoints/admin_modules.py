@@ -2,6 +2,7 @@
 
 import csv
 import io
+import urllib.parse
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -3010,11 +3011,17 @@ def get_crm_callings_sheet(
                     "last_outcome": call.outcome,
                 }
 
-    return {
-        "routes": routes_list,
-        "selected_route": route or "All Routes",
-        "total_results": len(customers_raw),
-        "customers": [
+    customers_out = []
+    for c in customers_raw:
+        addr = c.addresses[0] if (hasattr(c, "addresses") and c.addresses) else None
+        village = addr.address_line1 if addr else (c.company_name or "Vijayapura")
+        taluka = addr.city if addr else "Vijayapura"
+        district = "Vijayapura"
+        pincode = addr.postal_code if addr else "586101"
+        route_assigned = routes_list[abs(hash(c.id)) % len(routes_list)]
+        gmap_query = f"{village}, {taluka}, {district}, Karnataka, {pincode}"
+        gmap_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote_plus(gmap_query)}"
+        customers_out.append(
             {
                 "id": c.id,
                 "name": c.first_name,
@@ -3022,12 +3029,23 @@ def get_crm_callings_sheet(
                 "display_name": c.display_name,
                 "phone": c.phone,
                 "customer_code": c.customer_code,
+                "village": village,
+                "taluka": taluka,
+                "district": district,
+                "pincode": pincode,
+                "route": route_assigned,
+                "google_map_url": gmap_url,
                 "current_balance": float(c.current_balance or 0),
                 "credit_limit": float(c.credit_limit or 0),
                 "last_call": recent_calls.get(c.id),
             }
-            for c in customers_raw
-        ],
+        )
+
+    return {
+        "routes": routes_list,
+        "selected_route": route or "All Routes",
+        "total_results": len(customers_out),
+        "customers": customers_out,
     }
 
 
