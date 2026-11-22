@@ -65,7 +65,16 @@ export const navigationItems: NavItem[] = [
       { title: "5) Diesel Rate", href: "/vehicles?tab=diesel" },
     ],
   },
-  { title: "Purchase", href: "/purchases" },
+  {
+    title: "Purchase",
+    href: "/purchases",
+    children: [
+      { title: "1) Purchase List", href: "/purchases?tab=list" },
+      { title: "Auto PO", href: "/purchases?tab=autopo" },
+      { title: "2) Purchase Return", href: "/purchases?tab=returns" },
+      { title: "3) Vendor", href: "/purchases?tab=vendor" },
+    ],
+  },
   { title: "CRM Report", href: "/crm?view=reports" },
   { title: "Expenses", href: "/expenses" },
   { title: "Inventory", href: "/inventory" },
