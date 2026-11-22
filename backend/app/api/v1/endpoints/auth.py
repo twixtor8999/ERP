@@ -108,6 +108,14 @@ def get_registration_roles() -> list[RegistrationRoleOption]:
     """
     return [
         {
+            "slug": "crm_executive",
+            "name": "Telecaller & CRM Sales",
+            "badge": "Telecalling & CRM",
+            "description": (
+                "Direct B2B calling, rural Kirana store ordering, village route runsheet & customer Udhaar balance."
+            ),
+        },
+        {
             "slug": "cashier",
             "name": "Cashier / Counter Billing Agent",
             "badge": "POS Operations",

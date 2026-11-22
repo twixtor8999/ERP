@@ -1901,6 +1901,182 @@ def create_admin_employee(
     }
 
 
+class ApproveAccessPayload(BaseModel):
+    base_salary: Decimal = Decimal("18000.00")
+    branch_id: str | None = None
+    role_slug: str | None = None
+
+
+@router.get("/access-requests")
+def list_pending_access_requests(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """List pending self-registered users waiting for administrator role approval."""
+    users = db.scalars(
+        select(User)
+        .where(
+            User.organization_id == current_user.organization_id,
+            User.approval_status == "PENDING",
+        )
+        .order_by(User.created_at.desc())
+    ).all()
+
+    results = []
+    for u in users:
+        role_slug = u.requested_role_slug or "crm_executive"
+        assignment = db.scalar(select(UserRoleAssignment).where(UserRoleAssignment.user_id == u.id))
+        if assignment:
+            role_obj = db.scalar(select(Role).where(Role.id == assignment.role_id))
+            if role_obj:
+                role_slug = role_obj.slug
+
+        results.append({
+            "id": u.id,
+            "full_name": u.full_name,
+            "phone": u.phone,
+            "email": u.email,
+            "role": role_slug,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "approval_status": u.approval_status,
+        })
+    return results
+
+
+@router.post("/access-requests/{user_id}/approve")
+def approve_access_request(
+    user_id: str,
+    payload: ApproveAccessPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Approve a pending employee, activating login credentials and provisioning branch/role access."""
+    target_user = db.scalar(
+        select(User).where(User.id == user_id, User.organization_id == current_user.organization_id)
+    )
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+
+    branch_id = payload.branch_id or current_user.active_branch_id
+    if not branch_id:
+        fb = db.scalar(select(Branch).where(Branch.organization_id == current_user.organization_id))
+        branch_id = fb.id if fb else ""
+
+    target_user.approval_status = "APPROVED"
+    target_user.is_active = True
+    target_user.is_verified = True
+
+    # Ensure branch access
+    uba = db.scalar(
+        select(UserBranchAccess).where(
+            UserBranchAccess.user_id == target_user.id,
+            UserBranchAccess.branch_id == branch_id,
+        )
+    )
+    if not uba and branch_id:
+        db.add(
+            UserBranchAccess(
+                id=str(uuid.uuid4()),
+                user_id=target_user.id,
+                branch_id=branch_id,
+                is_default=True,
+            )
+        )
+
+    # Assign or activate role
+    target_role_slug = payload.role_slug or target_user.requested_role_slug or "crm_executive"
+    matched_role = db.scalar(
+        select(Role).where(Role.slug.in_([target_role_slug, "crm_executive", "telecaller"]))
+    )
+    if matched_role:
+        existing_assign = db.scalar(select(UserRoleAssignment).where(UserRoleAssignment.user_id == target_user.id))
+        if existing_assign:
+            existing_assign.role_id = matched_role.id
+            existing_assign.is_active = True
+            existing_assign.status = "ACTIVE"
+            if branch_id:
+                existing_assign.branch_id = branch_id
+        else:
+            db.add(
+                UserRoleAssignment(
+                    id=str(uuid.uuid4()),
+                    user_id=target_user.id,
+                    role_id=matched_role.id,
+                    organization_id=current_user.organization_id,
+                    branch_id=branch_id,
+                    is_active=True,
+                    is_primary=True,
+                    status="ACTIVE",
+                )
+            )
+
+    # Link / update Employee record
+    emp = db.scalar(select(Employee).where(Employee.user_id == target_user.id))
+    if not emp:
+        emp = db.scalar(select(Employee).where(Employee.phone == target_user.phone))
+
+    parts = (target_user.full_name or "Staff Member").strip().split(" ", 1)
+    fn = parts[0]
+    ln = parts[1] if len(parts) > 1 else ""
+
+    if not emp:
+        count = (
+            db.scalar(select(func.count(Employee.id)).where(Employee.organization_id == current_user.organization_id))
+            or 0
+        )
+        emp = Employee(
+            id=str(uuid.uuid4()),
+            organization_id=current_user.organization_id,
+            branch_id=branch_id,
+            user_id=target_user.id,
+            employee_code=f"EMP-{count + 1:04d}",
+            first_name=fn,
+            last_name=ln,
+            phone=target_user.phone or "",
+            email=target_user.email,
+            status="ACTIVE",
+            salary_type="MONTHLY",
+            base_salary=payload.base_salary,
+            is_active=True,
+        )
+        db.add(emp)
+    else:
+        emp.user_id = target_user.id
+        emp.status = "ACTIVE"
+        emp.is_active = True
+        emp.base_salary = payload.base_salary
+        if branch_id:
+            emp.branch_id = branch_id
+
+    db.commit()
+    return {"message": f"{target_user.full_name} approved and activated as {target_role_slug}"}
+
+
+@router.post("/access-requests/{user_id}/reject")
+def reject_access_request(
+    user_id: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Reject a pending employee access request."""
+    target_user = db.scalar(
+        select(User).where(User.id == user_id, User.organization_id == current_user.organization_id)
+    )
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+
+    target_user.approval_status = "REJECTED"
+    target_user.is_active = False
+
+    assignments = db.scalars(select(UserRoleAssignment).where(UserRoleAssignment.user_id == target_user.id)).all()
+    for a in assignments:
+        a.is_active = False
+        a.status = "REJECTED"
+
+    db.commit()
+    return {"message": f"Access request for {target_user.full_name} has been rejected"}
+
+
 # ---------------------------------------------------------------------------
 # 9. Staff Incentive Schemes
 # ---------------------------------------------------------------------------

@@ -33,6 +33,12 @@ import { Badge } from "@/components/ui/badge";
 
 const OPERATIONAL_ROLES: RegistrationRoleItem[] = [
   {
+    slug: "crm_executive",
+    name: "Telecaller & CRM Sales Staff",
+    badge: "CRM Telecalling",
+    description: "Rural Kirana calling run-sheet, wholesale order punch, incentive targets & route dispatches.",
+  },
+  {
     slug: "cashier",
     name: "Cashier / Billing Counter Agent",
     badge: "POS Operations",
@@ -112,7 +118,7 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
   const [regFullName, setRegFullName] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
-  const [regSelectedRole, setRegSelectedRole] = useState("cashier");
+  const [regSelectedRole, setRegSelectedRole] = useState("crm_executive");
 
   const { user, isAuthenticated, setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
@@ -414,6 +420,21 @@ export function LoginPage({ initialTab = "login" }: LoginPageProps) {
                     </>
                   )}
                 </button>
+
+                {/* Candidate Telecaller Account Request Shortcut */}
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegSelectedRole("crm_executive");
+                      setActiveTab("register");
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1.5 mx-auto transition-colors cursor-pointer"
+                  >
+                    <span>📞 New Telecaller? Request CRM Account Access</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-blue-500" />
+                  </button>
+                </div>
 
                 {/* Security Tag & Version */}
                 <div className="pt-2 text-center space-y-0.5">
