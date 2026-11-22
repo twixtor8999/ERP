@@ -87,7 +87,14 @@ export const navigationItems: NavItem[] = [
       { title: "6) Team CRM Report", href: "/crm-report?tab=team" },
     ],
   },
-  { title: "Expenses", href: "/expenses" },
+  {
+    title: "Expenses",
+    href: "/expenses",
+    children: [
+      { title: "1) Expenses", href: "/expenses?tab=expenses" },
+      { title: "2) Inward Expenses", href: "/expenses?tab=inward" },
+    ],
+  },
   { title: "Inventory", href: "/inventory" },
   { title: "Stock Split", href: "/inventory?tab=split" },
   { title: "SKU's", href: "/products" },

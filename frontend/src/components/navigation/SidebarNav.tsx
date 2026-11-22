@@ -20,6 +20,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Vehicle: true,
     Purchase: true,
     "CRM Report": true,
+    Expenses: true,
   });
 
   const toggleSection = (title: string) => {
@@ -81,6 +82,12 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     }
     if (item.href === "/crm-report" || item.href === "/crm?view=reports") {
       return (currentPath === "/crm-report" || currentPath === "/crm") && (!currentSearch || currentSearch === "?tab=dashboard" || currentSearch.includes("reports"));
+    }
+    if (item.href.startsWith("/expenses?tab=")) {
+      return currentPath === "/expenses" && (fullUrl === item.href || currentSearch.includes(item.href.split("?")[1] || ""));
+    }
+    if (item.href === "/expenses") {
+      return currentPath === "/expenses" && (!currentSearch || currentSearch === "?tab=expenses");
     }
     if (item.href === "/crm?view=b2b") {
       return currentPath === "/b2b" || (currentPath === "/crm" && currentSearch.includes("b2b"));
