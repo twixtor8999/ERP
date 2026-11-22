@@ -65,6 +65,8 @@ export function ReportsPage() {
               onClick={() => {
                 if (tab.id === 'ca') {
                   navigate('/ca-reports');
+                } else if (tab.id === 'pnl') {
+                  navigate('/p-and-l');
                 } else {
                   handleTabChange(tab.id as ReportTab);
                 }

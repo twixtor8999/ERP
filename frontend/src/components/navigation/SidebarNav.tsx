@@ -26,6 +26,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Employees: true,
     "Incentive Scheme": true,
     "CA Reports": true,
+    "P & L": true,
   });
 
   const toggleSection = (title: string) => {
@@ -130,6 +131,22 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return (
         currentPath === "/ca-reports" &&
         (!currentSearch || currentSearch === "?tab=gstr" || currentSearch.includes("tab=gstr"))
+      );
+    }
+    if (item.href.startsWith("/p-and-l?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/p-and-l?tab=pl") {
+        return (
+          currentPath === "/p-and-l" &&
+          (!currentSearch || currentSearch === "?tab=pl" || currentSearch.includes("tab=pl"))
+        );
+      }
+      return currentPath === "/p-and-l" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/p-and-l") {
+      return (
+        currentPath === "/p-and-l" &&
+        (!currentSearch || currentSearch === "?tab=pl" || currentSearch.includes("tab=pl"))
       );
     }
     if (item.href.startsWith("/inventory?tab=")) {

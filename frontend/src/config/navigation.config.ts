@@ -178,7 +178,15 @@ export const navigationItems: NavItem[] = [
       { title: "Day Book", href: "/ca-reports?tab=carday" },
     ],
   },
-  { title: "P & L", href: "/reports?type=pnl" },
+  {
+    title: "P & L",
+    href: "/p-and-l",
+    children: [
+      { title: "1) Profit & Loss Report", href: "/p-and-l?tab=pl" },
+      { title: "2) Order Wise Profit", href: "/p-and-l?tab=plo" },
+      { title: "3) CRM Wise Profit", href: "/p-and-l?tab=plc" },
+    ],
+  },
   { title: "Plans & Billing", href: "/plans-billing" },
   { title: "Duplicate Check", href: "/duplicate-check" },
 ];

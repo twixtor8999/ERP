@@ -37,6 +37,7 @@ import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
 import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
 import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
+import { PnlPage } from "@/features/pnl";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
 import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
@@ -259,6 +260,14 @@ export const router = createBrowserRouter([
       {
         path: "ca-reports",
         element: <CaReportsPage />,
+      },
+      {
+        path: "p-and-l",
+        element: <PnlPage />,
+      },
+      {
+        path: "pnl",
+        element: <Navigate to="/p-and-l" replace />,
       },
       {
         path: "employees",
