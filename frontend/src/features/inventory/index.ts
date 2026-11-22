@@ -1,6 +1,7 @@
 // Feature: inventory
 export * from "./types";
 export * from "./data/mockInventory";
+export * from "./data/mockStockSplit";
 export * from "./components/WholesaleStockMovementView";
 export * from "./components/WholesaleRealtimeInventoryView";
 export * from "./components/WholesalePunchOrdersView";

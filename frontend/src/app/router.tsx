@@ -224,6 +224,10 @@ export const router = createBrowserRouter([
         element: <InventoryManagementPage />,
       },
       {
+        path: "stock-split",
+        element: <Navigate to="/inventory?tab=split" replace />,
+      },
+      {
         path: "purchases",
         element: <PurchasesPage />,
       },
