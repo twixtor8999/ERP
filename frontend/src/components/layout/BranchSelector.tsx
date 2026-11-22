@@ -15,19 +15,19 @@ export function BranchSelector() {
   };
 
   return (
-    <div className="relative inline-block text-left">
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition cursor-pointer text-sm">
-        <GitFork className="w-4 h-4 text-primary shrink-0" />
+    <div className="relative inline-block text-left shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition cursor-pointer text-sm">
+        <GitFork className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary shrink-0" />
         <div className="flex flex-col text-left leading-tight">
-          <span className="font-semibold text-xs text-foreground truncate max-w-[140px]">
+          <span className="font-semibold text-xs text-foreground truncate max-w-[85px] sm:max-w-[140px]">
             {currentBranchName}
           </span>
-          <span className="text-[10px] text-muted-foreground font-mono">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground font-mono">
             {currentBranchCode}
           </span>
         </div>
         {availableBranches.length > 1 && (
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1" />
+          <ChevronDown className="w-3 h-3 text-muted-foreground ml-0.5 sm:ml-1 shrink-0" />
         )}
       </div>
 

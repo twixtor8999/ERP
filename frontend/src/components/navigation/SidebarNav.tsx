@@ -30,6 +30,7 @@ import {
 import { navigationConfig } from "@/config/navigation.config";
 import { cn } from "@/lib/utilities/cn";
 import { useAuthStore } from "@/stores/auth.store";
+import { tokenStorage } from "@/lib/auth/token-storage";
 
 const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -59,7 +60,11 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 function isItemPermitted(role: string | undefined, href: string): boolean {
-  if (!role) return false;
+  // If role is undefined but active session token exists, permit access to prevent blank flash
+  if (!role) {
+    const token = tokenStorage.getAccessToken();
+    return !!token;
+  }
   const r = role.toLowerCase().replace(/[-\s]/g, "_");
 
   // Super Admin, Business Owner and System Admin have full access
