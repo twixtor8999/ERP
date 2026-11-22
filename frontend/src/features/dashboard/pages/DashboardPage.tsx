@@ -166,15 +166,15 @@ export function DashboardPage() {
         </div>
 
         {/* Multi-Branch Filter (Super Admin & Owner see All Branches selector, others pinned) */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {isExecutive ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Scope:</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 max-w-full">
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Scope:</span>
               <select
                 aria-label="Branch Scope"
                 value={selectedBranchId}
                 onChange={(e) => setSelectedBranchId(e.target.value)}
-                className="p-1.5 border rounded-md text-xs font-semibold bg-background"
+                className="p-1.5 border rounded-md text-xs font-semibold bg-background max-w-[210px] sm:max-w-none truncate"
               >
                 <option value="">All Branches (Consolidated Organization)</option>
                 {(availableBranches || []).map((b) => (
@@ -194,7 +194,7 @@ export function DashboardPage() {
           {/* WebSocket Status Indicator */}
           <Badge
             variant="outline"
-            className={`gap-1.5 py-1 px-2.5 text-xs font-mono ${
+            className={`gap-1.5 py-1 px-2.5 text-xs font-mono shrink-0 ${
               wsStatus === "connected"
                 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
                 : wsStatus === "polling"
@@ -339,7 +339,7 @@ function SuperAdminCommandCenter({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Button
             size="sm"
             onClick={() => navigate("/pos")}

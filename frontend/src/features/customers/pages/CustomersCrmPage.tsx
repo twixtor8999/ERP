@@ -279,12 +279,12 @@ export function CustomersCrmPage() {
           />
         </div>
 
-        <div className="flex gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 overflow-x-auto max-w-full">
           <Button
             size="sm"
             variant={filterTab === "ALL" ? "default" : "ghost"}
             onClick={() => setFilterTab("ALL")}
-            className="h-7 text-xs font-semibold px-2.5"
+            className="h-7 text-xs font-semibold px-2.5 shrink-0"
           >
             All ({customers.length})
           </Button>
@@ -292,7 +292,7 @@ export function CustomersCrmPage() {
             size="sm"
             variant={filterTab === "DUES" ? "default" : "ghost"}
             onClick={() => setFilterTab("DUES")}
-            className={`h-7 text-xs font-semibold px-2.5 ${
+            className={`h-7 text-xs font-semibold px-2.5 shrink-0 ${
               filterTab === "DUES" ? "bg-rose-600 hover:bg-rose-700 text-white" : "text-rose-700"
             }`}
           >
@@ -302,7 +302,7 @@ export function CustomersCrmPage() {
             size="sm"
             variant={filterTab === "CLEAR" ? "default" : "ghost"}
             onClick={() => setFilterTab("CLEAR")}
-            className={`h-7 text-xs font-semibold px-2.5 ${
+            className={`h-7 text-xs font-semibold px-2.5 shrink-0 ${
               filterTab === "CLEAR" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-emerald-700"
             }`}
           >

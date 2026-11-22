@@ -220,14 +220,14 @@ export function SettlementsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeShift && (
             <Button
               onClick={() => setIsTallyModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-sm text-xs sm:text-sm"
             >
-              <Calculator className="w-4 h-4" />
-              Tally & Close Register (₹{Number(activeShift.expected_cash || 0).toFixed(2)})
+              <Calculator className="w-4 h-4 shrink-0" />
+              <span>Tally & Close Register (₹{Number(activeShift.expected_cash || 0).toFixed(2)})</span>
             </Button>
           )}
           <Button
@@ -242,24 +242,24 @@ export function SettlementsPage() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b pb-2">
+      <div className="flex items-center gap-2 border-b pb-2 overflow-x-auto max-w-full">
         <button
           onClick={() => setActiveTab("shifts")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "shifts"
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${activeTab === "shifts"
             ? "bg-slate-900 text-white shadow-sm"
             : "text-slate-600 hover:bg-slate-100"
             }`}
         >
-          <Layers className="w-4 h-4" /> Cashier Shifts & Day-End Drawer Settlements
+          <Layers className="w-4 h-4 shrink-0" /> Cashier Shifts & Day-End Settlements
         </button>
         <button
           onClick={() => setActiveTab("daybook")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "daybook"
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${activeTab === "daybook"
             ? "bg-slate-900 text-white shadow-sm"
             : "text-slate-600 hover:bg-slate-100"
             }`}
         >
-          <BookOpen className="w-4 h-4" /> Daybook (Roznamcha Daily Accounts)
+          <BookOpen className="w-4 h-4 shrink-0" /> Daybook (Roznamcha)
         </button>
       </div>
 

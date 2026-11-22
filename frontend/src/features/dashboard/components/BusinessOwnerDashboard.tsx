@@ -66,7 +66,7 @@ export function BusinessOwnerDashboard({ branchId, liveEvents }: BusinessOwnerDa
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
           <Button
             onClick={() => setShowCollectModal(true)}
             className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md"

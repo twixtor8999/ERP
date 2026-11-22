@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useId } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Phone,
@@ -156,6 +157,20 @@ export function CrmTelecallerPortalPage() {
   const [activeView, setActiveView] = useState<CrmSubView>("home");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Prevent background body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isMobileMenuOpen]);
 
   // Home Summary & Incentive data
   const [summary, setSummary] = useState<TelecallerSummary>({
@@ -766,19 +781,38 @@ export function CrmTelecallerPortalPage() {
 
       {/* ======================================================== */}
       {/* MOBILE LEFT DRAWER NAVIGATION (Phone Hamburger View)      */}
+      {/* Portaled directly to document.body to prevent containing-block trap */}
       {/* ======================================================== */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex">
+      {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex select-none"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "100dvh",
+            width: "100vw",
+          }}
+        >
           {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
             onClick={() => setIsMobileMenuOpen(false)}
+            onTouchMove={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
           />
 
-          {/* Slide-out drawer panel */}
-          <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-            {/* Drawer Header */}
-            <div className="p-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white flex items-center justify-between">
+          {/* Slide-out drawer panel with fixed height and contained overscroll */}
+          <div
+            className="relative w-72 max-w-[85vw] bg-white h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
+            style={{ height: "100dvh", maxHeight: "100dvh" }}
+          >
+            {/* Drawer Header - Permanently Pinned */}
+            <div className="p-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-amber-400 text-blue-950 font-black text-base flex items-center justify-center shadow-sm">
                   {userInitial}
@@ -801,14 +835,14 @@ export function CrmTelecallerPortalPage() {
               </button>
             </div>
 
-            {/* Quick Incentive Pill in Drawer */}
-            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200/60 flex items-center justify-between text-xs">
+            {/* Quick Incentive Pill in Drawer - Pinned */}
+            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200/60 flex items-center justify-between text-xs shrink-0">
               <span className="font-semibold text-amber-900">Month Incentive</span>
               <span className="font-extrabold text-amber-700 font-mono">₹{summary.monthly_incentive_earned}</span>
             </div>
 
-            {/* Navigation Links list */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            {/* Navigation Links list with overscroll containment */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 overscroll-contain touch-pan-y">
               {[
                 { id: "home", label: "Home Dashboard", icon: Building2 },
                 { id: "targets", label: "My Targets", icon: Target },
@@ -855,8 +889,8 @@ export function CrmTelecallerPortalPage() {
               )}
             </div>
 
-            {/* Drawer Footer */}
-            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+            {/* Drawer Footer - Permanently Pinned */}
+            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs shrink-0">
               <div>
                 <p className="text-[10px] text-slate-500 font-medium">Assigned Hub</p>
                 <p className="text-xs font-bold text-slate-800">{activeBranch?.name || "Vijayapura Central Hub"}</p>
@@ -876,7 +910,8 @@ export function CrmTelecallerPortalPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Main Responsive Canvas with Smooth Animated Page Transition */}
