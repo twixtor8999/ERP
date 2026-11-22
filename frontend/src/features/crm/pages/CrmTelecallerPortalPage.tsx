@@ -30,6 +30,12 @@ import {
   Menu,
   Camera,
   Image as ImageIcon,
+  Globe,
+  Info,
+  Shield,
+  KeyRound,
+  ChevronRight,
+  BadgeCheck,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -662,8 +668,44 @@ export function CrmTelecallerPortalPage() {
 
   const userName = user?.fullName?.trim() || "Pushpa Patil";
   const userInitial = (userName[0] || "P").toUpperCase();
+  const userDoubleInitials = useMemo(() => {
+    const parts = userName.split(/\s+/);
+    const first = parts[0] || "";
+    const second = parts[1] || "";
+    if (first && second) {
+      return (first.charAt(0) + second.charAt(0)).toUpperCase();
+    }
+    return userName.slice(0, 2).toUpperCase();
+  }, [userName]);
 
-  // Password change in Profile
+  const userEmployeeId = useMemo(() => {
+    const u = user as any;
+    if (u?.employee_code) return u.employee_code;
+    if (u?.staff_code) return u.staff_code;
+    if (u?.employee_id) return u.employee_id;
+    return "EMP-0003";
+  }, [user]);
+
+  const userPhone = user?.phone || "9663447859";
+  const userRoleFormatted = user?.role?.toUpperCase().includes("ADMIN") ? "Super Admin" : "Telecaller/CRM";
+
+  const loggedInSince = useMemo(() => {
+    const d = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+  }, []);
+
+  // Profile page states
+  const [profileSearch, setProfileSearch] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -4316,12 +4358,14 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: MY PROFILE (STAFF DETAILS & PASSWORD CHANGE)       */}
+          {/* VIEW: MY PROFILE (EXACT 1:1 TO SCREENSHOT FOR ALL STAFF) */}
           {/* ======================================================== */}
           {activeView === "profile" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
+              {/* Header: Blue bar with Back arrow and Hamburger menu */}
               <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setActiveView("home")}
                   className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
                   title="Back to Home"
@@ -4329,6 +4373,7 @@ export function CrmTelecallerPortalPage() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsMobileMenuOpen(true)}
                   className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
                   title="Open Menu"
@@ -4337,92 +4382,226 @@ export function CrmTelecallerPortalPage() {
                 </button>
                 <h2 className="text-base font-bold text-white tracking-tight">My Profile</h2>
               </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4 max-w-md mx-auto">
-                {/* Avatar & Info */}
-                <div className="text-center space-y-2">
-                  <div className="w-16 h-16 rounded-full bg-[#facc15] text-slate-900 font-extrabold text-2xl flex items-center justify-center mx-auto shadow-md">
-                    {(user?.fullName || "P")[0]}
+
+              <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50">
+                {/* Title & Search bar */}
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 mb-2">My profile</h3>
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search in this page..."
+                      value={profileSearch}
+                      onChange={(e) => setProfileSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 text-xs font-medium border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                    />
                   </div>
+                </div>
+
+                {/* Hero Blue Profile Card */}
+                <div className="rounded-2xl bg-[#0a48b3] p-4 sm:p-5 text-white flex items-center gap-4 shadow-sm">
+                  {/* Avatar circle with initials */}
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white text-blue-950 font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-sm font-mono">
+                    {userDoubleInitials}
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
+                      {userName}
+                    </h4>
+                    <p className="text-xs text-blue-100 font-medium font-mono">
+                      +91 {userPhone}
+                    </p>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <span className="px-2.5 py-0.5 rounded-full bg-white text-slate-900 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-2xs">
+                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                        <span>Verified</span>
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-800/80 text-white text-[10px] sm:text-[11px] font-medium">
+                        {userRoleFormatted}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 1: Personal Information Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Personal Information
+                  </h4>
+
+                  <div className="divide-y divide-slate-100 text-xs">
+                    {/* Full Name */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span>Full Name</span>
+                      </div>
+                      <span className="font-bold text-slate-800 text-right">{userName}</span>
+                    </div>
+
+                    {/* Mobile Number */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span>Mobile Number</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                    </div>
+
+                    {/* Business */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        <span>Business</span>
+                      </div>
+                      <span className="font-bold text-slate-800 text-right uppercase">SIDDESHWAR ENTERPRISES</span>
+                    </div>
+
+                    {/* Role */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Shield className="w-4 h-4 text-slate-400" />
+                        <span>Role</span>
+                      </div>
+                      <span className="font-bold text-slate-800 text-right">{userRoleFormatted}</span>
+                    </div>
+
+                    {/* Employee ID */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <BadgeCheck className="w-4 h-4 text-slate-400" />
+                        <span>Employee ID</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-800 text-right">{userEmployeeId}</span>
+                    </div>
+
+                    {/* Login name */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <KeyRound className="w-4 h-4 text-slate-400" />
+                        <span>Login name</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                    </div>
+
+                    {/* Logged in since */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Clock className="w-4 h-4 text-slate-400" />
+                        <span>Logged in since</span>
+                      </div>
+                      <span className="font-medium text-slate-700 text-right">{loggedInSince}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Preferences Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Preferences
+                  </h4>
+
+                  <div className="divide-y divide-slate-100 text-xs">
+                    {/* Language */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Globe className="w-4 h-4 text-slate-400" />
+                        <span>Language</span>
+                      </div>
+                      <select className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600">
+                        <option value="en">English</option>
+                        <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                      </select>
+                    </div>
+
+                    {/* App version */}
+                    <div className="py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <Info className="w-4 h-4 text-slate-400" />
+                        <span>App version</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-800">5.08</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Account Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Account
+                  </h4>
+
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">{user?.fullName || "Pushpa Patil"}</h3>
-                    <p className="text-xs text-blue-700 font-semibold">{user?.role || "Telecaller & CRM Sales"}</p>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">{user?.phone || user?.email || "9663447859"}</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword((prev) => !prev)}
+                      className="w-full py-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors rounded-lg px-1"
+                    >
+                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                        <KeyRound className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700 font-medium">Reset password</span>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showResetPassword ? "rotate-90" : ""}`} />
+                    </button>
+
+                    {showResetPassword && (
+                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 animate-in fade-in duration-150">
+                        <Input
+                          type="password"
+                          placeholder="Old Password"
+                          value={oldPassword}
+                          onChange={(e) => setOldPassword(e.target.value)}
+                          className="h-8 text-xs rounded-xl"
+                        />
+                        <Input
+                          type="password"
+                          placeholder="New Password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="h-8 text-xs rounded-xl"
+                        />
+                        <Input
+                          type="password"
+                          placeholder="Confirm New Password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="h-8 text-xs rounded-xl"
+                        />
+                        <Button
+                          onClick={() => {
+                            if (!newPassword || newPassword !== confirmPassword) {
+                              toast.error("Passwords do not match or are empty");
+                              return;
+                            }
+                            toast.success("Password Updated Successfully");
+                            setOldPassword("");
+                            setNewPassword("");
+                            setConfirmPassword("");
+                            setShowResetPassword(false);
+                          }}
+                          className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2 rounded-xl text-xs cursor-pointer active:scale-95"
+                        >
+                          Update Password
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Employee ID:</span>
-                    <span className="font-mono font-bold">EMP-004</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Assigned Hub:</span>
-                    <span className="font-semibold">Vijayapura Central Hub</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Incentive Status:</span>
-                    <span className="text-emerald-600 font-bold">Active (₹610 Earned)</span>
-                  </div>
-                </div>
-
-                {/* Password Change Form */}
-                <div className="pt-2 border-t border-slate-100 space-y-2.5">
-                  <h4 className="text-xs font-bold text-slate-800">Change Password</h4>
-                  <Input
-                    type="password"
-                    placeholder="Old Password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className="h-8 text-xs rounded-xl"
-                  />
-                  <Input
-                    type="password"
-                    placeholder="New Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="h-8 text-xs rounded-xl"
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Confirm New Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="h-8 text-xs rounded-xl"
-                  />
-                  <Button
-                    onClick={() => {
-                      if (!newPassword || newPassword !== confirmPassword) {
-                        toast.error("Passwords do not match or are empty");
-                        return;
-                      }
-                      toast.success("Password Updated Successfully");
-                      setOldPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    }}
-                    className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2 rounded-xl text-xs cursor-pointer active:scale-95"
-                  >
-                    Update Password
-                  </Button>
-                </div>
-
-                {/* Sign Out */}
-                <div className="pt-2 border-t border-slate-100">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      logout();
-                      navigate("/login");
-                    }}
-                    className="w-full text-red-600 border-red-200 hover:bg-red-50 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
-                  </Button>
-                </div>
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                  }}
+                  className="w-full py-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-98 shadow-2xs"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
               </div>
-            </div>
             </div>
           )}
         </div>
