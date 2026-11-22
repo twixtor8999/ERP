@@ -716,68 +716,57 @@ export function CrmTelecallerPortalPage() {
     user?.role?.toLowerCase().includes("manager");
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 pb-8 select-none antialiased font-sans">
-      {/* ======================================================== */}
-      {/* 1. TOP HEADER (Exact Siddeshwar Enterprises Banner)      */}
-      {/* ======================================================== */}
-      <header className={activeView === "home" ? "sticky top-0 z-40 bg-[#1e3a8a] text-white px-4 py-2.5 shadow-md flex items-center justify-between" : "hidden"}>
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Hamburger Menu Toggle on Left for Both Mobile and Desktop */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 text-white transition-colors cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
-            title="Open Menu"
-            aria-label="Open CRM Navigation Menu"
-          >
-            <Menu className="w-5 h-5 text-white" />
-          </button>
+    <div className="min-h-screen bg-gradient-to-b from-[#0d1b4c] via-[#0f3aa8] to-[#eef1f8] py-0 sm:py-6 px-0 sm:px-4 flex justify-center items-start select-none antialiased font-sans relative">
+      {/* Floating Synced Badge matching Screenshot on the left */}
+      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-30 hidden 2xl:flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200/80 text-xs font-semibold text-slate-700">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <span>Synced {syncTime || "07:30 pm"}</span>
+      </div>
 
-          <div>
-            <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
-              Home
-            </h1>
-            <p className="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest leading-none mt-0.5">
-              SIDDESHWAR ENTERPRISES
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {isUserAdmin && (
-            <Link
-              to="/dashboard"
-              className="hidden sm:flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-900 hover:bg-blue-800 text-blue-200 border border-blue-500/30 transition-colors"
+      {/* Main 820px Card Container matching Reference Screenshot */}
+      <div className="w-full max-w-[820px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60">
+        {/* Card Header matching Screenshot: ☰ Home | SIDDESHWAR ENTERPRISES */}
+        <header className="bg-[#1e3a8a] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-1.5 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
+              aria-label="Open Navigation Menu"
             >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>ERP Admin</span>
-            </Link>
-          )}
+              <Menu className="w-5 h-5 text-white" />
+            </button>
+            <div>
+              <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
+                {activeView === "home" ? "Home" : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+              </h1>
+              <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
+                SIDDESHWAR ENTERPRISES
+              </p>
+            </div>
+          </div>
 
-          <Badge variant="outline" className="text-[10px] bg-blue-900/60 text-blue-200 border-blue-400/30 hidden sm:inline-flex">
-            {activeBranch?.name || "Vijayapura HQ"}
-          </Badge>
-
-          {/* User Initial Circle Avatar (P for Pushpa, R for Ramesh) */}
-          <button
-            onClick={() => setActiveView("profile")}
-            className="w-8 h-8 rounded-full bg-[#facc15] text-slate-900 font-black text-sm flex items-center justify-center shadow-xs cursor-pointer active:scale-95 shrink-0"
-            title="My Profile"
-          >
-            {userInitial}
-          </button>
-          <button
-            onClick={() => {
-              loadDashboardData();
-              loadReportsAndOrders();
-              toast.info("Refreshed live data from Central Depot");
-            }}
-            title="Refresh"
-            className="p-1.5 rounded-full hover:bg-blue-800 text-blue-200 transition-colors cursor-pointer active:scale-90"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </header>
+          <div className="flex items-center gap-2">
+            {activeView !== "home" && (
+              <button
+                onClick={() => setActiveView("home")}
+                className="px-2.5 py-1 rounded bg-blue-800/80 hover:bg-blue-700 text-xs text-white font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <span>Home</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                loadDashboardData();
+                loadReportsAndOrders();
+                toast.info("Refreshed live data from Central Depot");
+              }}
+              title="Refresh"
+              className="p-1.5 rounded-full hover:bg-blue-800 text-blue-200 transition-colors cursor-pointer active:scale-90"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </header>
 
       {/* ======================================================== */}
       {/* MOBILE LEFT DRAWER NAVIGATION (Phone Hamburger View)      */}
@@ -915,7 +904,7 @@ export function CrmTelecallerPortalPage() {
       )}
 
       {/* Main Responsive Canvas with Smooth Animated Page Transition */}
-      <main className="max-w-4xl mx-auto p-3 sm:p-5 pb-12 sm:pb-16">
+      <main className="w-full p-3 sm:p-5 pb-12 flex-1">
         <div
           key={activeView}
           className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
@@ -925,8 +914,8 @@ export function CrmTelecallerPortalPage() {
           {/* ======================================================== */}
           {activeView === "home" && (
             <div className="space-y-4">
-              {/* Blue Greeting Banner with Real-time Punch-in Live Tracking */}
-              <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-md space-y-3">
+              {/* Blue Greeting Banner matching Screenshot 1:1 */}
+              <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-sm space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs text-blue-200 font-medium">
@@ -935,23 +924,17 @@ export function CrmTelecallerPortalPage() {
                     <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                       {userName}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
-                      <p className="text-xs text-blue-200 font-medium">
-                        {new Date().toLocaleDateString("en-US", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px] border border-emerald-400/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        ⏱ {formatPunchDuration(punchSeconds)} active today
-                      </span>
-                    </div>
+                    <p className="text-xs text-blue-200 font-medium mt-1">
+                      {new Date().toLocaleDateString("en-IN", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
                   </div>
 
-                  {/* Dynamic Circular User Initial Avatar (e.g. P for Pushpa, R for Ramesh) */}
+                  {/* Dynamic Circular User Initial Avatar (e.g. P for Pushpa) */}
                   <button
                     onClick={() => setActiveView("profile")}
                     className="w-12 h-12 rounded-full bg-[#facc15] text-slate-900 font-black text-2xl flex items-center justify-center shadow-md shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
@@ -1292,64 +1275,28 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: CALLINGS (ROUTE-BY-ROUTE TELECALLING RUN-SHEET)    */}
-          {/* EXACT 1:1 MATCH TO CRM REFERENCE SCREENSHOT              */}
+          {/* VIEW: CALLINGS (EXACT 1:1 MATCH TO LEGACY APP VW.call)   */}
           {/* ======================================================== */}
           {activeView === "callings" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              {/* Card Header matching screenshot: < ≡ Callings */}
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">Callings</h2>
+            <div className="space-y-3.5">
+              {/* Header Title with Subtitle matching VW.call */}
+              <div className="pb-1">
+                <h2 className="text-lg font-bold text-slate-900">Callings</h2>
+                <p className="text-xs text-slate-500">Pick a route, go village by village, call each customer and take the order</p>
               </div>
 
-              <div className="p-4 sm:p-5 space-y-4">
-                {/* Search Bar matching screenshot */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <input
-                    type="text"
-                    placeholder="Search in this page..."
-                    value={callingSearch}
-                    onChange={(e) => setCallingSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white text-slate-800 placeholder:text-slate-400"
-                  />
-                </div>
-
-                {/* 4 Dropdowns and Pagination Controls in Single Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-[1.1fr_1.1fr_1fr_1.2fr_auto] gap-2.5 items-end">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Beat Day</label>
-                    <select
-                      value={selectedBeatDay}
-                      onChange={(e) => setSelectedBeatDay(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    >
-                      {BEAT_DAYS.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Route Name</label>
+              {/* Route & Village Filter Card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[180px] flex-1">
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Route</label>
                     <select
                       value={selectedRoute}
-                      onChange={(e) => setSelectedRoute(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      onChange={(e) => {
+                        setSelectedRoute(e.target.value);
+                        setSelectedVillage("All villages");
+                      }}
+                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
                       {routes.map((r) => (
                         <option key={r} value={r}>{r}</option>
@@ -1357,128 +1304,129 @@ export function CrmTelecallerPortalPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Village Key</label>
-                    <select
-                      value={selectedVillageKey}
-                      onChange={(e) => setSelectedVillageKey(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    >
-                      {VILLAGE_KEYS.map((k) => (
-                        <option key={k} value={k}>{k}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Village</label>
+                  <div className="min-w-[240px] flex-1">
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village</label>
                     <select
                       value={selectedVillage}
                       onChange={(e) => setSelectedVillage(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
-                      {availableVillages.map((v) => (
+                      <option value="All villages">All villages ({availableVillages.length})</option>
+                      {availableVillages.map((v, i) => (
                         <option key={v} value={v}>
-                          {v === "All villages" ? `All villages (${Math.max(1, availableVillages.length - 1)})` : v}
+                          V{i + 1} – {v} ({callingCustomers.filter(c => (c.village || "") === v).length})
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2 col-span-2 sm:col-span-4 lg:col-span-1 justify-end pt-1">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCallingPage(Math.max(1, callingPage - 1))}
-                      className="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 border border-slate-200 rounded-full hover:bg-slate-50 transition-colors"
+                      disabled={availableVillages.indexOf(selectedVillage) <= 0}
+                      onClick={() => {
+                        const idx = availableVillages.indexOf(selectedVillage);
+                        if (idx > 0) setSelectedVillage(availableVillages[idx - 1]);
+                      }}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      ← Previous
+                      ← Previous village
                     </button>
                     <button
-                      onClick={() => setCallingPage(callingPage + 1)}
-                      className="px-4 py-1.5 text-xs font-bold text-white bg-slate-900 rounded-full hover:bg-slate-800 transition-colors active:scale-95"
+                      disabled={availableVillages.indexOf(selectedVillage) >= availableVillages.length - 1}
+                      onClick={() => {
+                        const idx = availableVillages.indexOf(selectedVillage);
+                        if (idx >= 0 && idx < availableVillages.length - 1) setSelectedVillage(availableVillages[idx + 1]);
+                        else if (selectedVillage === "All villages" && availableVillages.length > 0) setSelectedVillage(availableVillages[0]);
+                      }}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
                     >
-                      Next →
+                      Next village →
                     </button>
                   </div>
                 </div>
 
-                {/* Route Summary Line matching screenshot: Sunday · Bijapur · 1 village(s) · 2 customer(s) */}
-                <div className="text-xs text-slate-600 font-medium pt-1">
-                  {selectedBeatDay} · {selectedRoute === "All Routes" ? "Bijapur" : selectedRoute} ·{" "}
-                  {selectedVillage === "All villages" ? `${Math.max(1, availableVillages.length - 1)} village(s)` : selectedVillage} ·{" "}
-                  {filteredCallings.length} customer(s)
-                </div>
+                {/* Route & Village Summary Text */}
+                <p className="text-xs text-slate-500 font-medium">
+                  Route {selectedRoute} · {availableVillages.length} village(s) · {filteredCallings.length} customer(s)
+                  {selectedVillage !== "All villages" && (
+                    <span> · now V{availableVillages.indexOf(selectedVillage) + 1} of {availableVillages.length}: <b>{selectedVillage}</b></span>
+                  )}
+                </p>
+              </div>
 
-                {/* Exact High-Contrast Dark-Themed Table matching screenshot */}
-                <div className="overflow-x-auto rounded-xl border border-slate-800 overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-[#2563eb] text-white">
-                      <tr className="text-xs font-bold">
-                        <th className="py-2.5 px-3 w-10 text-center font-bold">Sl</th>
-                        <th className="py-2.5 px-3 font-bold">Customer Name</th>
-                        <th className="py-2.5 px-3 font-bold">Village</th>
-                        <th className="py-2.5 px-3 font-bold">Village Key</th>
-                        <th className="py-2.5 px-3 font-bold">Mobile No</th>
-                        <th className="py-2.5 px-3 font-bold">Last order</th>
-                        <th className="py-2.5 px-3 text-center font-bold"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-[#0b1727] text-white divide-y divide-slate-800/80">
-                      {filteredCallings.map((c, idx) => (
-                        <tr key={c.id} className="hover:bg-[#11243f] transition-colors">
-                          <td className="py-3 px-3 text-center font-mono text-blue-400 font-semibold">{idx + 1}</td>
-                          <td className="py-3 px-3">
-                            <div
+              {/* Exact Clean White Table matching VW.call */}
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[11px]">
+                    <tr>
+                      <th className="py-2.5 px-3 w-10 text-center font-bold">Sl</th>
+                      <th className="py-2.5 px-3 font-bold">Customer Name</th>
+                      <th className="py-2.5 px-3 font-bold">Mobile No</th>
+                      <th className="py-2.5 px-3 font-bold">Last order</th>
+                      <th className="py-2.5 px-3 font-bold">Days since</th>
+                      <th className="py-2.5 px-3 font-bold">Balance</th>
+                      <th className="py-2.5 px-3 text-right font-bold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {filteredCallings.map((c, idx) => (
+                      <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-3 text-center font-mono text-slate-400 font-medium">{idx + 1}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-slate-900 text-sm">{c.display_name || c.name}</div>
+                          {c.shop_name && <div className="text-[11px] text-slate-400">{c.shop_name}</div>}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-600">
+                          <span className="select-all">{c.phone}</span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-medium">{c.last_order_date || "Never"}</td>
+                        <td className="py-3 px-3">
+                          <span className={c.last_order_date ? "text-slate-700" : "text-slate-400"}>
+                            {c.last_order_date ? "2" : "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-800">
+                          {c.current_balance > 0 ? `₹${c.current_balance.toLocaleString("en-IN")}` : "0"}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <a
+                              href={`tel:+91${c.phone}`}
+                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center gap-1 shadow-xs transition-colors"
+                            >
+                              <span>📞 Call</span>
+                            </a>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(c.phone);
+                                toast.success(`Copied: ${c.phone}`);
+                              }}
+                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
+                            >
+                              Copy
+                            </button>
+                            <button
                               onClick={() => {
                                 setOrderCustomer(c);
                                 setActiveView("place-order");
                               }}
-                              className="font-bold text-blue-400 text-sm hover:underline cursor-pointer"
+                              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                             >
-                              {c.display_name || c.name}
-                            </div>
-                            <div className="text-[11px] text-slate-400">{c.shop_name}</div>
-                          </td>
-                          <td className="py-3 px-3 text-blue-400 font-medium">{c.village || "Bijapur (Rural)"}</td>
-                          <td className="py-3 px-3 text-slate-300 font-mono">{c.village_key || "Nil"}</td>
-                          <td className="py-3 px-3">
-                            <a href={`tel:${c.phone}`} className="text-blue-400 font-mono font-bold hover:underline">
-                              {c.phone}
-                            </a>
-                          </td>
-                          <td className="py-3 px-3 text-slate-300 font-mono">{c.last_order_date || "20-11-2026"}</td>
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex items-center gap-1.5 justify-center">
-                              <a
-                                href={`tel:${c.phone}`}
-                                onClick={() => setActiveCallCust(c)}
-                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
-                              >
-                                <Phone className="w-3.5 h-3.5 fill-current" />
-                                <span>Call Now</span>
-                              </a>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(c.phone);
-                                  toast.success(`Copied ${c.phone}`);
-                                }}
-                                className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold shadow-xs border border-slate-200 active:scale-95 transition-all cursor-pointer"
-                              >
-                                Copy
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredCallings.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
-                            No customer calls found for the selected beat day or route.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                              Place Order
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredCallings.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-400 text-xs font-medium">
+                          No customers in this village.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -2683,6 +2631,7 @@ export function CrmTelecallerPortalPage() {
           )}
         </div>
       </main>
+      </div>
 
       {/* ======================================================== */}
       {/* INCENTIVE PRODUCT DETAIL & QUICK ACTION MODAL            */}

@@ -113,6 +113,14 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
+    path: "/crm",
+    element: (
+      <ProtectedRoute>
+        <CrmTelecallerPortalPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/",
     element: (
       <ProtectedRoute>
@@ -158,7 +166,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "crm",
-        element: <CrmTelecallerPortalPage />,
+        element: <Navigate to="/crm" replace />,
       },
       {
         path: "customers",
