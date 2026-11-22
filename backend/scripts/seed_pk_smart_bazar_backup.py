@@ -27,7 +27,12 @@ from app.models import (
     Warehouse,
 )
 
-BACKUP_FILE = r"c:\Users\sanju\Desktop\PK-Smart-Bazar-FULL-backup-2026-11-21.json"
+BACKUP_PATHS = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "PK-Smart-Bazar-FULL-backup-2026-11-21.json")),
+    r"c:\Users\sanju\Desktop\ERP\PK-Smart-Bazar-FULL-backup-2026-11-21.json",
+    r"c:\Users\sanju\Desktop\PK-Smart-Bazar-FULL-backup-2026-11-21.json",
+]
+BACKUP_FILE = next((p for p in BACKUP_PATHS if os.path.exists(p)), BACKUP_PATHS[0])
 
 
 def slugify(text: str) -> str:
@@ -398,6 +403,12 @@ def seed_backup():
         # 6. Customers (all 2,169 from cust)
         cust_list = pk3d.get("cust", [])
         seeded_customers = 0
+        existing_phones = set(
+            row[0] for row in db.query(Customer.phone).filter(Customer.organization_id == org.id).all() if row[0]
+        )
+        existing_codes = set(
+            row[0] for row in db.query(Customer.customer_code).filter(Customer.organization_id == org.id).all() if row[0]
+        )
         for idx, c in enumerate(cust_list):
             c_name = (c.get("name") or "").strip() or f"Customer {idx+1}"
             shop = (c.get("shop") or "").strip()
@@ -407,12 +418,7 @@ def seed_backup():
                 phone = f"90000{idx:05d}"
             code = f"CUST-{idx+1:05d}"
 
-            existing_c = db.query(Customer).filter(
-                Customer.organization_id == org.id,
-                (Customer.phone == phone) | (Customer.customer_code == code),
-            ).first()
-
-            if not existing_c:
+            if phone not in existing_phones and code not in existing_codes:
                 new_c = Customer(
                     id=str(uuid.uuid4()),
                     organization_id=org.id,
@@ -429,11 +435,13 @@ def seed_backup():
                     is_active=True,
                 )
                 db.add(new_c)
+                existing_phones.add(phone)
+                existing_codes.add(code)
                 seeded_customers += 1
 
             if seeded_customers % 500 == 0 and seeded_customers > 0:
-                db.commit()
-                print(f"  Committed {seeded_customers} customers...")
+                db.flush()
+                print(f"  Flushed {seeded_customers} customers...")
 
         db.commit()
         print(f"Successfully ingested {seeded_customers} Kirana retail store customers!")
