@@ -6,6 +6,7 @@ import {
   Lock,
   Loader2,
   ArrowRight,
+  ArrowLeft,
   ShoppingCart,
   Users,
   Receipt,
@@ -92,17 +93,15 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-white text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
-      {/* Top Application Header matching Screenshot 1 */}
+      {/* Top Application Header matching Screenshot 4 */}
       <header className="h-14 sm:h-16 px-4 sm:px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
-            <ShoppingCart className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2 leading-tight">
-            <span className="font-extrabold text-amber-500 text-sm sm:text-base tracking-tight">
+          <ShoppingCart className="w-5 h-5 text-blue-600" />
+          <div className="flex flex-col leading-tight">
+            <span className="font-extrabold text-[#d97706] text-sm sm:text-base tracking-tight">
               PK Ai Smart Bazar
             </span>
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-600">
               BILLING SOFTWARE
             </span>
           </div>
@@ -111,7 +110,7 @@ export function LoginPage() {
 
       {/* Main Split-Screen Canvas */}
       <div className="flex-1 flex flex-col lg:flex-row">
-        {/* Left Side: Retail Photography & Operations Value Prop matching Screenshot 1 */}
+        {/* Left Side: Retail Photography & Operations Value Prop matching Screenshot 4 */}
         <div className="relative hidden lg:flex lg:w-[60%] xl:w-[62%] bg-slate-900 overflow-hidden items-end p-8 xl:p-14 shrink-0">
           <img
             src="/family-shopping.jpg"
@@ -128,25 +127,25 @@ export function LoginPage() {
               <span className="text-slate-100 font-bold">all in one app</span>
             </h2>
 
-            {/* 5 Operational Badges matching Screenshot 1 */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-2">
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
+            {/* 5 Operational Badges matching Screenshot 4 */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>CRM</span>
               </div>
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <Receipt className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>Billing</span>
               </div>
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>GST</span>
               </div>
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <Package className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>Inventory</span>
               </div>
-              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <BarChart3 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>Reports</span>
               </div>
@@ -154,27 +153,37 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Right Side: Single Clean Login Card matching Screenshot 1 */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:p-12 bg-white">
-          <div className="w-full max-w-md bg-white sm:border sm:border-slate-100 sm:rounded-2xl sm:shadow-lg sm:shadow-slate-100 p-6 sm:p-8 space-y-6 relative">
-            {/* Siddeshwar Brand Seal & Title matching Screenshot 1 */}
-            <div className="text-center space-y-2">
-              <div className="inline-block relative">
-                <img
-                  src="/pk-ai-logo.png"
-                  alt="PK AI Smart Bazar Logo"
-                  className="w-20 h-20 rounded-2xl object-contain border border-slate-200 shadow-sm mx-auto bg-white p-1.5"
-                />
+        {/* Right Side: Single Clean Login Card matching Screenshot 4 */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 bg-white">
+          <div className="w-full max-w-md">
+            {/* Back to home link matching Screenshot 4 */}
+            <button
+              type="button"
+              onClick={() => navigate("/home")}
+              className="text-[#1e3a8a] hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 mb-4 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to home
+            </button>
+
+            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-100 p-6 sm:p-8 space-y-6 relative">
+              {/* 3rd Image: Circular Siddeshwar Enterprises Logo */}
+              <div className="text-center space-y-3">
+                <div className="inline-block relative">
+                  <img
+                    src="/siddeshwar-logo.png"
+                    alt="Siddeshwar Enterprises Logo"
+                    className="w-24 h-24 rounded-full object-contain mx-auto shadow-md border-2 border-amber-600/30 p-0.5 bg-white"
+                  />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#1e3a8a] uppercase">
+                    SIDDESHWAR ENTERPRISES
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Welcome back! Sign in to continue
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#1e3a8a] uppercase">
-                  SIDDESHWAR ENTERPRISES
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                  Welcome back! Sign in to continue
-                </p>
-              </div>
-            </div>
 
             {/* Single Clean Login Form (No Public Sign-Up) */}
             <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-4">
@@ -264,6 +273,7 @@ export function LoginPage() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
