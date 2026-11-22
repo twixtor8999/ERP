@@ -1,0 +1,199 @@
+import { useState } from "react";
+import { toast } from "sonner";
+import {
+  getStoredVehicles,
+  getStoredTrips,
+  saveStoredTrips,
+  type VehicleTripRecord,
+} from "../data/mockVehicles";
+
+interface CreateTripModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onTripCreated?: () => void;
+}
+
+export function WholesaleCreateTripModal({
+  isOpen,
+  onClose,
+  onTripCreated,
+}: CreateTripModalProps) {
+  const vehicles = getStoredVehicles();
+  const [selectedVehId, setSelectedVehId] = useState<string>(
+    vehicles[0]?.id ? String(vehicles[0].id) : ""
+  );
+
+  // Mock pending invoiced orders ready to load onto a vehicle
+  const [invoicedOrders, setInvoicedOrders] = useState([
+    {
+      id: 201,
+      no: "INV-2026-1045",
+      custName: "Sri Basaveshwar Stores",
+      village: "Basavan Bagewadi",
+      amount: 14200,
+      checked: true,
+    },
+    {
+      id: 202,
+      no: "INV-2026-1046",
+      custName: "Mamadapur Daily Mart",
+      village: "Mamadapur",
+      amount: 9800,
+      checked: true,
+    },
+    {
+      id: 203,
+      no: "INV-2026-1047",
+      custName: "Lakshmi General Stores",
+      village: "Tikota",
+      amount: 11400,
+      checked: false,
+    },
+  ]);
+
+  if (!isOpen) return null;
+
+  const handleToggleOrder = (id: number) => {
+    setInvoicedOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, checked: !o.checked } : o))
+    );
+  };
+
+  const handleCreateTrip = (e: React.FormEvent) => {
+    e.preventDefault();
+    const selVeh = vehicles.find((v) => String(v.id) === selectedVehId);
+    if (!selVeh) {
+      toast.error("Please select a vehicle");
+      return;
+    }
+
+    const selectedOrders = invoicedOrders.filter((o) => o.checked);
+    if (selectedOrders.length === 0) {
+      toast.error("Please select at least one invoiced order to load");
+      return;
+    }
+
+    const orderValue = selectedOrders.reduce((sum, o) => sum + o.amount, 0);
+
+    const newTrip: VehicleTripRecord = {
+      id: Date.now(),
+      date: new Date().toISOString().slice(0, 10),
+      vehId: selVeh.id,
+      vehNo: selVeh.no,
+      model: selVeh.model,
+      ordersCount: selectedOrders.length,
+      orderValue,
+      invoiceAmt: orderValue,
+      returns: 0,
+      netSales: orderValue,
+      startKm: 46100,
+      endKm: 46100,
+      totalKm: 0,
+      fixedRent: 1400,
+      dieselCost: 0,
+      tollCost: 0,
+      otherCost: 0,
+      totalRent: 1400,
+      status: "in_progress",
+      orders: selectedOrders.map((o) => ({
+        id: o.id,
+        no: o.no,
+        custName: o.custName,
+        amount: o.amount,
+      })),
+    };
+
+    const currentTrips = getStoredTrips();
+    saveStoredTrips([newTrip, ...currentTrips]);
+
+    toast.success(`Trip created for ${selVeh.no} with ${selectedOrders.length} orders loaded!`);
+    if (onTripCreated) onTripCreated();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#132038] text-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-slate-700 animate-in fade-in zoom-in-95">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">Create trip</h2>
+          <p className="text-xs text-slate-300 mt-1">
+            Load invoiced orders on a vehicle. They move to Dispatch → Delivery.
+          </p>
+        </div>
+
+        <form onSubmit={handleCreateTrip} className="space-y-4">
+          {/* Vehicle selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Vehicle
+            </label>
+            <select
+              value={selectedVehId}
+              onChange={(e) => setSelectedVehId(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-xs font-semibold bg-white text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.no} – {v.model || v.type}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Invoiced orders to load */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-2">
+              Invoiced orders to load
+            </label>
+
+            {invoicedOrders.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-3">No invoiced orders waiting.</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {invoicedOrders.map((o) => (
+                  <label
+                    key={o.id}
+                    className="flex items-center justify-between p-2.5 bg-slate-800/80 hover:bg-slate-800 rounded-lg border border-slate-700 cursor-pointer text-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={o.checked}
+                        onChange={() => handleToggleOrder(o.id)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                      <div>
+                        <div className="font-bold text-white">{o.no}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {o.custName} · {o.village}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-bold text-emerald-400">₹{o.amount.toLocaleString()}</div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700/80">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 rounded-full transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition-colors"
+            >
+              Create trip
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

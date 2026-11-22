@@ -54,7 +54,17 @@ export const navigationItems: NavItem[] = [
       { title: "3) Route Planner", href: "/customers?tab=routes" },
     ],
   },
-  { title: "Vehicle", href: "/vehicles" },
+  {
+    title: "Vehicle",
+    href: "/vehicles",
+    children: [
+      { title: "1) New Vehicle", href: "/vehicles?tab=new" },
+      { title: "2) Vehicles List", href: "/vehicles?tab=list" },
+      { title: "3) Vehicle Trips", href: "/vehicles?tab=trips" },
+      { title: "4) Create Trip", href: "/vehicles?tab=create-trip" },
+      { title: "5) Diesel Rate", href: "/vehicles?tab=diesel" },
+    ],
+  },
   { title: "Purchase", href: "/purchases" },
   { title: "CRM Report", href: "/crm?view=reports" },
   { title: "Expenses", href: "/expenses" },
