@@ -153,10 +153,10 @@ export const navigationItems: NavItem[] = [
       { title: "1) GST Report", href: "/reports?type=gst" },
       { title: "2) AI Assistant", href: "/reports?type=ai" },
       { title: "AI Cross Check", href: "/reports?type=audit" },
-      { title: "CA Reports", href: "/reports?type=ca" },
-      { title: "P & L", href: "/reports?type=pnl" },
     ],
   },
+  { title: "CA Reports", href: "/reports?type=ca" },
+  { title: "P & L", href: "/reports?type=pnl" },
   { title: "Plans & Billing", href: "/plans-billing" },
   { title: "Duplicate Check", href: "/duplicate-check" },
 ];

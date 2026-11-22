@@ -100,10 +100,20 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return currentPath === "/crm" && currentSearch.includes("reports");
     }
     if (item.href.startsWith("/reports?type=")) {
-      return currentPath === "/reports" && fullUrl === item.href;
+      const typeParam = item.href.split("?")[1] || "";
+      if (item.href === "/reports?type=gst") {
+        return (
+          currentPath === "/reports" &&
+          (!currentSearch || currentSearch === "?type=gst" || currentSearch.includes("type=gst"))
+        );
+      }
+      return currentPath === "/reports" && currentSearch.includes(typeParam);
     }
     if (item.href === "/reports") {
-      return currentPath === "/reports";
+      return (
+        currentPath === "/reports" &&
+        (!currentSearch || currentSearch === "?type=gst" || currentSearch.includes("type=gst"))
+      );
     }
     if (item.href.startsWith("/inventory?tab=")) {
       const tabParam = item.href.split("?")[1] || "";
