@@ -1,9 +1,10 @@
 export interface NavItem {
   title: string;
   href: string;
-  iconName: string;
+  iconName?: string;
   badge?: string;
   disabled?: boolean;
+  isSectionHeader?: boolean;
   children?: NavItem[];
 }
 
@@ -12,111 +13,50 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export const navigationConfig: NavSection[] = [
+/**
+ * Authoritative 23-tab Super Admin menu structure exactly matching
+ * https://siddeshwar-enterprises.web.app/ (PK Ai Smart Bazar v5.08)
+ */
+export const navigationItems: NavItem[] = [
+  { title: "Home Page", href: "/home" },
+  { title: "Dashboard", href: "/dashboard" },
+  { title: "Place Order", href: "/pos" },
+  { title: "Callings", href: "/crm?view=callings" },
+  { title: "Orders", href: "/orders" },
+  { title: "Settlement", href: "/settlements" },
+  { title: "Sales vs Collection", href: "/payments" },
+  { title: "Accounts", href: "/accounts" },
+  { title: "QR Payments", href: "/payments?tab=upi" },
+  { title: "B2B", href: "/crm?view=b2b" },
+  { title: "Customer", href: "/customers" },
+  { title: "Vehicle", href: "/vehicles" },
+  { title: "Purchase", href: "/purchases" },
+  { title: "CRM Report", href: "/crm?view=reports" },
+  { title: "Expenses", href: "/expenses" },
+  { title: "Inventory", href: "/inventory" },
+  { title: "Stock Split", href: "/inventory?tab=split" },
+  { title: "SKU's", href: "/products" },
+  { title: "Employees", href: "/employees" },
+  { title: "Incentive Scheme", href: "/incentives" },
   {
-    title: "Overview",
-    items: [
-      {
-        title: "Business Today",
-        href: "/dashboard",
-        iconName: "LayoutDashboard",
-      },
+    title: "Reports",
+    href: "/reports",
+    children: [
+      { title: "1) GST Report", href: "/reports?type=gst" },
+      { title: "2) AI Assistant", href: "/reports?type=ai" },
+      { title: "AI Cross Check", href: "/reports?type=audit" },
+      { title: "CA Reports", href: "/reports?type=ca" },
+      { title: "P & L", href: "/reports?type=pnl" },
     ],
   },
-  {
-    title: "Products & Stock",
-    items: [
-      {
-        title: "Products Catalog",
-        href: "/products",
-        iconName: "Package",
-      },
-      {
-        title: "Stock & Inventory",
-        href: "/inventory",
-        iconName: "Boxes",
-      },
-      {
-        title: "Purchase Orders",
-        href: "/purchases",
-        iconName: "Truck",
-      },
-      {
-        title: "Suppliers & Vendors",
-        href: "/suppliers",
-        iconName: "Building2",
-      },
-    ],
-  },
-  {
-    title: "Sales & Bills",
-    items: [
-      {
-        title: "Billing Counter (POS)",
-        href: "/pos",
-        iconName: "Receipt",
-      },
-      {
-        title: "Bills History & Orders",
-        href: "/orders",
-        iconName: "ShoppingCart",
-      },
-      {
-        title: "Home Deliveries",
-        href: "/deliveries",
-        iconName: "Truck",
-      },
-      {
-        title: "Daily Cash & Drawer",
-        href: "/settlements",
-        iconName: "ArrowLeftRight",
-      },
-    ],
-  },
-  {
-    title: "Customers & Khata",
-    items: [
-      {
-        title: "Customer Directory & Khata",
-        href: "/customers",
-        iconName: "Users",
-      },
-      {
-        title: "Telecaller CRM & Run-Sheet",
-        href: "/crm",
-        iconName: "UserCheck",
-      },
-    ],
-  },
-  {
-    title: "Store & Team",
-    items: [
-      {
-        title: "Staff & Attendance",
-        href: "/employees",
-        iconName: "UserCog",
-      },
-      {
-        title: "Store Branches",
-        href: "/branches",
-        iconName: "GitFork",
-      },
-      {
-        title: "Accounts & Khata Ledger",
-        href: "/accounts",
-        iconName: "BookOpen",
-      },
-      {
-        title: "Business Reports",
-        href: "/reports",
-        iconName: "BarChart3",
-      },
-      {
-        title: "Store Settings & GST",
-        href: "/settings",
-        iconName: "Settings",
-      },
-    ],
-  },
+  { title: "Plans & Billing", href: "/plans-billing" },
+  { title: "Duplicate Check", href: "/duplicate-check" },
 ];
 
+// Retain navigationConfig for backwards compatibility where needed
+export const navigationConfig: NavSection[] = [
+  {
+    title: "Operations",
+    items: navigationItems,
+  },
+];

@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
+import { HomePage } from "@/features/dashboard/pages/HomePage";
 import { NotFoundPage } from "@/components/feedback/NotFound";
 import { StoreLayout } from "@/features/store/components/StoreLayout";
 import { StoreCatalogPage } from "@/features/store/pages/StoreCatalogPage";
@@ -57,7 +58,7 @@ function RoleBasedHomeRedirect() {
   if (role.includes("crm") || role.includes("telecaller")) {
     return <Navigate to="/crm" replace />;
   }
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/home" replace />;
 }
 
 export const router = createBrowserRouter([
@@ -105,11 +106,11 @@ export const router = createBrowserRouter([
   // Internal ERP Routes
   {
     path: "/login",
-    element: <LoginPage initialTab="login" />,
+    element: <LoginPage />,
   },
   {
     path: "/register",
-    element: <LoginPage initialTab="register" />,
+    element: <LoginPage />,
   },
   {
     path: "/",
@@ -122,6 +123,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <RoleBasedHomeRedirect />,
+      },
+      {
+        path: "home",
+        element: <HomePage />,
       },
       {
         path: "dashboard",
