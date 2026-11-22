@@ -955,10 +955,10 @@ export function CrmTelecallerPortalPage() {
         c.google_map_url ||
         (c.village
           ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              [c.village, c.taluka || "Vijayapura", c.district || "Vijayapura", "Karnataka", c.pincode || "586101"]
-                .filter(Boolean)
-                .join(", ")
-            )}`
+            [c.village, c.taluka || "Vijayapura", c.district || "Vijayapura", "Karnataka", c.pincode || "586101"]
+              .filter(Boolean)
+              .join(", ")
+          )}`
           : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([c.shop_name, "Vijayapura", "Karnataka"].join(", "))}`);
       return [
         index + 1,
@@ -1138,13 +1138,13 @@ export function CrmTelecallerPortalPage() {
         prev.map((c) =>
           c.id === targetCustId
             ? {
-                ...c,
-                last_call: {
-                  last_call_at: new Date().toISOString(),
-                  last_remark: noteText,
-                  last_outcome: callOutcome,
-                },
-              }
+              ...c,
+              last_call: {
+                last_call_at: new Date().toISOString(),
+                last_remark: noteText,
+                last_outcome: callOutcome,
+              },
+            }
             : c
         )
       );
@@ -1382,1051 +1382,763 @@ export function CrmTelecallerPortalPage() {
           </div>
         </header>
 
-      {/* ======================================================== */}
-      {/* MOBILE LEFT DRAWER NAVIGATION (Phone Hamburger View)      */}
-      {/* Portaled directly to document.body to prevent containing-block trap */}
-      {/* ======================================================== */}
-      {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed inset-0 z-[9999] flex select-none"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "100dvh",
-            width: "100vw",
-          }}
-        >
-          {/* Backdrop overlay */}
+        {/* ======================================================== */}
+        {/* MOBILE LEFT DRAWER NAVIGATION (Phone Hamburger View)      */}
+        {/* Portaled directly to document.body to prevent containing-block trap */}
+        {/* ======================================================== */}
+        {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
-            onClick={() => setIsMobileMenuOpen(false)}
-            onTouchMove={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+            className="fixed inset-0 z-[9999] flex select-none"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: "100dvh",
+              width: "100vw",
             }}
-          />
-
-          {/* Slide-out drawer panel with exact dark navy styling matching reference screenshot */}
-          <div
-            className="relative w-72 max-w-[85vw] bg-[#1e293b] text-slate-100 h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
-            style={{ height: "100dvh", maxHeight: "100dvh" }}
           >
-            {/* Drawer Top Bar / Close Header */}
-            <div className="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between shrink-0 bg-[#1e293b]">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("home");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="text-left cursor-pointer group"
-              >
-                <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                  SIDDESHWAR CRM
-                </h3>
-                <p className="text-[11px] text-slate-400 font-mono">{userName}</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
-                title="Close Menu"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Backdrop overlay */}
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            />
 
-            {/* Menu Items (1:1 with media_1795372025153_de6d7870.png) */}
-            <div className="flex-1 overflow-y-auto overscroll-contain">
-              {/* Team CRM Reports */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("team-reports");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                Team CRM Reports
-              </button>
-
-              {/* Order Status */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("order-status");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                Order Status
-              </button>
-
-              {/* Incentive Schemes */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("incentive-scheme");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                Incentive Schemes
-              </button>
-
-              {/* My Targets */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("targets");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                My Targets
-              </button>
-
-              {/* Customer (Collapsible Accordion Group with ▲ / ▼) */}
-              <div>
+            {/* Slide-out drawer panel with exact dark navy styling matching reference screenshot */}
+            <div
+              className="relative w-72 max-w-[85vw] bg-[#1e293b] text-slate-100 h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
+              style={{ height: "100dvh", maxHeight: "100dvh" }}
+            >
+              {/* Drawer Top Bar / Close Header */}
+              <div className="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between shrink-0 bg-[#1e293b]">
                 <button
                   type="button"
-                  onClick={() => setIsCustomerMenuOpen((prev) => !prev)}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer flex items-center justify-between"
+                  onClick={() => {
+                    setActiveView("home");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-left cursor-pointer group"
                 >
-                  <span>Customer</span>
-                  <span className="text-[10px] text-slate-400">
-                    {isCustomerMenuOpen ? "▲" : "▼"}
-                  </span>
+                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                    SIDDESHWAR CRM
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">{userName}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                  title="Close Menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Menu Items (1:1 with media_1795372025153_de6d7870.png) */}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                {/* Team CRM Reports */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("team-reports");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  Team CRM Reports
                 </button>
 
-                {isCustomerMenuOpen && (
-                  <div className="bg-[#172033]">
-                    {/* New Customer */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveView("new-customer");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
-                    >
-                      New Customer
-                    </button>
+                {/* Order Status */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("order-status");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  Order Status
+                </button>
 
-                    {/* Customer List */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveView("customers");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                {/* Incentive Schemes */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("incentive-scheme");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  Incentive Schemes
+                </button>
+
+                {/* My Targets */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("targets");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  My Targets
+                </button>
+
+                {/* Customer (Collapsible Accordion Group with ▲ / ▼) */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomerMenuOpen((prev) => !prev)}
+                    className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Customer</span>
+                    <span className="text-[10px] text-slate-400">
+                      {isCustomerMenuOpen ? "▲" : "▼"}
+                    </span>
+                  </button>
+
+                  {isCustomerMenuOpen && (
+                    <div className="bg-[#172033]">
+                      {/* New Customer */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveView("new-customer");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                      >
+                        New Customer
+                      </button>
+
+                      {/* Customer List */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveView("customers");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                      >
+                        Customer List
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* SKU List */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("sku-list");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  SKU List
+                </button>
+
+                {/* My Profile */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("profile");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                >
+                  My Profile
+                </button>
+
+                {/* Logout */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                    navigate("/login");
+                  }}
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer block"
+                >
+                  Logout
+                </button>
+
+                {isUserAdmin && (
+                  <div className="p-4 pt-6">
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-800 border border-slate-700 transition-colors"
                     >
-                      Customer List
-                    </button>
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span>Go to ERP Admin Hub</span>
+                    </Link>
                   </div>
                 )}
               </div>
-
-              {/* SKU List */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("sku-list");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                SKU List
-              </button>
-
-              {/* My Profile */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("profile");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
-              >
-                My Profile
-              </button>
-
-              {/* Logout */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  logout();
-                  navigate("/login");
-                }}
-                className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer block"
-              >
-                Logout
-              </button>
-
-              {isUserAdmin && (
-                <div className="p-4 pt-6">
-                  <Link
-                    to="/dashboard"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-800 border border-slate-700 transition-colors"
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span>Go to ERP Admin Hub</span>
-                  </Link>
-                </div>
-              )}
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
 
-      {/* Main Responsive Canvas with Smooth Animated Page Transition */}
-      <main className="w-full p-3 sm:p-5 pb-12 flex-1">
-        <div
-          key={activeView}
-          className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
-        >
-          {/* ======================================================== */}
-          {/* VIEW: HOME DASHBOARD (Exact 1:1 Reference Layout)        */}
-          {/* ======================================================== */}
-          {activeView === "home" && (
-            <div className="space-y-4">
-              {/* Blue Greeting Banner matching Screenshot 1:1 */}
-              <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-sm space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-blue-200 font-medium">
-                      {getTimeGreeting()}
-                    </p>
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                      {userName}
-                    </h2>
-                    <p className="text-xs text-blue-200 font-medium mt-1">
-                      {new Date().toLocaleDateString("en-IN", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Dynamic Circular User Initial Avatar (e.g. P for Pushpa) */}
-                  <button
-                    onClick={() => setActiveView("profile")}
-                    className="w-12 h-12 rounded-full bg-[#facc15] text-slate-900 font-black text-2xl flex items-center justify-center shadow-md shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                    title={`Logged in as ${userName} (${userInitial})`}
-                  >
-                    {userInitial}
-                  </button>
-                </div>
-
-                {/* 3 Metric Cards */}
-                <div className="grid grid-cols-3 gap-2.5 pt-1">
-                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
-                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
-                      {summary.orders_today}
-                    </span>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
-                      Orders today
-                    </span>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
-                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
-                      ₹{summary.order_value_today.toLocaleString("en-IN")}
-                    </span>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
-                      Order value
-                    </span>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
-                    <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
-                      {summary.calls_today}
-                    </span>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
-                      Calls today
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* INCENTIVE SCHEME CARD */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3.5">
-                {/* Brand Banner & Slanted Incentive Ribbon */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
-                      <ShoppingCart className="w-5 h-5 text-blue-700" />
-                    </div>
+        {/* Main Responsive Canvas with Smooth Animated Page Transition */}
+        <main className="w-full p-3 sm:p-5 pb-12 flex-1">
+          <div
+            key={activeView}
+            className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
+          >
+            {/* ======================================================== */}
+            {/* VIEW: HOME DASHBOARD (Exact 1:1 Reference Layout)        */}
+            {/* ======================================================== */}
+            {activeView === "home" && (
+              <div className="space-y-4">
+                {/* Blue Greeting Banner matching Screenshot 1:1 */}
+                <div className="bg-[#1e3a8a] rounded-2xl p-4 sm:p-5 text-white shadow-sm space-y-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-black tracking-tight flex items-center gap-1.5">
-                        <span className="text-blue-900">SIDDESHWAR</span>
-                        <span className="text-red-600">ENTERPRISES</span>
-                      </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 italic font-semibold">
-                        Grow Together with SIDDESHWAR ENTERPRISES
+                      <p className="text-xs text-blue-200 font-medium">
+                        {getTimeGreeting()}
+                      </p>
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                        {userName}
+                      </h2>
+                      <p className="text-xs text-blue-200 font-medium mt-1">
+                        {new Date().toLocaleDateString("en-IN", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </p>
                     </div>
-                  </div>
 
-                  <div className="bg-red-600 text-white px-3 py-1 rounded-md shadow-xs transform -rotate-1 text-center shrink-0 border border-red-700">
-                    <div className="text-[10px] font-black tracking-wider text-yellow-300 uppercase leading-tight">
-                      INCENTIVE
-                    </div>
-                    <div className="text-xs font-black tracking-tight text-white uppercase leading-tight">
-                      SCHEME
-                    </div>
-                    <div className="bg-blue-800 text-[8px] font-bold text-white px-1 py-0.2 rounded mt-0.5">
-                      Sell More • Earn More
-                    </div>
-                  </div>
-                </div>
-
-                {/* Yellow Incentive Highlight Box */}
-                <div className="bg-[#fef9c3] border border-[#fde047]/70 rounded-xl px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-bold text-slate-800">
-                    My incentive this month
-                  </span>
-                  <span className="text-xl sm:text-2xl font-black text-slate-900">
-                    ₹{summary.monthly_incentive_earned}
-                  </span>
-                </div>
-
-                {/* Target Gap Link Row */}
-                <button
-                  type="button"
-                  onClick={() => setActiveView("targets")}
-                  className="w-full flex items-center justify-between text-[11px] sm:text-xs text-slate-600 hover:text-blue-700 transition-colors py-0.5 cursor-pointer"
-                >
-                  <span>
-                    {summary.targets_unreached_count} target(s) not reached yet - reach them to earn
-                  </span>
-                  <span className="font-bold text-slate-800 hover:underline">
-                    ₹{summary.monthly_incentive_pending} &gt;
-                  </span>
-                </button>
-
-                {/* Section Pill: Top Selling Products & Incentives */}
-                <div className="pt-1">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1e3a8a] text-white rounded-full text-xs font-bold shadow-xs">
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Top Selling Products & Incentives</span>
-                  </div>
-                </div>
-
-                {/* 10 Top Selling Products Grid (2 rows of 5) */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
-                  {incentiveProducts.map((p) => {
-                    const imgSrc = PRODUCT_IMAGE_FALLBACKS[p.id] || p.image_url;
-                    const badgeBg =
-                      p.id === "inc-03" || p.id === "inc-08"
-                        ? "bg-[#7e22ce] text-white"
-                        : p.id === "inc-06" || p.id === "inc-10"
-                        ? "bg-[#0284c7] text-white"
-                        : "bg-[#1d4ed8] text-white";
-
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedIncentiveProduct(p)}
-                        className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
-                      >
-                        <div className="space-y-1.5">
-                          {/* Thumbnail */}
-                          <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
-                            <img
-                              src={imgSrc}
-                              alt={p.name}
-                              className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
-                              loading="lazy"
-                            />
-                            {p.badge && (
-                              <span className={`absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase shadow-xs ${badgeBg}`}>
-                                {p.badge}
-                              </span>
-                            )}
-                          </div>
-
-                          <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
-                            {p.name}
-                          </h4>
-                          <div className="text-[10px] text-slate-500 space-y-0.5">
-                            <p>MRP: ₹{p.mrp}</p>
-                            <p className="font-semibold text-slate-600">Target: {p.target}</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-2.5 space-y-1">
-                          <div className="flex justify-center">
-                            <span className="bg-[#dc2626] text-white text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
-                              Incentive
-                            </span>
-                          </div>
-                          <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
-                            {p.incentive_text}
-                          </div>
-                          <p className={`text-[9px] text-center font-bold ${
-                            p.progress_text.startsWith("Eligible") || p.progress_text.startsWith("✓")
-                              ? "text-emerald-700"
-                              : "text-slate-600"
-                          }`}>
-                            {p.progress_text.startsWith("Eligible") ? `✓ ${p.progress_text}` : p.progress_text}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Active Period & View Full Scheme */}
-                <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    {summary.active_period}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("incentive-scheme")}
-                    className="px-3.5 py-1.5 rounded-full bg-[#1e293b] text-white font-bold text-xs hover:bg-[#0f172a] transition-colors cursor-pointer active:scale-95 shadow-xs"
-                  >
-                    View full scheme (+2)
-                  </button>
-                </div>
-              </div>
-
-              {/* 10 ACTION TOUCH TILES GRID (Exact Match to Reference Screenshot) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* Tile 1: My Targets */}
-                <button
-                  onClick={() => setActiveView("targets")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Target className="w-5 h-5 text-pink-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">My Targets</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Eligible & gap</p>
-                  </div>
-                </button>
-
-                {/* Tile 2: Place Order */}
-                <button
-                  onClick={() => setActiveView("place-order")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <ShoppingCart className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Place Order</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Search customer and order</p>
-                  </div>
-                </button>
-
-                {/* Tile 3: Callings */}
-                <button
-                  onClick={() => setActiveView("callings")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-amber-100/60 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Phone className="w-5 h-5 text-amber-700" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Callings</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Call route customers</p>
-                  </div>
-                </button>
-
-                {/* Tile 4: New Customer */}
-                <button
-                  onClick={() => setActiveView("new-customer")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Plus className="w-5 h-5 text-slate-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">New Customer</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Add a customer</p>
-                  </div>
-                </button>
-
-                {/* Tile 5: Customers */}
-                <button
-                  onClick={() => setActiveView("customers")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Users className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Customers</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Customer list</p>
-                  </div>
-                </button>
-
-                {/* Tile 6: SKU List */}
-                <button
-                  onClick={() => setActiveView("sku-list")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-amber-100/70 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Package className="w-5 h-5 text-amber-800" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">SKU List</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Price & stock</p>
-                  </div>
-                </button>
-
-                {/* Tile 7: CRM Report */}
-                <button
-                  onClick={() => {
-                    loadReportsAndOrders();
-                    setActiveView("reports");
-                  }}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <TrendingUp className="w-5 h-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">CRM Report</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">My numbers</p>
-                  </div>
-                </button>
-
-                {/* Tile 8: Order Status */}
-                <button
-                  onClick={() => {
-                    loadReportsAndOrders();
-                    setActiveView("order-status");
-                  }}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Truck className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Order Status</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Where is the order</p>
-                  </div>
-                </button>
-
-                {/* Tile 9: Attendance */}
-                <button
-                  onClick={() => setActiveView("attendance")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Attendance</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Check-in / check-out</p>
-                  </div>
-                </button>
-
-                {/* Tile 10: My Profile */}
-                <button
-                  onClick={() => setActiveView("profile")}
-                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <User className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">My Profile</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">Password, details</p>
-                  </div>
-                </button>
-              </div>
-
-              {/* Floating Synced Pill matching screenshot */}
-              <div className="fixed left-4 bottom-5 z-30 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/90 backdrop-blur-xs text-emerald-700 text-xs font-bold border border-emerald-200 shadow-md">
-                <span className="text-[10px]">▲</span>
-                <span>Synced {syncTime || "04:37 pm"}</span>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* VIEW: CALLINGS (EXACT 1:1 MATCH TO SCREENSHOT WITH REAL DATA) */}
-          {/* ======================================================== */}
-          {activeView === "callings" && (
-            <div className="space-y-3.5">
-              {/* Search in this page... input */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  placeholder="Search in this page..."
-                  value={callingSearch}
-                  onChange={(e) => setCallingSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
-                />
-              </div>
-
-              {/* 4-Dropdown Filter Card matching screenshot */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Beat Day</label>
-                    <select
-                      value={selectedBeatDay}
-                      onChange={(e) => {
-                        setSelectedBeatDay(e.target.value);
-                        setSelectedVillage("All villages");
-                      }}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    {/* Dynamic Circular User Initial Avatar (e.g. P for Pushpa) */}
+                    <button
+                      onClick={() => setActiveView("profile")}
+                      className="w-12 h-12 rounded-full bg-[#facc15] text-slate-900 font-black text-2xl flex items-center justify-center shadow-md shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                      title={`Logged in as ${userName} (${userInitial})`}
                     >
-                      {BEAT_DAYS.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
+                      {userInitial}
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Route Name</label>
-                    <select
-                      value={selectedRoute}
-                      onChange={(e) => {
-                        setSelectedRoute(e.target.value);
-                        setSelectedVillage("All villages");
-                      }}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      {routes.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village Key</label>
-                    <select
-                      value={selectedVillageKey}
-                      onChange={(e) => setSelectedVillageKey(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      {VILLAGE_KEYS.map((k) => (
-                        <option key={k} value={k}>{k}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Village</label>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={selectedVillage}
-                        onChange={(e) => setSelectedVillage(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      >
-                        <option value="All villages">
-                          All villages ({availableVillages.length > 1 ? availableVillages.length - 1 : 0})
-                        </option>
-                        {availableVillages.slice(1).map((v, i) => (
-                          <option key={v} value={v}>
-                            V{i + 1} – {v} ({callingCustomers.filter(c => (c.village || "") === v).length})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={availableVillages.indexOf(selectedVillage) <= 1 && selectedVillage !== "All villages"}
-                        onClick={() => {
-                          const villagesOnly = availableVillages.slice(1);
-                          const curIdx = villagesOnly.indexOf(selectedVillage);
-                          const prevVil = villagesOnly[curIdx - 1];
-                          if (curIdx > 0 && prevVil) {
-                            setSelectedVillage(prevVil);
-                          } else {
-                            setSelectedVillage("All villages");
-                          }
-                        }}
-                        className="px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
-                      >
-                        ← Previous
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const villagesOnly = availableVillages.slice(1);
-                          const firstVil = villagesOnly[0];
-                          if (selectedVillage === "All villages") {
-                            if (firstVil) setSelectedVillage(firstVil);
-                          } else {
-                            const curIdx = villagesOnly.indexOf(selectedVillage);
-                            const nextVil = villagesOnly[curIdx + 1];
-                            if (curIdx >= 0 && curIdx < villagesOnly.length - 1 && nextVil) {
-                              setSelectedVillage(nextVil);
-                            }
-                          }
-                        }}
-                        className="px-3 py-2 text-xs font-bold rounded-lg bg-[#132038] hover:bg-[#0c1626] text-white transition-colors cursor-pointer shadow-xs shrink-0"
-                      >
-                        Next →
-                      </button>
+                  {/* 3 Metric Cards */}
+                  <div className="grid grid-cols-3 gap-2.5 pt-1">
+                    <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                      <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
+                        {summary.orders_today}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
+                        Orders today
+                      </span>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                      <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
+                        ₹{summary.order_value_today.toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
+                        Order value
+                      </span>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 text-center text-slate-900 shadow-xs">
+                      <span className="text-xl sm:text-2xl font-black block leading-none text-slate-900">
+                        {summary.calls_today}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1.5 block">
+                        Calls today
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Summary Text matching screenshot: Sunday · Bijapur · 1 village(s) · 2 customer(s) */}
-                <p className="text-xs text-slate-500 font-medium">
-                  {selectedBeatDay} · {selectedRoute} · {availableVillages.length > 1 ? availableVillages.length - 1 : 0} village(s) · {filteredCallings.length} customer(s)
-                </p>
-              </div>
+                {/* INCENTIVE SCHEME CARD */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3.5">
+                  {/* Brand Banner & Slanted Incentive Ribbon */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
+                        <ShoppingCart className="w-5 h-5 text-blue-700" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight flex items-center gap-1.5">
+                          <span className="text-blue-900">SIDDESHWAR</span>
+                          <span className="text-red-600">ENTERPRISES</span>
+                        </h3>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 italic font-semibold">
+                          Grow Together with SIDDESHWAR ENTERPRISES
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Exact Dark Navy Table Matching User's Screenshot media_1795359120201_407a8bf0.png */}
-              <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0a1733] shadow-md">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-[#2563eb] text-white uppercase font-bold text-[11px]">
-                    <tr>
-                      <th className="py-3 px-3 w-12 text-center font-bold">Sl</th>
-                      <th className="py-3 px-3 font-bold">Customer Name</th>
-                      <th className="py-3 px-3 font-bold">Village</th>
-                      <th className="py-3 px-3 font-bold">Village Key</th>
-                      <th className="py-3 px-3 font-bold">Mobile No</th>
-                      <th className="py-3 px-3 font-bold">Last order</th>
-                      <th className="py-3 px-3 text-right font-bold w-48"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80 bg-[#0a1733] text-slate-200">
-                    {filteredCallings.map((c, idx) => (
-                      <tr key={c.id} className="hover:bg-slate-900/60 transition-colors">
-                        <td className="py-3.5 px-3 text-center font-mono text-blue-400 font-bold">{idx + 1}</td>
-                        <td className="py-3.5 px-3">
-                          <div className="font-bold text-blue-400 text-sm">{c.display_name || c.name}</div>
-                          {c.shop_name && <div className="text-[11px] text-slate-400 mt-0.5">{c.shop_name}</div>}
-                        </td>
-                        <td className="py-3.5 px-3 text-slate-300 font-medium">{c.village}</td>
-                        <td className="py-3.5 px-3 text-slate-400 font-mono">{c.village_key || "Nil"}</td>
-                        <td className="py-3.5 px-3 text-blue-400 font-mono font-bold">
-                          <span className="select-all">{c.phone}</span>
-                        </td>
-                        <td className="py-3.5 px-3 text-slate-300 font-mono font-medium">{c.last_order_date || "—"}</td>
-                        <td className="py-3.5 px-3 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <a
-                              href={`tel:+91${c.phone}`}
-                              className="px-3 py-1.5 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs inline-flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-                            >
-                              <span>📞 Call Now</span>
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(c.phone);
-                                toast.success(`Copied: ${c.phone}`);
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold border border-slate-300 transition-colors cursor-pointer shadow-xs"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredCallings.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-medium">
-                          No customer calls found for the selected beat day or route.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
-          {/* ======================================================== */}
-          {activeView === "place-order" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">Place Order</h2>
-              </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4 text-amber-500" />
-                      <span>Punch Customer Order</span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Book wholesale orders for delivery vehicle dispatch.
-                    </p>
+                    <div className="bg-red-600 text-white px-3 py-1 rounded-md shadow-xs transform -rotate-1 text-center shrink-0 border border-red-700">
+                      <div className="text-[10px] font-black tracking-wider text-yellow-300 uppercase leading-tight">
+                        INCENTIVE
+                      </div>
+                      <div className="text-xs font-black tracking-tight text-white uppercase leading-tight">
+                        SCHEME
+                      </div>
+                      <div className="bg-blue-800 text-[8px] font-bold text-white px-1 py-0.2 rounded mt-0.5">
+                        Sell More • Earn More
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Customer Selection Pill */}
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-blue-600">Ordering Customer</span>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      {orderCustomer ? orderCustomer.shop_name || orderCustomer.display_name : "No Customer Selected"}
-                    </h4>
-                    {orderCustomer && (
-                      <p className="text-xs text-slate-500">
-                        {orderCustomer.phone} • Pending Udhaar: ₹{orderCustomer.current_balance}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("callings")}
-                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                  >
-                    Change
-                  </button>
-                </div>
-
-                {/* Item Selection from Catalog */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">Select Wholesale Groceries</span>
-                    <span className="text-xs font-mono font-bold text-blue-700">
-                      Cart Total: ₹{calculatedOrderTotal.toLocaleString("en-IN")}
+                  {/* Yellow Incentive Highlight Box */}
+                  <div className="bg-[#fef9c3] border border-[#fde047]/70 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800">
+                      My incentive this month
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">
+                      ₹{summary.monthly_incentive_earned}
                     </span>
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
-                    {catalog.slice(0, 50).map((prod) => {
-                      const currentQty = orderItems[prod.id] || 0;
+                  {/* Target Gap Link Row */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("targets")}
+                    className="w-full flex items-center justify-between text-[11px] sm:text-xs text-slate-600 hover:text-blue-700 transition-colors py-0.5 cursor-pointer"
+                  >
+                    <span>
+                      {summary.targets_unreached_count} target(s) not reached yet - reach them to earn
+                    </span>
+                    <span className="font-bold text-slate-800 hover:underline">
+                      ₹{summary.monthly_incentive_pending} &gt;
+                    </span>
+                  </button>
+
+                  {/* Section Pill: Top Selling Products & Incentives */}
+                  <div className="pt-1">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1e3a8a] text-white rounded-full text-xs font-bold shadow-xs">
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                      <span>Top Selling Products & Incentives</span>
+                    </div>
+                  </div>
+
+                  {/* 10 Top Selling Products Grid (2 rows of 5) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
+                    {incentiveProducts.map((p) => {
+                      const imgSrc = PRODUCT_IMAGE_FALLBACKS[p.id] || p.image_url;
+                      const badgeBg =
+                        p.id === "inc-03" || p.id === "inc-08"
+                          ? "bg-[#7e22ce] text-white"
+                          : p.id === "inc-06" || p.id === "inc-10"
+                            ? "bg-[#0284c7] text-white"
+                            : "bg-[#1d4ed8] text-white";
+
                       return (
-                        <div
-                          key={prod.id}
-                          className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs hover:border-blue-300 transition-colors"
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedIncentiveProduct(p)}
+                          className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
                         >
-                          <div className="max-w-[60%]">
-                            <h5 className="font-bold text-slate-900 truncate">{prod.name}</h5>
-                            <p className="text-[10px] text-slate-500">
-                              Wholesale: ₹{prod.selling_price} | MRP: ₹{prod.mrp} | Godown Stock: {prod.current_stock}
+                          <div className="space-y-1.5">
+                            {/* Thumbnail */}
+                            <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
+                              <img
+                                src={imgSrc}
+                                alt={p.name}
+                                className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                              />
+                              {p.badge && (
+                                <span className={`absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase shadow-xs ${badgeBg}`}>
+                                  {p.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
+                              {p.name}
+                            </h4>
+                            <div className="text-[10px] text-slate-500 space-y-0.5">
+                              <p>MRP: ₹{p.mrp}</p>
+                              <p className="font-semibold text-slate-600">Target: {p.target}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-2.5 space-y-1">
+                            <div className="flex justify-center">
+                              <span className="bg-[#dc2626] text-white text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
+                                Incentive
+                              </span>
+                            </div>
+                            <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
+                              {p.incentive_text}
+                            </div>
+                            <p className={`text-[9px] text-center font-bold ${p.progress_text.startsWith("Eligible") || p.progress_text.startsWith("✓")
+                                ? "text-emerald-700"
+                                : "text-slate-600"
+                              }`}>
+                              {p.progress_text.startsWith("Eligible") ? `✓ ${p.progress_text}` : p.progress_text}
                             </p>
                           </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOrderItems((prev) => ({
-                                  ...prev,
-                                  [prod.id]: Math.max(0, (prev[prod.id] || 0) - 1),
-                                }))
-                              }
-                              className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-black flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-90"
-                            >
-                              -
-                            </button>
-                            <span className="font-mono font-bold w-6 text-center">{currentQty}</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOrderItems((prev) => ({
-                                  ...prev,
-                                  [prod.id]: (prev[prod.id] || 0) + 1,
-                                }))
-                              }
-                              className="w-7 h-7 rounded-lg bg-blue-900 text-white font-black flex items-center justify-center hover:bg-blue-800 cursor-pointer active:scale-90"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
-                </div>
 
-                {/* Payment Mode Selection */}
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-xs font-semibold text-slate-700">Settlement Method</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* Active Period & View Full Scheme */}
+                  <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {summary.active_period}
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setOrderPayMethod("CASH")}
-                      className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                        orderPayMethod === "CASH"
-                          ? "bg-emerald-600 text-white border-emerald-600"
-                          : "bg-white text-slate-700 border-slate-200"
-                      }`}
+                      onClick={() => setActiveView("incentive-scheme")}
+                      className="px-3.5 py-1.5 rounded-full bg-[#1e293b] text-white font-bold text-xs hover:bg-[#0f172a] transition-colors cursor-pointer active:scale-95 shadow-xs"
                     >
-                      Cash Delivery
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOrderPayMethod("UPI")}
-                      className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                        orderPayMethod === "UPI"
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-slate-700 border-slate-200"
-                      }`}
-                    >
-                      PhonePe / UPI
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOrderPayMethod("CREDIT")}
-                      className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                        orderPayMethod === "CREDIT"
-                          ? "bg-amber-600 text-white border-amber-600"
-                          : "bg-white text-slate-700 border-slate-200"
-                      }`}
-                    >
-                      Khata Udhaar
+                      View full scheme (+2)
                     </button>
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <Button
-                  onClick={handlePlaceOrder}
-                  disabled={isPlacingOrder || calculatedOrderTotal <= 0}
-                  className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl mt-2 cursor-pointer active:scale-95"
-                >
-                  {isPlacingOrder ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Booking Order...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-2 text-amber-400" />
-                      Confirm & Dispatch Order (₹{calculatedOrderTotal.toLocaleString("en-IN")})
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-            </div>
-          )}
+                {/* 10 ACTION TOUCH TILES GRID (Exact Match to Reference Screenshot) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Tile 1: My Targets */}
+                  <button
+                    onClick={() => setActiveView("targets")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Target className="w-5 h-5 text-pink-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">My Targets</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Eligible & gap</p>
+                    </div>
+                  </button>
 
-          {/* ======================================================== */}
-          {/* VIEW: SKU LIST (EXACT 1:1 TO SCREENSHOT WITH 254 SKUs)   */}
-          {/* ======================================================== */}
-          {activeView === "sku-list" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              {/* Header: Blue bar with Back arrow, Hamburger menu, and subtitle */}
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight leading-none">SKU List</h2>
-                  <p className="text-[10px] font-bold text-amber-300 tracking-wider mt-0.5">SIDDESHWAR ENTERPRISES</p>
+                  {/* Tile 2: Place Order */}
+                  <button
+                    onClick={() => setActiveView("place-order")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <ShoppingCart className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Place Order</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Search customer and order</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 3: Callings */}
+                  <button
+                    onClick={() => setActiveView("callings")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-100/60 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Phone className="w-5 h-5 text-amber-700" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Callings</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Call route customers</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 4: New Customer */}
+                  <button
+                    onClick={() => setActiveView("new-customer")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Plus className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">New Customer</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Add a customer</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 5: Customers */}
+                  <button
+                    onClick={() => setActiveView("customers")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Users className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Customers</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Customer list</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 6: SKU List */}
+                  <button
+                    onClick={() => setActiveView("sku-list")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-100/70 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Package className="w-5 h-5 text-amber-800" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">SKU List</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Price & stock</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 7: CRM Report */}
+                  <button
+                    onClick={() => {
+                      loadReportsAndOrders();
+                      setActiveView("reports");
+                    }}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <TrendingUp className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">CRM Report</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">My numbers</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 8: Order Status */}
+                  <button
+                    onClick={() => {
+                      loadReportsAndOrders();
+                      setActiveView("order-status");
+                    }}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Truck className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Order Status</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Where is the order</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 9: Attendance */}
+                  <button
+                    onClick={() => setActiveView("attendance")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Attendance</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Check-in / check-out</p>
+                    </div>
+                  </button>
+
+                  {/* Tile 10: My Profile */}
+                  <button
+                    onClick={() => setActiveView("profile")}
+                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <User className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">My Profile</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Password, details</p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Floating Synced Pill matching screenshot */}
+                <div className="fixed left-4 bottom-5 z-30 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/90 backdrop-blur-xs text-emerald-700 text-xs font-bold border border-emerald-200 shadow-md">
+                  <span className="text-[10px]">▲</span>
+                  <span>Synced {syncTime || "04:37 pm"}</span>
                 </div>
               </div>
+            )}
 
-              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
-                {/* Search input with rounded pill / smooth border and search icon on right */}
+            {/* ======================================================== */}
+            {/* VIEW: CALLINGS (EXACT 1:1 MATCH TO SCREENSHOT WITH REAL DATA) */}
+            {/* ======================================================== */}
+            {activeView === "callings" && (
+              <div className="space-y-3.5">
+                {/* Search in this page... input */}
                 <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
-                    placeholder="Search SKU name"
-                    value={skuSearch}
-                    onChange={(e) => setSkuSearch(e.target.value)}
-                    className="w-full px-4 py-3 pr-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-2xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                    placeholder="Search in this page..."
+                    value={callingSearch}
+                    onChange={(e) => setCallingSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
                   />
-                  <Search className="w-4 h-4 text-slate-700 absolute right-4 top-3.5 pointer-events-none" />
                 </div>
 
-                {/* SKU count */}
-                <div className="text-xs text-slate-500 font-medium px-0.5">
-                  {filteredSkuCatalog.length} SKU(s)
+                {/* 4-Dropdown Filter Card matching screenshot */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Beat Day</label>
+                      <select
+                        value={selectedBeatDay}
+                        onChange={(e) => {
+                          setSelectedBeatDay(e.target.value);
+                          setSelectedVillage("All villages");
+                        }}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        {BEAT_DAYS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Route Name</label>
+                      <select
+                        value={selectedRoute}
+                        onChange={(e) => {
+                          setSelectedRoute(e.target.value);
+                          setSelectedVillage("All villages");
+                        }}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        {routes.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Village Key</label>
+                      <select
+                        value={selectedVillageKey}
+                        onChange={(e) => setSelectedVillageKey(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        {VILLAGE_KEYS.map((k) => (
+                          <option key={k} value={k}>{k}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Village</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={selectedVillage}
+                          onChange={(e) => setSelectedVillage(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        >
+                          <option value="All villages">
+                            All villages ({availableVillages.length > 1 ? availableVillages.length - 1 : 0})
+                          </option>
+                          {availableVillages.slice(1).map((v, i) => (
+                            <option key={v} value={v}>
+                              V{i + 1} – {v} ({callingCustomers.filter(c => (c.village || "") === v).length})
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={availableVillages.indexOf(selectedVillage) <= 1 && selectedVillage !== "All villages"}
+                          onClick={() => {
+                            const villagesOnly = availableVillages.slice(1);
+                            const curIdx = villagesOnly.indexOf(selectedVillage);
+                            const prevVil = villagesOnly[curIdx - 1];
+                            if (curIdx > 0 && prevVil) {
+                              setSelectedVillage(prevVil);
+                            } else {
+                              setSelectedVillage("All villages");
+                            }
+                          }}
+                          className="px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
+                        >
+                          ← Previous
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const villagesOnly = availableVillages.slice(1);
+                            const firstVil = villagesOnly[0];
+                            if (selectedVillage === "All villages") {
+                              if (firstVil) setSelectedVillage(firstVil);
+                            } else {
+                              const curIdx = villagesOnly.indexOf(selectedVillage);
+                              const nextVil = villagesOnly[curIdx + 1];
+                              if (curIdx >= 0 && curIdx < villagesOnly.length - 1 && nextVil) {
+                                setSelectedVillage(nextVil);
+                              }
+                            }
+                          }}
+                          className="px-3 py-2 text-xs font-bold rounded-lg bg-[#132038] hover:bg-[#0c1626] text-white transition-colors cursor-pointer shadow-xs shrink-0"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Text matching screenshot: Sunday · Bijapur · 1 village(s) · 2 customer(s) */}
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedBeatDay} · {selectedRoute} · {availableVillages.length > 1 ? availableVillages.length - 1 : 0} village(s) · {filteredCallings.length} customer(s)
+                  </p>
                 </div>
 
-                {/* 254 Items Table matching reference screenshot */}
-                <div className="rounded-xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs">
-                  <table className="w-full border-collapse text-xs sm:text-sm">
-                    <thead className="bg-[#101c38] text-white select-none">
+                {/* Exact Dark Navy Table Matching User's Screenshot media_1795359120201_407a8bf0.png */}
+                <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0a1733] shadow-md">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#2563eb] text-white uppercase font-bold text-[11px]">
                       <tr>
-                        <th className="px-4 py-3 text-left font-bold text-xs tracking-wider">
-                          SKU NAME
-                        </th>
-                        <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
-                          PRICE
-                        </th>
-                        <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
-                          AVAILABLE
-                        </th>
+                        <th className="py-3 px-3 w-12 text-center font-bold">Sl</th>
+                        <th className="py-3 px-3 font-bold">Customer Name</th>
+                        <th className="py-3 px-3 font-bold">Village</th>
+                        <th className="py-3 px-3 font-bold">Village Key</th>
+                        <th className="py-3 px-3 font-bold">Mobile No</th>
+                        <th className="py-3 px-3 font-bold">Last order</th>
+                        <th className="py-3 px-3 text-right font-bold w-48"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200/80">
-                      {filteredSkuCatalog.map((prod) => {
-                        const price = Math.round(prod.selling_price || 0);
-                        const inStock = (prod.current_stock || 0) > 0;
-                        return (
-                          <tr key={prod.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="px-4 py-3 text-left">
-                              <div className="font-bold text-slate-900 leading-snug">
-                                {prod.name}
-                              </div>
-                              {prod.display_name && prod.display_name !== prod.name && (
-                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                                  {prod.display_name}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                              ₹{price}
-                            </td>
-                            <td className="px-4 py-3 text-right whitespace-nowrap">
-                              {inStock ? (
-                                <span className="text-emerald-600 font-semibold text-xs">
-                                  {prod.current_stock} in stock
-                                </span>
-                              ) : (
-                                <span className="text-rose-600 font-semibold text-xs">
-                                  Out of stock
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {filteredSkuCatalog.length === 0 && (
+                    <tbody className="divide-y divide-slate-800/80 bg-[#0a1733] text-slate-200">
+                      {filteredCallings.map((c, idx) => (
+                        <tr key={c.id} className="hover:bg-slate-900/60 transition-colors">
+                          <td className="py-3.5 px-3 text-center font-mono text-blue-400 font-bold">{idx + 1}</td>
+                          <td className="py-3.5 px-3">
+                            <div className="font-bold text-blue-400 text-sm">{c.display_name || c.name}</div>
+                            {c.shop_name && <div className="text-[11px] text-slate-400 mt-0.5">{c.shop_name}</div>}
+                          </td>
+                          <td className="py-3.5 px-3 text-slate-300 font-medium">{c.village}</td>
+                          <td className="py-3.5 px-3 text-slate-400 font-mono">{c.village_key || "Nil"}</td>
+                          <td className="py-3.5 px-3 text-blue-400 font-mono font-bold">
+                            <span className="select-all">{c.phone}</span>
+                          </td>
+                          <td className="py-3.5 px-3 text-slate-300 font-mono font-medium">{c.last_order_date || "—"}</td>
+                          <td className="py-3.5 px-3 text-right">
+                            <div className="flex items-center gap-2 justify-end">
+                              <a
+                                href={`tel:+91${c.phone}`}
+                                className="px-3 py-1.5 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs inline-flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                              >
+                                <span>📞 Call Now</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(c.phone);
+                                  toast.success(`Copied: ${c.phone}`);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold border border-slate-300 transition-colors cursor-pointer shadow-xs"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredCallings.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-4 py-8 text-center text-slate-400 font-medium">
-                            No matching SKUs found
+                          <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-medium">
+                            No customer calls found for the selected beat day or route.
                           </td>
                         </tr>
                       )}
@@ -2434,16 +2146,409 @@ export function CrmTelecallerPortalPage() {
                   </table>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ======================================================== */}
-          {/* VIEW: MY TARGETS (EXACT 1:1 TO SCREENSHOT)               */}
-          {/* ======================================================== */}
-          {activeView === "targets" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-slate-50/50 shadow-xl max-w-4xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+            {/* ======================================================== */}
+            {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
+            {/* ======================================================== */}
+            {activeView === "place-order" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">Place Order</h2>
+                </div>
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <ShoppingCart className="w-4 h-4 text-amber-500" />
+                          <span>Punch Customer Order</span>
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Book wholesale orders for delivery vehicle dispatch.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Customer Selection Pill */}
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-blue-600">Ordering Customer</span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {orderCustomer ? orderCustomer.shop_name || orderCustomer.display_name : "No Customer Selected"}
+                        </h4>
+                        {orderCustomer && (
+                          <p className="text-xs text-slate-500">
+                            {orderCustomer.phone} • Pending Udhaar: ₹{orderCustomer.current_balance}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveView("callings")}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    {/* Item Selection from Catalog */}
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Select Wholesale Groceries</span>
+                        <span className="text-xs font-mono font-bold text-blue-700">
+                          Cart Total: ₹{calculatedOrderTotal.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                        {catalog.slice(0, 50).map((prod) => {
+                          const currentQty = orderItems[prod.id] || 0;
+                          return (
+                            <div
+                              key={prod.id}
+                              className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs hover:border-blue-300 transition-colors"
+                            >
+                              <div className="max-w-[60%]">
+                                <h5 className="font-bold text-slate-900 truncate">{prod.name}</h5>
+                                <p className="text-[10px] text-slate-500">
+                                  Wholesale: ₹{prod.selling_price} | MRP: ₹{prod.mrp} | Godown Stock: {prod.current_stock}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOrderItems((prev) => ({
+                                      ...prev,
+                                      [prod.id]: Math.max(0, (prev[prod.id] || 0) - 1),
+                                    }))
+                                  }
+                                  className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-black flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-90"
+                                >
+                                  -
+                                </button>
+                                <span className="font-mono font-bold w-6 text-center">{currentQty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOrderItems((prev) => ({
+                                      ...prev,
+                                      [prod.id]: (prev[prod.id] || 0) + 1,
+                                    }))
+                                  }
+                                  className="w-7 h-7 rounded-lg bg-blue-900 text-white font-black flex items-center justify-center hover:bg-blue-800 cursor-pointer active:scale-90"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Payment Mode Selection */}
+                    <div className="space-y-1.5 pt-2">
+                      <span className="text-xs font-semibold text-slate-700">Settlement Method</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOrderPayMethod("CASH")}
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CASH"
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-white text-slate-700 border-slate-200"
+                            }`}
+                        >
+                          Cash Delivery
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderPayMethod("UPI")}
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "UPI"
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-slate-700 border-slate-200"
+                            }`}
+                        >
+                          PhonePe / UPI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderPayMethod("CREDIT")}
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CREDIT"
+                              ? "bg-amber-600 text-white border-amber-600"
+                              : "bg-white text-slate-700 border-slate-200"
+                            }`}
+                        >
+                          Khata Udhaar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button
+                      onClick={handlePlaceOrder}
+                      disabled={isPlacingOrder || calculatedOrderTotal <= 0}
+                      className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl mt-2 cursor-pointer active:scale-95"
+                    >
+                      {isPlacingOrder ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Booking Order...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 mr-2 text-amber-400" />
+                          Confirm & Dispatch Order (₹{calculatedOrderTotal.toLocaleString("en-IN")})
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: SKU LIST (EXACT 1:1 TO SCREENSHOT WITH 254 SKUs)   */}
+            {/* ======================================================== */}
+            {activeView === "sku-list" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+                {/* Header: Blue bar with Back arrow, Hamburger menu, and subtitle */}
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h2 className="text-base font-bold text-white tracking-tight leading-none">SKU List</h2>
+                    <p className="text-[10px] font-bold text-amber-300 tracking-wider mt-0.5">SIDDESHWAR ENTERPRISES</p>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+                  {/* Search input with rounded pill / smooth border and search icon on right */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search SKU name"
+                      value={skuSearch}
+                      onChange={(e) => setSkuSearch(e.target.value)}
+                      className="w-full px-4 py-3 pr-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-2xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                    />
+                    <Search className="w-4 h-4 text-slate-700 absolute right-4 top-3.5 pointer-events-none" />
+                  </div>
+
+                  {/* SKU count */}
+                  <div className="text-xs text-slate-500 font-medium px-0.5">
+                    {filteredSkuCatalog.length} SKU(s)
+                  </div>
+
+                  {/* 254 Items Table matching reference screenshot */}
+                  <div className="rounded-xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs">
+                    <table className="w-full border-collapse text-xs sm:text-sm">
+                      <thead className="bg-[#101c38] text-white select-none">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-bold text-xs tracking-wider">
+                            SKU NAME
+                          </th>
+                          <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
+                            PRICE
+                          </th>
+                          <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
+                            AVAILABLE
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/80">
+                        {filteredSkuCatalog.map((prod) => {
+                          const price = Math.round(prod.selling_price || 0);
+                          const inStock = (prod.current_stock || 0) > 0;
+                          return (
+                            <tr key={prod.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="px-4 py-3 text-left">
+                                <div className="font-bold text-slate-900 leading-snug">
+                                  {prod.name}
+                                </div>
+                                {prod.display_name && prod.display_name !== prod.name && (
+                                  <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                    {prod.display_name}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                                ₹{price}
+                              </td>
+                              <td className="px-4 py-3 text-right whitespace-nowrap">
+                                {inStock ? (
+                                  <span className="text-emerald-600 font-semibold text-xs">
+                                    {prod.current_stock} in stock
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-600 font-semibold text-xs">
+                                    Out of stock
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredSkuCatalog.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="px-4 py-8 text-center text-slate-400 font-medium">
+                              No matching SKUs found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: MY TARGETS (EXACT 1:1 TO SCREENSHOT)               */}
+            {/* ======================================================== */}
+            {activeView === "targets" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-slate-50/50 shadow-xl max-w-4xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setActiveView("home")}
+                      className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                      title="Back to Home"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setIsMobileMenuOpen(true)}
+                      className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                      title="Open Menu"
+                    >
+                      <Menu className="w-5 h-5" />
+                    </button>
+                    <div>
+                      <h2 className="text-base font-bold text-white tracking-tight leading-tight">My Targets</h2>
+                      <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("incentive-scheme")}
+                    className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    View Scheme Poster ›
+                  </button>
+                </div>
+
+                <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+                  {/* 2 Top Metric Cards (Exact Match to Screenshot) */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    {/* Left: Eligible Incentive ₹490 */}
+                    <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
+                      <span className="text-2xl sm:text-3xl font-black text-emerald-600 block font-mono">
+                        ₹490
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                        Eligible Incentive
+                      </span>
+                    </div>
+
+                    {/* Right: Waiting (reach target) ₹170 */}
+                    <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
+                      <span className="text-2xl sm:text-3xl font-black text-amber-600 block font-mono">
+                        ₹170
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                        Waiting (reach target)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 13 Target Progress Cards List */}
+                  <div className="space-y-2.5">
+                    {MY_TARGETS_LIST.map((t) => (
+                      <div
+                        key={t.id}
+                        className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 shadow-2xs space-y-2 hover:border-slate-300 transition-colors"
+                      >
+                        {/* Top Header: Name and Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                            {t.name}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 font-mono">
+                            {t.badge}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/50">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${t.isEligible
+                                ? "bg-emerald-600"
+                                : t.pct > 0
+                                  ? "bg-amber-500"
+                                  : "bg-transparent"
+                              }`}
+                            style={{ width: `${t.pct}%` }}
+                          />
+                        </div>
+
+                        {/* Bottom row: sold text & more/eligible text */}
+                        <div className="flex items-center justify-between text-xs pt-0.5">
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {t.soldText}
+                          </span>
+                          <span
+                            className={`text-xs font-bold ${t.isEligible
+                                ? "text-emerald-700 font-bold"
+                                : "text-slate-700 font-mono font-bold"
+                              }`}
+                          >
+                            {t.moreText}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: INCENTIVE SCHEME POSTER (EXACT 1:1 TO SCREENSHOTS) */}
+            {/* ======================================================== */}
+            {activeView === "incentive-scheme" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
                   <button
                     onClick={() => setActiveView("home")}
                     className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
@@ -2459,123 +2564,495 @@ export function CrmTelecallerPortalPage() {
                     <Menu className="w-5 h-5" />
                   </button>
                   <div>
-                    <h2 className="text-base font-bold text-white tracking-tight leading-tight">My Targets</h2>
+                    <h2 className="text-base font-bold text-white tracking-tight leading-tight">Incentive Scheme</h2>
                     <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveView("incentive-scheme")}
-                  className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
-                >
-                  View Scheme Poster ›
-                </button>
-              </div>
 
-              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
-                {/* 2 Top Metric Cards (Exact Match to Screenshot) */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  {/* Left: Eligible Incentive ₹490 */}
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
-                    <span className="text-2xl sm:text-3xl font-black text-emerald-600 block font-mono">
-                      ₹490
-                    </span>
-                    <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                      Eligible Incentive
-                    </span>
-                  </div>
+                <div className="p-4 sm:p-5 space-y-4 bg-white">
+                  {/* Date Filters Row */}
+                  <div className="flex items-end gap-2.5 sm:gap-3">
+                    <div className="flex-1">
+                      <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={incentiveStartDate}
+                        onChange={(e) => setIncentiveStartDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                    </div>
 
-                  {/* Right: Waiting (reach target) ₹170 */}
-                  <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
-                    <span className="text-2xl sm:text-3xl font-black text-amber-600 block font-mono">
-                      ₹170
-                    </span>
-                    <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                      Waiting (reach target)
-                    </span>
-                  </div>
-                </div>
+                    <div className="flex-1">
+                      <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={incentiveEndDate}
+                        onChange={(e) => setIncentiveEndDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                    </div>
 
-                {/* 13 Target Progress Cards List */}
-                <div className="space-y-2.5">
-                  {MY_TARGETS_LIST.map((t) => (
-                    <div
-                      key={t.id}
-                      className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 shadow-2xs space-y-2 hover:border-slate-300 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toast.success("Incentive date window updated");
+                      }}
+                      className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
                     >
-                      {/* Top Header: Name and Badge */}
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                          {t.name}
-                        </h4>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 font-mono">
-                          {t.badge}
-                        </span>
-                      </div>
+                      Submit
+                    </button>
+                  </div>
 
-                      {/* Progress Bar */}
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/50">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            t.isEligible
-                              ? "bg-emerald-600"
-                              : t.pct > 0
-                              ? "bg-amber-500"
-                              : "bg-transparent"
-                          }`}
-                          style={{ width: `${t.pct}%` }}
-                        />
-                      </div>
+                  {/* Scheme Filter Pills (All schemes & Achieved) */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIncentiveFilter("ALL")}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${incentiveFilter === "ALL"
+                          ? "bg-[#1a2d42] text-white shadow-xs"
+                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>All schemes</span>
+                    </button>
 
-                      {/* Bottom row: sold text & more/eligible text */}
-                      <div className="flex items-center justify-between text-xs pt-0.5">
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          {t.soldText}
-                        </span>
-                        <span
-                          className={`text-xs font-bold ${
-                            t.isEligible
-                              ? "text-emerald-700 font-bold"
-                              : "text-slate-700 font-mono font-bold"
+                    <button
+                      type="button"
+                      onClick={() => setIncentiveFilter("ACHIEVED")}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${incentiveFilter === "ACHIEVED"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                        }`}
+                    >
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Achieved</span>
+                    </button>
+                  </div>
+
+                  {/* Subtabs (SKU Target / Sales Target) & Pagination (‹ Previous  1 / 2  Next ›) */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIncentivePage(1)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all active:scale-95 ${incentivePage === 1
+                            ? "bg-[#1a2d42] text-white shadow-xs"
+                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                           }`}
-                        >
-                          {t.moreText}
-                        </span>
+                      >
+                        SKU Target
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIncentivePage(2)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all active:scale-95 ${incentivePage === 2
+                            ? "bg-[#1a2d42] text-white shadow-xs"
+                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
+                      >
+                        Sales Target
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                      <button
+                        type="button"
+                        disabled={incentivePage === 1}
+                        onClick={() => setIncentivePage(1)}
+                        className={`px-3 py-1 rounded-full text-xs transition-colors ${incentivePage === 1
+                            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-[#1a2d42] text-white hover:bg-slate-800 cursor-pointer active:scale-95"
+                          }`}
+                      >
+                        ‹ Previous
+                      </button>
+                      <span className="px-1 text-slate-600 font-mono">{incentivePage} / 2</span>
+                      <button
+                        type="button"
+                        disabled={incentivePage === 2}
+                        onClick={() => setIncentivePage(2)}
+                        className={`px-3 py-1 rounded-full text-xs transition-colors ${incentivePage === 2
+                            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-[#1a2d42] text-white hover:bg-slate-800 cursor-pointer active:scale-95"
+                          }`}
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Common Top Banner: SIDDESHWAR ENTERPRISES & INCENTIVE SCHEME */}
+                  <div className="relative rounded-2xl border border-slate-200/90 bg-gradient-to-r from-blue-50/70 via-white to-sky-50/70 p-4 sm:p-5 flex items-center justify-between overflow-hidden shadow-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="w-5 h-5 text-blue-800" />
+                        <h3 className="text-base sm:text-lg font-black tracking-tight">
+                          <span className="text-blue-900">SIDDESHWAR</span>{" "}
+                          <span className="text-red-600">ENTERPRISES</span>
+                        </h3>
+                      </div>
+                      <p className="text-xs italic text-slate-600 font-medium">
+                        Grow Together with SIDDESHWAR ENTERPRISES
+                      </p>
+                    </div>
+
+                    <div className="relative rotate-[-3deg] shadow-lg shrink-0">
+                      <div className="bg-[#dc2626] text-white text-[11px] sm:text-xs font-black uppercase px-3 py-1 tracking-wider text-center">
+                        INCENTIVE SCHEME
+                      </div>
+                      <div className="bg-[#facc15] text-[#1e3a8a] text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 tracking-wider text-center">
+                        Sell More • Earn More
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* ======================================================== */}
+                  {/* PAGE 1: SKU TARGET (EXACT 1:1 MATCH TO IMAGE 1)          */}
+                  {/* ======================================================== */}
+                  {incentivePage === 1 && (
+                    <div className="space-y-4">
+                      {/* Yellow Bar: My incentive this month ₹610 */}
+                      <div className="bg-[#fef9c3] border border-amber-300/80 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-900 shadow-2xs">
+                        <span>My incentive this month</span>
+                        <span className="text-base font-black text-slate-900 font-mono">₹610</span>
+                      </div>
+
+                      {/* Section Pill: Top Selling Products & Incentives */}
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e40af] text-white text-xs font-bold shadow-xs">
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          <span>Top Selling Products & Incentives</span>
+                        </span>
+                      </div>
+
+                      {/* Products Grid (5 columns on desktop, 2 columns on mobile) */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                        {displayedIncentiveProducts.map((p) => {
+                          const imgSrc = PRODUCT_IMAGE_FALLBACKS[p.id] || p.image_url;
+                          const badgeBg =
+                            p.id === "inc-03" || p.id === "inc-08"
+                              ? "bg-[#7e22ce] text-white"
+                              : p.id === "inc-06" || p.id === "inc-10" || p.id === "inc-11" || p.id === "inc-12"
+                                ? "bg-[#0284c7] text-white"
+                                : p.id === "inc-04"
+                                  ? "bg-[#2563eb] text-white"
+                                  : "bg-[#16a34a] text-white";
+
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => setSelectedIncentiveProduct(p)}
+                              className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
+                            >
+                              <div className="space-y-1.5">
+                                <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
+                                  <img
+                                    src={imgSrc}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
+                                    loading="lazy"
+                                  />
+                                  {p.badge && (
+                                    <span className={`absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase shadow-xs ${badgeBg}`}>
+                                      {p.badge}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
+                                  {p.name}
+                                </h4>
+                                <div className="text-[10px] text-slate-500 space-y-0.5">
+                                  <p>MRP: ₹{p.mrp}</p>
+                                  <p className="font-semibold text-slate-600">Target: {p.target}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-2.5 space-y-1">
+                                <div className="flex justify-center">
+                                  <span className="bg-[#dc2626] text-white text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
+                                    Incentive
+                                  </span>
+                                </div>
+                                <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
+                                  {p.incentive_text}
+                                </div>
+                                <p
+                                  className={`text-[9px] text-center font-bold ${p.progress_text.startsWith("Eligible") || p.progress_text.startsWith("✓")
+                                      ? "text-emerald-700"
+                                      : "text-slate-600"
+                                    }`}
+                                >
+                                  {p.progress_text.startsWith("Eligible") ? `✓ ${p.progress_text}` : p.progress_text}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* 3 Scheme Info Cards Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+                            <span>Scheme Options</span>
+                          </div>
+                          <div className="p-3 grid grid-cols-3 gap-1.5 text-center text-[10px] font-semibold text-slate-700">
+                            <div>
+                              <div className="w-7 h-7 mx-auto rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold mb-1">
+                                ❚❚
+                              </div>
+                              <p className="font-bold text-slate-800">By SKU</p>
+                              <p className="text-[8px] text-slate-400">Each SKU has its own incentive</p>
+                            </div>
+                            <div>
+                              <div className="w-7 h-7 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold mb-1">
+                                📦
+                              </div>
+                              <p className="font-bold text-slate-800">By Product</p>
+                              <p className="text-[8px] text-slate-400">Product-wise incentive</p>
+                            </div>
+                            <div>
+                              <div className="w-7 h-7 mx-auto rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold mb-1">
+                                👥
+                              </div>
+                              <p className="font-bold text-slate-800">By Category</p>
+                              <p className="text-[8px] text-slate-400">Category-wise incentive</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+                            <span>Scheme Period</span>
+                          </div>
+                          <div className="p-3 text-center flex items-center justify-center gap-3">
+                            <Calendar className="w-7 h-7 text-blue-700 shrink-0" />
+                            <div className="text-left text-xs font-bold text-slate-800">
+                              <p>01 Nov 2026</p>
+                              <p className="text-[10px] text-slate-400 font-normal">to</p>
+                              <p>30 Nov 2026</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#16a34a] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+                            <span>Target / Minimum Quantity</span>
+                          </div>
+                          <div className="p-3 text-center flex items-center justify-center gap-3">
+                            <ShoppingCart className="w-7 h-7 text-emerald-600 shrink-0" />
+                            <div className="text-left text-xs">
+                              <p className="font-bold text-slate-900">Minimum Purchase:</p>
+                              <p className="text-[10px] text-slate-500">As per scheme</p>
+                              <p className="text-[9px] text-slate-400">(Example: 1 Pcs / 2 Pcs)</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3 Explanatory Bottom Columns */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        {/* Box 1: How to Get Incentive? */}
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#facc15] text-slate-900 px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+                            <span>💡 How to Get Incentive?</span>
+                          </div>
+                          <div className="p-3 text-[11px] text-slate-700 space-y-2.5">
+                            <div className="flex items-start gap-2">
+                              <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                1
+                              </span>
+                              <p>Order the listed products as per scheme.</p>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                2
+                              </span>
+                              <p>Sell the minimum quantity in the scheme period.</p>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                3
+                              </span>
+                              <p>Incentive is added automatically (returns deducted).</p>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                4
+                              </span>
+                              <p>Grow your sales & earn more!</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Box 2: Total Incentive Calculation (Example) */}
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
+                            <span>Total Incentive Calculation</span>
+                            <span className="text-[10px] text-blue-200 font-normal">(Example)</span>
+                          </div>
+                          <div className="p-2">
+                            <table className="w-full text-[10px] border-collapse bg-black text-white">
+                              <thead>
+                                <tr className="border-b border-slate-800 text-slate-300">
+                                  <th className="p-1 font-bold text-left border-r border-slate-800">Product</th>
+                                  <th className="p-1 font-bold text-center border-r border-slate-800">Qty</th>
+                                  <th className="p-1 font-bold text-center border-r border-slate-800">Incentive/Unit</th>
+                                  <th className="p-1 font-bold text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[1, 2, 3, 4, 5].map((row) => (
+                                  <tr key={row} className="border-b border-slate-800 h-6">
+                                    <td className="border-r border-slate-800"></td>
+                                    <td className="border-r border-slate-800"></td>
+                                    <td className="border-r border-slate-800"></td>
+                                    <td></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <div className="bg-[#facc15] text-slate-900 px-3 py-1 font-bold text-xs flex justify-between items-center mt-1">
+                              <span>Total Incentive</span>
+                              <span>₹60</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Box 3: Terms & Conditions */}
+                        <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
+                          <div className="bg-[#7c3aed] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+                            <span>Terms & Conditions</span>
+                          </div>
+                          <div className="p-3 text-[10px] text-slate-700 space-y-1.5">
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">✔</span>
+                              <p>Scheme valid for the listed SKUs only.</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">✔</span>
+                              <p>Minimum quantity must be sold in the scheme period to become eligible.</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">✔</span>
+                              <p>Incentive is calculated on the actual sales bill.</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">✔</span>
+                              <p>Cancelled orders do not count; returns are deducted.</p>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <span className="text-emerald-600 font-bold">✔</span>
+                              <p>Company reserves the right to modify or withdraw the scheme without prior notice.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer Bar: Reports Button + Yellow Skewed Banner */}
+                      <div className="flex items-center gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveView("reports")}
+                          className="w-12 h-12 rounded-xl bg-[#1e293b] text-white flex flex-col items-center justify-center text-[9px] font-bold shadow-xs hover:bg-[#0f172a] transition-all cursor-pointer active:scale-95 shrink-0"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-[10px] mb-0.5">
+                            📊
+                          </span>
+                          <span>Reports</span>
+                        </button>
+
+                        <div className="flex-1 bg-[#1a2d42] rounded-xl p-2.5 flex items-center justify-center shadow-xs overflow-hidden">
+                          <div className="bg-[#facc15] text-slate-900 font-black text-xs sm:text-sm px-4 py-1.5 rotate-[-1deg] shadow-sm tracking-wide">
+                            Grow Together with SIDDESHWAR ENTERPRISES
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ======================================================== */}
+                  {/* PAGE 2: SALES TARGET (EXACT 1:1 MATCH TO IMAGE 2)        */}
+                  {/* ======================================================== */}
+                  {incentivePage === 2 && (
+                    <div className="space-y-4">
+                      {/* Section Pill: Sales Targets & Rewards */}
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e40af] text-white text-xs font-bold shadow-xs">
+                          <Target className="w-3.5 h-3.5" />
+                          <span>Sales Targets & Rewards</span>
+                        </span>
+                      </div>
+
+                      {/* Sales Target Card */}
+                      <div className="rounded-2xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5 space-y-3">
+                        {/* Title with View button */}
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-slate-900">Sales Target Nov 2026</h4>
+                          <div className="bg-[#1a2d42] text-white text-[10px] font-bold px-4 py-0.5 rounded-full">
+                            View
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
+                              💰
+                            </div>
+                            <div className="space-y-1 flex-1">
+                              <p className="text-xs font-bold text-slate-900">
+                                Sales (₹): <span className="font-extrabold font-mono">₹1,20,000 every day</span>
+                              </p>
+                              <p className="text-[11px] text-slate-500 font-medium">05-11-2026 to 30-11-2026</p>
+
+                              {/* Progress bar */}
+                              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200 mt-1">
+                                <div className="h-full bg-blue-600 rounded-full w-[0%]" />
+                              </div>
+                              <p className="text-[10px] text-slate-500 font-mono">₹1,20,000 more</p>
+                            </div>
+                          </div>
+
+                          {/* Reward Red Box */}
+                          <div className="bg-[#dc2626] text-white rounded-xl p-3 text-center min-w-[95px] shadow-sm shrink-0">
+                            <p className="text-[10px] font-semibold text-red-100">Reward</p>
+                            <p className="text-lg font-black font-mono">₹100</p>
+                            <p className="text-[10px] font-semibold text-red-100">per day</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* How to get it? Pale yellow card */}
+                      <div className="rounded-xl border border-[#fef08a] bg-[#fefce8] p-4 text-xs text-slate-800 space-y-1 shadow-2xs">
+                        <p className="font-bold text-slate-900">How to get it?</p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          Reach the target inside the period (daily targets: every day). The reward is added automatically on the day you reach it.
+                        </p>
+                      </div>
+
+                      {/* Bottom Banner */}
+                      <div className="bg-[#1a2d42] rounded-xl p-3.5 flex items-center justify-center shadow-xs overflow-hidden">
+                        <div className="bg-[#facc15] text-slate-900 font-black text-xs sm:text-sm px-4 py-1.5 rotate-[-1deg] shadow-sm tracking-wide">
+                          Grow Together with SIDDESHWAR ENTERPRISES
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ======================================================== */}
-          {/* VIEW: INCENTIVE SCHEME POSTER (EXACT 1:1 TO SCREENSHOTS) */}
-          {/* ======================================================== */}
-          {activeView === "incentive-scheme" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight leading-tight">Incentive Scheme</h2>
-                  <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-5 space-y-4 bg-white">
+            {/* ======================================================== */}
+            {/* VIEW: CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)         */}
+            {/* ======================================================== */}
+            {activeView === "reports" && (
+              <div className="p-3 sm:p-5 space-y-3.5 max-w-2xl mx-auto">
                 {/* Date Filters Row */}
                 <div className="flex items-end gap-2.5 sm:gap-3">
                   <div className="flex-1">
@@ -2584,8 +3061,8 @@ export function CrmTelecallerPortalPage() {
                     </label>
                     <input
                       type="date"
-                      value={incentiveStartDate}
-                      onChange={(e) => setIncentiveStartDate(e.target.value)}
+                      value={reportStartDate}
+                      onChange={(e) => setReportStartDate(e.target.value)}
                       className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                   </div>
@@ -2596,654 +3073,164 @@ export function CrmTelecallerPortalPage() {
                     </label>
                     <input
                       type="date"
-                      value={incentiveEndDate}
-                      onChange={(e) => setIncentiveEndDate(e.target.value)}
+                      value={reportEndDate}
+                      onChange={(e) => setReportEndDate(e.target.value)}
                       className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      toast.success("Incentive date window updated");
-                    }}
+                    onClick={() => loadReportsAndOrders(reportStartDate, reportEndDate)}
                     className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
                   >
-                    Submit
+                    SUBMIT
                   </button>
                 </div>
 
-                {/* Scheme Filter Pills (All schemes & Achieved) */}
-                <div className="flex items-center gap-2">
+                {/* Team CRM Report Pill */}
+                <div>
                   <button
                     type="button"
-                    onClick={() => setIncentiveFilter("ALL")}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
-                      incentiveFilter === "ALL"
-                        ? "bg-[#1a2d42] text-white shadow-xs"
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    onClick={() => {
+                      loadTeamReports(reportStartDate, reportEndDate);
+                      setActiveView("team-reports");
+                    }}
+                    className="px-3.5 py-1.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>All schemes</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIncentiveFilter("ACHIEVED")}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
-                      incentiveFilter === "ACHIEVED"
-                        ? "bg-emerald-600 text-white shadow-xs"
-                        : "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Achieved</span>
+                    <Users className="w-3.5 h-3.5 text-blue-300" />
+                    <span>Team CRM Report ›</span>
                   </button>
                 </div>
 
-                {/* Subtabs (SKU Target / Sales Target) & Pagination (‹ Previous  1 / 2  Next ›) */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIncentivePage(1)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all active:scale-95 ${
-                        incentivePage === 1
-                          ? "bg-[#1a2d42] text-white shadow-xs"
-                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      SKU Target
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIncentivePage(2)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all active:scale-95 ${
-                        incentivePage === 2
-                          ? "bg-[#1a2d42] text-white shadow-xs"
-                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      Sales Target
-                    </button>
+                {/* Staff Profile Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
+                  <div className="w-13 h-13 rounded-full bg-[#132038] text-[#facc15] font-black text-2xl flex items-center justify-center shrink-0 shadow-xs">
+                    {userInitial}
                   </div>
-
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                    <button
-                      type="button"
-                      disabled={incentivePage === 1}
-                      onClick={() => setIncentivePage(1)}
-                      className={`px-3 py-1 rounded-full text-xs transition-colors ${
-                        incentivePage === 1
-                          ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-[#1a2d42] text-white hover:bg-slate-800 cursor-pointer active:scale-95"
-                      }`}
-                    >
-                      ‹ Previous
-                    </button>
-                    <span className="px-1 text-slate-600 font-mono">{incentivePage} / 2</span>
-                    <button
-                      type="button"
-                      disabled={incentivePage === 2}
-                      onClick={() => setIncentivePage(2)}
-                      className={`px-3 py-1 rounded-full text-xs transition-colors ${
-                        incentivePage === 2
-                          ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-[#1a2d42] text-white hover:bg-slate-800 cursor-pointer active:scale-95"
-                      }`}
-                    >
-                      Next ›
-                    </button>
-                  </div>
-                </div>
-
-                {/* Common Top Banner: SIDDESHWAR ENTERPRISES & INCENTIVE SCHEME */}
-                <div className="relative rounded-2xl border border-slate-200/90 bg-gradient-to-r from-blue-50/70 via-white to-sky-50/70 p-4 sm:p-5 flex items-center justify-between overflow-hidden shadow-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5 text-blue-800" />
-                      <h3 className="text-base sm:text-lg font-black tracking-tight">
-                        <span className="text-blue-900">SIDDESHWAR</span>{" "}
-                        <span className="text-red-600">ENTERPRISES</span>
-                      </h3>
-                    </div>
-                    <p className="text-xs italic text-slate-600 font-medium">
-                      Grow Together with SIDDESHWAR ENTERPRISES
+                  <div className="space-y-0.5">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                      {userName}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Last seen: {reportData.last_seen || "22/11/2026, 10:09 pm"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Last order: {reportData.last_order || "22 Nov, 04:54 pm"}
                     </p>
                   </div>
-
-                  <div className="relative rotate-[-3deg] shadow-lg shrink-0">
-                    <div className="bg-[#dc2626] text-white text-[11px] sm:text-xs font-black uppercase px-3 py-1 tracking-wider text-center">
-                      INCENTIVE SCHEME
-                    </div>
-                    <div className="bg-[#facc15] text-[#1e3a8a] text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 tracking-wider text-center">
-                      Sell More • Earn More
-                    </div>
-                  </div>
                 </div>
 
-                {/* ======================================================== */}
-                {/* PAGE 1: SKU TARGET (EXACT 1:1 MATCH TO IMAGE 1)          */}
-                {/* ======================================================== */}
-                {incentivePage === 1 && (
-                  <div className="space-y-4">
-                    {/* Yellow Bar: My incentive this month ₹610 */}
-                    <div className="bg-[#fef9c3] border border-amber-300/80 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-900 shadow-2xs">
-                      <span>My incentive this month</span>
-                      <span className="text-base font-black text-slate-900 font-mono">₹610</span>
-                    </div>
-
-                    {/* Section Pill: Top Selling Products & Incentives */}
+                {/* 4 Stat Metric Cards Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                  {/* Blue Card: Customer Created */}
+                  <div className="bg-[#3b82f6] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-white block mt-1">
+                      {reportData.customer_created ?? 0}
+                    </span>
                     <div>
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e40af] text-white text-xs font-bold shadow-xs">
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        <span>Top Selling Products & Incentives</span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-blue-100 block">
+                        Customer Created
                       </span>
-                    </div>
-
-                    {/* Products Grid (5 columns on desktop, 2 columns on mobile) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-                      {displayedIncentiveProducts.map((p) => {
-                        const imgSrc = PRODUCT_IMAGE_FALLBACKS[p.id] || p.image_url;
-                        const badgeBg =
-                          p.id === "inc-03" || p.id === "inc-08"
-                            ? "bg-[#7e22ce] text-white"
-                            : p.id === "inc-06" || p.id === "inc-10" || p.id === "inc-11" || p.id === "inc-12"
-                            ? "bg-[#0284c7] text-white"
-                            : p.id === "inc-04"
-                            ? "bg-[#2563eb] text-white"
-                            : "bg-[#16a34a] text-white";
-
-                        return (
-                          <div
-                            key={p.id}
-                            onClick={() => setSelectedIncentiveProduct(p)}
-                            className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-400 transition-all text-left relative cursor-pointer active:scale-95 group"
-                          >
-                            <div className="space-y-1.5">
-                              <div className="relative w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-1">
-                                <img
-                                  src={imgSrc}
-                                  alt={p.name}
-                                  className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
-                                  loading="lazy"
-                                />
-                                {p.badge && (
-                                  <span className={`absolute top-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase shadow-xs ${badgeBg}`}>
-                                    {p.badge}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h4 className="text-[11px] font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-900 transition-colors">
-                                {p.name}
-                              </h4>
-                              <div className="text-[10px] text-slate-500 space-y-0.5">
-                                <p>MRP: ₹{p.mrp}</p>
-                                <p className="font-semibold text-slate-600">Target: {p.target}</p>
-                              </div>
-                            </div>
-
-                            <div className="mt-2.5 space-y-1">
-                              <div className="flex justify-center">
-                                <span className="bg-[#dc2626] text-white text-[8px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider">
-                                  Incentive
-                                </span>
-                              </div>
-                              <div className="bg-[#facc15] text-slate-900 px-2 py-0.5 rounded font-black text-[10px] text-center shadow-xs">
-                                {p.incentive_text}
-                              </div>
-                              <p
-                                className={`text-[9px] text-center font-bold ${
-                                  p.progress_text.startsWith("Eligible") || p.progress_text.startsWith("✓")
-                                    ? "text-emerald-700"
-                                    : "text-slate-600"
-                                }`}
-                              >
-                                {p.progress_text.startsWith("Eligible") ? `✓ ${p.progress_text}` : p.progress_text}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* 3 Scheme Info Cards Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-                          <span>Scheme Options</span>
-                        </div>
-                        <div className="p-3 grid grid-cols-3 gap-1.5 text-center text-[10px] font-semibold text-slate-700">
-                          <div>
-                            <div className="w-7 h-7 mx-auto rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold mb-1">
-                              ❚❚
-                            </div>
-                            <p className="font-bold text-slate-800">By SKU</p>
-                            <p className="text-[8px] text-slate-400">Each SKU has its own incentive</p>
-                          </div>
-                          <div>
-                            <div className="w-7 h-7 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold mb-1">
-                              📦
-                            </div>
-                            <p className="font-bold text-slate-800">By Product</p>
-                            <p className="text-[8px] text-slate-400">Product-wise incentive</p>
-                          </div>
-                          <div>
-                            <div className="w-7 h-7 mx-auto rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold mb-1">
-                              👥
-                            </div>
-                            <p className="font-bold text-slate-800">By Category</p>
-                            <p className="text-[8px] text-slate-400">Category-wise incentive</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-                          <span>Scheme Period</span>
-                        </div>
-                        <div className="p-3 text-center flex items-center justify-center gap-3">
-                          <Calendar className="w-7 h-7 text-blue-700 shrink-0" />
-                          <div className="text-left text-xs font-bold text-slate-800">
-                            <p>01 Nov 2026</p>
-                            <p className="text-[10px] text-slate-400 font-normal">to</p>
-                            <p>30 Nov 2026</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#16a34a] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-                          <span>Target / Minimum Quantity</span>
-                        </div>
-                        <div className="p-3 text-center flex items-center justify-center gap-3">
-                          <ShoppingCart className="w-7 h-7 text-emerald-600 shrink-0" />
-                          <div className="text-left text-xs">
-                            <p className="font-bold text-slate-900">Minimum Purchase:</p>
-                            <p className="text-[10px] text-slate-500">As per scheme</p>
-                            <p className="text-[9px] text-slate-400">(Example: 1 Pcs / 2 Pcs)</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3 Explanatory Bottom Columns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                      {/* Box 1: How to Get Incentive? */}
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#facc15] text-slate-900 px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-                          <span>💡 How to Get Incentive?</span>
-                        </div>
-                        <div className="p-3 text-[11px] text-slate-700 space-y-2.5">
-                          <div className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              1
-                            </span>
-                            <p>Order the listed products as per scheme.</p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              2
-                            </span>
-                            <p>Sell the minimum quantity in the scheme period.</p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              3
-                            </span>
-                            <p>Incentive is added automatically (returns deducted).</p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              4
-                            </span>
-                            <p>Grow your sales & earn more!</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Box 2: Total Incentive Calculation (Example) */}
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#1e40af] text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
-                          <span>Total Incentive Calculation</span>
-                          <span className="text-[10px] text-blue-200 font-normal">(Example)</span>
-                        </div>
-                        <div className="p-2">
-                          <table className="w-full text-[10px] border-collapse bg-black text-white">
-                            <thead>
-                              <tr className="border-b border-slate-800 text-slate-300">
-                                <th className="p-1 font-bold text-left border-r border-slate-800">Product</th>
-                                <th className="p-1 font-bold text-center border-r border-slate-800">Qty</th>
-                                <th className="p-1 font-bold text-center border-r border-slate-800">Incentive/Unit</th>
-                                <th className="p-1 font-bold text-right">Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {[1, 2, 3, 4, 5].map((row) => (
-                                <tr key={row} className="border-b border-slate-800 h-6">
-                                  <td className="border-r border-slate-800"></td>
-                                  <td className="border-r border-slate-800"></td>
-                                  <td className="border-r border-slate-800"></td>
-                                  <td></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <div className="bg-[#facc15] text-slate-900 px-3 py-1 font-bold text-xs flex justify-between items-center mt-1">
-                            <span>Total Incentive</span>
-                            <span>₹60</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Box 3: Terms & Conditions */}
-                      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs bg-white">
-                        <div className="bg-[#7c3aed] text-white px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-                          <span>Terms & Conditions</span>
-                        </div>
-                        <div className="p-3 text-[10px] text-slate-700 space-y-1.5">
-                          <div className="flex items-start gap-1.5">
-                            <span className="text-emerald-600 font-bold">✔</span>
-                            <p>Scheme valid for the listed SKUs only.</p>
-                          </div>
-                          <div className="flex items-start gap-1.5">
-                            <span className="text-emerald-600 font-bold">✔</span>
-                            <p>Minimum quantity must be sold in the scheme period to become eligible.</p>
-                          </div>
-                          <div className="flex items-start gap-1.5">
-                            <span className="text-emerald-600 font-bold">✔</span>
-                            <p>Incentive is calculated on the actual sales bill.</p>
-                          </div>
-                          <div className="flex items-start gap-1.5">
-                            <span className="text-emerald-600 font-bold">✔</span>
-                            <p>Cancelled orders do not count; returns are deducted.</p>
-                          </div>
-                          <div className="flex items-start gap-1.5">
-                            <span className="text-emerald-600 font-bold">✔</span>
-                            <p>Company reserves the right to modify or withdraw the scheme without prior notice.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Bar: Reports Button + Yellow Skewed Banner */}
-                    <div className="flex items-center gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => setActiveView("reports")}
-                        className="w-12 h-12 rounded-xl bg-[#1e293b] text-white flex flex-col items-center justify-center text-[9px] font-bold shadow-xs hover:bg-[#0f172a] transition-all cursor-pointer active:scale-95 shrink-0"
+                        onClick={() => setActiveView("new-customer")}
+                        className="text-[11px] text-blue-100/90 hover:underline mt-1 cursor-pointer font-medium"
                       >
-                        <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-[10px] mb-0.5">
-                          📊
-                        </span>
-                        <span>Reports</span>
+                        View ›
                       </button>
-
-                      <div className="flex-1 bg-[#1a2d42] rounded-xl p-2.5 flex items-center justify-center shadow-xs overflow-hidden">
-                        <div className="bg-[#facc15] text-slate-900 font-black text-xs sm:text-sm px-4 py-1.5 rotate-[-1deg] shadow-sm tracking-wide">
-                          Grow Together with SIDDESHWAR ENTERPRISES
-                        </div>
-                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* ======================================================== */}
-                {/* PAGE 2: SALES TARGET (EXACT 1:1 MATCH TO IMAGE 2)        */}
-                {/* ======================================================== */}
-                {incentivePage === 2 && (
-                  <div className="space-y-4">
-                    {/* Section Pill: Sales Targets & Rewards */}
+                  {/* Grey Card: Customer Visited */}
+                  <div className="bg-[#e2e8f0] text-slate-900 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 block mt-1">
+                      {reportData.customer_visited ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
+                    </span>
                     <div>
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e40af] text-white text-xs font-bold shadow-xs">
-                        <Target className="w-3.5 h-3.5" />
-                        <span>Sales Targets & Rewards</span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-700 block">
+                        Customer Visited
                       </span>
-                    </div>
-
-                    {/* Sales Target Card */}
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5 space-y-3">
-                      {/* Title with View button */}
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900">Sales Target Nov 2026</h4>
-                        <div className="bg-[#1a2d42] text-white text-[10px] font-bold px-4 py-0.5 rounded-full">
-                          View
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
-                            💰
-                          </div>
-                          <div className="space-y-1 flex-1">
-                            <p className="text-xs font-bold text-slate-900">
-                              Sales (₹): <span className="font-extrabold font-mono">₹1,20,000 every day</span>
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-medium">05-11-2026 to 30-11-2026</p>
-
-                            {/* Progress bar */}
-                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200 mt-1">
-                              <div className="h-full bg-blue-600 rounded-full w-[0%]" />
-                            </div>
-                            <p className="text-[10px] text-slate-500 font-mono">₹1,20,000 more</p>
-                          </div>
-                        </div>
-
-                        {/* Reward Red Box */}
-                        <div className="bg-[#dc2626] text-white rounded-xl p-3 text-center min-w-[95px] shadow-sm shrink-0">
-                          <p className="text-[10px] font-semibold text-red-100">Reward</p>
-                          <p className="text-lg font-black font-mono">₹100</p>
-                          <p className="text-[10px] font-semibold text-red-100">per day</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* How to get it? Pale yellow card */}
-                    <div className="rounded-xl border border-[#fef08a] bg-[#fefce8] p-4 text-xs text-slate-800 space-y-1 shadow-2xs">
-                      <p className="font-bold text-slate-900">How to get it?</p>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
-                        Reach the target inside the period (daily targets: every day). The reward is added automatically on the day you reach it.
-                      </p>
-                    </div>
-
-                    {/* Bottom Banner */}
-                    <div className="bg-[#1a2d42] rounded-xl p-3.5 flex items-center justify-center shadow-xs overflow-hidden">
-                      <div className="bg-[#facc15] text-slate-900 font-black text-xs sm:text-sm px-4 py-1.5 rotate-[-1deg] shadow-sm tracking-wide">
-                        Grow Together with SIDDESHWAR ENTERPRISES
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveView("callings")}
+                        className="text-[11px] text-slate-500 hover:underline mt-1 cursor-pointer font-medium"
+                      >
+                        View ›
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* ======================================================== */}
-          {/* VIEW: CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)         */}
-          {/* ======================================================== */}
-          {activeView === "reports" && (
-            <div className="p-3 sm:p-5 space-y-3.5 max-w-2xl mx-auto">
-              {/* Date Filters Row */}
-              <div className="flex items-end gap-2.5 sm:gap-3">
-                <div className="flex-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={reportStartDate}
-                    onChange={(e) => setReportStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-
-                <div className="flex-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={reportEndDate}
-                    onChange={(e) => setReportEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => loadReportsAndOrders(reportStartDate, reportEndDate)}
-                  className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
-                >
-                  SUBMIT
-                </button>
-              </div>
-
-              {/* Team CRM Report Pill */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    loadTeamReports(reportStartDate, reportEndDate);
-                    setActiveView("team-reports");
-                  }}
-                  className="px-3.5 py-1.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
-                >
-                  <Users className="w-3.5 h-3.5 text-blue-300" />
-                  <span>Team CRM Report ›</span>
-                </button>
-              </div>
-
-              {/* Staff Profile Card */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
-                <div className="w-13 h-13 rounded-full bg-[#132038] text-[#facc15] font-black text-2xl flex items-center justify-center shrink-0 shadow-xs">
-                  {userInitial}
-                </div>
-                <div className="space-y-0.5">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                    {userName}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Last seen: {reportData.last_seen || "22/11/2026, 10:09 pm"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Last order: {reportData.last_order || "22 Nov, 04:54 pm"}
-                  </p>
-                </div>
-              </div>
-
-              {/* 4 Stat Metric Cards Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-                {/* Blue Card: Customer Created */}
-                <div className="bg-[#3b82f6] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-white block mt-1">
-                    {reportData.customer_created ?? 0}
-                  </span>
-                  <div>
-                    <span className="text-[11px] sm:text-xs font-semibold text-blue-100 block">
-                      Customer Created
+                  {/* Yellow Card: Total Order Count */}
+                  <div className="bg-[#eab308] text-slate-950 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-950 block mt-1">
+                      {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView("new-customer")}
-                      className="text-[11px] text-blue-100/90 hover:underline mt-1 cursor-pointer font-medium"
-                    >
-                      View ›
-                    </button>
+                    <div>
+                      <span className="text-[11px] sm:text-xs font-bold text-amber-950/80 block">
+                        Total Order Count
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById("crm-my-orders-list");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="text-[11px] text-amber-950/70 hover:underline mt-1 cursor-pointer font-medium"
+                      >
+                        View ›
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Navy Card: Order Total */}
+                  <div className="bg-[#0a1631] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#facc15] block mt-1">
+                      ₹{((reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 17077))).toLocaleString("en-IN")}
+                    </span>
+                    <div>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-300 block">
+                        Order Total
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById("crm-my-orders-list");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="text-[11px] text-slate-400 hover:underline mt-1 cursor-pointer font-medium"
+                      >
+                        View ›
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Grey Card: Customer Visited */}
-                <div className="bg-[#e2e8f0] text-slate-900 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 block mt-1">
-                    {reportData.customer_visited ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
+                {/* Large KPI Card: Unbilled To Bill Customers */}
+                <div className="bg-[#fef3c7] border border-amber-200/80 rounded-2xl p-4 text-center shadow-xs">
+                  <span className="text-3xl sm:text-4xl font-black text-[#854d0e] block">
+                    {reportData.unbilled_customers ?? 1961}
                   </span>
-                  <div>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-700 block">
-                      Customer Visited
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView("callings")}
-                      className="text-[11px] text-slate-500 hover:underline mt-1 cursor-pointer font-medium"
-                    >
-                      View ›
-                    </button>
-                  </div>
+                  <span className="text-xs font-bold text-amber-900/80 mt-1 block">
+                    Unbilled To Bill Customers
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("customers")}
+                    className="text-xs text-amber-900/70 font-semibold hover:underline mt-1 cursor-pointer"
+                  >
+                    View ›
+                  </button>
                 </div>
 
-                {/* Yellow Card: Total Order Count */}
-                <div className="bg-[#eab308] text-slate-950 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-950 block mt-1">
-                    {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
-                  </span>
-                  <div>
-                    <span className="text-[11px] sm:text-xs font-bold text-amber-950/80 block">
-                      Total Order Count
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById("crm-my-orders-list");
-                        if (el) el.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      className="text-[11px] text-amber-950/70 hover:underline mt-1 cursor-pointer font-medium"
-                    >
-                      View ›
-                    </button>
-                  </div>
-                </div>
+                {/* My orders Section */}
+                <div id="crm-my-orders-list" className="space-y-2 pt-1">
+                  <h4 className="text-xs font-bold text-slate-900">My orders</h4>
 
-                {/* Navy Card: Order Total */}
-                <div className="bg-[#0a1631] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-[#facc15] block mt-1">
-                    ₹{((reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 17077))).toLocaleString("en-IN")}
-                  </span>
-                  <div>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-300 block">
-                      Order Total
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById("crm-my-orders-list");
-                        if (el) el.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      className="text-[11px] text-slate-400 hover:underline mt-1 cursor-pointer font-medium"
-                    >
-                      View ›
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Large KPI Card: Unbilled To Bill Customers */}
-              <div className="bg-[#fef3c7] border border-amber-200/80 rounded-2xl p-4 text-center shadow-xs">
-                <span className="text-3xl sm:text-4xl font-black text-[#854d0e] block">
-                  {reportData.unbilled_customers ?? 1961}
-                </span>
-                <span className="text-xs font-bold text-amber-900/80 mt-1 block">
-                  Unbilled To Bill Customers
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveView("customers")}
-                  className="text-xs text-amber-900/70 font-semibold hover:underline mt-1 cursor-pointer"
-                >
-                  View ›
-                </button>
-              </div>
-
-              {/* My orders Section */}
-              <div id="crm-my-orders-list" className="space-y-2 pt-1">
-                <h4 className="text-xs font-bold text-slate-900">My orders</h4>
-
-                <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
-                  {((reportData.my_orders && reportData.my_orders.length > 0)
-                    ? reportData.my_orders
-                    : [
+                  <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
+                    {((reportData.my_orders && reportData.my_orders.length > 0)
+                      ? reportData.my_orders
+                      : [
                         {
                           id: "ord-1508",
                           customer_name: "Shankargouda Biradar",
@@ -3269,1343 +3256,1340 @@ export function CrmTelecallerPortalPage() {
                           status: "PLACED",
                         },
                       ]
-                  ).map((ord) => (
-                    <div
-                      key={ord.id}
-                      className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
-                      onClick={() => setActiveView("order-status")}
-                    >
-                      <div>
-                        <h5 className="text-xs sm:text-sm font-bold text-slate-900">
-                          {ord.customer_name}
-                        </h5>
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {ord.order_number} · {ord.order_date}
-                        </p>
+                    ).map((ord) => (
+                      <div
+                        key={ord.id}
+                        className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
+                        onClick={() => setActiveView("order-status")}
+                      >
+                        <div>
+                          <h5 className="text-xs sm:text-sm font-bold text-slate-900">
+                            {ord.customer_name}
+                          </h5>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {ord.order_number} · {ord.order_date}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 block">
+                            ₹{ord.total_amount.toLocaleString("en-IN")}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase mt-0.5">
+                            {ord.status} ›
+                          </span>
+                        </div>
                       </div>
-
-                      <div className="text-right">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 block">
-                          ₹{ord.total_amount.toLocaleString("en-IN")}
-                        </span>
-                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase mt-0.5">
-                          {ord.status} ›
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom Card: My Incentive */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center shadow-xs">
-                <span className="text-lg sm:text-xl font-bold text-slate-900 block">
-                  ₹{reportData.incentive ?? 0}
-                </span>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  My Incentive · {reportStartDate.split("-").reverse().join("-")} to {reportEndDate.split("-").reverse().join("-")}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* VIEW: TEAM CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)    */}
-          {/* ======================================================== */}
-          {activeView === "team-reports" && (
-            <div className="p-3 sm:p-5 space-y-4 max-w-2xl mx-auto">
-              {/* Date Filters Row */}
-              <div className="flex items-end gap-2.5 sm:gap-3">
-                <div className="flex-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={reportStartDate}
-                    onChange={(e) => setReportStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={reportEndDate}
-                    onChange={(e) => setReportEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => loadTeamReports(reportStartDate, reportEndDate)}
-                  className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
-                >
-                  SUBMIT
-                </button>
-              </div>
-
-              {/* Tabs: CRM and APP */}
-              <div className="flex border-b border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setTeamActiveTab("CRM")}
-                  className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${
-                    teamActiveTab === "CRM"
-                      ? "text-blue-700 border-b-2 border-blue-600"
-                      : "text-slate-400 hover:text-slate-600"
-                  }`}
-                >
-                  CRM
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTeamActiveTab("APP")}
-                  className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${
-                    teamActiveTab === "APP"
-                      ? "text-blue-700 border-b-2 border-blue-600"
-                      : "text-slate-400 hover:text-slate-600"
-                  }`}
-                >
-                  APP
-                </button>
-              </div>
-
-              {/* Table 1: Telecaller Report */}
-              <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
-                <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
-                  Telecaller Report
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
-                      <tr>
-                        <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
-                        <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
-                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
-                          Number not reachable / wrong
-                        </th>
-                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
-                          Shop closed
-                        </th>
-                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
-                          Call back later
-                        </th>
-                        <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
-                          Stock available, order later
-                        </th>
-                        <th className="py-2.5 px-2 text-center">
-                          Not interested
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-800">
-                      {teamReportData.telecaller_report.map((row) => (
-                        <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
-                            {row.sl}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
-                            {row.name}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
-                            {row.not_reachable}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
-                            {row.shop_closed}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
-                            {row.call_back}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
-                            {row.stock_available}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-700">
-                            {row.not_interested}
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Total Row */}
-                      <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
-                        <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
-                        <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
-                          Total
-                        </td>
-                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
-                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_reachable, 0)}
-                        </td>
-                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
-                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.shop_closed, 0)}
-                        </td>
-                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
-                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.call_back, 0)}
-                        </td>
-                        <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
-                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.stock_available, 0)}
-                        </td>
-                        <td className="py-2.5 px-2 text-center font-extrabold">
-                          {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_interested, 0)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                {/* Bottom Card: My Incentive */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center shadow-xs">
+                  <span className="text-lg sm:text-xl font-bold text-slate-900 block">
+                    ₹{reportData.incentive ?? 0}
+                  </span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    My Incentive · {reportStartDate.split("-").reverse().join("-")} to {reportEndDate.split("-").reverse().join("-")}
+                  </p>
                 </div>
               </div>
+            )}
 
-              {/* Table 2: Sale Report */}
-              <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
-                <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
-                  Sale Report
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
-                      <tr>
-                        <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
-                        <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
-                        <th className="py-2.5 px-3 text-center border-r border-emerald-700/60">Order Count</th>
-                        <th className="py-2.5 px-4 text-right border-r border-emerald-700/60">Order Total</th>
-                        <th className="py-2.5 px-3 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-800">
-                      {teamReportData.sale_report.map((row) => (
-                        <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
-                            {row.sl}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
-                            {row.name}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-medium border-r border-slate-100">
-                            {row.order_count}
-                          </td>
-                          <td className="py-2.5 px-4 text-right font-medium border-r border-slate-100 font-mono">
-                            {row.order_total.toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setActiveView("reports")}
-                              className="px-3.5 py-0.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Total Row */}
-                      <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
-                        <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
-                        <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
-                          Total
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-extrabold border-r border-slate-200">
-                          {teamReportData.total_order_count}
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-extrabold border-r border-slate-200 font-mono">
-                          {teamReportData.total_order_amount.toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-2.5 px-3 text-center"></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+            {/* ======================================================== */}
+            {/* VIEW: TEAM CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)    */}
+            {/* ======================================================== */}
+            {activeView === "team-reports" && (
+              <div className="p-3 sm:p-5 space-y-4 max-w-2xl mx-auto">
+                {/* Date Filters Row */}
+                <div className="flex items-end gap-2.5 sm:gap-3">
+                  <div className="flex-1">
+                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={reportStartDate}
+                      onChange={(e) => setReportStartDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
 
-          {/* ======================================================== */}
-          {/* VIEW: ORDER STATUS (EXACT 1:1 TO SCREENSHOT)               */}
-          {/* ======================================================== */}
-          {activeView === "order-status" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-5xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">Order Status</h2>
-              </div>
+                  <div className="flex-1">
+                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={reportEndDate}
+                      onChange={(e) => setReportEndDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
 
-              <div className="p-4 sm:p-6 space-y-4 bg-white">
-                {/* Row 1: Export Pill Button */}
-                <div>
                   <button
-                    onClick={handleExportOrderStatusExcel}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
+                    type="button"
+                    onClick={() => loadTeamReports(reportStartDate, reportEndDate)}
+                    className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-blue-900 text-blue-950 hover:bg-blue-50 transition-colors cursor-pointer shrink-0 h-[38px] active:scale-95 shadow-xs"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export</span>
+                    SUBMIT
                   </button>
                 </div>
 
-                {/* Row 2: Date Filters From / To / Submit */}
-                <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-700">
-                  <span className="font-medium text-slate-600">From</span>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={orderStatusStartDate}
-                      onChange={(e) => setOrderStatusStartDate(e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
-                    />
-                  </div>
-                  <span className="font-medium text-slate-600">To</span>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={orderStatusEndDate}
-                      onChange={(e) => setOrderStatusEndDate(e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
-                    />
-                  </div>
+                {/* Tabs: CRM and APP */}
+                <div className="flex border-b border-slate-200">
                   <button
-                    onClick={() => loadOrderStatus(orderStatusStartDate, orderStatusEndDate)}
-                    className="px-5 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
+                    type="button"
+                    onClick={() => setTeamActiveTab("CRM")}
+                    className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${teamActiveTab === "CRM"
+                        ? "text-blue-700 border-b-2 border-blue-600"
+                        : "text-slate-400 hover:text-slate-600"
+                      }`}
                   >
-                    Submit
+                    CRM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamActiveTab("APP")}
+                    className={`flex-1 py-2 text-center text-xs font-extrabold transition-colors cursor-pointer ${teamActiveTab === "APP"
+                        ? "text-blue-700 border-b-2 border-blue-600"
+                        : "text-slate-400 hover:text-slate-600"
+                      }`}
+                  >
+                    APP
                   </button>
                 </div>
 
-                {/* Row 3: Search Bar */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="Search in this page..."
-                    value={orderStatusSearch}
-                    onChange={(e) => setOrderStatusSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs text-slate-800 placeholder:text-slate-400"
-                  />
-                </div>
-
-                {/* Row 4: Orders KPI Card */}
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-                  <p className="text-xs text-slate-500 font-medium">Orders</p>
-                  <p className="text-2xl font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
-                </div>
-
-                {/* Row 5: The Excel Grid Table (100% visible, crisp white background, dark legible text, Excel borders) */}
-                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-white">
+                {/* Table 1: Telecaller Report */}
+                <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
+                  <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
+                    Telecaller Report
+                  </h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-[#1976d2] text-white">
-                          <th className="px-3 py-3 font-bold text-center border-r border-blue-400/40 w-12">SI</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[200px]">Customer Name</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[110px]">Order No</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[160px]">
-                            <div className="flex items-center gap-1.5">
-                              <span>Order Placed</span>
-                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                {orderPlacedCount}
-                              </span>
-                            </div>
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
+                        <tr>
+                          <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
+                          <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
+                          <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                            Number not reachable / wrong
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[170px]">
-                            <div className="flex items-center gap-1.5">
-                              <span>Packed & Confirmed</span>
-                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                {packedCount}
-                              </span>
-                            </div>
+                          <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                            Shop closed
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[130px]">
-                            <div className="flex items-center gap-1.5">
-                              <span>Dispatched</span>
-                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                {dispatchedCount}
-                              </span>
-                            </div>
+                          <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                            Call back later
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[140px]">
-                            <div className="flex items-center gap-1.5">
-                              <span>Out For Delivery</span>
-                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                {outForDeliveryCount}
-                              </span>
-                            </div>
+                          <th className="py-2.5 px-2 text-center border-r border-emerald-700/60">
+                            Stock available, order later
                           </th>
-                          <th className="px-3 py-3 font-bold min-w-[120px]">
-                            <div className="flex items-center gap-1.5">
-                              <span>Delivered</span>
-                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                {deliveredCount}
-                              </span>
-                            </div>
+                          <th className="py-2.5 px-2 text-center">
+                            Not interested
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {filteredOrders.map((ord, idx) => (
-                          <tr key={ord.id} className="hover:bg-blue-50/40 transition-colors">
-                            <td className="px-3 py-3 text-center text-slate-800 font-bold border-r border-slate-200">
-                              {idx + 1}
+                      <tbody className="divide-y divide-slate-100 text-slate-800">
+                        {teamReportData.telecaller_report.map((row) => (
+                          <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
+                              {row.sl}
                             </td>
-                            <td className="px-3 py-3 border-r border-slate-200">
-                              <div className="font-bold text-slate-900 text-xs">{ord.customer_name}</div>
-                              <div className="text-slate-500 font-mono text-[11px] mt-0.5">{ord.customer_phone}</div>
+                            <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
+                              {row.name}
                             </td>
-                            <td className="px-3 py-3 font-mono font-bold text-slate-800 border-r border-slate-200">
-                              {ord.order_number}
+                            <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                              {row.not_reachable}
                             </td>
-                            <td className="px-3 py-3 font-mono text-slate-700 text-xs border-r border-slate-200">
-                              {ord.order_placed || "—"}
+                            <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                              {row.shop_closed}
                             </td>
-                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
-                              {ord.packed_confirmed || "—"}
+                            <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                              {row.call_back}
                             </td>
-                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
-                              {ord.dispatched || "—"}
+                            <td className="py-2.5 px-2 text-center text-slate-700 border-r border-slate-100">
+                              {row.stock_available}
                             </td>
-                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
-                              {ord.out_for_delivery || "—"}
-                            </td>
-                            <td className="px-3 py-3 text-slate-400 font-bold text-center">
-                              {ord.delivered || "—"}
+                            <td className="py-2.5 px-2 text-center text-slate-700">
+                              {row.not_interested}
                             </td>
                           </tr>
                         ))}
-                        {filteredOrders.length === 0 && (
-                          <tr>
-                            <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
-                              No orders found for the selected date range.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                      <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-slate-900">
-                        <tr>
-                          <td className="px-3 py-3 text-center border-r border-slate-200">Total</td>
-                          <td className="px-3 py-3 border-r border-slate-200"></td>
-                          <td className="px-3 py-3 border-r border-slate-200 font-mono"></td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
-                            {orderPlacedCount}
+                        {/* Total Row */}
+                        <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
+                          <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
+                          <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
+                            Total
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
-                            {packedCount}
+                          <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                            {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_reachable, 0)}
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
-                            {dispatchedCount}
+                          <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                            {teamReportData.telecaller_report.reduce((sum, r) => sum + r.shop_closed, 0)}
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
-                            {outForDeliveryCount}
+                          <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                            {teamReportData.telecaller_report.reduce((sum, r) => sum + r.call_back, 0)}
                           </td>
-                          <td className="px-3 py-3 text-center font-mono">
-                            {deliveredCount}
+                          <td className="py-2.5 px-2 text-center font-extrabold border-r border-slate-200">
+                            {teamReportData.telecaller_report.reduce((sum, r) => sum + r.stock_available, 0)}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-extrabold">
+                            {teamReportData.telecaller_report.reduce((sum, r) => sum + r.not_interested, 0)}
                           </td>
                         </tr>
-                      </tfoot>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Table 2: Sale Report */}
+                <div className="rounded-lg border border-[#2e7d32] overflow-hidden bg-white shadow-xs">
+                  <h3 className="text-center font-bold text-sm text-[#ea580c] py-2 bg-white tracking-wide">
+                    Sale Report
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="bg-[#2e7d32] text-white font-bold text-[11px]">
+                        <tr>
+                          <th className="py-2.5 px-2 text-center w-8 border-r border-emerald-700/60">SI</th>
+                          <th className="py-2.5 px-3 text-left border-r border-emerald-700/60">Name</th>
+                          <th className="py-2.5 px-3 text-center border-r border-emerald-700/60">Order Count</th>
+                          <th className="py-2.5 px-4 text-right border-r border-emerald-700/60">Order Total</th>
+                          <th className="py-2.5 px-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-800">
+                        {teamReportData.sale_report.map((row) => (
+                          <tr key={row.sl} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-2 text-center font-medium text-slate-600 border-r border-slate-100">
+                              {row.sl}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-900 border-r border-slate-100 whitespace-nowrap">
+                              {row.name}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-medium border-r border-slate-100">
+                              {row.order_count}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-medium border-r border-slate-100 font-mono">
+                              {row.order_total.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setActiveView("reports")}
+                                className="px-3.5 py-0.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Total Row */}
+                        <tr className="bg-slate-50/90 font-bold text-slate-900 border-t-2 border-slate-200">
+                          <td className="py-2.5 px-2 text-center border-r border-slate-200"></td>
+                          <td className="py-2.5 px-3 font-extrabold border-r border-slate-200">
+                            Total
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-extrabold border-r border-slate-200">
+                            {teamReportData.total_order_count}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-extrabold border-r border-slate-200 font-mono">
+                            {teamReportData.total_order_amount.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-center"></td>
+                        </tr>
+                      </tbody>
                     </table>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ======================================================== */}
-          {/* VIEW: NEW CUSTOMER ONBOARDING (EXACT 1:1 TO SCREENSHOT)  */}
-          {/* ======================================================== */}
-          {activeView === "new-customer" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
-              {/* Header: Blue bar with Back arrow and Hamburger menu */}
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">New Customer</h2>
-              </div>
-
-              <div className="p-4 sm:p-6 bg-white">
-                <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
-                  {/* Hidden file input for Aadhaar image */}
-                  <input
-                    type="file"
-                    ref={aadhaarFileInputRef}
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAadhaarFileChange}
-                  />
-
-                  {/* Field 1: Mobile No * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Mobile No *
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      placeholder="10 digits"
-                      value={custMobile}
-                      onChange={(e) => setCustMobile(e.target.value.replace(/\D/g, ""))}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 2: Aadhaar number * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Aadhaar number *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={12}
-                      placeholder="12-digit Aadhaar number"
-                      value={custAadhaar}
-                      onChange={(e) => setCustAadhaar(e.target.value.replace(/\D/g, ""))}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Row: Fill name from Aadhaar QR */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1.5">
-                      Fill name from Aadhaar QR
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleAadhaarScan}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
-                      >
-                        <Camera className="w-3.5 h-3.5 text-blue-300" />
-                        <span>Scan QR</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => aadhaarFileInputRef.current?.click()}
-                        className="px-3.5 py-1.5 rounded-lg border border-blue-600 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Attach image</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Field 3: Customer name * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Customer name *
-                    </label>
-                    <input
-                      type="text"
-                      value={custName}
-                      onChange={(e) => setCustName(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 4: Customer name in Kannada (ಕನ್ನಡ ಹೆಸರು) */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Customer name in Kannada (ಕನ್ನಡ ಹೆಸರು)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Fills in from the Aadhaar card"
-                      value={custNameKannada}
-                      onChange={(e) => setCustNameKannada(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 5: GSTIN (optional) */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      GSTIN (optional)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={15}
-                      value={custGstin}
-                      onChange={(e) => setCustGstin(e.target.value.toUpperCase())}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 6: Shop name * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Shop name *
-                    </label>
-                    <input
-                      type="text"
-                      value={custShop}
-                      onChange={(e) => {
-                        setCustShop(e.target.value);
-                        if (!custLandmark) setCustLandmark(e.target.value);
-                      }}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 7: Landmark * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Landmark *
-                    </label>
-                    <input
-                      type="text"
-                      value={custLandmark}
-                      onChange={(e) => setCustLandmark(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 8: State * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      State *
-                    </label>
-                    <select
-                      value={custState}
-                      onChange={(e) => setCustState(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      <option value="Karnataka">Karnataka</option>
-                      <option value="Maharashtra">Maharashtra</option>
-                      <option value="Goa">Goa</option>
-                    </select>
-                  </div>
-
-                  {/* Field 9: District * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      District *
-                    </label>
-                    <select
-                      value={custDistrict}
-                      onChange={(e) => setCustDistrict(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      <option value="Vijayapura">Vijayapura</option>
-                      <option value="Bagalkot">Bagalkot</option>
-                      <option value="Belagavi">Belagavi</option>
-                      <option value="Kalaburagi">Kalaburagi</option>
-                    </select>
-                  </div>
-
-                  {/* Field 10: Taluka * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Taluka *
-                    </label>
-                    <select
-                      value={custTaluka}
-                      onChange={(e) => {
-                        const t = e.target.value;
-                        setCustTaluka(t);
-                        setCustVillage("");
-                        setCustVillageSearch("");
-                        setCustVillageKannada("");
-                        setCustPincode("");
-                        const matchRoute = routes.find(
-                          (r) => r.toLowerCase() === t.toLowerCase() || (t.includes("Bijapur") && r === "Bijapur")
-                        );
-                        if (matchRoute) {
-                          setCustRoute(matchRoute);
-                        }
-                      }}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      <option value="">Select taluka</option>
-                      {TALUKAS.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Field 11: Village * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Village *
-                    </label>
-                    <div className="space-y-1.5">
-                      <input
-                        type="text"
-                        placeholder="Type to search village"
-                        value={custVillageSearch}
-                        onChange={(e) => setCustVillageSearch(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      />
-                      <select
-                        value={custVillage}
-                        onChange={(e) => handleSelectVillage(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      >
-                        {!custTaluka ? (
-                          <option value="">Select district and taluka first</option>
-                        ) : (
-                          <>
-                            <option value="">Select village</option>
-                            {availableFormVillages.map((v) => (
-                              <option key={v} value={v}>
-                                {v}
-                              </option>
-                            ))}
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Field 12: Village in Kannada (ಹಳ್ಳಿ ಹೆಸರು) */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Village in Kannada (ಹಳ್ಳಿ ಹೆಸರು)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Fills in from the Aadhaar card or the village list"
-                      value={custVillageKannada}
-                      onChange={(e) => setCustVillageKannada(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 13: Pincode * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Pincode *
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="Fills from the village"
-                      value={custPincode}
-                      onChange={(e) => setCustPincode(e.target.value.replace(/\D/g, ""))}
-                      required
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-
-                  {/* Field 14: Route * */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Route *
-                    </label>
-                    <select
-                      value={custRoute}
-                      onChange={(e) => setCustRoute(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      <option value="No route">No route</option>
-                      {routes
-                        .filter((r) => r !== "All Routes" && r !== "No route")
-                        .map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  {/* Submit Button: Save customer */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isCreatingCust}
-                      className="px-6 py-2.5 rounded-full bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
-                    >
-                      {isCreatingCust ? "Saving..." : "Save customer"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* VIEW: ATTENDANCE PUNCH                                   */}
-          {/* ======================================================== */}
-          {activeView === "attendance" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">Attendance</h2>
-              </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4 max-w-md mx-auto">
-                <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-                  <Clock className="w-8 h-8" />
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Staff Daily Attendance</h3>
-                  <p className="text-xs text-slate-500">
-                    {new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}
-                  </p>
-                </div>
-
-                {attendancePunched ? (
-                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold space-y-1">
-                    <Check className="w-6 h-6 mx-auto text-emerald-600" />
-                    <p className="font-bold text-sm">Checked In (Present)</p>
-                    <p className="text-[11px] text-emerald-700 font-mono">Timestamp: {attendanceTime}</p>
-                    <p className="text-[10px] text-emerald-600">Hub: Vijayapura Main Depot</p>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={handlePunchAttendance}
-                    disabled={isPunchingAtt}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl cursor-pointer active:scale-95"
+            {/* ======================================================== */}
+            {/* VIEW: ORDER STATUS (EXACT 1:1 TO SCREENSHOT)               */}
+            {/* ======================================================== */}
+            {activeView === "order-status" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-5xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
                   >
-                    {isPunchingAtt ? "Recording..." : "Punch Daily Check-In"}
-                  </Button>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-                    <span className="text-[10px] text-slate-400 block font-semibold">Days Present</span>
-                    <span className="font-black text-slate-900 text-sm">{attendanceDaysPresent} Days</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-                    <span className="text-[10px] text-slate-400 block font-semibold">Active Duty</span>
-                    <span className="font-black text-slate-900 text-sm font-mono">{formatPunchDuration(punchSeconds)}</span>
-                  </div>
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">Order Status</h2>
                 </div>
-              </div>
-            </div>
-            </div>
-          )}
 
-          {/* ======================================================== */}
-          {/* VIEW: CUSTOMERS LIST (VILLAGE STORE DIRECTORY & KHATA)   */}
-          {/* ======================================================== */}
-          {activeView === "customers" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">Customers</h2>
-              </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="p-4 sm:p-6 space-y-4 bg-white">
+                  {/* Row 1: Export Pill Button */}
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-blue-900" />
-                      <span>Village Store Directory & Customer Khata Matrix</span>
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      All registered Kirana stores, villages, routes, Google Maps navigation & outstanding Udhaar.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => exportToExcel(filteredCustomers, "Siddeshwar_Customer_Village_Directory")}
-                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
-                      title="Download Customer Directory as Excel / CSV"
+                      onClick={handleExportOrderStatusExcel}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
                     >
-                      <Download className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Export Excel</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveView("new-customer")}
-                      className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Store</span>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Export</span>
                     </button>
                   </div>
-                </div>
 
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <Input
-                    type="text"
-                    placeholder="Search by shop name, owner, 10-digit mobile, village, taluka, or pincode..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
-                  />
-                </div>
-
-                {/* Route Selector Pills */}
-                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                  {routes.map((r) => (
+                  {/* Row 2: Date Filters From / To / Submit */}
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-700">
+                    <span className="font-medium text-slate-600">From</span>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={orderStatusStartDate}
+                        onChange={(e) => setOrderStatusStartDate(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
+                      />
+                    </div>
+                    <span className="font-medium text-slate-600">To</span>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={orderStatusEndDate}
+                        onChange={(e) => setOrderStatusEndDate(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
+                      />
+                    </div>
                     <button
-                      key={r}
-                      onClick={() => setCustomerRouteFilter(r)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                        customerRouteFilter === r
-                          ? "bg-blue-900 text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                      onClick={() => loadOrderStatus(orderStatusStartDate, orderStatusEndDate)}
+                      className="px-5 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
                     >
-                      {r}
+                      Submit
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* High-Density Excel Spreadsheet Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[11px] font-bold uppercase tracking-wider sticky top-0">
-                        <th className="py-2.5 px-3 w-10 text-center font-mono">#</th>
-                        <th className="py-2.5 px-3 min-w-[180px]">Shop / Kirana Name</th>
-                        <th className="py-2.5 px-3 min-w-[130px]">Owner Name</th>
-                        <th className="py-2.5 px-3 min-w-[110px]">Mobile No</th>
-                        <th className="py-2.5 px-3 min-w-[130px]">Village</th>
-                        <th className="py-2.5 px-3 min-w-[100px]">Taluka</th>
-                        <th className="py-2.5 px-3 min-w-[120px]">Route</th>
-                        <th className="py-2.5 px-3 min-w-[100px] text-right">Khata Due</th>
-                        <th className="py-2.5 px-3 min-w-[110px] text-center">Google Map</th>
-                        <th className="py-2.5 px-3 min-w-[160px] text-center">Quick Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredCustomers.map((c, idx) => {
-                        const hasUdhaar = c.current_balance > 0;
-                        const mapUrl =
-                          c.google_map_url ||
-                          `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                            [c.village || c.shop_name, c.taluka || "Vijayapura", "Karnataka", c.pincode || "586101"]
-                              .filter(Boolean)
-                              .join(", ")
-                          )}`;
-                        return (
-                          <tr
-                            key={c.id}
-                            className="hover:bg-blue-50/50 transition-colors even:bg-slate-50/40"
-                          >
-                            <td className="py-2.5 px-3 text-center font-mono text-slate-400 font-semibold text-[11px]">
-                              {idx + 1}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="font-bold text-slate-900">
-                                {c.shop_name || c.display_name}
-                              </div>
-                              <div className="text-[10px] font-mono text-slate-400">
-                                {c.customer_code}
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-3 font-medium text-slate-700">
-                              {c.name || "—"}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <a
-                                href={`tel:${c.phone}`}
-                                className="font-mono text-blue-700 hover:text-blue-900 hover:underline font-semibold"
-                              >
-                                {c.phone}
-                              </a>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-semibold text-slate-800 bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/50 text-[11px]">
-                                {c.village || "Vijayapura"}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-600">
-                              {c.taluka || "Vijayapura"}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                {c.route || "Main Route"}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              {hasUdhaar ? (
-                                <span className="font-mono font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 text-[11px] block text-right">
-                                  ₹{c.current_balance.toLocaleString("en-IN")}
-                                </span>
-                              ) : (
-                                <span className="text-emerald-700 font-semibold text-[11px]">
-                                  Clear
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <a
-                                href={mapUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer active:scale-95"
-                                title="Open village location in Google Maps"
-                              >
-                                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Map</span>
-                                <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5" />
-                              </a>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <a
-                                  href={`tel:${c.phone}`}
-                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                                  title="Call Customer"
-                                >
-                                  <Phone className="w-3.5 h-3.5 text-blue-600" />
-                                </a>
-                                <button
-                                  onClick={() => {
-                                    setOrderCustomer(c);
-                                    setActiveView("place-order");
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-blue-900 hover:bg-blue-800 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
-                                  title="Take Order"
-                                >
-                                  <ShoppingCart className="w-3 h-3 text-amber-300" />
-                                  <span>Order</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveCallCust(c);
-                                    setCallNotes("");
-                                  }}
-                                  className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60 transition-colors cursor-pointer active:scale-95"
-                                  title="Record Remark"
-                                >
-                                  <FileText className="w-3.5 h-3.5 text-amber-600" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 border-t border-slate-200 text-xs font-bold text-slate-700">
-                        <td colSpan={7} className="py-2.5 px-3">
-                          Total Stores: {filteredCustomers.length} Registered Kirana Shops
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-red-700">
-                          ₹
-                          {filteredCustomers
-                            .reduce((acc, curr) => acc + (curr.current_balance || 0), 0)
-                            .toLocaleString("en-IN")}
-                        </td>
-                        <td colSpan={2} className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => exportToExcel(filteredCustomers, "Siddeshwar_Customer_Village_Directory")}
-                            className="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Save Spreadsheet (.csv)</span>
-                          </button>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* VIEW: MY PROFILE (EXACT 1:1 TO SCREENSHOT FOR ALL STAFF) */}
-          {/* ======================================================== */}
-          {activeView === "profile" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
-              {/* Header: Blue bar with Back arrow and Hamburger menu */}
-              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveView("home")}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Back to Home"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                  title="Open Menu"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-white tracking-tight">My Profile</h2>
-              </div>
-
-              <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50">
-                {/* Title & Search bar */}
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 mb-2">My profile</h3>
+                  {/* Row 3: Search Bar */}
                   <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
                     <input
                       type="text"
                       placeholder="Search in this page..."
-                      value={profileSearch}
-                      onChange={(e) => setProfileSearch(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 text-xs font-medium border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                      value={orderStatusSearch}
+                      onChange={(e) => setOrderStatusSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs text-slate-800 placeholder:text-slate-400"
                     />
                   </div>
+
+                  {/* Row 4: Orders KPI Card */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+                    <p className="text-xs text-slate-500 font-medium">Orders</p>
+                    <p className="text-2xl font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
+                  </div>
+
+                  {/* Row 5: The Excel Grid Table (100% visible, crisp white background, dark legible text, Excel borders) */}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-white">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-[#1976d2] text-white">
+                            <th className="px-3 py-3 font-bold text-center border-r border-blue-400/40 w-12">SI</th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[200px]">Customer Name</th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[110px]">Order No</th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[160px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>Order Placed</span>
+                                <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  {orderPlacedCount}
+                                </span>
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[170px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>Packed & Confirmed</span>
+                                <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  {packedCount}
+                                </span>
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[130px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>Dispatched</span>
+                                <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  {dispatchedCount}
+                                </span>
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[140px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>Out For Delivery</span>
+                                <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  {outForDeliveryCount}
+                                </span>
+                              </div>
+                            </th>
+                            <th className="px-3 py-3 font-bold min-w-[120px]">
+                              <div className="flex items-center gap-1.5">
+                                <span>Delivered</span>
+                                <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                  {deliveredCount}
+                                </span>
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 bg-white">
+                          {filteredOrders.map((ord, idx) => (
+                            <tr key={ord.id} className="hover:bg-blue-50/40 transition-colors">
+                              <td className="px-3 py-3 text-center text-slate-800 font-bold border-r border-slate-200">
+                                {idx + 1}
+                              </td>
+                              <td className="px-3 py-3 border-r border-slate-200">
+                                <div className="font-bold text-slate-900 text-xs">{ord.customer_name}</div>
+                                <div className="text-slate-500 font-mono text-[11px] mt-0.5">{ord.customer_phone}</div>
+                              </td>
+                              <td className="px-3 py-3 font-mono font-bold text-slate-800 border-r border-slate-200">
+                                {ord.order_number}
+                              </td>
+                              <td className="px-3 py-3 font-mono text-slate-700 text-xs border-r border-slate-200">
+                                {ord.order_placed || "—"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                                {ord.packed_confirmed || "—"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                                {ord.dispatched || "—"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                                {ord.out_for_delivery || "—"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-400 font-bold text-center">
+                                {ord.delivered || "—"}
+                              </td>
+                            </tr>
+                          ))}
+                          {filteredOrders.length === 0 && (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
+                                No orders found for the selected date range.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                        <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-slate-900">
+                          <tr>
+                            <td className="px-3 py-3 text-center border-r border-slate-200">Total</td>
+                            <td className="px-3 py-3 border-r border-slate-200"></td>
+                            <td className="px-3 py-3 border-r border-slate-200 font-mono"></td>
+                            <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                              {orderPlacedCount}
+                            </td>
+                            <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                              {packedCount}
+                            </td>
+                            <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                              {dispatchedCount}
+                            </td>
+                            <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                              {outForDeliveryCount}
+                            </td>
+                            <td className="px-3 py-3 text-center font-mono">
+                              {deliveredCount}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: NEW CUSTOMER ONBOARDING (EXACT 1:1 TO SCREENSHOT)  */}
+            {/* ======================================================== */}
+            {activeView === "new-customer" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
+                {/* Header: Blue bar with Back arrow and Hamburger menu */}
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">New Customer</h2>
                 </div>
 
-                {/* Hero Blue Profile Card */}
-                <div className="rounded-2xl bg-[#0a48b3] p-4 sm:p-5 text-white flex items-center gap-4 shadow-sm">
-                  {/* Avatar circle with initials */}
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white text-blue-950 font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-sm font-mono">
-                    {userDoubleInitials}
-                  </div>
-                  <div className="space-y-1 min-w-0">
-                    <h4 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
-                      {userName}
-                    </h4>
-                    <p className="text-xs text-blue-100 font-medium font-mono">
-                      +91 {userPhone}
-                    </p>
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <span className="px-2.5 py-0.5 rounded-full bg-white text-slate-900 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-2xs">
-                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
-                        <span>Verified</span>
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-blue-800/80 text-white text-[10px] sm:text-[11px] font-medium">
-                        {userRoleFormatted}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <div className="p-4 sm:p-6 bg-white">
+                  <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
+                    {/* Hidden file input for Aadhaar image */}
+                    <input
+                      type="file"
+                      ref={aadhaarFileInputRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAadhaarFileChange}
+                    />
 
-                {/* Section 1: Personal Information Card */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Personal Information
-                  </h4>
-
-                  <div className="divide-y divide-slate-100 text-xs">
-                    {/* Full Name */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <User className="w-4 h-4 text-slate-400" />
-                        <span>Full Name</span>
-                      </div>
-                      <span className="font-bold text-slate-800 text-right">{userName}</span>
+                    {/* Field 1: Mobile No * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Mobile No *
+                      </label>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        placeholder="10 digits"
+                        value={custMobile}
+                        onChange={(e) => setCustMobile(e.target.value.replace(/\D/g, ""))}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
 
-                    {/* Mobile Number */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <span>Mobile Number</span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                    {/* Field 2: Aadhaar number * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Aadhaar number *
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={12}
+                        placeholder="12-digit Aadhaar number"
+                        value={custAadhaar}
+                        onChange={(e) => setCustAadhaar(e.target.value.replace(/\D/g, ""))}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
 
-                    {/* Business */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Building2 className="w-4 h-4 text-slate-400" />
-                        <span>Business</span>
+                    {/* Row: Fill name from Aadhaar QR */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1.5">
+                        Fill name from Aadhaar QR
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAadhaarScan}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-blue-300" />
+                          <span>Scan QR</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => aadhaarFileInputRef.current?.click()}
+                          className="px-3.5 py-1.5 rounded-lg border border-blue-600 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Attach image</span>
+                        </button>
                       </div>
-                      <span className="font-bold text-slate-800 text-right uppercase">SIDDESHWAR ENTERPRISES</span>
                     </div>
 
-                    {/* Role */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Shield className="w-4 h-4 text-slate-400" />
-                        <span>Role</span>
-                      </div>
-                      <span className="font-bold text-slate-800 text-right">{userRoleFormatted}</span>
+                    {/* Field 3: Customer name * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Customer name *
+                      </label>
+                      <input
+                        type="text"
+                        value={custName}
+                        onChange={(e) => setCustName(e.target.value)}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
 
-                    {/* Employee ID */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <BadgeCheck className="w-4 h-4 text-slate-400" />
-                        <span>Employee ID</span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-800 text-right">{userEmployeeId}</span>
+                    {/* Field 4: Customer name in Kannada (ಕನ್ನಡ ಹೆಸರು) */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Customer name in Kannada (ಕನ್ನಡ ಹೆಸರು)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Fills in from the Aadhaar card"
+                        value={custNameKannada}
+                        onChange={(e) => setCustNameKannada(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
 
-                    {/* Login name */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <KeyRound className="w-4 h-4 text-slate-400" />
-                        <span>Login name</span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                    {/* Field 5: GSTIN (optional) */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        GSTIN (optional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={15}
+                        value={custGstin}
+                        onChange={(e) => setCustGstin(e.target.value.toUpperCase())}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
 
-                    {/* Logged in since */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Clock className="w-4 h-4 text-slate-400" />
-                        <span>Logged in since</span>
-                      </div>
-                      <span className="font-medium text-slate-700 text-right">{loggedInSince}</span>
+                    {/* Field 6: Shop name * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Shop name *
+                      </label>
+                      <input
+                        type="text"
+                        value={custShop}
+                        onChange={(e) => {
+                          setCustShop(e.target.value);
+                          if (!custLandmark) setCustLandmark(e.target.value);
+                        }}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
                     </div>
-                  </div>
-                </div>
 
-                {/* Section 2: Preferences Card */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Preferences
-                  </h4>
+                    {/* Field 7: Landmark * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Landmark *
+                      </label>
+                      <input
+                        type="text"
+                        value={custLandmark}
+                        onChange={(e) => setCustLandmark(e.target.value)}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
+                    </div>
 
-                  <div className="divide-y divide-slate-100 text-xs">
-                    {/* Language */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Globe className="w-4 h-4 text-slate-400" />
-                        <span>Language</span>
-                      </div>
-                      <select className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600">
-                        <option value="en">English</option>
-                        <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                    {/* Field 8: State * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        State *
+                      </label>
+                      <select
+                        value={custState}
+                        onChange={(e) => setCustState(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="Karnataka">Karnataka</option>
+                        <option value="Maharashtra">Maharashtra</option>
+                        <option value="Goa">Goa</option>
                       </select>
                     </div>
 
-                    {/* App version */}
-                    <div className="py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <Info className="w-4 h-4 text-slate-400" />
-                        <span>App version</span>
+                    {/* Field 9: District * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        District *
+                      </label>
+                      <select
+                        value={custDistrict}
+                        onChange={(e) => setCustDistrict(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="Vijayapura">Vijayapura</option>
+                        <option value="Bagalkot">Bagalkot</option>
+                        <option value="Belagavi">Belagavi</option>
+                        <option value="Kalaburagi">Kalaburagi</option>
+                      </select>
+                    </div>
+
+                    {/* Field 10: Taluka * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Taluka *
+                      </label>
+                      <select
+                        value={custTaluka}
+                        onChange={(e) => {
+                          const t = e.target.value;
+                          setCustTaluka(t);
+                          setCustVillage("");
+                          setCustVillageSearch("");
+                          setCustVillageKannada("");
+                          setCustPincode("");
+                          const matchRoute = routes.find(
+                            (r) => r.toLowerCase() === t.toLowerCase() || (t.includes("Bijapur") && r === "Bijapur")
+                          );
+                          if (matchRoute) {
+                            setCustRoute(matchRoute);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="">Select taluka</option>
+                        {TALUKAS.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Field 11: Village * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Village *
+                      </label>
+                      <div className="space-y-1.5">
+                        <input
+                          type="text"
+                          placeholder="Type to search village"
+                          value={custVillageSearch}
+                          onChange={(e) => setCustVillageSearch(e.target.value)}
+                          className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        />
+                        <select
+                          value={custVillage}
+                          onChange={(e) => handleSelectVillage(e.target.value)}
+                          className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        >
+                          {!custTaluka ? (
+                            <option value="">Select district and taluka first</option>
+                          ) : (
+                            <>
+                              <option value="">Select village</option>
+                              {availableFormVillages.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
                       </div>
-                      <span className="font-mono font-bold text-slate-800">5.08</span>
+                    </div>
+
+                    {/* Field 12: Village in Kannada (ಹಳ್ಳಿ ಹೆಸರು) */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Village in Kannada (ಹಳ್ಳಿ ಹೆಸರು)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Fills in from the Aadhaar card or the village list"
+                        value={custVillageKannada}
+                        onChange={(e) => setCustVillageKannada(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
+                    </div>
+
+                    {/* Field 13: Pincode * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Pincode *
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Fills from the village"
+                        value={custPincode}
+                        onChange={(e) => setCustPincode(e.target.value.replace(/\D/g, ""))}
+                        required
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      />
+                    </div>
+
+                    {/* Field 14: Route * */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-800 block mb-1">
+                        Route *
+                      </label>
+                      <select
+                        value={custRoute}
+                        onChange={(e) => setCustRoute(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="No route">No route</option>
+                        {routes
+                          .filter((r) => r !== "All Routes" && r !== "No route")
+                          .map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {/* Submit Button: Save customer */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isCreatingCust}
+                        className="px-6 py-2.5 rounded-full bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      >
+                        {isCreatingCust ? "Saving..." : "Save customer"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: ATTENDANCE PUNCH                                   */}
+            {/* ======================================================== */}
+            {activeView === "attendance" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">Attendance</h2>
+                </div>
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4 max-w-md mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                      <Clock className="w-8 h-8" />
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Staff Daily Attendance</h3>
+                      <p className="text-xs text-slate-500">
+                        {new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}
+                      </p>
+                    </div>
+
+                    {attendancePunched ? (
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold space-y-1">
+                        <Check className="w-6 h-6 mx-auto text-emerald-600" />
+                        <p className="font-bold text-sm">Checked In (Present)</p>
+                        <p className="text-[11px] text-emerald-700 font-mono">Timestamp: {attendanceTime}</p>
+                        <p className="text-[10px] text-emerald-600">Hub: Vijayapura Main Depot</p>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handlePunchAttendance}
+                        disabled={isPunchingAtt}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl cursor-pointer active:scale-95"
+                      >
+                        {isPunchingAtt ? "Recording..." : "Punch Daily Check-In"}
+                      </Button>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
+                      <div className="p-2.5 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] text-slate-400 block font-semibold">Days Present</span>
+                        <span className="font-black text-slate-900 text-sm">{attendanceDaysPresent} Days</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] text-slate-400 block font-semibold">Active Duty</span>
+                        <span className="font-black text-slate-900 text-sm font-mono">{formatPunchDuration(punchSeconds)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Section 3: Account Card */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Account
-                  </h4>
-
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setShowResetPassword((prev) => !prev)}
-                      className="w-full py-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors rounded-lg px-1"
-                    >
-                      <div className="flex items-center gap-2.5 text-slate-400 font-medium">
-                        <KeyRound className="w-4 h-4 text-slate-400" />
-                        <span className="text-slate-700 font-medium">Reset password</span>
+            {/* ======================================================== */}
+            {/* VIEW: CUSTOMERS LIST (VILLAGE STORE DIRECTORY & KHATA)   */}
+            {/* ======================================================== */}
+            {activeView === "customers" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">Customers</h2>
+                </div>
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-blue-900" />
+                          <span>Village Store Directory & Customer Khata Matrix</span>
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          All registered Kirana stores, villages, routes, Google Maps navigation & outstanding Udhaar.
+                        </p>
                       </div>
-                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showResetPassword ? "rotate-90" : ""}`} />
-                    </button>
-
-                    {showResetPassword && (
-                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 animate-in fade-in duration-150">
-                        <Input
-                          type="password"
-                          placeholder="Old Password"
-                          value={oldPassword}
-                          onChange={(e) => setOldPassword(e.target.value)}
-                          className="h-8 text-xs rounded-xl"
-                        />
-                        <Input
-                          type="password"
-                          placeholder="New Password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="h-8 text-xs rounded-xl"
-                        />
-                        <Input
-                          type="password"
-                          placeholder="Confirm New Password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="h-8 text-xs rounded-xl"
-                        />
-                        <Button
-                          onClick={() => {
-                            if (!newPassword || newPassword !== confirmPassword) {
-                              toast.error("Passwords do not match or are empty");
-                              return;
-                            }
-                            toast.success("Password Updated Successfully");
-                            setOldPassword("");
-                            setNewPassword("");
-                            setConfirmPassword("");
-                            setShowResetPassword(false);
-                          }}
-                          className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2 rounded-xl text-xs cursor-pointer active:scale-95"
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => exportToExcel(filteredCustomers, "Siddeshwar_Customer_Village_Directory")}
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
+                          title="Download Customer Directory as Excel / CSV"
                         >
-                          Update Password
-                        </Button>
+                          <Download className="w-3.5 h-3.5 text-emerald-200" />
+                          <span>Export Excel</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveView("new-customer")}
+                          className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Store</span>
+                        </button>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      <Input
+                        type="text"
+                        placeholder="Search by shop name, owner, 10-digit mobile, village, taluka, or pincode..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="pl-9 h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                      />
+                    </div>
+
+                    {/* Route Selector Pills */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {routes.map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setCustomerRouteFilter(r)}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${customerRouteFilter === r
+                              ? "bg-blue-900 text-white shadow-xs"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* High-Density Excel Spreadsheet Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[11px] font-bold uppercase tracking-wider sticky top-0">
+                            <th className="py-2.5 px-3 w-10 text-center font-mono">#</th>
+                            <th className="py-2.5 px-3 min-w-[180px]">Shop / Kirana Name</th>
+                            <th className="py-2.5 px-3 min-w-[130px]">Owner Name</th>
+                            <th className="py-2.5 px-3 min-w-[110px]">Mobile No</th>
+                            <th className="py-2.5 px-3 min-w-[130px]">Village</th>
+                            <th className="py-2.5 px-3 min-w-[100px]">Taluka</th>
+                            <th className="py-2.5 px-3 min-w-[120px]">Route</th>
+                            <th className="py-2.5 px-3 min-w-[100px] text-right">Khata Due</th>
+                            <th className="py-2.5 px-3 min-w-[110px] text-center">Google Map</th>
+                            <th className="py-2.5 px-3 min-w-[160px] text-center">Quick Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredCustomers.map((c, idx) => {
+                            const hasUdhaar = c.current_balance > 0;
+                            const mapUrl =
+                              c.google_map_url ||
+                              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                [c.village || c.shop_name, c.taluka || "Vijayapura", "Karnataka", c.pincode || "586101"]
+                                  .filter(Boolean)
+                                  .join(", ")
+                              )}`;
+                            return (
+                              <tr
+                                key={c.id}
+                                className="hover:bg-blue-50/50 transition-colors even:bg-slate-50/40"
+                              >
+                                <td className="py-2.5 px-3 text-center font-mono text-slate-400 font-semibold text-[11px]">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-bold text-slate-900">
+                                    {c.shop_name || c.display_name}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-slate-400">
+                                    {c.customer_code}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-slate-700">
+                                  {c.name || "—"}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <a
+                                    href={`tel:${c.phone}`}
+                                    className="font-mono text-blue-700 hover:text-blue-900 hover:underline font-semibold"
+                                  >
+                                    {c.phone}
+                                  </a>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="font-semibold text-slate-800 bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/50 text-[11px]">
+                                    {c.village || "Vijayapura"}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600">
+                                  {c.taluka || "Vijayapura"}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                    {c.route || "Main Route"}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  {hasUdhaar ? (
+                                    <span className="font-mono font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 text-[11px] block text-right">
+                                      ₹{c.current_balance.toLocaleString("en-IN")}
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-700 font-semibold text-[11px]">
+                                      Clear
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <a
+                                    href={mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                                    title="Open village location in Google Maps"
+                                  >
+                                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Map</span>
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                                  </a>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <a
+                                      href={`tel:${c.phone}`}
+                                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                                      title="Call Customer"
+                                    >
+                                      <Phone className="w-3.5 h-3.5 text-blue-600" />
+                                    </a>
+                                    <button
+                                      onClick={() => {
+                                        setOrderCustomer(c);
+                                        setActiveView("place-order");
+                                      }}
+                                      className="px-2 py-1 rounded-lg bg-blue-900 hover:bg-blue-800 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
+                                      title="Take Order"
+                                    >
+                                      <ShoppingCart className="w-3 h-3 text-amber-300" />
+                                      <span>Order</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setActiveCallCust(c);
+                                        setCallNotes("");
+                                      }}
+                                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60 transition-colors cursor-pointer active:scale-95"
+                                      title="Record Remark"
+                                    >
+                                      <FileText className="w-3.5 h-3.5 text-amber-600" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-50 border-t border-slate-200 text-xs font-bold text-slate-700">
+                            <td colSpan={7} className="py-2.5 px-3">
+                              Total Stores: {filteredCustomers.length} Registered Kirana Shops
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-red-700">
+                              ₹
+                              {filteredCustomers
+                                .reduce((acc, curr) => acc + (curr.current_balance || 0), 0)
+                                .toLocaleString("en-IN")}
+                            </td>
+                            <td colSpan={2} className="py-2.5 px-3 text-right">
+                              <button
+                                onClick={() => exportToExcel(filteredCustomers, "Siddeshwar_Customer_Village_Directory")}
+                                className="text-xs text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Save Spreadsheet (.csv)</span>
+                              </button>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 </div>
-
-                {/* Logout Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    logout();
-                    navigate("/login");
-                  }}
-                  className="w-full py-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-98 shadow-2xs"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout</span>
-                </button>
               </div>
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+
+            {/* ======================================================== */}
+            {/* VIEW: MY PROFILE (EXACT 1:1 TO SCREENSHOT FOR ALL STAFF) */}
+            {/* ======================================================== */}
+            {activeView === "profile" && (
+              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
+                {/* Header: Blue bar with Back arrow and Hamburger menu */}
+                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-base font-bold text-white tracking-tight">My Profile</h2>
+                </div>
+
+                <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50">
+                  {/* Title & Search bar */}
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 mb-2">My profile</h3>
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search in this page..."
+                        value={profileSearch}
+                        onChange={(e) => setProfileSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 text-xs font-medium border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Hero Blue Profile Card */}
+                  <div className="rounded-2xl bg-[#0a48b3] p-4 sm:p-5 text-white flex items-center gap-4 shadow-sm">
+                    {/* Avatar circle with initials */}
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white text-blue-950 font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-sm font-mono">
+                      {userDoubleInitials}
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <h4 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
+                        {userName}
+                      </h4>
+                      <p className="text-xs text-blue-100 font-medium font-mono">
+                        +91 {userPhone}
+                      </p>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="px-2.5 py-0.5 rounded-full bg-white text-slate-900 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-2xs">
+                          <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                          <span>Verified</span>
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-blue-800/80 text-white text-[10px] sm:text-[11px] font-medium">
+                          {userRoleFormatted}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 1: Personal Information Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Personal Information
+                    </h4>
+
+                    <div className="divide-y divide-slate-100 text-xs">
+                      {/* Full Name */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <User className="w-4 h-4 text-slate-400" />
+                          <span>Full Name</span>
+                        </div>
+                        <span className="font-bold text-slate-800 text-right">{userName}</span>
+                      </div>
+
+                      {/* Mobile Number */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Phone className="w-4 h-4 text-slate-400" />
+                          <span>Mobile Number</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                      </div>
+
+                      {/* Business */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Building2 className="w-4 h-4 text-slate-400" />
+                          <span>Business</span>
+                        </div>
+                        <span className="font-bold text-slate-800 text-right uppercase">SIDDESHWAR ENTERPRISES</span>
+                      </div>
+
+                      {/* Role */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Shield className="w-4 h-4 text-slate-400" />
+                          <span>Role</span>
+                        </div>
+                        <span className="font-bold text-slate-800 text-right">{userRoleFormatted}</span>
+                      </div>
+
+                      {/* Employee ID */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <BadgeCheck className="w-4 h-4 text-slate-400" />
+                          <span>Employee ID</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-800 text-right">{userEmployeeId}</span>
+                      </div>
+
+                      {/* Login name */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <KeyRound className="w-4 h-4 text-slate-400" />
+                          <span>Login name</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-800 text-right">{userPhone}</span>
+                      </div>
+
+                      {/* Logged in since */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Clock className="w-4 h-4 text-slate-400" />
+                          <span>Logged in since</span>
+                        </div>
+                        <span className="font-medium text-slate-700 text-right">{loggedInSince}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Preferences Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Preferences
+                    </h4>
+
+                    <div className="divide-y divide-slate-100 text-xs">
+                      {/* Language */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Globe className="w-4 h-4 text-slate-400" />
+                          <span>Language</span>
+                        </div>
+                        <select className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600">
+                          <option value="en">English</option>
+                          <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                        </select>
+                      </div>
+
+                      {/* App version */}
+                      <div className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <Info className="w-4 h-4 text-slate-400" />
+                          <span>App version</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-800">5.08</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Account Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Account
+                    </h4>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword((prev) => !prev)}
+                        className="w-full py-2.5 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors rounded-lg px-1"
+                      >
+                        <div className="flex items-center gap-2.5 text-slate-400 font-medium">
+                          <KeyRound className="w-4 h-4 text-slate-400" />
+                          <span className="text-slate-700 font-medium">Reset password</span>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showResetPassword ? "rotate-90" : ""}`} />
+                      </button>
+
+                      {showResetPassword && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 animate-in fade-in duration-150">
+                          <Input
+                            type="password"
+                            placeholder="Old Password"
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                            className="h-8 text-xs rounded-xl"
+                          />
+                          <Input
+                            type="password"
+                            placeholder="New Password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="h-8 text-xs rounded-xl"
+                          />
+                          <Input
+                            type="password"
+                            placeholder="Confirm New Password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="h-8 text-xs rounded-xl"
+                          />
+                          <Button
+                            onClick={() => {
+                              if (!newPassword || newPassword !== confirmPassword) {
+                                toast.error("Passwords do not match or are empty");
+                                return;
+                              }
+                              toast.success("Password Updated Successfully");
+                              setOldPassword("");
+                              setNewPassword("");
+                              setConfirmPassword("");
+                              setShowResetPassword(false);
+                            }}
+                            className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2 rounded-xl text-xs cursor-pointer active:scale-95"
+                          >
+                            Update Password
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Logout Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      navigate("/login");
+                    }}
+                    className="w-full py-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-98 shadow-2xs"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
 
       {/* ======================================================== */}
@@ -4667,18 +4651,17 @@ export function CrmTelecallerPortalPage() {
               {/* Progress Bar */}
               <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 ${
-                    selectedIncentiveProduct.sold_pcs >= selectedIncentiveProduct.target_pcs
+                  className={`h-full transition-all duration-500 ${selectedIncentiveProduct.sold_pcs >= selectedIncentiveProduct.target_pcs
                       ? "bg-emerald-500"
                       : "bg-blue-600"
-                  }`}
+                    }`}
                   style={{
                     width: `${Math.min(
                       100,
                       Math.round(
                         (selectedIncentiveProduct.sold_pcs /
                           (selectedIncentiveProduct.target_pcs || 1)) *
-                          100
+                        100
                       )
                     )}%`,
                   }}
