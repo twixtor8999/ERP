@@ -46,15 +46,17 @@ export function Sidebar() {
       )}
     >
       {/* Top Header with PK AI Brand Logo */}
-      <div className="p-3.5 border-b border-[#1b2b45] shrink-0">
+      <div className="p-3 border-b border-[#1b2b45] shrink-0">
         {!collapsed ? (
-          <div className="space-y-3">
-            {/* White PK AI Brand Card matching Screenshot 2 */}
-            <div className="bg-white rounded-xl p-2.5 shadow-sm flex items-center justify-center gap-2 border border-slate-200">
-              <div className="flex items-center gap-1.5 font-black text-lg tracking-tight">
-                <span className="text-amber-500 font-serif italic text-xl">P</span>
-                <span className="text-blue-700">K</span>
-                <span className="text-blue-900 ml-0.5 text-xs font-bold uppercase tracking-widest bg-blue-100 px-1.5 py-0.5 rounded">
+          <div className="space-y-2.5">
+            {/* White PK AI Brand Card matching Reference App */}
+            <div className="flex justify-center">
+              <div className="bg-white rounded-xl p-1.5 w-14 h-13 shadow-sm flex flex-col items-center justify-center border border-slate-200">
+                <div className="flex items-center gap-0.5 font-black text-sm tracking-tight leading-none">
+                  <span className="text-amber-500 font-serif italic text-base">P</span>
+                  <span className="text-blue-700 text-sm">K</span>
+                </div>
+                <span className="text-blue-900 text-[9px] font-black uppercase tracking-widest mt-0.5">
                   AI
                 </span>
               </div>
@@ -63,7 +65,7 @@ export function Sidebar() {
             {/* Organization Tag */}
             <div className="px-1 text-center">
               <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 truncate">
-                {user?.organizationName || "SIDDESHWAR ENT..."}
+                {user?.organizationName ? (user.organizationName.length > 16 ? user.organizationName.slice(0, 15) + "..." : user.organizationName) : "SIDDESHWAR ENT..."}
               </p>
             </div>
 
@@ -91,26 +93,24 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Nav Items List */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 overscroll-contain">
+      {/* Nav Items List with Hidden Scrollbar */}
+      <div className="flex-1 overflow-y-auto px-2 py-1.5 overscroll-contain scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <SidebarNav searchQuery={menuSearch} isCollapsed={collapsed} />
       </div>
 
       {/* Sidebar Bottom: User Profile & Live Synced Badge */}
-      <div className="p-3 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2">
+      <div className="p-2.5 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-1.5">
         {!collapsed ? (
           <>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="w-8 h-8 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm shrink-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <div className="w-7 h-7 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm shrink-0">
                   {userInitials}
                 </div>
                 <div className="overflow-hidden leading-tight">
-                  <p className="text-xs font-bold text-white truncate">
+                  <span className="text-[9px] text-slate-400 block truncate leading-none">My Profile</span>
+                  <p className="text-xs font-bold text-white truncate max-w-[110px] mt-0.5">
                     {user?.fullName || "Vijaykumar Shantagiri"}
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate capitalize">
-                    {user?.role?.replace(/_/g, " ") || "Super Admin"}
                   </p>
                 </div>
               </div>
@@ -120,7 +120,7 @@ export function Sidebar() {
                   logout();
                   navigate("/login");
                 }}
-                className="px-2 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded transition shrink-0"
+                className="px-2 py-1 text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-800 rounded border border-slate-700 transition shrink-0"
                 title="Logout"
               >
                 Logout
@@ -128,10 +128,10 @@ export function Sidebar() {
             </div>
 
             {/* Live Synced Status Pill */}
-            <div className="pt-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <div className="pt-0.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>Synced {syncTime || "06:28 pm"}</span>
+                <span>Synced {syncTime || "07:26 pm"}</span>
               </span>
             </div>
           </>

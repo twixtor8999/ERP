@@ -68,7 +68,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   });
 
   return (
-    <nav className="space-y-1">
+    <nav className="space-y-0.5">
       {filteredItems.map((item) => {
         // If it has children (like Reports)
         if (item.children && item.children.length > 0) {
@@ -77,12 +77,12 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
             item.children.some((c) => isItemActive(c));
 
           return (
-            <div key={item.title} className="space-y-1">
+            <div key={item.title} className="space-y-0.5">
               <button
                 type="button"
                 onClick={() => setReportsExpanded(!reportsExpanded)}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors text-left",
+                  "w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-bold rounded-lg transition-colors text-left",
                   isParentActive
                     ? "text-amber-400 font-extrabold"
                     : "text-slate-300 hover:text-white hover:bg-[#1a2d4b]"
@@ -97,7 +97,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
               </button>
 
               {reportsExpanded && (
-                <div className="pl-3 space-y-1 border-l border-slate-700/60 ml-2">
+                <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2">
                   {item.children.map((child) => {
                     const active = isItemActive(child);
                     return (
@@ -130,9 +130,9 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
             to={item.href}
             onClick={onItemClick}
             className={cn(
-              "block px-3 py-2 text-xs sm:text-sm rounded-lg transition-all text-left truncate font-medium",
+              "block px-3 py-1.5 text-[13px] rounded-lg transition-all text-left truncate font-medium",
               active
-                ? "bg-[#f59e0b] text-slate-950 font-bold shadow-sm"
+                ? "bg-[#f59e0b] text-slate-950 font-bold shadow-xs"
                 : "text-slate-200 hover:text-white hover:bg-[#1a2d4b]"
             )}
             title={item.title}
