@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -12,7 +12,6 @@ import {
   FileText,
   Package,
   BarChart3,
-  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { loginSchema, type LoginFormData } from "../schemas/login.schema";
@@ -158,17 +157,6 @@ export function LoginPage() {
         {/* Right Side: Single Clean Login Card matching Screenshot 1 */}
         <div className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:p-12 bg-white">
           <div className="w-full max-w-md bg-white sm:border sm:border-slate-100 sm:rounded-2xl sm:shadow-lg sm:shadow-slate-100 p-6 sm:p-8 space-y-6 relative">
-            {/* Back to Home link matching Screenshot 1 */}
-            <div className="text-left">
-              <Link
-                to="/shop"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to home</span>
-              </Link>
-            </div>
-
             {/* Siddeshwar Brand Seal & Title matching Screenshot 1 */}
             <div className="text-center space-y-2">
               <div className="inline-block relative">
