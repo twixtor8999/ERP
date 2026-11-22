@@ -36,6 +36,7 @@ import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPorta
 import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
 import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
 import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
+import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
 import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
@@ -254,6 +255,10 @@ export const router = createBrowserRouter([
       {
         path: "reports",
         element: <ReportsPage />,
+      },
+      {
+        path: "ca-reports",
+        element: <CaReportsPage />,
       },
       {
         path: "employees",

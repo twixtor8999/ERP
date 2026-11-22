@@ -62,7 +62,13 @@ export function ReportsPage() {
           return (
             <button
               key={tab.id}
-              onClick={() => handleTabChange(tab.id as ReportTab)}
+              onClick={() => {
+                if (tab.id === 'ca') {
+                  navigate('/ca-reports');
+                } else {
+                  handleTabChange(tab.id as ReportTab);
+                }
+              }}
               className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 isActive
                   ? 'bg-[#f59e0b] text-slate-950 shadow-xs'

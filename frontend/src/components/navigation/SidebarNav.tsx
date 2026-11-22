@@ -25,6 +25,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     "SKU's": true,
     Employees: true,
     "Incentive Scheme": true,
+    "CA Reports": true,
   });
 
   const toggleSection = (title: string) => {
@@ -113,6 +114,22 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return (
         currentPath === "/reports" &&
         (!currentSearch || currentSearch === "?type=gst" || currentSearch.includes("type=gst"))
+      );
+    }
+    if (item.href.startsWith("/ca-reports?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/ca-reports?tab=gstr") {
+        return (
+          currentPath === "/ca-reports" &&
+          (!currentSearch || currentSearch === "?tab=gstr" || currentSearch.includes("tab=gstr"))
+        );
+      }
+      return currentPath === "/ca-reports" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/ca-reports") {
+      return (
+        currentPath === "/ca-reports" &&
+        (!currentSearch || currentSearch === "?tab=gstr" || currentSearch.includes("tab=gstr"))
       );
     }
     if (item.href.startsWith("/inventory?tab=")) {
@@ -236,6 +253,16 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
               {isExpanded && (
                 <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2">
                   {item.children.map((child) => {
+                    if (child.title.startsWith("• ")) {
+                      return (
+                        <div
+                          key={child.title}
+                          className="pt-2 pb-0.5 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none"
+                        >
+                          {child.title}
+                        </div>
+                      );
+                    }
                     const active = isItemActive(child);
                     return (
                       <NavLink
