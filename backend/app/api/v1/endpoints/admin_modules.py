@@ -26,6 +26,7 @@ from app.models import (
     CallLog,
     ChartOfAccount,
     Customer,
+    CustomerAddress,
     DeliveryTrip,
     DeliveryTripStop,
     Employee,
@@ -1468,9 +1469,21 @@ def list_chart_of_accounts(
 class CreateCustomerPayload(BaseModel):
     first_name: str
     last_name: str | None = None
+    company_name: str | None = None
     phone: str
     email: str | None = None
-    credit_limit: Decimal = Decimal("5000.00")
+    gstin: str | None = None
+    aadhaar_number: str | None = None
+    name_kannada: str | None = None
+    village_kannada: str | None = None
+    address_line1: str | None = None  # Village
+    address_line2: str | None = None  # Landmark
+    city: str | None = None           # Taluka
+    district: str | None = None
+    state: str | None = "Karnataka"
+    postal_code: str | None = None    # Pincode
+    route: str | None = None
+    credit_limit: Decimal = Decimal("50000.00")
 
 
 @router.get("/customers")
@@ -1533,24 +1546,57 @@ def create_admin_customer(
     code_seq = db.scalar(select(func.count(Customer.id)).where(Customer.organization_id == org_id)) or 0
     cust_code = f"CUST-{code_seq + 1:04d}"
 
+    shop = (payload.company_name or "").strip()
+    full_name = f"{payload.first_name} {payload.last_name or ''}".strip()
+    disp_name = f"{shop} - {full_name}" if shop and full_name and shop != full_name else (shop or full_name)
+
     cust = Customer(
         id=str(uuid.uuid4()),
         organization_id=current_user.organization_id,
         customer_code=cust_code,
         customer_type="RETAIL",
+        company_name=shop or full_name,
         first_name=payload.first_name.strip(),
         last_name=payload.last_name.strip() if payload.last_name else None,
-        display_name=f"{payload.first_name} {payload.last_name or ''}".strip(),
+        display_name=disp_name,
         phone=phone_clean,
-        email=payload.email.strip() if payload.email else None,
+        email=payload.email.strip() if payload.email else f"customer_{phone_clean}@siddeshwar.in",
+        gstin=payload.gstin.strip() if payload.gstin else None,
+        pan=payload.aadhaar_number.strip() if payload.aadhaar_number else None,
         credit_limit=payload.credit_limit,
         current_balance=Decimal("0.00"),
         is_active=True,
     )
     db.add(cust)
+
+    city_val = payload.city or payload.route or "Vijayapura"
+    if "bijapur" in city_val.lower():
+        city_val = "Bijapur"
+
+    addr = CustomerAddress(
+        id=str(uuid.uuid4()),
+        customer_id=cust.id,
+        address_type="shipping",
+        address_line1=payload.address_line1 or "Vijayapura",
+        address_line2=payload.address_line2 or "Main",
+        city=city_val,
+        state=payload.state or "Karnataka",
+        postal_code=payload.postal_code or "586101",
+        country="India",
+        is_default=True,
+        recipient_name=disp_name,
+        phone=phone_clean,
+        landmark=payload.address_line2,
+    )
+    db.add(addr)
     db.commit()
 
-    return {"message": "Customer registered successfully", "customer_id": cust.id, "customer_code": cust.customer_code}
+    return {
+        "message": "Customer registered successfully",
+        "customer_id": cust.id,
+        "customer_code": cust.customer_code,
+        "display_name": cust.display_name,
+    }
 
 
 class ReceivePaymentPayload(BaseModel):
