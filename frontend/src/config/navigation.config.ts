@@ -131,7 +131,21 @@ export const navigationItems: NavItem[] = [
       { title: "5) Offer Letters", href: "/employees?tab=offers" },
     ],
   },
-  { title: "Incentive Scheme", href: "/incentives" },
+  {
+    title: "Incentive Scheme",
+    href: "/incentives",
+    children: [
+      { title: "1) SKU Target", href: "/incentives?tab=sku" },
+      { title: "2) Sales Target", href: "/incentives?tab=sales" },
+      { title: "3) Customer Target", href: "/incentives?tab=customer" },
+      { title: "4) New Customer Target", href: "/incentives?tab=new-customer" },
+      { title: "5) Village Target", href: "/incentives?tab=village" },
+      { title: "6) Order Target", href: "/incentives?tab=order" },
+      { title: "7) Target Status", href: "/incentives?tab=status" },
+      { title: "8) Incentive Report", href: "/incentives?tab=report" },
+      { title: "9) Scheme Poster", href: "/incentives?tab=poster" },
+    ],
+  },
   {
     title: "Reports",
     href: "/reports",

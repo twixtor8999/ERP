@@ -1,84 +1,161 @@
-import { useState, useEffect } from "react";
-import { Award, Zap, CheckCircle2, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api/client";
-import { Badge } from "@/components/ui/badge";
+import React from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  PackageCheck,
+  TrendingUp,
+  Users,
+  UserPlus,
+  MapPin,
+  ShoppingBag,
+  CheckCircle,
+  FileSpreadsheet,
+  Image as ImageIcon,
+} from 'lucide-react';
+import { WholesaleSkuTargetView } from '../components/WholesaleSkuTargetView';
+import { WholesaleTargetSectionView } from '../components/WholesaleTargetSectionView';
+import { WholesaleTargetStatusView } from '../components/WholesaleTargetStatusView';
+import { WholesaleIncentiveReportView } from '../components/WholesaleIncentiveReportView';
+import { WholesaleSchemePosterView } from '../components/WholesaleSchemePosterView';
 
-interface SchemeItem {
-  id: string;
-  name: string;
-  code: string;
-  scheme_type: string;
-  calculation_basis: string;
-  reward: string;
-  is_active: boolean;
-}
+type IncentiveTabKey =
+  | 'sku'
+  | 'sales'
+  | 'customer'
+  | 'new-customer'
+  | 'village'
+  | 'order'
+  | 'status'
+  | 'report'
+  | 'poster';
 
-export function IncentivesPage() {
-  const [schemes, setSchemes] = useState<SchemeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+const INCENTIVE_SUB_TABS: {
+  key: IncentiveTabKey;
+  label: string;
+  icon: React.ElementType;
+}[] = [
+  { key: 'sku', label: '1) SKU Target', icon: PackageCheck },
+  { key: 'sales', label: '2) Sales Target', icon: TrendingUp },
+  { key: 'customer', label: '3) Customer Target', icon: Users },
+  { key: 'new-customer', label: '4) New Customer Target', icon: UserPlus },
+  { key: 'village', label: '5) Village Target', icon: MapPin },
+  { key: 'order', label: '6) Order Target', icon: ShoppingBag },
+  { key: 'status', label: '7) Target Status', icon: CheckCircle },
+  { key: 'report', label: '8) Incentive Report', icon: FileSpreadsheet },
+  { key: 'poster', label: '9) Scheme Poster', icon: ImageIcon },
+];
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const res = await apiClient.get("/admin/incentives");
-        setSchemes(res.data);
-      } catch {
-        // fallback
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+export const IncentivesPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const tabParam = searchParams.get('tab') || 'sku';
+
+  const activeTab: IncentiveTabKey = ((): IncentiveTabKey => {
+    if (tabParam === 'sku' || tabParam === 'incs') return 'sku';
+    if (tabParam === 'sales' || tabParam === 'itsale') return 'sales';
+    if (tabParam === 'customer' || tabParam === 'itcust') return 'customer';
+    if (tabParam === 'new-customer' || tabParam === 'itnewc') return 'new-customer';
+    if (tabParam === 'village' || tabParam === 'itvill') return 'village';
+    if (tabParam === 'order' || tabParam === 'itord') return 'order';
+    if (tabParam === 'status' || tabParam === 'itst') return 'status';
+    if (tabParam === 'report' || tabParam === 'incr') return 'report';
+    if (tabParam === 'poster' || tabParam === 'incp' || tabParam === 'cinc') return 'poster';
+    return 'sku';
+  })();
+
+  const setTab = (key: IncentiveTabKey) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', key);
+    setSearchParams(params);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <Award className="w-6 h-6 text-blue-600" />
-            Staff Incentive Schemes & Commission Rules
-          </h1>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Active employee reward plans for billing speed, zero-discrepancy shifts, and delivery completion benchmarks.
-          </p>
-        </div>
+    <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 py-4">
+      {/* 9 Sub-Tabs Pill Navigation Bar */}
+      <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-1 overflow-x-auto">
+        {INCENTIVE_SUB_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setTab(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full p-12 text-center text-slate-400 flex flex-col items-center">
-            <Loader2 className="w-6 h-6 animate-spin mb-2" />
-            <span>Loading active incentive models...</span>
-          </div>
-        ) : (
-          schemes.map((s) => (
-            <div key={s.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">{s.name}</h3>
-                  <div className="font-mono text-xs text-blue-600 mt-0.5">{s.code}</div>
-                </div>
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
-                  <CheckCircle2 className="w-3 h-3 mr-1" /> Active
-                </Badge>
-              </div>
+      {/* Render Active View */}
+      {activeTab === 'sku' && (
+        <WholesaleSkuTargetView onBack={() => navigate('/')} />
+      )}
 
-              <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
-                <div>
-                  <span className="font-semibold text-slate-500 uppercase text-[10px]">Benchmark Criteria:</span>
-                  <div className="text-slate-800 font-medium mt-0.5">{s.calculation_basis}</div>
-                </div>
-                <div className="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200/80 text-blue-900 font-semibold flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>{s.reward}</span>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {activeTab === 'sales' && (
+        <WholesaleTargetSectionView
+          type="sale"
+          title="Sales Target"
+          targetUnitLabel="Amount (₹)"
+          onBack={() => setTab('sku')}
+        />
+      )}
+
+      {activeTab === 'customer' && (
+        <WholesaleTargetSectionView
+          type="cust"
+          title="Customer Target"
+          targetUnitLabel="No. of Distinct Customers"
+          onBack={() => setTab('sku')}
+        />
+      )}
+
+      {activeTab === 'new-customer' && (
+        <WholesaleTargetSectionView
+          type="newc"
+          title="New Customer Target"
+          targetUnitLabel="No. of New Customers"
+          onBack={() => setTab('sku')}
+        />
+      )}
+
+      {activeTab === 'village' && (
+        <WholesaleTargetSectionView
+          type="vill"
+          title="Village Target"
+          targetUnitLabel="No. of Villages"
+          onBack={() => setTab('sku')}
+        />
+      )}
+
+      {activeTab === 'order' && (
+        <WholesaleTargetSectionView
+          type="ord"
+          title="Order Target"
+          targetUnitLabel="No. of Orders"
+          onBack={() => setTab('sku')}
+        />
+      )}
+
+      {activeTab === 'status' && (
+        <WholesaleTargetStatusView onBack={() => setTab('sku')} />
+      )}
+
+      {activeTab === 'report' && (
+        <WholesaleIncentiveReportView onBack={() => setTab('sku')} />
+      )}
+
+      {activeTab === 'poster' && (
+        <WholesaleSchemePosterView onBack={() => setTab('sku')} />
+      )}
     </div>
   );
-}
+};
+
+export default IncentivesPage;

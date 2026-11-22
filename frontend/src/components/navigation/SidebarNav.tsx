@@ -24,6 +24,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     Inventory: true,
     "SKU's": true,
     Employees: true,
+    "Incentive Scheme": true,
   });
 
   const toggleSection = (title: string) => {
@@ -156,6 +157,22 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
       return (
         currentPath === "/employees" &&
         (!currentSearch || currentSearch === "?tab=list" || currentSearch.includes("tab=emp"))
+      );
+    }
+    if (item.href.startsWith("/incentives?tab=")) {
+      const tabParam = item.href.split("?")[1] || "";
+      if (item.href === "/incentives?tab=sku") {
+        return (
+          currentPath === "/incentives" &&
+          (!currentSearch || currentSearch === "?tab=sku" || currentSearch.includes("tab=incs"))
+        );
+      }
+      return currentPath === "/incentives" && currentSearch.includes(tabParam);
+    }
+    if (item.href === "/incentives") {
+      return (
+        currentPath === "/incentives" &&
+        (!currentSearch || currentSearch === "?tab=sku" || currentSearch.includes("tab=incs"))
       );
     }
     if (item.href === "/payments?tab=upi") {
