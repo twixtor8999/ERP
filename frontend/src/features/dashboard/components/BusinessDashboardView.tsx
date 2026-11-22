@@ -131,7 +131,7 @@ export function BusinessDashboardView() {
 
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
-  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(DEFAULT_STAFF[0]);
+  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(DEFAULT_STAFF[0]!);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Top 5 Villages Data
