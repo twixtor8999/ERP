@@ -3842,15 +3842,33 @@ def get_crm_team_reports(
 
 @router.get("/crm/orders")
 def get_crm_orders_status(
-    limit: int = 50,
+    limit: int = 100,
     search: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     org_id = current_user.organization_id
+    ist = ZoneInfo("Asia/Kolkata")
+    
+    conditions = [Order.organization_id == org_id]
+    if start_date:
+        try:
+            s_d = datetime.strptime(start_date, "%Y-%m-%d").date()
+            conditions.append(Order.order_date >= s_d)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            e_d = datetime.strptime(end_date, "%Y-%m-%d").date()
+            conditions.append(Order.order_date <= e_d)
+        except ValueError:
+            pass
+
     stmt = (
         select(Order)
-        .where(Order.organization_id == org_id)
+        .where(*conditions)
         .order_by(Order.created_at.desc())
         .limit(limit)
     )
@@ -3862,22 +3880,40 @@ def get_crm_orders_status(
     results = []
     for o in orders:
         c = custs.get(o.customer_id)
-        shop_name = c.company_name if c and c.company_name else (c.display_name if c else o.shipping_recipient_name or "Retail Store")
+        if c and c.display_name and " - " in c.display_name:
+            contact_person = c.display_name.split(" - ")[-1].strip()
+        elif c and c.company_name:
+            contact_person = c.company_name.strip()
+        elif c and c.display_name:
+            contact_person = c.display_name.strip()
+        else:
+            contact_person = o.shipping_recipient_name or "Retail Store"
+
+        disp_order_no = (o.order_number or "").replace("-B", "")
+        placed_str = "—"
+        if o.created_at:
+            dt_ist = o.created_at.astimezone(ist) if o.created_at.tzinfo else o.created_at.replace(tzinfo=UTC).astimezone(ist)
+            placed_str = dt_ist.strftime("%d-%m-%Y %H:%M")
 
         # Filter if search
         if search:
             q = search.lower().strip()
-            if q not in (o.order_number or "").lower() and q not in shop_name.lower():
+            if q not in disp_order_no.lower() and q not in contact_person.lower() and q not in (o.shipping_phone or "").lower():
                 continue
 
         results.append({
             "id": o.id,
-            "order_number": o.order_number,
+            "order_number": disp_order_no,
             "order_date": o.order_date.isoformat() if o.order_date else o.created_at.date().isoformat(),
-            "customer_name": shop_name,
+            "customer_name": contact_person,
             "customer_phone": o.shipping_phone or (c.phone if c else "-"),
             "total_amount": float(o.total_amount),
             "status": o.status,
+            "order_placed": placed_str,
+            "packed_confirmed": "—",
+            "dispatched": "—",
+            "out_for_delivery": "—",
+            "delivered": "—",
             "payment_method": o.payment_method or "CASH",
             "payment_status": o.payment_status or "UNPAID",
             "delivery_notes": o.delivery_notes,

@@ -178,6 +178,11 @@ interface CrmOrder {
   customer_phone: string;
   total_amount: number;
   status: string;
+  order_placed?: string;
+  packed_confirmed?: string;
+  dispatched?: string;
+  out_for_delivery?: string;
+  delivered?: string;
   payment_method: string;
   payment_status: string;
   delivery_notes?: string;
@@ -323,9 +328,91 @@ export function CrmTelecallerPortalPage() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Orders Status list
-  const [ordersList, setOrdersList] = useState<CrmOrder[]>([]);
+  const [orderStatusStartDate, setOrderStatusStartDate] = useState("2026-11-22");
+  const [orderStatusEndDate, setOrderStatusEndDate] = useState("2026-11-22");
+  const [ordersList, setOrdersList] = useState<CrmOrder[]>([
+    {
+      id: "ord-1",
+      order_number: "ORD-1508",
+      order_date: "2026-11-22",
+      customer_name: "M M TALAWAR",
+      customer_phone: "9880012569",
+      total_amount: 410,
+      status: "PLACED",
+      order_placed: "22-11-2026 17:39",
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      payment_method: "CASH",
+      payment_status: "UNPAID",
+    },
+    {
+      id: "ord-2",
+      order_number: "ORD-1508",
+      order_date: "2026-11-22",
+      customer_name: "Shankargouda Biradar",
+      customer_phone: "8861146082",
+      total_amount: 410,
+      status: "PLACED",
+      order_placed: "22-11-2026 16:54",
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      payment_method: "CASH",
+      payment_status: "UNPAID",
+    },
+    {
+      id: "ord-3",
+      order_number: "ORD-1507",
+      order_date: "2026-11-22",
+      customer_name: "Chandrshekhar",
+      customer_phone: "9686638706",
+      total_amount: 5210,
+      status: "PLACED",
+      order_placed: "22-11-2026 17:30",
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      payment_method: "CASH",
+      payment_status: "UNPAID",
+    },
+    {
+      id: "ord-4",
+      order_number: "ORD-1507",
+      order_date: "2026-11-22",
+      customer_name: "Ramesh M Genni",
+      customer_phone: "7483168829",
+      total_amount: 5210,
+      status: "PLACED",
+      order_placed: "22-11-2026 16:52",
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      payment_method: "CASH",
+      payment_status: "UNPAID",
+    },
+    {
+      id: "ord-5",
+      order_number: "ORD-1506",
+      order_date: "2026-11-22",
+      customer_name: "Ashok Hadagali",
+      customer_phone: "9035755872",
+      total_amount: 6247,
+      status: "PLACED",
+      order_placed: "22-11-2026 10:56",
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      payment_method: "CASH",
+      payment_status: "UNPAID",
+    },
+  ]);
   const [orderStatusSearch, setOrderStatusSearch] = useState("");
-  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
 
   // CRM Reports state
   const [reportStartDate, setReportStartDate] = useState("2026-11-22");
@@ -547,6 +634,58 @@ export function CrmTelecallerPortalPage() {
     }
   };
 
+  const loadOrderStatus = async (sDate = orderStatusStartDate, eDate = orderStatusEndDate) => {
+    try {
+      const res = await apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`);
+      if (res.data && res.data.length > 0) {
+        setOrdersList(res.data);
+        toast.success(`Loaded ${res.data.length} orders for ${sDate}`);
+      }
+    } catch {
+      toast.error("Failed to load order status");
+    }
+  };
+
+  const handleExportOrderStatusExcel = () => {
+    try {
+      const headers = [
+        "SI",
+        "Customer Name",
+        "Phone Number",
+        "Order No",
+        "Order Placed",
+        "Packed & Confirmed",
+        "Dispatched",
+        "Out For Delivery",
+        "Delivered",
+      ];
+      const rows = filteredOrders.map((o, idx) => [
+        idx + 1,
+        `"${o.customer_name}"`,
+        `"${o.customer_phone}"`,
+        `"${o.order_number}"`,
+        `"${o.order_placed || "—"}"`,
+        `"${o.packed_confirmed || "—"}"`,
+        `"${o.dispatched || "—"}"`,
+        `"${o.out_for_delivery || "—"}"`,
+        `"${o.delivered || "—"}"`,
+      ]);
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Order_Status_${orderStatusStartDate.replace(/-/g, "_")}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Order status exported to Excel/CSV!");
+    } catch {
+      toast.error("Failed to export order status");
+    }
+  };
+
   const handleExportTeamReport = () => {
     try {
       const headers = ["SI", "Staff Name", "Order Count", "Order Total (INR)"];
@@ -763,13 +902,31 @@ export function CrmTelecallerPortalPage() {
       const matchQ =
         !q ||
         o.order_number?.toLowerCase().includes(q) ||
-        o.customer_name?.toLowerCase().includes(q);
-      const matchStatus =
-        orderStatusFilter === "ALL" ||
-        o.status.toUpperCase() === orderStatusFilter.toUpperCase();
-      return matchQ && matchStatus;
+        o.customer_name?.toLowerCase().includes(q) ||
+        o.customer_phone?.toLowerCase().includes(q);
+      return matchQ;
     });
-  }, [ordersList, orderStatusSearch, orderStatusFilter]);
+  }, [ordersList, orderStatusSearch]);
+
+  const orderPlacedCount = useMemo(() => {
+    return filteredOrders.filter((o) => o.order_placed && o.order_placed !== "—").length;
+  }, [filteredOrders]);
+
+  const packedCount = useMemo(() => {
+    return filteredOrders.filter((o) => o.packed_confirmed && o.packed_confirmed !== "—").length;
+  }, [filteredOrders]);
+
+  const dispatchedCount = useMemo(() => {
+    return filteredOrders.filter((o) => o.dispatched && o.dispatched !== "—").length;
+  }, [filteredOrders]);
+
+  const outForDeliveryCount = useMemo(() => {
+    return filteredOrders.filter((o) => o.out_for_delivery && o.out_for_delivery !== "—").length;
+  }, [filteredOrders]);
+
+  const deliveredCount = useMemo(() => {
+    return filteredOrders.filter((o) => o.delivered && o.delivered !== "—").length;
+  }, [filteredOrders]);
 
   // Order Calculations
   const calculatedOrderTotal = useMemo(() => {
@@ -2645,10 +2802,10 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: ORDER STATUS (DELIVERY VEHICLE TRACKER)             */}
+          {/* VIEW: ORDER STATUS (EXACT 1:1 TO SCREENSHOT)               */}
           {/* ======================================================== */}
           {activeView === "order-status" && (
-            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-5xl mx-auto">
               <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
                 <button
                   onClick={() => setActiveView("home")}
@@ -2666,115 +2823,180 @@ export function CrmTelecallerPortalPage() {
                 </button>
                 <h2 className="text-base font-bold text-white tracking-tight">Order Status</h2>
               </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-emerald-600" />
-                      <span>Delivery Pipeline & Order Tracking</span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Track delivery vehicles and store parcel fulfillment.
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="text-xs font-mono">
-                    {filteredOrders.length} Orders
-                  </Badge>
+
+              <div className="p-4 sm:p-6 space-y-4 bg-white">
+                {/* Row 1: Export Pill Button */}
+                <div>
+                  <button
+                    onClick={handleExportOrderStatusExcel}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export</span>
+                  </button>
                 </div>
 
-                {/* Search */}
+                {/* Row 2: Date Filters From / To / Submit */}
+                <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-700">
+                  <span className="font-medium text-slate-600">From</span>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={orderStatusStartDate}
+                      onChange={(e) => setOrderStatusStartDate(e.target.value)}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
+                    />
+                  </div>
+                  <span className="font-medium text-slate-600">To</span>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={orderStatusEndDate}
+                      onChange={(e) => setOrderStatusEndDate(e.target.value)}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={() => loadOrderStatus(orderStatusStartDate, orderStatusEndDate)}
+                    className="px-5 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    Submit
+                  </button>
+                </div>
+
+                {/* Row 3: Search Bar */}
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <Input
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+                  <input
                     type="text"
-                    placeholder="Search by order number or customer shop..."
+                    placeholder="Search in this page..."
                     value={orderStatusSearch}
                     onChange={(e) => setOrderStatusSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                    className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 shadow-xs text-slate-800 placeholder:text-slate-400"
                   />
                 </div>
 
-                {/* Status Pills */}
-                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                  {["ALL", "CONFIRMED", "PACKED", "OUT_FOR_DELIVERY", "DELIVERED"].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setOrderStatusFilter(st)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                        orderStatusFilter === st
-                          ? "bg-emerald-700 text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {st.replace(/_/g, " ")}
-                    </button>
-                  ))}
+                {/* Row 4: Orders KPI Card */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+                  <p className="text-xs text-slate-500 font-medium">Orders</p>
+                  <p className="text-2xl font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
+                </div>
+
+                {/* Row 5: The Excel Grid Table (100% visible, crisp white background, dark legible text, Excel borders) */}
+                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#1976d2] text-white">
+                          <th className="px-3 py-3 font-bold text-center border-r border-blue-400/40 w-12">SI</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[200px]">Customer Name</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[110px]">Order No</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[160px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>Order Placed</span>
+                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                {orderPlacedCount}
+                              </span>
+                            </div>
+                          </th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[170px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>Packed & Confirmed</span>
+                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                {packedCount}
+                              </span>
+                            </div>
+                          </th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[130px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>Dispatched</span>
+                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                {dispatchedCount}
+                              </span>
+                            </div>
+                          </th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[140px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>Out For Delivery</span>
+                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                {outForDeliveryCount}
+                              </span>
+                            </div>
+                          </th>
+                          <th className="px-3 py-3 font-bold min-w-[120px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>Delivered</span>
+                              <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                {deliveredCount}
+                              </span>
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {filteredOrders.map((ord, idx) => (
+                          <tr key={ord.id} className="hover:bg-blue-50/40 transition-colors">
+                            <td className="px-3 py-3 text-center text-slate-800 font-bold border-r border-slate-200">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-3 border-r border-slate-200">
+                              <div className="font-bold text-slate-900 text-xs">{ord.customer_name}</div>
+                              <div className="text-slate-500 font-mono text-[11px] mt-0.5">{ord.customer_phone}</div>
+                            </td>
+                            <td className="px-3 py-3 font-mono font-bold text-slate-800 border-r border-slate-200">
+                              {ord.order_number}
+                            </td>
+                            <td className="px-3 py-3 font-mono text-slate-700 text-xs border-r border-slate-200">
+                              {ord.order_placed || "—"}
+                            </td>
+                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                              {ord.packed_confirmed || "—"}
+                            </td>
+                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                              {ord.dispatched || "—"}
+                            </td>
+                            <td className="px-3 py-3 text-slate-400 font-bold text-center border-r border-slate-200">
+                              {ord.out_for_delivery || "—"}
+                            </td>
+                            <td className="px-3 py-3 text-slate-400 font-bold text-center">
+                              {ord.delivered || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                        {filteredOrders.length === 0 && (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
+                              No orders found for the selected date range.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                      <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-slate-900">
+                        <tr>
+                          <td className="px-3 py-3 text-center border-r border-slate-200">Total</td>
+                          <td className="px-3 py-3 border-r border-slate-200"></td>
+                          <td className="px-3 py-3 border-r border-slate-200 font-mono"></td>
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                            {orderPlacedCount}
+                          </td>
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                            {packedCount}
+                          </td>
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                            {dispatchedCount}
+                          </td>
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                            {outForDeliveryCount}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono">
+                            {deliveredCount}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
               </div>
-
-              {/* Orders List */}
-              <div className="space-y-2.5">
-                {filteredOrders.map((ord) => (
-                  <div
-                    key={ord.id}
-                    className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-blue-900">
-                            {ord.order_number}
-                          </span>
-                          <Badge
-                            className={`text-[9px] ${
-                              ord.status === "DELIVERED"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : ord.status === "CONFIRMED"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {ord.status}
-                          </Badge>
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-900 mt-0.5">
-                          {ord.customer_name}
-                        </h4>
-                        <p className="text-xs text-slate-500 font-mono">
-                          {ord.customer_phone} • {ord.payment_method} ({ord.payment_status})
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="font-black text-sm text-slate-900 block">
-                          ₹{ord.total_amount.toLocaleString("en-IN")}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {ord.order_date}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Step Tracker Indicator */}
-                    <div className="grid grid-cols-4 gap-1 pt-2 border-t border-slate-100 text-[10px] font-semibold text-center">
-                      <div className="p-1 rounded bg-blue-100 text-blue-800">
-                        ✓ Confirmed
-                      </div>
-                      <div className={`p-1 rounded ${ord.status !== "CONFIRMED" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-400"}`}>
-                        ✓ Godown Pack
-                      </div>
-                      <div className={`p-1 rounded ${["OUT_FOR_DELIVERY", "DELIVERED"].includes(ord.status) ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-400"}`}>
-                        🚚 Vehicle Tempo
-                      </div>
-                      <div className={`p-1 rounded ${ord.status === "DELIVERED" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
-                        ✓ Delivered
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
             </div>
           )}
 
