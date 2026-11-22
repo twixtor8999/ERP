@@ -132,6 +132,126 @@ const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
 const BEAT_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "All Days"];
 const VILLAGE_KEYS = ["Nil", "All Keys", "V1", "V2", "V3", "V4", "V5"];
 
+const MY_TARGETS_LIST = [
+  {
+    id: "t1",
+    name: "Zeeba Steam Rice 26kg Bag",
+    badge: "SKU TARGET",
+    soldText: "0 of 1 • till 30-11-2026",
+    moreText: "1 more → ₹0",
+    isEligible: false,
+    pct: 0,
+  },
+  {
+    id: "t2",
+    name: "Trulove Orange Kreme 5Rs 144Pcs Box",
+    badge: "SKU TARGET",
+    soldText: "4 of 10 • till 30-11-2026",
+    moreText: "6 more → ₹40",
+    isEligible: false,
+    pct: 40,
+  },
+  {
+    id: "t3",
+    name: "Trulove Chocolate Kreme 5Rs 144Pcs Box",
+    badge: "SKU TARGET",
+    soldText: "0 of 10 • till 30-11-2026",
+    moreText: "10 more → ₹0",
+    isEligible: false,
+    pct: 0,
+  },
+  {
+    id: "t4",
+    name: "Aramane Detergent Powder 10Rs 120Pcs Bag",
+    badge: "SKU TARGET",
+    soldText: "1 of 5 • till 30-11-2026",
+    moreText: "4 more → ₹20",
+    isEligible: false,
+    pct: 20,
+  },
+  {
+    id: "t5",
+    name: "Trulove Butter Waves 5Rs 168Pcs Box",
+    badge: "SKU TARGET",
+    soldText: "2 of 5 • till 30-11-2026",
+    moreText: "3 more → ₹10",
+    isEligible: false,
+    pct: 40,
+  },
+  {
+    id: "t6",
+    name: "Sales Target Nov 2026 • today",
+    badge: "SALES TARGET",
+    soldText: "₹0 of ₹1,20,000 • till 22-11-2026",
+    moreText: "₹1,20,000 more → ₹100",
+    isEligible: false,
+    pct: 0,
+  },
+  {
+    id: "t7",
+    name: "SUN ROYAL 750 GM SUNFLOWER OIL BOX",
+    badge: "SKU TARGET",
+    soldText: "17 of 5 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹170",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t8",
+    name: "1/2 LTR WATER ( 24 PCS)",
+    badge: "SKU TARGET",
+    soldText: "1 of 1 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹5",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t9",
+    name: "Trulove Bourbon Biscuits 5Rs 144Pcs Box",
+    badge: "SKU TARGET",
+    soldText: "15 of 10 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹150",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t10",
+    name: "Jasmine Rice 30 kg Bag",
+    badge: "SKU TARGET",
+    soldText: "6 of 2 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹60",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t11",
+    name: "1 LTR WATER ( 12 PCS)",
+    badge: "SKU TARGET",
+    soldText: "6 of 1 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹30",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t12",
+    name: "Daawat Rice 26Kg Bag",
+    badge: "SKU TARGET",
+    soldText: "1 of 1 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹5",
+    isEligible: true,
+    pct: 100,
+  },
+  {
+    id: "t13",
+    name: "Zeeba Jeera Rice 26 Kg Bag",
+    badge: "SKU TARGET",
+    soldText: "7 of 1 • till 30-11-2026",
+    moreText: "✔ Eligible • ₹70",
+    isEligible: true,
+    pct: 100,
+  },
+];
+
 interface CallingCustomer {
   id: string;
   name: string;
@@ -253,6 +373,7 @@ type CrmSubView =
   | "place-order"
   | "customers"
   | "targets"
+  | "incentive-scheme"
   | "sku-list"
   | "reports"
   | "team-reports"
@@ -1565,7 +1686,7 @@ export function CrmTelecallerPortalPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setActiveView("targets")}
+                    onClick={() => setActiveView("incentive-scheme")}
                     className="px-3.5 py-1.5 rounded-full bg-[#1e293b] text-white font-bold text-xs hover:bg-[#0f172a] transition-colors cursor-pointer active:scale-95 shadow-xs"
                   >
                     View full scheme (+2)
@@ -2234,9 +2355,121 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: INCENTIVE SCHEME (EXACT 1:1 TO SCREENSHOTS)        */}
+          {/* VIEW: MY TARGETS (EXACT 1:1 TO SCREENSHOT)               */}
           {/* ======================================================== */}
           {activeView === "targets" && (
+            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-slate-50/50 shadow-xl max-w-4xl mx-auto">
+              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Back to Home"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                    title="Open Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                  <div>
+                    <h2 className="text-base font-bold text-white tracking-tight leading-tight">My Targets</h2>
+                    <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("incentive-scheme")}
+                  className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
+                >
+                  View Scheme Poster ›
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+                {/* 2 Top Metric Cards (Exact Match to Screenshot) */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  {/* Left: Eligible Incentive ₹490 */}
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-600 block font-mono">
+                      ₹490
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                      Eligible Incentive
+                    </span>
+                  </div>
+
+                  {/* Right: Waiting (reach target) ₹170 */}
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
+                    <span className="text-2xl sm:text-3xl font-black text-amber-600 block font-mono">
+                      ₹170
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                      Waiting (reach target)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 13 Target Progress Cards List */}
+                <div className="space-y-2.5">
+                  {MY_TARGETS_LIST.map((t) => (
+                    <div
+                      key={t.id}
+                      className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 shadow-2xs space-y-2 hover:border-slate-300 transition-colors"
+                    >
+                      {/* Top Header: Name and Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                          {t.name}
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 font-mono">
+                          {t.badge}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/50">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            t.isEligible
+                              ? "bg-emerald-600"
+                              : t.pct > 0
+                              ? "bg-amber-500"
+                              : "bg-transparent"
+                          }`}
+                          style={{ width: `${t.pct}%` }}
+                        />
+                      </div>
+
+                      {/* Bottom row: sold text & more/eligible text */}
+                      <div className="flex items-center justify-between text-xs pt-0.5">
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {t.soldText}
+                        </span>
+                        <span
+                          className={`text-xs font-bold ${
+                            t.isEligible
+                              ? "text-emerald-700 font-bold"
+                              : "text-slate-700 font-mono font-bold"
+                          }`}
+                        >
+                          {t.moreText}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: INCENTIVE SCHEME POSTER (EXACT 1:1 TO SCREENSHOTS) */}
+          {/* ======================================================== */}
+          {activeView === "incentive-scheme" && (
             <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
               <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
                 <button
