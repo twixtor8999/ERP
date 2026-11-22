@@ -3707,9 +3707,30 @@ export function CrmTelecallerPortalPage() {
           {/* VIEW: NEW CUSTOMER ONBOARDING (EXACT 1:1 TO SCREENSHOT)  */}
           {/* ======================================================== */}
           {activeView === "new-customer" && (
-            <div className="p-3 sm:p-5">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs max-w-2xl mx-auto">
-                <form onSubmit={handleCreateCustomer} className="space-y-3.5 text-xs">
+            <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
+              {/* Header: Blue bar with Back arrow and Hamburger menu */}
+              <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveView("home")}
+                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                  title="Back to Home"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
+                  title="Open Menu"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <h2 className="text-base font-bold text-white tracking-tight">New Customer</h2>
+              </div>
+
+              <div className="p-4 sm:p-6 bg-white">
+                <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
                   {/* Hidden file input for Aadhaar image */}
                   <input
                     type="file"
@@ -3731,7 +3752,7 @@ export function CrmTelecallerPortalPage() {
                       value={custMobile}
                       onChange={(e) => setCustMobile(e.target.value.replace(/\D/g, ""))}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3747,30 +3768,30 @@ export function CrmTelecallerPortalPage() {
                       value={custAadhaar}
                       onChange={(e) => setCustAadhaar(e.target.value.replace(/\D/g, ""))}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
                   {/* Row: Fill name from Aadhaar QR */}
                   <div>
-                    <label className="text-xs font-medium text-slate-600 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-800 block mb-1.5">
                       Fill name from Aadhaar QR
                     </label>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={handleAadhaarScan}
-                        className="px-3.5 py-1.5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                        className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
-                        <Camera className="w-3.5 h-3.5 text-slate-700" />
+                        <Camera className="w-3.5 h-3.5 text-blue-300" />
                         <span>Scan QR</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => aadhaarFileInputRef.current?.click()}
-                        className="px-3.5 py-1.5 rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                        className="px-3.5 py-1.5 rounded-lg border border-blue-600 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
                       >
-                        <ImageIcon className="w-3.5 h-3.5 text-slate-700" />
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
                         <span>Attach image</span>
                       </button>
                     </div>
@@ -3786,7 +3807,7 @@ export function CrmTelecallerPortalPage() {
                       value={custName}
                       onChange={(e) => setCustName(e.target.value)}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3800,7 +3821,7 @@ export function CrmTelecallerPortalPage() {
                       placeholder="Fills in from the Aadhaar card"
                       value={custNameKannada}
                       onChange={(e) => setCustNameKannada(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3814,7 +3835,7 @@ export function CrmTelecallerPortalPage() {
                       maxLength={15}
                       value={custGstin}
                       onChange={(e) => setCustGstin(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 uppercase focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3831,7 +3852,7 @@ export function CrmTelecallerPortalPage() {
                         if (!custLandmark) setCustLandmark(e.target.value);
                       }}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3845,7 +3866,7 @@ export function CrmTelecallerPortalPage() {
                       value={custLandmark}
                       onChange={(e) => setCustLandmark(e.target.value)}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3857,7 +3878,7 @@ export function CrmTelecallerPortalPage() {
                     <select
                       value={custState}
                       onChange={(e) => setCustState(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
                       <option value="Karnataka">Karnataka</option>
                       <option value="Maharashtra">Maharashtra</option>
@@ -3873,7 +3894,7 @@ export function CrmTelecallerPortalPage() {
                     <select
                       value={custDistrict}
                       onChange={(e) => setCustDistrict(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
                       <option value="Vijayapura">Vijayapura</option>
                       <option value="Bagalkot">Bagalkot</option>
@@ -3903,7 +3924,7 @@ export function CrmTelecallerPortalPage() {
                           setCustRoute(matchRoute);
                         }
                       }}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
                       <option value="">Select taluka</option>
                       {TALUKAS.map((t) => (
@@ -3925,12 +3946,12 @@ export function CrmTelecallerPortalPage() {
                         placeholder="Type to search village"
                         value={custVillageSearch}
                         onChange={(e) => setCustVillageSearch(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                       />
                       <select
                         value={custVillage}
                         onChange={(e) => handleSelectVillage(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                       >
                         {!custTaluka ? (
                           <option value="">Select district and taluka first</option>
@@ -3958,7 +3979,7 @@ export function CrmTelecallerPortalPage() {
                       placeholder="Fills in from the Aadhaar card or the village list"
                       value={custVillageKannada}
                       onChange={(e) => setCustVillageKannada(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3974,7 +3995,7 @@ export function CrmTelecallerPortalPage() {
                       value={custPincode}
                       onChange={(e) => setCustPincode(e.target.value.replace(/\D/g, ""))}
                       required
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
 
@@ -3986,7 +4007,7 @@ export function CrmTelecallerPortalPage() {
                     <select
                       value={custRoute}
                       onChange={(e) => setCustRoute(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3.5 py-2.5 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     >
                       <option value="No route">No route</option>
                       {routes
@@ -4004,7 +4025,7 @@ export function CrmTelecallerPortalPage() {
                     <button
                       type="submit"
                       disabled={isCreatingCust}
-                      className="px-6 py-2.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      className="px-6 py-2.5 rounded-full bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
                     >
                       {isCreatingCust ? "Saving..." : "Save customer"}
                     </button>
