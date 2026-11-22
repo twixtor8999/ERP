@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { WholesaleOrdersPipelineView } from "../components/WholesaleOrdersPipelineView";
 import {
   Package,
   Truck,
@@ -112,6 +114,13 @@ const REJECTION_REASONS = [
 ];
 
 export const StoreOrdersAdminPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+
+  if (mode !== "storefront") {
+    return <WholesaleOrdersPipelineView />;
+  }
+
   const [orders, setOrders] = useState<StorefrontOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -22,7 +22,17 @@ export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard" },
   { title: "Place Order", href: "/pos" },
   { title: "Callings", href: "/callings" },
-  { title: "Orders", href: "/orders" },
+  {
+    title: "Orders",
+    href: "/orders",
+    children: [
+      { title: "1) Packing", href: "/orders?tab=packing" },
+      { title: "2) Invoice", href: "/orders?tab=invoice" },
+      { title: "3) Dispatch", href: "/orders?tab=dispatch" },
+      { title: "4) Delivery", href: "/orders?tab=delivery" },
+      { title: "5) Orders Report", href: "/orders?tab=report" },
+    ],
+  },
   { title: "Settlement", href: "/settlements" },
   { title: "Sales vs Collection", href: "/payments" },
   { title: "Accounts", href: "/accounts" },
