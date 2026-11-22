@@ -31,6 +31,7 @@ import {
   Grid,
   ExternalLink,
   FileSpreadsheet,
+  Menu,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -154,6 +155,7 @@ export function CrmTelecallerPortalPage() {
   const { activeBranch } = useBranchStore();
 
   const [activeView, setActiveView] = useState<CrmSubView>("home");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Home Summary & Incentive data
@@ -599,30 +601,40 @@ export function CrmTelecallerPortalPage() {
     user?.role?.toLowerCase().includes("manager");
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 pb-24 select-none antialiased font-sans">
+    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 pb-8 select-none antialiased font-sans">
       {/* ======================================================== */}
       {/* 1. TOP HEADER (Exact Siddeshwar Enterprises Banner)      */}
       {/* ======================================================== */}
       <header className="sticky top-0 z-40 bg-[#1e3a8a] text-white px-4 py-3 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Hamburger Menu Toggle on Left */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 text-amber-300 transition-colors cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
+            title="Open Menu"
+            aria-label="Open CRM Navigation Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
           {activeView !== "home" ? (
             <button
               onClick={() => setActiveView("home")}
-              className="p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold active:scale-95"
+              className="p-1.5 rounded-lg bg-blue-800/80 hover:bg-blue-700 transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold active:scale-95 shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
+              <span className="hidden sm:inline">Back</span>
             </button>
           ) : (
-            <div className="w-7 h-7 rounded-lg bg-blue-700 flex items-center justify-center text-amber-300 font-extrabold text-xs">
+            <div className="hidden md:flex w-7 h-7 rounded-lg bg-blue-700 items-center justify-center text-amber-300 font-extrabold text-xs shrink-0">
               CRM
             </div>
           )}
           <div>
-            <h1 className="text-sm font-extrabold tracking-tight uppercase flex items-center gap-1.5">
+            <h1 className="text-xs sm:text-sm font-extrabold tracking-tight uppercase flex items-center gap-1.5">
               <span>{activeView === "home" ? "Home" : activeView.toUpperCase().replace("-", " ")}</span>
               <span className="text-blue-300 font-normal">|</span>
-              <span className="text-amber-300 font-semibold text-xs tracking-wider">
+              <span className="text-amber-300 font-semibold text-[11px] sm:text-xs tracking-wider">
                 SIDDESHWAR ENTERPRISES
               </span>
             </h1>
@@ -658,8 +670,123 @@ export function CrmTelecallerPortalPage() {
         </div>
       </header>
 
+      {/* ======================================================== */}
+      {/* MOBILE LEFT DRAWER NAVIGATION (Phone Hamburger View)      */}
+      {/* ======================================================== */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Slide-out drawer panel */}
+          <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+            {/* Drawer Header */}
+            <div className="p-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-400 text-blue-950 font-extrabold text-base flex items-center justify-center shadow-sm">
+                  {user?.fullName?.charAt(0) || "P"}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold leading-tight">{user?.fullName || "Pushpa Patil"}</h3>
+                  <p className="text-[11px] text-blue-200 font-mono">{user?.phone || "9663447859"}</p>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Online • Telecaller
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-lg text-blue-200 hover:text-white hover:bg-blue-700/60 transition-colors"
+                title="Close Menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Incentive Pill in Drawer */}
+            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200/60 flex items-center justify-between text-xs">
+              <span className="font-semibold text-amber-900">Month Incentive</span>
+              <span className="font-extrabold text-amber-700 font-mono">₹{summary.monthly_incentive_earned}</span>
+            </div>
+
+            {/* Navigation Links list */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {[
+                { id: "home", label: "Home Dashboard", icon: Building2 },
+                { id: "targets", label: "My Targets", icon: Target },
+                { id: "place-order", label: "Place Order", icon: ShoppingCart },
+                { id: "callings", label: "Callings", icon: Phone },
+                { id: "new-customer", label: "New Customer", icon: Plus },
+                { id: "customers", label: "Customers", icon: Users },
+                { id: "sku-list", label: "SKU List", icon: Package },
+                { id: "report", label: "CRM Report", icon: TrendingUp },
+                { id: "orders", label: "Order Status", icon: Truck },
+                { id: "attendance", label: "Attendance", icon: Clock },
+                { id: "profile", label: "My Profile", icon: User },
+              ].map((item) => {
+                const IconComponent = item.icon;
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveView(item.id as CrmSubView);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer active:scale-98 ${
+                      isActive
+                        ? "bg-blue-900 text-white shadow-sm"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <IconComponent className={`w-4 h-4 ${isActive ? "text-amber-300" : "text-slate-400"}`} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+
+              {isUserAdmin && (
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-blue-700 hover:bg-blue-50 transition-colors mt-2 border border-blue-200/80"
+                >
+                  <LayoutDashboard className="w-4 h-4 text-blue-600" />
+                  <span>Go to ERP Admin Hub</span>
+                </Link>
+              )}
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+              <div>
+                <p className="text-[10px] text-slate-500 font-medium">Assigned Hub</p>
+                <p className="text-xs font-bold text-slate-800">{activeBranch?.name || "Vijayapura Central Hub"}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  logout();
+                  navigate("/login");
+                }}
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Responsive Canvas with Smooth Animated Page Transition */}
-      <main className="max-w-4xl mx-auto p-3 sm:p-5 pb-28 sm:pb-32">
+      <main className="max-w-4xl mx-auto p-3 sm:p-5 pb-12 sm:pb-16">
         <div
           key={activeView}
           className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out fill-mode-forwards"
@@ -2634,73 +2761,8 @@ export function CrmTelecallerPortalPage() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* STICKY BOTTOM NAVIGATION BAR (Exact Live CRM Experience) */}
-      {/* ======================================================== */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200/90 py-2 px-6 flex items-center justify-around z-30 shadow-lg">
-        <button
-          onClick={() => setActiveView("home")}
-          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-all cursor-pointer active:scale-90 ${
-            activeView === "home" ? "text-blue-900" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className={`p-1 rounded-full ${activeView === "home" ? "bg-blue-50" : ""}`}>
-            <Building2 className="w-5 h-5" />
-          </div>
-          <span className="text-[10px]">Home</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView("place-order")}
-          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-all cursor-pointer active:scale-90 ${
-            activeView === "place-order" ? "text-blue-900" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className={`p-1 rounded-full ${activeView === "place-order" ? "bg-blue-50" : ""}`}>
-            <ShoppingCart className="w-5 h-5" />
-          </div>
-          <span className="text-[10px]">Order</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView("callings")}
-          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-all cursor-pointer active:scale-90 ${
-            activeView === "callings" ? "text-blue-900" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className={`p-1 rounded-full ${activeView === "callings" ? "bg-blue-50" : ""}`}>
-            <Phone className="w-5 h-5" />
-          </div>
-          <span className="text-[10px]">Calls</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView("customers")}
-          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-all cursor-pointer active:scale-90 ${
-            activeView === "customers" ? "text-blue-900" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className={`p-1 rounded-full ${activeView === "customers" ? "bg-blue-50" : ""}`}>
-            <Users className="w-5 h-5" />
-          </div>
-          <span className="text-[10px]">Shops</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView("profile")}
-          className={`flex flex-col items-center gap-0.5 text-xs font-bold transition-all cursor-pointer active:scale-90 ${
-            activeView === "profile" ? "text-blue-900" : "text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <div className={`p-1 rounded-full ${activeView === "profile" ? "bg-blue-50" : ""}`}>
-            <User className="w-5 h-5" />
-          </div>
-          <span className="text-[10px]">Profile</span>
-        </button>
-      </nav>
-
       {/* Synced footer indicator badge (Exact match to screenshots) */}
-      <div className="fixed bottom-16 left-3 z-20">
+      <div className="fixed bottom-3 left-3 z-20">
         <span className="text-[9px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-900/85 text-white backdrop-blur-xs shadow-sm flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Synced {syncTime}
