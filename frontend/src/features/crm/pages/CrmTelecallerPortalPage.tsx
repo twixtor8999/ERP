@@ -251,10 +251,10 @@ export function CrmTelecallerPortalPage() {
     try {
       setLoading(true);
       const [sumRes, incRes, callRes, prodRes] = await Promise.all([
-        apiClient.get<TelecallerSummary>("/admin/crm/telecaller/summary"),
-        apiClient.get<IncentiveProduct[]>("/admin/crm/incentive-products"),
-        apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/admin/crm/callings?limit=100"),
-        apiClient.get<ProductItem[]>("/admin/products?limit=150"),
+        apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
+        apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
+        apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=100"),
+        apiClient.get<ProductItem[]>("/api/v1/admin/products?limit=150"),
       ]);
 
       setSummary(sumRes.data);
@@ -272,8 +272,8 @@ export function CrmTelecallerPortalPage() {
   const loadReportsAndOrders = async () => {
     try {
       const [repRes, ordRes] = await Promise.all([
-        apiClient.get<CrmReportData>("/admin/crm/reports"),
-        apiClient.get<CrmOrder[]>("/admin/crm/orders?limit=40"),
+        apiClient.get<CrmReportData>("/api/v1/admin/crm/reports"),
+        apiClient.get<CrmOrder[]>("/api/v1/admin/crm/orders?limit=40"),
       ]);
       setReportData(repRes.data);
       setOrdersList(ordRes.data);
@@ -288,7 +288,7 @@ export function CrmTelecallerPortalPage() {
         is_punched: boolean;
         check_in_time: string | null;
         days_present_this_month: number;
-      }>("/admin/crm/attendance-status");
+      }>("/api/v1/admin/crm/attendance-status");
       if (res.data.is_punched) {
         setAttendancePunched(true);
         setAttendanceTime(res.data.check_in_time || "09:15 AM");
@@ -306,7 +306,7 @@ export function CrmTelecallerPortalPage() {
         success: boolean;
         check_in_time: string;
         message: string;
-      }>("/admin/crm/punch-attendance");
+      }>("/api/v1/admin/crm/punch-attendance");
       setAttendancePunched(true);
       setAttendanceTime(res.data.check_in_time);
       toast.success("Attendance Recorded!", {
@@ -472,7 +472,7 @@ export function CrmTelecallerPortalPage() {
     const noteText = callNotes.trim() || `Called (${callOutcome}) by ${user?.fullName || "Pushpa Patil"}`;
     setIsLoggingCall(true);
     try {
-      await apiClient.post("/admin/crm/log-call", {
+      await apiClient.post("/api/v1/admin/crm/log-call", {
         customer_id: targetCustId,
         outcome: callOutcome,
         notes: noteText,
@@ -529,7 +529,7 @@ export function CrmTelecallerPortalPage() {
         };
       });
 
-      const res = await apiClient.post("/admin/crm/quick-order", {
+      const res = await apiClient.post("/api/v1/admin/crm/quick-order", {
         customer_id: orderCustomer.id,
         items: payloadItems,
         payment_method: orderPayMethod,
@@ -566,7 +566,7 @@ export function CrmTelecallerPortalPage() {
     }
     setIsCreatingCust(true);
     try {
-      await apiClient.post("/admin/customers", {
+      await apiClient.post("/api/v1/admin/customers", {
         first_name: newCustName.trim() || "Retailer",
         last_name: "Store",
         company_name: newCustShop.trim() || newCustName.trim(),
@@ -668,53 +668,51 @@ export function CrmTelecallerPortalPage() {
           {/* VIEW: HOME DASHBOARD (Exact Screens 4, 5, 6)              */}
           {/* ======================================================== */}
           {activeView === "home" && (
-            <div className="space-y-4">
-              {/* SIDDESHWAR ENTERPRISES HERO BANNER (Scraped from Live Legacy CRM) */}
-              <div className="relative overflow-hidden rounded-2xl border border-slate-700 shadow-md bg-[#0b2221] text-white">
-                <div
-                  className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity"
-                  style={{ backgroundImage: "url('/crm-banner.jpg')" }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#0b2221] via-[#0b2221]/85 to-transparent" />
-
-                <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-white p-1 shadow-md flex items-center justify-center shrink-0 border border-slate-200">
-                      <img src="/siddeshwar-logo.png" alt="Siddeshwar Logo" className="w-full h-full object-contain" />
+            <div className="space-y-3 sm:space-y-4">
+              {/* COMPACT SLIM HEADER STRIP (Option 1 & 3: Clean, Fast & Zero Layout Bloat) */}
+              <div className="rounded-xl border border-slate-800 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-sm p-3 sm:p-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white p-0.5 shadow-sm flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
+                      <img
+                        src="/siddeshwar-logo.png"
+                        alt="Siddeshwar Logo"
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-bold text-[10px] uppercase tracking-wider border border-amber-400/30">
+                        <span className="px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-bold text-[9px] uppercase tracking-wider border border-amber-400/30">
                           B2B Telecaller CRM
                         </span>
-                        <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                        <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                           Vijayapura Central Hub
                         </span>
                       </div>
-                      <h1 className="text-lg sm:text-xl font-black tracking-tight text-white mt-0.5">
+                      <h1 className="text-sm sm:text-base font-black tracking-tight text-white leading-tight mt-0.5">
                         SIDDESHWAR ENTERPRISES
                       </h1>
-                      <p className="text-[11px] text-slate-300 font-medium">
+                      <p className="text-[10px] text-slate-300 hidden sm:block">
                         Rural Kirana Telecalling, Route Orders & Village Dispatch Management
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-center">
                     <button
                       onClick={() => {
                         setCallingViewMode("grid");
                         setActiveView("callings");
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                      className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
                       <span>Village Route Grid</span>
                     </button>
                     <button
                       onClick={() => exportToExcel(callingCustomers, "Siddeshwar_Village_Route_Master")}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-600/60 transition-all cursor-pointer active:scale-95"
+                      className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer active:scale-95"
                     >
                       <Download className="w-3.5 h-3.5 text-slate-300" />
                       <span>Export CSV</span>
