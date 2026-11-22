@@ -18,13 +18,17 @@ export function App() {
         // Attempt silent session recovery
         const user = await authService.getCurrentUser();
         if (isMounted) {
-          setUser(user);
-          if (user.allowedBranches && user.allowedBranches.length > 0) {
-            setAvailableBranches(user.allowedBranches);
-            const firstBranch = user.allowedBranches[0];
-            if (firstBranch) {
-              setActiveBranch(firstBranch);
+          if (user && typeof user === "object" && typeof user.id === "string") {
+            setUser(user);
+            if (user.allowedBranches && user.allowedBranches.length > 0) {
+              setAvailableBranches(user.allowedBranches);
+              const firstBranch = user.allowedBranches[0];
+              if (firstBranch) {
+                setActiveBranch(firstBranch);
+              }
             }
+          } else {
+            setUser(null);
           }
         }
       } catch {

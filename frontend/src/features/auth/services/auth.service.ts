@@ -44,6 +44,9 @@ export const authService = {
 
   async getCurrentUser(): Promise<User> {
     const response = await apiClient.get<User>("/api/v1/auth/me");
+    if (!response.data || typeof response.data !== "object" || typeof (response.data as any).id !== "string") {
+      throw new Error("Invalid session payload received");
+    }
     return response.data;
   },
 
