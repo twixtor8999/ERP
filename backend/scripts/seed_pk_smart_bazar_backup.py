@@ -368,10 +368,16 @@ def seed_backup():
                     product_variant_id=variant.id,
                     quantity_on_hand=stock_qty,
                     quantity_reserved=Decimal("0.0000"),
+                    quantity_available=stock_qty,
+                    average_unit_cost=cost,
+                    total_value=stock_qty * cost,
                 )
                 db.add(stock_bal)
             else:
                 stock_bal.quantity_on_hand = stock_qty
+                stock_bal.quantity_available = stock_qty - stock_bal.quantity_reserved
+                stock_bal.average_unit_cost = cost
+                stock_bal.total_value = stock_qty * cost
 
             # Branch Product Setting
             setting = db.query(BranchProductSetting).filter(
