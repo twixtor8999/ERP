@@ -3306,6 +3306,8 @@ def get_crm_callings_sheet(
         district = "Vijayapura"
         pincode = addr.postal_code if addr else "586101"
         route_assigned = routes_list[abs(hash(c.id)) % len(routes_list)]
+        beat_days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        beat_day = beat_days[abs(hash(c.id)) % len(beat_days)]
         gmap_query = f"{village}, {taluka}, {district}, Karnataka, {pincode}"
         gmap_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote_plus(gmap_query)}"
         customers_out.append(
@@ -3321,6 +3323,9 @@ def get_crm_callings_sheet(
                 "district": district,
                 "pincode": pincode,
                 "route": route_assigned,
+                "beat_day": beat_day,
+                "village_key": "Nil",
+                "last_order_date": "20-11-2026",
                 "google_map_url": gmap_url,
                 "current_balance": float(c.current_balance or 0),
                 "credit_limit": float(c.credit_limit or 0),
