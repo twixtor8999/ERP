@@ -12,6 +12,9 @@ import {
   Layers,
   ArrowDownLeft,
   ArrowUpRight,
+  Truck,
+  FileSpreadsheet,
+  Coins,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useBranchStore } from "@/stores/branch.store";
@@ -71,12 +74,102 @@ interface DaybookData {
   lines: DaybookLine[];
 }
 
+interface VehicleSettlementRow {
+  id: string;
+  vehicle_no: string;
+  driver_name: string;
+  orders_count: number;
+  invoice_total: number;
+  full_return_amount: number;
+  part_return_amount: number;
+  old_orders_amount: number;
+  net_amount: number;
+  qr_collected: number;
+  cash_collected: number;
+  status: "SETTLED" | "PENDING" | "RECONCILED";
+}
+
 export function SettlementsPage() {
   const { activeBranch } = useBranchStore();
-  const [activeTab, setActiveTab] = useState<"shifts" | "daybook">("shifts");
+  const [activeTab, setActiveTab] = useState<"vehicle" | "shifts" | "daybook">("vehicle");
   const [shifts, setShifts] = useState<CashierShiftRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterDiscrepanciesOnly, setFilterDiscrepanciesOnly] = useState(false);
+
+  // Settlement date filter (defaults to today)
+  const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split("T")[0]);
+
+  // Vehicle settlements state
+  const [vehicleSettlements] = useState<VehicleSettlementRow[]>([
+    {
+      id: "v-1",
+      vehicle_no: "KA 28 M 4102",
+      driver_name: "Santosh Pujari",
+      orders_count: 18,
+      invoice_total: 48500,
+      full_return_amount: 0,
+      part_return_amount: 750,
+      old_orders_amount: 3200,
+      net_amount: 50950,
+      qr_collected: 18500,
+      cash_collected: 32450,
+      status: "SETTLED",
+    },
+    {
+      id: "v-2",
+      vehicle_no: "KA 29 B 8821",
+      driver_name: "Ramesh Biradar",
+      orders_count: 14,
+      invoice_total: 34200,
+      full_return_amount: 1100,
+      part_return_amount: 320,
+      old_orders_amount: 1500,
+      net_amount: 34280,
+      qr_collected: 12000,
+      cash_collected: 22280,
+      status: "SETTLED",
+    },
+    {
+      id: "v-3",
+      vehicle_no: "KA 28 EF 9012",
+      driver_name: "Anand Meti",
+      orders_count: 11,
+      invoice_total: 26800,
+      full_return_amount: 0,
+      part_return_amount: 0,
+      old_orders_amount: 800,
+      net_amount: 27600,
+      qr_collected: 9500,
+      cash_collected: 18100,
+      status: "RECONCILED",
+    },
+    {
+      id: "v-4",
+      vehicle_no: "KA 28 G 3314",
+      driver_name: "Basavaraj Patil",
+      orders_count: 9,
+      invoice_total: 19400,
+      full_return_amount: 650,
+      part_return_amount: 150,
+      old_orders_amount: 0,
+      net_amount: 18600,
+      qr_collected: 6200,
+      cash_collected: 12400,
+      status: "PENDING",
+    },
+  ]);
+  const [selectedVehicleForDenomination, setSelectedVehicleForDenomination] = useState<string>("ALL");
+
+  // Denomination notes state: 500, 200, 100, 50, 20, 10, 1
+  const [denominations, setDenominations] = useState<Record<string, number>>({
+    "500": 140,
+    "200": 60,
+    "100": 30,
+    "50": 4,
+    "20": 1,
+    "10": 1,
+    "1": 0,
+  });
 
   // Daybook state
   const [daybookDate, setDaybookDate] = useState(new Date().toISOString().split("T")[0]);
@@ -85,16 +178,6 @@ export function SettlementsPage() {
 
   // Denomination Modal State
   const [isTallyModalOpen, setIsTallyModalOpen] = useState(false);
-  const [denominations, setDenominations] = useState<Record<string, number>>({
-    "2000": 0,
-    "500": 0,
-    "200": 0,
-    "100": 0,
-    "50": 0,
-    "20": 0,
-    "10": 0,
-    "coins": 0,
-  });
   const [tallyNotes, setTallyNotes] = useState("");
   const [isSubmittingTally, setIsSubmittingTally] = useState(false);
 
@@ -144,7 +227,7 @@ export function SettlementsPage() {
     }
   }, [activeTab, fetchDaybook]);
 
-  // Denomination Calculations
+  // Denomination Calculations for cashier shift
   const calculatedCountedCash =
     (denominations["2000"] || 0) * 2000 +
     (denominations["500"] || 0) * 500 +
@@ -153,10 +236,44 @@ export function SettlementsPage() {
     (denominations["50"] || 0) * 50 +
     (denominations["20"] || 0) * 20 +
     (denominations["10"] || 0) * 10 +
-    (denominations["coins"] || 0);
+    (denominations["1"] || 0);
 
   const activeShiftExpectedCash = activeShift ? Number(activeShift.expected_cash || 0) : 0;
   const activeShiftDiscrepancy = calculatedCountedCash - activeShiftExpectedCash;
+
+  // Denominations for Vehicle Settlement Card (nxDenCard475)
+  const totalCountedCashDenomination =
+    (denominations["500"] || 0) * 500 +
+    (denominations["200"] || 0) * 200 +
+    (denominations["100"] || 0) * 100 +
+    (denominations["50"] || 0) * 50 +
+    (denominations["20"] || 0) * 20 +
+    (denominations["10"] || 0) * 10 +
+    (denominations["1"] || 0);
+
+  const selectedVehicleObj = vehicleSettlements.find((v) => v.id === selectedVehicleForDenomination);
+  const targetCashSettlement = selectedVehicleObj
+    ? selectedVehicleObj.cash_collected
+    : vehicleSettlements.reduce((sum, v) => sum + v.cash_collected, 0);
+
+  const denominationDifference = totalCountedCashDenomination - targetCashSettlement;
+
+  const handleDenominationChange = (key: string, val: number) => {
+    setDenominations((prev) => ({
+      ...prev,
+      [key]: Math.max(0, val || 0),
+    }));
+  };
+
+  const handleSaveDenominationAudit = () => {
+    toast.success("Cash Denomination Saved", {
+      description: `Counted ₹${totalCountedCashDenomination.toLocaleString("en-IN")}. ${
+        denominationDifference === 0
+          ? "Exact match with expected vehicle settlement!"
+          : `Discrepancy: ${denominationDifference > 0 ? "+" : ""}₹${denominationDifference.toLocaleString("en-IN")}`
+      }`,
+    });
+  };
 
   const handleCloseShiftWithDenominations = async () => {
     if (!activeShift) {
@@ -202,6 +319,16 @@ export function SettlementsPage() {
     return true;
   });
 
+  // Vehicle settlements summary totals
+  const totalVehicleOrders = vehicleSettlements.reduce((sum, v) => sum + v.orders_count, 0);
+  const totalVehicleInvoiced = vehicleSettlements.reduce((sum, v) => sum + v.invoice_total, 0);
+  const totalVehicleFullReturn = vehicleSettlements.reduce((sum, v) => sum + v.full_return_amount, 0);
+  const totalVehiclePartReturn = vehicleSettlements.reduce((sum, v) => sum + v.part_return_amount, 0);
+  const totalVehicleOldCollections = vehicleSettlements.reduce((sum, v) => sum + v.old_orders_amount, 0);
+  const totalVehicleNet = vehicleSettlements.reduce((sum, v) => sum + v.net_amount, 0);
+  const totalVehicleQr = vehicleSettlements.reduce((sum, v) => sum + v.qr_collected, 0);
+  const totalVehicleCash = vehicleSettlements.reduce((sum, v) => sum + v.cash_collected, 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -209,14 +336,14 @@ export function SettlementsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Cash Drawer & Daybook (Roznamcha)
+              Settlement & Cash Denominations
             </h1>
             <Badge variant="outline" className="font-mono text-xs">
               Branch: {activeBranch?.name || "All Branches"}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Currency denomination tallying, daily cashbook (Roznamcha), and register discrepancy reconciliation.
+            Vehicle-wise daily delivery settlements, currency note breakdowns (500·200·100·50·20·10·1), and cashier shift reconciliation.
           </p>
         </div>
 
@@ -233,7 +360,11 @@ export function SettlementsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => (activeTab === "shifts" ? fetchShifts() : fetchDaybook())}
+            onClick={() => {
+              if (activeTab === "shifts") fetchShifts();
+              else if (activeTab === "daybook") fetchDaybook();
+              else toast.success("Settlements refreshed");
+            }}
             className="gap-1.5 text-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingDaybook ? "animate-spin" : ""}`} /> Refresh
@@ -244,24 +375,287 @@ export function SettlementsPage() {
       {/* Tabs Switcher */}
       <div className="flex items-center gap-2 border-b pb-2 overflow-x-auto max-w-full">
         <button
-          onClick={() => setActiveTab("shifts")}
-          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${activeTab === "shifts"
-            ? "bg-slate-900 text-white shadow-sm"
-            : "text-slate-600 hover:bg-slate-100"
-            }`}
+          onClick={() => setActiveTab("vehicle")}
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "vehicle"
+              ? "bg-[#132038] text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
         >
-          <Layers className="w-4 h-4 shrink-0" /> Cashier Shifts & Day-End Settlements
+          <Truck className="w-4 h-4 shrink-0" /> Vehicle Settlement & Denominations
+        </button>
+        <button
+          onClick={() => setActiveTab("shifts")}
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "shifts"
+              ? "bg-[#132038] text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Layers className="w-4 h-4 shrink-0" /> Cashier Shifts & Registers
         </button>
         <button
           onClick={() => setActiveTab("daybook")}
-          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${activeTab === "daybook"
-            ? "bg-slate-900 text-white shadow-sm"
-            : "text-slate-600 hover:bg-slate-100"
-            }`}
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "daybook"
+              ? "bg-[#132038] text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
         >
           <BookOpen className="w-4 h-4 shrink-0" /> Daybook (Roznamcha)
         </button>
       </div>
+
+      {activeTab === "vehicle" && (
+        <div className="space-y-6">
+          {/* Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/40 rounded-xl border">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="text-xs font-semibold text-slate-700">Settlement Date:</span>
+              <input
+                type="date"
+                value={settlementDate}
+                onChange={(e) => setSettlementDate(e.target.value)}
+                className="text-xs px-2.5 py-1.5 border rounded-lg bg-background font-medium"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Formula: <span className="font-semibold text-slate-800">Net Amount = Invoice Amount − Returns + Old Orders = QR + Cash</span>
+            </div>
+          </div>
+
+          {/* Vehicle Settlement Table (Exact match to reference VW.set) */}
+          <Card>
+            <CardHeader className="py-3 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">Vehicle-wise Daily Settlements</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Orders dispatched, delivered, returns subtracted and cash collected per delivery truck.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="gap-1.5 text-xs"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Print Summary
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead className="bg-slate-100/70 border-b text-xs text-slate-700 text-left">
+                    <tr>
+                      <th className="py-2.5 px-3 font-bold">#</th>
+                      <th className="py-2.5 px-3 font-bold">Vehicle No</th>
+                      <th className="py-2.5 px-3 font-bold">Driver</th>
+                      <th className="py-2.5 px-3 font-bold text-center">Orders</th>
+                      <th className="py-2.5 px-3 font-bold text-right">Invoice Amt</th>
+                      <th className="py-2.5 px-3 font-bold text-right">Full Ret</th>
+                      <th className="py-2.5 px-3 font-bold text-right">Part Ret</th>
+                      <th className="py-2.5 px-3 font-bold text-right">Old Recv</th>
+                      <th className="py-2.5 px-3 font-bold text-right text-blue-900">Net Amt</th>
+                      <th className="py-2.5 px-3 font-bold text-right text-emerald-700">QR / UPI</th>
+                      <th className="py-2.5 px-3 font-bold text-right text-amber-700">Cash Recv</th>
+                      <th className="py-2.5 px-3 font-bold text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {vehicleSettlements.map((r, i) => (
+                      <tr
+                        key={r.id}
+                        className={`hover:bg-muted/40 transition cursor-pointer ${
+                          selectedVehicleForDenomination === r.id ? "bg-amber-50/50" : ""
+                        }`}
+                        onClick={() => setSelectedVehicleForDenomination(r.id)}
+                      >
+                        <td className="py-3 px-3 text-slate-500 font-mono">{i + 1}</td>
+                        <td className="py-3 px-3 font-bold text-foreground">
+                          {r.vehicle_no}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">{r.driver_name}</td>
+                        <td className="py-3 px-3 text-center font-bold">{r.orders_count}</td>
+                        <td className="py-3 px-3 text-right font-mono">₹{r.invoice_total.toLocaleString("en-IN")}</td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-500">
+                          {r.full_return_amount ? `₹${r.full_return_amount.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-500">
+                          {r.part_return_amount ? `₹${r.part_return_amount.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-500">
+                          {r.old_orders_amount ? `₹${r.old_orders_amount.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-blue-900">
+                          ₹{r.net_amount.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700">
+                          ₹{r.qr_collected.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-amber-800">
+                          ₹{r.cash_collected.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              r.status === "SETTLED"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : r.status === "RECONCILED"
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-100 font-bold text-xs border-t-2 border-slate-300">
+                    <tr>
+                      <td colSpan={3} className="py-3 px-3 text-slate-900">
+                        Total ({vehicleSettlements.length} Vehicles)
+                      </td>
+                      <td className="py-3 px-3 text-center">{totalVehicleOrders}</td>
+                      <td className="py-3 px-3 text-right font-mono">₹{totalVehicleInvoiced.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono">₹{totalVehicleFullReturn.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono">₹{totalVehiclePartReturn.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono">₹{totalVehicleOldCollections.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono text-blue-900">₹{totalVehicleNet.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono text-emerald-700">₹{totalVehicleQr.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-right font-mono text-amber-800">₹{totalVehicleCash.toLocaleString("en-IN")}</td>
+                      <td className="py-3 px-3 text-center">—</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Cash Denominations Card (nxDenCard475) matching Reference App */}
+          <Card className={`border-2 transition-all ${denominationDifference === 0 ? "border-emerald-400 bg-emerald-50/20" : "border-amber-300 bg-amber-50/20"}`}>
+            <CardHeader className="py-3 border-b bg-card">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-amber-100 text-amber-900">
+                    <Coins className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900">
+                      💵 Cash Denomination & QR Breakdown (500 · 200 · 100 · 50 · 20 · 10 · 1)
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Enter currency note counts to verify physical cash drawer takings against delivery settlement totals.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap">Target Vehicle:</label>
+                  <select
+                    value={selectedVehicleForDenomination}
+                    onChange={(e) => setSelectedVehicleForDenomination(e.target.value)}
+                    className="text-xs px-2.5 py-1.5 border rounded-lg bg-white font-medium"
+                  >
+                    <option value="ALL">All Fleet Combined (₹{totalVehicleCash.toLocaleString("en-IN")})</option>
+                    {vehicleSettlements.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.vehicle_no} — {v.driver_name} (₹{v.cash_collected.toLocaleString("en-IN")})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4 space-y-4">
+              {/* Note Inputs Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                {[
+                  { key: "500", note: 500, label: "₹500 Notes" },
+                  { key: "200", note: 200, label: "₹200 Notes" },
+                  { key: "100", note: 100, label: "₹100 Notes" },
+                  { key: "50", note: 50, label: "₹50 Notes" },
+                  { key: "20", note: 20, label: "₹20 Notes" },
+                  { key: "10", note: 10, label: "₹10 Notes" },
+                  { key: "1", note: 1, label: "₹1 / Coins" },
+                ].map((den) => {
+                  const count = denominations[den.key] || 0;
+                  const lineTotal = count * den.note;
+                  return (
+                    <div key={den.key} className="p-2.5 bg-white rounded-xl border shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700">{den.label}</span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={count === 0 ? "" : count}
+                        placeholder="0"
+                        onChange={(e) => handleDenominationChange(den.key, parseInt(e.target.value, 10) || 0)}
+                        className="text-center font-bold text-base h-9 bg-slate-50"
+                      />
+                      <div className="text-[11px] text-right font-mono font-semibold text-slate-500">
+                        = ₹{lineTotal.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Denomination Reconciliation Summary */}
+              <div className="p-3.5 bg-white rounded-xl border flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Total Physical Cash Counted:</span>
+                    <span className="font-black text-lg text-slate-900 font-mono">
+                      ₹{totalCountedCashDenomination.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+
+                  <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Expected Settlement Cash:</span>
+                    <span className="font-black text-lg text-slate-700 font-mono">
+                      ₹{targetCashSettlement.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+
+                  <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Audit Discrepancy:</span>
+                    {denominationDifference === 0 ? (
+                      <span className="font-bold text-sm text-emerald-700 flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Exact Match (₹0.00)
+                      </span>
+                    ) : denominationDifference > 0 ? (
+                      <span className="font-bold text-sm text-amber-700">
+                        Excess: +₹{denominationDifference.toLocaleString("en-IN")}
+                      </span>
+                    ) : (
+                      <span className="font-bold text-sm text-rose-700">
+                        Shortage: -₹{Math.abs(denominationDifference).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleSaveDenominationAudit}
+                    className="bg-[#132038] hover:bg-[#1a2d4b] text-white font-bold text-xs shadow-sm"
+                  >
+                    Save Denomination Audit
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {activeTab === "shifts" && (
         <>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Package,
   Truck,
@@ -11,6 +11,8 @@ import {
   Clock,
   Banknote,
   Calendar,
+  Printer,
+  Boxes,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 
@@ -141,6 +143,57 @@ export const StoreOrdersAdminPage: React.FC = () => {
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+
+  // Item-wise aggregated packing view toggle
+  const [isItemWiseView, setIsItemWiseView] = useState(false);
+
+  // Item-wise aggregated packing calculation
+  const aggregatedItems = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        sku: string;
+        product_name: string;
+        total_qty: number;
+        order_count: number;
+        orders: string[];
+        total_amount: number;
+      }
+    >();
+
+    orders.forEach((ord) => {
+      (ord.items || []).forEach((item) => {
+        const key = item.sku || item.product_name || "UNKNOWN";
+        const existing = map.get(key);
+        const qty = Number(item.quantity) || 1;
+        const amt = Number(item.total_amount) || Number(item.unit_price) * qty || 0;
+
+        if (existing) {
+          existing.total_qty += qty;
+          existing.total_amount += amt;
+          if (!existing.orders.includes(ord.order_number)) {
+            existing.orders.push(ord.order_number);
+            existing.order_count += 1;
+          }
+        } else {
+          map.set(key, {
+            sku: item.sku || "—",
+            product_name: item.product_name || "Unknown SKU",
+            total_qty: qty,
+            order_count: 1,
+            orders: [ord.order_number],
+            total_amount: amt,
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.total_qty - a.total_qty);
+  }, [orders]);
+
+  const totalAggregatedUnits = useMemo(() => {
+    return aggregatedItems.reduce((sum, it) => sum + it.total_qty, 0);
+  }, [aggregatedItems]);
 
   // COD collection modal
   const [codAmount, setCodAmount] = useState<string>("");
@@ -462,38 +515,149 @@ export const StoreOrdersAdminPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 pt-1 border-t">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1 flex-shrink-0" />
-          {[
-            { id: "ALL", label: "All Orders" },
-            { id: "PENDING", label: "Pending" },
-            { id: "CONFIRMED", label: "Confirmed" },
-            { id: "PICKING", label: "Picking" },
-            { id: "PACKING", label: "Packing" },
-            { id: "READY_FOR_DISPATCH", label: "Ready to Dispatch" },
-            { id: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
-            { id: "DELIVERED", label: "Delivered" },
-            { id: "DELIVERY_FAILED", label: "Failed" },
-            { id: "CANCELLED", label: "Cancelled" },
-          ].map((tab) => (
+        {/* Status Filter Tabs & Item-Wise Packing View Switcher */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 pt-1 border-t">
+          <div className="flex items-center space-x-1.5 overflow-x-auto">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1 flex-shrink-0" />
+            {[
+              { id: "ALL", label: "All Orders" },
+              { id: "PENDING", label: "Pending" },
+              { id: "CONFIRMED", label: "Confirmed" },
+              { id: "PICKING", label: "Picking" },
+              { id: "PACKING", label: "Packing" },
+              { id: "READY_FOR_DISPATCH", label: "Ready to Dispatch" },
+              { id: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
+              { id: "DELIVERED", label: "Delivered" },
+              { id: "DELIVERY_FAILED", label: "Failed" },
+              { id: "CANCELLED", label: "Cancelled" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setStatusFilter(tab.id);
+                  setIsItemWiseView(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                  !isItemWiseView && statusFilter === tab.id
+                    ? "bg-[#132038] text-white shadow-sm"
+                    : "bg-muted/70 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                statusFilter === tab.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/70 text-muted-foreground hover:bg-muted"
+              onClick={() => setIsItemWiseView(!isItemWiseView)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap border ${
+                isItemWiseView
+                  ? "bg-[#f59e0b] text-slate-950 border-amber-500 shadow-sm"
+                  : "bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 border-amber-300"
               }`}
             >
-              {tab.label}
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Item Wise View ({aggregatedItems.length} SKUs)</span>
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+      {isItemWiseView ? (
+        /* Item Wise Consolidated Packing View matching reference app */
+        <div className="bg-card border rounded-2xl overflow-hidden shadow-sm space-y-4 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Boxes className="w-5 h-5 text-amber-500" />
+                <h2 className="text-base font-bold text-foreground">
+                  Item Wise View — Consolidated Truck Loading & Packing Sheet
+                </h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Aggregates all grocery items across current filtered orders ({orders.length} orders) for fast warehouse truck loading.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-[#132038] hover:bg-[#1a2d4b] text-white rounded-lg shadow-sm transition"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Loading Sheet
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-100/70 border-b text-xs font-bold text-slate-700">
+                <tr>
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">SKU Code</th>
+                  <th className="py-2.5 px-3">Item / Product Name</th>
+                  <th className="py-2.5 px-3 text-center">Total Qty to Pack</th>
+                  <th className="py-2.5 px-3 text-center">Orders Count</th>
+                  <th className="py-2.5 px-3">Customer Orders</th>
+                  <th className="py-2.5 px-3 text-right">Estimated Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border text-xs sm:text-sm">
+                {aggregatedItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <Boxes className="w-10 h-10 mx-auto mb-2 opacity-40 text-amber-500" />
+                      <span>No order items found in the current filter.</span>
+                    </td>
+                  </tr>
+                ) : (
+                  aggregatedItems.map((item, idx) => (
+                    <tr key={item.sku + idx} className="hover:bg-muted/40 transition">
+                      <td className="py-2.5 px-3 text-slate-500 font-mono text-xs">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-900">{item.sku}</td>
+                      <td className="py-2.5 px-3 font-semibold text-foreground">{item.product_name}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="inline-block px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold font-mono text-xs">
+                          {item.total_qty} units
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-bold text-slate-700">{item.order_count}</td>
+                      <td className="py-2.5 px-3 text-xs text-muted-foreground">
+                        <span className="truncate max-w-[200px] block font-mono">
+                          {item.orders.slice(0, 3).join(", ")}
+                          {item.orders.length > 3 ? ` +${item.orders.length - 3} more` : ""}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
+                        ₹{item.total_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {aggregatedItems.length > 0 && (
+                <tfoot className="bg-slate-100 font-bold text-xs border-t-2 border-slate-300">
+                  <tr>
+                    <td colSpan={3} className="py-3 px-3 text-slate-900">
+                      Total ({aggregatedItems.length} SKUs across {orders.length} orders)
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono text-amber-900 font-black">
+                      {totalAggregatedUnits} Units
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono">—</td>
+                    <td className="py-3 px-3">—</td>
+                    <td className="py-3 px-3 text-right font-mono text-blue-900 font-black">
+                      ₹{aggregatedItems.reduce((sum, it) => sum + it.total_amount, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* Orders Table */
+        <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 border-b text-xs font-semibold uppercase text-muted-foreground tracking-wider">
@@ -587,6 +751,7 @@ export const StoreOrdersAdminPage: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* Fulfillment Drawer / Detailed Modal */}
       {selectedOrderId && (
