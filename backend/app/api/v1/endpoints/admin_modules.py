@@ -7,10 +7,10 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, or_
+from sqlalchemy import Date, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.websocket_manager import ws_manager
@@ -3333,7 +3333,7 @@ def get_crm_orders_status(
     for o in orders:
         c = custs.get(o.customer_id)
         shop_name = c.company_name if c and c.company_name else (c.display_name if c else o.shipping_recipient_name or "Retail Store")
-        
+
         # Filter if search
         if search:
             q = search.lower().strip()
