@@ -188,11 +188,7 @@ export function CrmTelecallerPortalPage() {
   // Calling Sheet state
   const [routes, setRoutes] = useState<string[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<string>("Bijapur");
-  const [selectedBeatDay, setSelectedBeatDay] = useState<string>("Sunday");
-  const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
   const [selectedVillage, setSelectedVillage] = useState<string>("All villages");
-  const [callingPage, setCallingPage] = useState<number>(1);
-  const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>([]);
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [customerRouteFilter, setCustomerRouteFilter] = useState<string>("All Routes");
@@ -488,9 +484,6 @@ export function CrmTelecallerPortalPage() {
     });
   };
 
-  const BEAT_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const VILLAGE_KEYS = ["Nil", "Primary", "Secondary"];
-
   const availableVillages = useMemo(() => {
     const vSet = new Set<string>();
     callingCustomers.forEach((c) => {
@@ -499,26 +492,14 @@ export function CrmTelecallerPortalPage() {
     return ["All villages", ...Array.from(vSet)];
   }, [callingCustomers]);
 
-  // Filter Calling Customers
+  // Filter Calling Customers by Route and Village
   const filteredCallings = useMemo(() => {
     return callingCustomers.filter((c) => {
-      const matchDay = !selectedBeatDay || !c.beat_day || c.beat_day === selectedBeatDay;
       const matchRoute = selectedRoute === "All Routes" || !c.route || c.route.toLowerCase() === selectedRoute.toLowerCase();
-      const matchKey = selectedVillageKey === "All Keys" || !c.village_key || c.village_key === selectedVillageKey;
       const matchVillage = selectedVillage === "All villages" || !c.village || c.village.toLowerCase() === selectedVillage.toLowerCase();
-
-      const term = callingSearch.toLowerCase().trim();
-      const matchSearch =
-        !term ||
-        c.shop_name?.toLowerCase().includes(term) ||
-        c.display_name?.toLowerCase().includes(term) ||
-        c.name?.toLowerCase().includes(term) ||
-        c.phone?.includes(term) ||
-        c.village?.toLowerCase().includes(term);
-
-      return matchDay && matchRoute && matchKey && matchVillage && matchSearch;
+      return matchRoute && matchVillage;
     });
-  }, [callingCustomers, selectedBeatDay, selectedRoute, selectedVillageKey, selectedVillage, callingSearch]);
+  }, [callingCustomers, selectedRoute, selectedVillage]);
 
   // Filter Customer Directory
   const filteredCustomers = useMemo(() => {
@@ -1325,7 +1306,8 @@ export function CrmTelecallerPortalPage() {
                       disabled={availableVillages.indexOf(selectedVillage) <= 0}
                       onClick={() => {
                         const idx = availableVillages.indexOf(selectedVillage);
-                        if (idx > 0) setSelectedVillage(availableVillages[idx - 1]);
+                        const prevVil = availableVillages[idx - 1];
+                        if (idx > 0 && prevVil) setSelectedVillage(prevVil);
                       }}
                       className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
@@ -1335,8 +1317,13 @@ export function CrmTelecallerPortalPage() {
                       disabled={availableVillages.indexOf(selectedVillage) >= availableVillages.length - 1}
                       onClick={() => {
                         const idx = availableVillages.indexOf(selectedVillage);
-                        if (idx >= 0 && idx < availableVillages.length - 1) setSelectedVillage(availableVillages[idx + 1]);
-                        else if (selectedVillage === "All villages" && availableVillages.length > 0) setSelectedVillage(availableVillages[0]);
+                        const nextVil = availableVillages[idx + 1];
+                        const firstVil = availableVillages[0];
+                        if (idx >= 0 && idx < availableVillages.length - 1 && nextVil) {
+                          setSelectedVillage(nextVil);
+                        } else if (selectedVillage === "All villages" && firstVil) {
+                          setSelectedVillage(firstVil);
+                        }
                       }}
                       className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
                     >
@@ -2270,8 +2257,8 @@ export function CrmTelecallerPortalPage() {
                     <span className="font-black text-slate-900 text-sm">{attendanceDaysPresent} Days</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-                    <span className="text-[10px] text-slate-400 block font-semibold">Working Days</span>
-                    <span className="font-black text-slate-900 text-sm">26 Days</span>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Active Duty</span>
+                    <span className="font-black text-slate-900 text-sm font-mono">{formatPunchDuration(punchSeconds)}</span>
                   </div>
                 </div>
               </div>
