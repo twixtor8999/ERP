@@ -55,7 +55,7 @@ from app.models import (
     Vehicle,
     Warehouse,
 )
-from app.modules.payments.models import PaymentAllocation, PaymentTransaction
+from app.modules.payments.models import PaymentAllocation, PaymentMethod, PaymentTransaction
 from app.modules.payments.service import _generate_tx_number, _get_or_create_payment_method
 
 router = APIRouter(prefix="/admin", tags=["Enterprise Administration Modules"])
@@ -214,9 +214,9 @@ def list_admin_products(
             if not (name_match or var_match):
                 continue
 
-        cat_obj = categories.get(p.category_id)
-        uom_obj = uoms.get(p.uom_id)
-        tax_obj = taxes.get(p.tax_config_id)
+        cat_obj = categories.get(p.category_id) if p.category_id else None
+        uom_obj = uoms.get(p.uom_id) if p.uom_id else None
+        tax_obj = taxes.get(p.tax_config_id) if p.tax_config_id else None
 
         res.append({
             "id": p.id,
@@ -736,8 +736,10 @@ def lookup_product_by_barcode(
         raise HTTPException(status_code=404, detail=f"No product found for barcode '{bc_clean}'")
 
     product = db.scalar(select(Product).where(Product.id == variant.product_id))
-    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id))
-    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id))
+    if not product:
+        raise HTTPException(status_code=404, detail=f"Product record not found for variant '{variant.sku}'")
+    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id)) if product.uom_id else None
+    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id)) if product.tax_config_id else None
 
     # Live stock
     stock_qty = db.scalar(
@@ -788,8 +790,10 @@ def lookup_product_by_sku(
         raise HTTPException(status_code=404, detail=f"No product found for SKU '{sku_clean}'")
 
     product = db.scalar(select(Product).where(Product.id == variant.product_id))
-    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id))
-    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id))
+    if not product:
+        raise HTTPException(status_code=404, detail=f"Product record not found for variant '{variant.sku}'")
+    uom = db.scalar(select(UnitOfMeasure).where(UnitOfMeasure.id == product.uom_id)) if product.uom_id else None
+    tax = db.scalar(select(ProductTaxConfiguration).where(ProductTaxConfiguration.id == product.tax_config_id)) if product.tax_config_id else None
     stock_qty = db.scalar(
         select(func.coalesce(func.sum(StockBalance.quantity_on_hand), 0)).where(
             StockBalance.product_variant_id == variant.id
@@ -820,7 +824,7 @@ def lookup_product_by_sku(
 def export_product_catalog(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     """Export the central product master catalog to CSV."""
     products = db.scalars(
         select(Product)
@@ -861,9 +865,9 @@ def export_product_catalog(
 
     for p in products:
         variants = db.scalars(select(ProductVariant).where(ProductVariant.product_id == p.id)).all()
-        cat_name = categories.get(p.category_id, "General")
-        uom_symbol = uoms.get(p.uom_id, "pcs")
-        tax_obj = taxes.get(p.tax_config_id)
+        cat_name = categories.get(p.category_id, "General") if p.category_id else "General"
+        uom_symbol = uoms.get(p.uom_id, "pcs") if p.uom_id else "pcs"
+        tax_obj = taxes.get(p.tax_config_id) if p.tax_config_id else None
         hsn = tax_obj.hsn_sac_code if tax_obj else ""
         gst_pct = float(tax_obj.tax_rate * 100) if tax_obj else 5.0
 
@@ -1664,7 +1668,7 @@ async def receive_customer_payment(
     await ws_manager.broadcast_event(
         event_type="KHATA_PAYMENT_RECEIVED",
         organization_id=customer.organization_id,
-        branch_id=branch_id,
+        branch_id=branch_id or "",
         summary=f"Khata payment ₹{pay_amount} received from {customer.display_name or customer.first_name}",
         data={
             "customer_id": customer.id,
@@ -1721,7 +1725,7 @@ def list_admin_audit_logs(
             "action": entry.action,
             "entity_type": entry.entity_type,
             "entity_id": entry.entity_id,
-            "user_name": users.get(entry.user_id, "System / Administrator"),
+            "user_name": users.get(entry.user_id, "System / Administrator") if entry.user_id else "System / Administrator",
             "ip_address": entry.ip_address,
             "created_at": entry.created_at.isoformat() if entry.created_at else None,
         }
@@ -2189,8 +2193,21 @@ def get_admin_daybook(
         )
     ).all()
 
-    khata_cash = sum((p.amount or Decimal("0.00")) for p in khata_payments if (p.payment_mode or "").upper() == "CASH")
-    khata_upi = sum((p.amount or Decimal("0.00")) for p in khata_payments if (p.payment_mode or "").upper() == "UPI")
+    pm_map = {
+        pm.id: pm.code
+        for pm in db.scalars(select(PaymentMethod).where(PaymentMethod.organization_id == org_id)).all()
+    }
+
+    khata_cash = sum(
+        (p.amount or Decimal("0.00"))
+        for p in khata_payments
+        if pm_map.get(p.payment_method_id, "CASH").upper() == "CASH"
+    )
+    khata_upi = sum(
+        (p.amount or Decimal("0.00"))
+        for p in khata_payments
+        if pm_map.get(p.payment_method_id, "CASH").upper() == "UPI"
+    )
 
     expense_query = select(Expense).where(
         Expense.organization_id == org_id,
@@ -2223,8 +2240,9 @@ def get_admin_daybook(
         })
 
     for p in khata_payments:
-        cust = db.scalar(select(Customer).where(Customer.id == p.customer_id))
-        c_name = cust.name if cust else "Retail Customer"
+        cust = db.scalar(select(Customer).where(Customer.id == p.customer_id)) if p.customer_id else None
+        c_name = cust.display_name or f"{cust.first_name} {cust.last_name or ''}".strip() if cust else "Retail Customer"
+        p_mode = pm_map.get(p.payment_method_id, "CASH").upper()
         lines.append({
             "time": p.transaction_date.strftime("%H:%M:%S") if p.transaction_date else "12:00:00",
             "type": "KHATA_COLLECTION",
@@ -2232,7 +2250,7 @@ def get_admin_daybook(
             "party": f"{c_name} (Udhaar Cleared)",
             "inflow": float(p.amount),
             "outflow": 0.0,
-            "mode": (p.payment_mode or "CASH").upper(),
+            "mode": p_mode,
             "notes": p.notes or "Counter Udhaar Payment",
         })
 
@@ -2782,9 +2800,9 @@ def get_crm_telecaller_summary(
     ) or 0
 
     return {
-        "orders_today": int(orders_today_count),
+        "orders_today": orders_today_count,
         "order_value_today": float(order_value_today),
-        "calls_today": int(calls_today_count),
+        "calls_today": calls_today_count,
         "monthly_incentive_earned": 610.00,
         "monthly_incentive_pending": 170.00,
         "targets_unreached_count": 6,
@@ -3383,10 +3401,16 @@ def punch_crm_self_attendance(
     now_utc = datetime.now(UTC)
 
     # Find employee associated with this user
+    user_cond = Employee.user_id == current_user.user_id
+    if current_user.phone:
+        user_cond = user_cond | (Employee.phone == current_user.phone)
+    if current_user.email:
+        user_cond = user_cond | (Employee.email == current_user.email)
+
     emp = db.scalar(
         select(Employee).where(
             Employee.organization_id == org_id,
-            (Employee.user_id == current_user.user_id) | (Employee.phone == current_user.username),
+            user_cond,
         )
     )
     if not emp:
@@ -3446,10 +3470,16 @@ def get_crm_attendance_status(
     org_id = current_user.organization_id
     today = datetime.now(UTC).date()
 
+    user_cond = Employee.user_id == current_user.user_id
+    if current_user.phone:
+        user_cond = user_cond | (Employee.phone == current_user.phone)
+    if current_user.email:
+        user_cond = user_cond | (Employee.email == current_user.email)
+
     emp = db.scalar(
         select(Employee).where(
             Employee.organization_id == org_id,
-            (Employee.user_id == current_user.user_id) | (Employee.phone == current_user.username),
+            user_cond,
         )
     )
     if not emp:
