@@ -36,7 +36,6 @@ import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { KARNATAKA_VILLAGES } from "../data/karnatakaVillages";
 
 const TALUKAS = [
@@ -445,7 +444,6 @@ export function CrmTelecallerPortalPage() {
   // Catalog for Order Pad & SKU List
   const [catalog, setCatalog] = useState<ProductItem[]>([]);
   const [skuSearch, setSkuSearch] = useState<string>("");
-  const [skuCategory, setSkuCategory] = useState<string>("ALL");
   const [orderCustomer, setOrderCustomer] = useState<CallingCustomer | null>(null);
   const [orderItems, setOrderItems] = useState<{ [variantId: string]: number }>({});
   const [orderPayMethod, setOrderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
@@ -692,7 +690,7 @@ export function CrmTelecallerPortalPage() {
         apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
         apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
         apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500"),
-        apiClient.get<ProductItem[]>("/api/v1/admin/products?limit=150"),
+        apiClient.get<ProductItem[]>("/api/v1/admin/products"),
       ]);
 
       setSummary(sumRes.data);
@@ -1006,19 +1004,18 @@ export function CrmTelecallerPortalPage() {
 
   // Filter SKU Master
   const filteredSkuCatalog = useMemo(() => {
-    return catalog.filter((p) => {
-      const term = skuSearch.toLowerCase().trim();
-      const matchTerm =
-        !term ||
-        p.name?.toLowerCase().includes(term) ||
-        p.code?.toLowerCase().includes(term) ||
-        p.display_name?.toLowerCase().includes(term);
-      const matchCat =
-        skuCategory === "ALL" ||
-        (p.category_name && p.category_name.toLowerCase().includes(skuCategory.toLowerCase()));
-      return matchTerm && matchCat;
-    });
-  }, [catalog, skuSearch, skuCategory]);
+    return catalog
+      .filter((p) => {
+        const term = skuSearch.toLowerCase().trim();
+        if (!term) return true;
+        return (
+          p.name?.toLowerCase().includes(term) ||
+          p.code?.toLowerCase().includes(term) ||
+          p.display_name?.toLowerCase().includes(term)
+        );
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [catalog, skuSearch]);
 
   const displayedIncentiveProducts = useMemo(() => {
     if (incentiveFilter === "ACHIEVED") {
@@ -2289,12 +2286,14 @@ export function CrmTelecallerPortalPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: SKU LIST (PRICE & GODOWN STOCK TRACKER)            */}
+          {/* VIEW: SKU LIST (EXACT 1:1 TO SCREENSHOT WITH 254 SKUs)   */}
           {/* ======================================================== */}
           {activeView === "sku-list" && (
             <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
+              {/* Header: Blue bar with Back arrow, Hamburger menu, and subtitle */}
               <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setActiveView("home")}
                   className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
                   title="Back to Home"
@@ -2302,123 +2301,97 @@ export function CrmTelecallerPortalPage() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsMobileMenuOpen(true)}
                   className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
                   title="Open Menu"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
-                <h2 className="text-base font-bold text-white tracking-tight">SKU List</h2>
-              </div>
-              <div className="p-4 sm:p-5 space-y-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Package className="w-4 h-4 text-orange-500" />
-                      <span>Wholesale SKU List & Stock</span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Real-time prices and Central Godown stock availability.
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {filteredSkuCatalog.length} Items
-                  </Badge>
+                <div>
+                  <h2 className="text-base font-bold text-white tracking-tight leading-none">SKU List</h2>
+                  <p className="text-[10px] font-bold text-amber-300 tracking-wider mt-0.5">SIDDESHWAR ENTERPRISES</p>
                 </div>
+              </div>
 
-                {/* Search Bar */}
+              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+                {/* Search input with rounded pill / smooth border and search icon on right */}
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <Input
+                  <input
                     type="text"
-                    placeholder="Search Rice, Oil, Detergents, SKU code..."
+                    placeholder="Search SKU name"
                     value={skuSearch}
                     onChange={(e) => setSkuSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                    className="w-full px-4 py-3 pr-10 text-xs sm:text-sm font-medium border border-slate-200 rounded-2xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
                   />
+                  <Search className="w-4 h-4 text-slate-700 absolute right-4 top-3.5 pointer-events-none" />
                 </div>
 
-                {/* Category Pills */}
-                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                  {["ALL", "Rice", "Oil", "Detergent", "Biscuit", "Flour", "Spices"].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSkuCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                        skuCategory === cat
-                          ? "bg-orange-600 text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                {/* SKU count */}
+                <div className="text-xs text-slate-500 font-medium px-0.5">
+                  {filteredSkuCatalog.length} SKU(s)
+                </div>
+
+                {/* 254 Items Table matching reference screenshot */}
+                <div className="rounded-xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs">
+                  <table className="w-full border-collapse text-xs sm:text-sm">
+                    <thead className="bg-[#101c38] text-white select-none">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-bold text-xs tracking-wider">
+                          SKU NAME
+                        </th>
+                        <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
+                          PRICE
+                        </th>
+                        <th className="px-4 py-3 text-right font-bold text-xs tracking-wider">
+                          AVAILABLE
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200/80">
+                      {filteredSkuCatalog.map((prod) => {
+                        const price = Math.round(prod.selling_price || 0);
+                        const inStock = (prod.current_stock || 0) > 0;
+                        return (
+                          <tr key={prod.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-4 py-3 text-left">
+                              <div className="font-bold text-slate-900 leading-snug">
+                                {prod.name}
+                              </div>
+                              {prod.display_name && prod.display_name !== prod.name && (
+                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                  {prod.display_name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                              ₹{price}
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              {inStock ? (
+                                <span className="text-emerald-600 font-semibold text-xs">
+                                  {prod.current_stock} in stock
+                                </span>
+                              ) : (
+                                <span className="text-rose-600 font-semibold text-xs">
+                                  Out of stock
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredSkuCatalog.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-8 text-center text-slate-400 font-medium">
+                            No matching SKUs found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-
-              {/* SKU List Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {filteredSkuCatalog.slice(0, 60).map((prod) => {
-                  const inStock = (prod.current_stock || 0) > 0;
-                  return (
-                    <div
-                      key={prod.id}
-                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2 hover:border-orange-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
-                            {prod.code || "SKU"}
-                          </span>
-                          <h4 className="text-xs font-bold text-slate-900 mt-1 line-clamp-2">
-                            {prod.name}
-                          </h4>
-                        </div>
-                        <Badge
-                          className={`text-[9px] ${
-                            inStock
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-red-50 text-red-700 border-red-200"
-                          }`}
-                        >
-                          {inStock ? `${prod.current_stock} in Godown` : "Out of Stock"}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                        <div>
-                          <span className="text-slate-400 text-[10px] block">Wholesale Rate</span>
-                          <span className="font-extrabold text-blue-900 text-sm">
-                            ₹{prod.selling_price}
-                          </span>
-                        </div>
-                        <div className="text-center">
-                          <span className="text-slate-400 text-[10px] block">Retail MRP</span>
-                          <span className="font-bold text-slate-600">
-                            ₹{prod.mrp || prod.selling_price}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setOrderItems((prev) => ({
-                              ...prev,
-                              [prod.id]: (prev[prod.id] || 0) + 1,
-                            }));
-                            toast.success(`Added 1x ${prod.name} to Cart`);
-                            setActiveView("place-order");
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add to Order</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
             </div>
           )}
 

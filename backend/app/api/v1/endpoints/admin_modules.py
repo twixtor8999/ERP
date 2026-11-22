@@ -275,6 +275,10 @@ def list_admin_products(
                 }
                 for v in variants
             ],
+            "selling_price": float(variants[0].selling_price) if variants else 0.0,
+            "cost_price": float(variants[0].cost_price) if variants else 0.0,
+            "mrp": float(variants[0].mrp or variants[0].selling_price) if variants else 0.0,
+            "current_stock": prod_stock,
         })
     return res
 
