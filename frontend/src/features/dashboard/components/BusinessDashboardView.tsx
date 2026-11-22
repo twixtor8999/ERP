@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Calendar } from "lucide-react";
+import { ArrowLeft, ChevronDown, Calendar, X, Download } from "lucide-react";
 
 interface CrmStaffMember {
   id: string;
@@ -41,9 +41,9 @@ const DEFAULT_STAFF: CrmStaffMember[] = [
     name: "Dhruthi A S",
     initials: "DA",
     themeColor: "#db2777", // Pink
-    orders: 0,
-    salesK: "₹0",
-    coveredVillages: 0,
+    orders: 2,
+    salesK: "₹11.6k",
+    coveredVillages: 1,
     callings: 0,
     salesReturnK: "₹21.7k",
     salesReturnOrders: 10,
@@ -118,37 +118,175 @@ const DEFAULT_STAFF: CrmStaffMember[] = [
   },
 ];
 
+interface ModalState {
+  title: string;
+  subtitle?: string;
+  headers: string[];
+  rows: (string | number)[][];
+  showExport?: boolean;
+}
+
 export function BusinessDashboardView() {
   const navigate = useNavigate();
-  const todayStr = "22-11-2026";
+  const todayStr = "2026-11-22";
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
-  const [currentTime] = useState("07:27 pm");
+  const [currentTime] = useState("08:03 pm");
 
   const [staffList] = useState<CrmStaffMember[]>(DEFAULT_STAFF);
+  const [activeModal, setActiveModal] = useState<ModalState | null>(null);
 
-  // Top 5 Villages Data
+  // Top 5 Villages Data matching live Siddeshwar Enterprises
   const topVillages = [
-    { rank: 1, name: "Rugi", orders: 1, sales: "₹10.4k" },
-    { rank: 2, name: "Devara Hippargi", orders: 2, sales: "₹6.7k" },
+    { rank: 1, name: "Tadavalga", orders: 2, sales: "₹11.6k" },
+    { rank: 2, name: "Rugi", orders: 1, sales: "₹10.4k" },
+    { rank: 3, name: "Devara Hippargi", orders: 2, sales: "₹6.7k" },
   ];
 
-  // Top 5 Customers Data
+  // Top 5 Customers Data matching live Siddeshwar Enterprises
   const topCustomers = [
     { rank: 1, name: "Ramesh M Genni · Rugi", orders: 1, sales: "₹10.4k" },
     { rank: 2, name: "Ashok Hadagali · Devara Hippargi", orders: 1, sales: "₹6.2k" },
-    { rank: 3, name: "Shankargouda Biradar · Devara Hippargi", orders: 1, sales: "₹410" },
+    { rank: 3, name: "M M TALAWAR · Tadavalga", orders: 1, sales: "₹6.0k" },
+    { rank: 4, name: "Chandrshekhar · Tadavalga", orders: 1, sales: "₹5.7k" },
+    { rank: 5, name: "Shankargouda Biradar · Devara Hippargi", orders: 1, sales: "₹410" },
   ];
 
-  // Top 5 Routes Data
+  // Top 5 Routes Data matching live Siddeshwar Enterprises
   const topRoutes = [
-    { rank: 1, name: "Tamba", orders: 1, sales: "₹10.4k" },
-    { rank: 2, name: "DEVARHIPARAGI", orders: 2, sales: "₹6.7k" },
+    { rank: 1, name: "Tadavalaga", orders: 2, sales: "₹11.6k" },
+    { rank: 2, name: "Tamba", orders: 1, sales: "₹10.4k" },
+    { rank: 3, name: "DEVARHIPARAGI", orders: 2, sales: "₹6.7k" },
   ];
+
+  // Drilldown handler for Staff Orders
+  const openStaffOrders = (staff: CrmStaffMember) => {
+    setActiveModal({
+      title: `Sales by ${staff.name}`,
+      subtitle: `Billed orders taken by ${staff.name} in date range`,
+      headers: ["Order", "Date", "Customer", "Sales", "Cost", "Profit", "Margin"],
+      rows:
+        staff.orders > 0
+          ? [
+              ["#ORD-9021", "22-11-2026", "Ramesh M Genni", "₹10,400", "₹8,320", "₹2,080", "20.0%"],
+              ["#ORD-9018", "22-11-2026", "Ashok Hadagali", "₹6,200", "₹4,960", "₹1,240", "20.0%"],
+              ["#ORD-9012", "22-11-2026", "Shankargouda Biradar", "₹410", "₹328", "₹82", "20.0%"],
+            ]
+          : [],
+      showExport: true,
+    });
+  };
+
+  // Drilldown handler for Covered Villages
+  const openCoveredVillages = (staff: CrmStaffMember) => {
+    setActiveModal({
+      title: `Covered villages · ${staff.name}`,
+      subtitle: `Villages with orders booked by ${staff.name}`,
+      headers: ["Village", "Orders", "Sales"],
+      rows:
+        staff.coveredVillages > 0
+          ? [
+              ["Rugi", 1, "₹10,400"],
+              ["Devara Hippargi", 2, "₹6,610"],
+            ]
+          : [],
+      showExport: false,
+    });
+  };
+
+  // Drilldown handler for Staff Callings
+  const openStaffCallings = (staff: CrmStaffMember) => {
+    setActiveModal({
+      title: `Callings · ${staff.name}`,
+      subtitle: `Call log register for ${staff.name}`,
+      headers: ["Time", "Customer", "Mobile", "Village"],
+      rows: [],
+      showExport: false,
+    });
+  };
+
+  // Drilldown handler for Sales Return
+  const openSalesReturn = (staff: CrmStaffMember) => {
+    setActiveModal({
+      title: `Sales Return · ${staff.name}`,
+      subtitle: `As on 21-11-2026 · ${staff.salesReturnOrders} order(s) · ${staff.salesReturnK}`,
+      headers: ["Order", "Customer", "Village", "Item", "Qty", "Amount"],
+      rows:
+        staff.salesReturnOrders > 0
+          ? [
+              ["#RET-401", "Basavaraj Shop", "Rugi", "Aashirvaad Atta 10kg", "2", "₹920"],
+              ["#RET-402", "Kiran Stores", "Tadavalga", "Tata Salt 1kg", "10", "₹240"],
+              ["#RET-403", "Patil Super Bazar", "Devara Hippargi", "Fortune Oil 1L", "5", "₹650"],
+            ]
+          : [],
+      showExport: true,
+    });
+  };
+
+  // Drilldown handler for OB Sales
+  const openObSales = (staff: CrmStaffMember) => {
+    setActiveModal({
+      title: `OB Sales · ${staff.name}`,
+      subtitle: "Sales of SKUs whose Category is 'OB'. Set it in SKU's → Category.",
+      headers: ["Order", "Date", "Customer", "Item", "Qty", "Amount"],
+      rows: [],
+      showExport: false,
+    });
+  };
+
+  // Drilldown for View All Villages
+  const openAllVillages = () => {
+    setActiveModal({
+      title: "Village Wise Sales",
+      subtitle: "Consolidated sales performance across all distribution villages",
+      headers: ["#", "Village", "No of Orders", "Total Sales", "Share"],
+      rows: [
+        [1, "Tadavalga", 2, "₹11,600", "40.4%"],
+        [2, "Rugi", 1, "₹10,400", "36.2%"],
+        [3, "Devara Hippargi", 2, "₹6,697", "23.4%"],
+        ["", "Total", 5, "₹28,697", "100%"],
+      ],
+      showExport: true,
+    });
+  };
+
+  // Drilldown for View All Customers
+  const openAllCustomers = () => {
+    setActiveModal({
+      title: "Customers by Sales",
+      subtitle: "Billed customer sales ranked by volume",
+      headers: ["#", "Customer", "No of Orders", "Total Sales", "Share"],
+      rows: [
+        [1, "Ramesh M Genni · Rugi", 1, "₹10,400", "36.2%"],
+        [2, "Ashok Hadagali · Devara Hippargi", 1, "₹6,200", "21.6%"],
+        [3, "M M TALAWAR · Tadavalga", 1, "₹6,000", "20.9%"],
+        [4, "Chandrshekhar · Tadavalga", 1, "₹5,687", "19.8%"],
+        [5, "Shankargouda Biradar · Devara Hippargi", 1, "₹410", "1.5%"],
+        ["", "Total", 5, "₹28,697", "100%"],
+      ],
+      showExport: true,
+    });
+  };
+
+  // Drilldown for View All Routes
+  const openAllRoutes = () => {
+    setActiveModal({
+      title: "Route Wise Sales",
+      subtitle: "Delivery route revenue contribution",
+      headers: ["#", "Route Name", "No of Orders", "Total Sales", "Share"],
+      rows: [
+        [1, "Tadavalaga", 2, "₹11,600", "40.4%"],
+        [2, "Tamba", 1, "₹10,400", "36.2%"],
+        [3, "DEVARHIPARAGI", 2, "₹6,697", "23.4%"],
+        ["", "Total", 5, "₹28,697", "100%"],
+      ],
+      showExport: true,
+    });
+  };
 
   return (
     <div className="space-y-4 max-w-full font-sans antialiased">
-      {/* Top Action Bar: Back button & Date Range Selector matching Screenshot 1 */}
+      {/* Top Action Bar: Back button & Date Range Selector */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button
           onClick={() => navigate(-1)}
@@ -162,23 +300,21 @@ export function BusinessDashboardView() {
           <div className="flex items-center gap-1.5 px-2 text-xs text-slate-600">
             <span className="font-medium text-slate-500">From</span>
             <input
-              type="text"
+              type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-24 text-xs font-semibold text-slate-800 bg-transparent focus:outline-none"
+              className="text-xs font-semibold text-slate-800 bg-transparent focus:outline-none"
             />
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
           </div>
 
           <div className="flex items-center gap-1.5 px-2 text-xs text-slate-600 border-l border-slate-200">
             <span className="font-medium text-slate-500">To</span>
             <input
-              type="text"
+              type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-24 text-xs font-semibold text-slate-800 bg-transparent focus:outline-none"
+              className="text-xs font-semibold text-slate-800 bg-transparent focus:outline-none"
             />
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
           </div>
 
           <button
@@ -218,7 +354,7 @@ export function BusinessDashboardView() {
               <div className="flex items-center justify-between">
                 <div
                   className="flex items-center gap-2.5 cursor-pointer"
-                  onClick={() => navigate(`/crm?staff=${staff.id}`)}
+                  onClick={() => openStaffOrders(staff)}
                 >
                   <div
                     className="w-9 h-9 rounded-xl text-white font-extrabold text-sm flex items-center justify-center shadow-xs"
@@ -237,7 +373,7 @@ export function BusinessDashboardView() {
                 </div>
 
                 <button
-                  onClick={() => navigate(`/crm?staff=${staff.id}`)}
+                  onClick={() => openStaffOrders(staff)}
                   className="text-xs font-extrabold text-[#e11d48] hover:underline"
                 >
                   View ›
@@ -248,7 +384,8 @@ export function BusinessDashboardView() {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/orders?staff=${staff.id}`)}
+                  onClick={() => openStaffOrders(staff)}
+                  title="Click to view staff orders"
                 >
                   <span className="block text-[11px] font-semibold text-slate-500">
                     No of Orders
@@ -261,7 +398,8 @@ export function BusinessDashboardView() {
 
                 <div
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/reports?staff=${staff.id}`)}
+                  onClick={() => openStaffOrders(staff)}
+                  title="Click to view total staff sales"
                 >
                   <span className="block text-[11px] font-semibold text-slate-500">
                     Total Sales
@@ -274,7 +412,8 @@ export function BusinessDashboardView() {
 
                 <div
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/crm?view=villages&staff=${staff.id}`)}
+                  onClick={() => openCoveredVillages(staff)}
+                  title="Click to view covered villages"
                 >
                   <span className="block text-[11px] font-semibold text-slate-500">
                     Covered Villages
@@ -289,7 +428,8 @@ export function BusinessDashboardView() {
 
                 <div
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/crm?view=callings&staff=${staff.id}`)}
+                  onClick={() => openStaffCallings(staff)}
+                  title="Click to view callings register"
                 >
                   <span className="block text-[11px] font-semibold text-slate-500">
                     No of Callings
@@ -304,7 +444,8 @@ export function BusinessDashboardView() {
               {/* Sales Return Peach Box */}
               <div
                 className="bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-2.5 cursor-pointer hover:bg-orange-100/60 transition-colors"
-                onClick={() => navigate(`/settlements`)}
+                onClick={() => openSalesReturn(staff)}
+                title="Click to view sales return breakdown"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[11px] font-bold text-orange-900">Sales Return</span>
@@ -328,7 +469,8 @@ export function BusinessDashboardView() {
               {/* OB Sales Soft Blue Box */}
               <div
                 className="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-2 cursor-pointer hover:bg-blue-100/60 transition-colors"
-                onClick={() => navigate(`/orders?type=ob`)}
+                onClick={() => openObSales(staff)}
+                title="Click to view OB sales breakdown"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[11px] font-bold text-blue-900">OB Sales</span>
@@ -354,12 +496,30 @@ export function BusinessDashboardView() {
           ))}
         </div>
 
-        {/* 2. Middle Row: 5 Operational KPI Stat Cards matching Screenshot 1 & 2 */}
+        {/* 2. Middle Row: 5 Operational KPI Stat Cards matching Live Siddeshwar Enterprises */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
-          {/* Card 1: Route Wise Sales */}
+          {/* Card 1: Total Sales */}
           <div
             className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors"
-            onClick={() => navigate("/crm?view=routes")}
+            onClick={openAllRoutes}
+          >
+            <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
+              <span className="flex items-center gap-1.5">
+                <span className="text-sm">📈</span>
+                <span>Sales</span>
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">₹28,697</div>
+            <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+              5 orders · ▼ 64%
+            </div>
+          </div>
+
+          {/* Card 2: Route Wise Sales */}
+          <div
+            className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors"
+            onClick={openAllRoutes}
           >
             <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
               <span className="flex items-center gap-1.5">
@@ -368,20 +528,20 @@ export function BusinessDashboardView() {
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹17,077</div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">₹28,697</div>
             <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              2 routes · Top: Tamba
+              3 routes · Top: Tadavalaga
             </div>
           </div>
 
-          {/* Card 2: Collections */}
+          {/* Card 3: Collections */}
           <div
             className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors"
             onClick={() => navigate("/settlements")}
           >
             <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
               <span className="flex items-center gap-1.5">
-                <span className="text-sm">💼</span>
+                <span className="text-sm">🏦</span>
                 <span>Collections</span>
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -392,32 +552,32 @@ export function BusinessDashboardView() {
             </div>
           </div>
 
-          {/* Card 3: Avg order value */}
+          {/* Card 4: Avg order value */}
           <div
             className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors"
-            onClick={() => navigate("/orders")}
+            onClick={openAllCustomers}
           >
             <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
               <span className="flex items-center gap-1.5">
-                <span className="text-sm">📈</span>
+                <span className="text-sm">🧾</span>
                 <span>Avg order value</span>
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹5,692</div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">₹5,739</div>
             <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              3 customers
+              5 customers · ▲ 30%
             </div>
           </div>
 
-          {/* Card 4: Sales returns */}
+          {/* Card 5: Sales returns */}
           <div
-            className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors"
+            className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors col-span-2 sm:col-span-1"
             onClick={() => navigate("/settlements")}
           >
             <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
               <span className="flex items-center gap-1.5">
-                <span className="text-sm">📦</span>
+                <span className="text-sm">↩️</span>
                 <span>Sales returns</span>
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -427,27 +587,9 @@ export function BusinessDashboardView() {
               0.0% of sales
             </div>
           </div>
-
-          {/* Card 5: Village Wise Sales */}
-          <div
-            className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-2xs hover:border-blue-400 cursor-pointer transition-colors col-span-2 sm:col-span-1"
-            onClick={() => navigate("/crm?view=villages")}
-          >
-            <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
-              <span className="flex items-center gap-1.5">
-                <span className="text-sm">🏘️</span>
-                <span>Village Wise Sales</span>
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹17.1k</div>
-            <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              2 village(s)
-            </div>
-          </div>
         </div>
 
-        {/* 3. Bottom Section: 3 Analytical Top 5 Tables matching Screenshot 2 */}
+        {/* 3. Bottom Section: 3 Analytical Top 5 Tables matching Live Siddeshwar Enterprises */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           {/* Table 1: Top 5 Villages */}
           <div className="bg-white border border-slate-200/85 rounded-2xl p-4 shadow-sm space-y-3">
@@ -457,7 +599,7 @@ export function BusinessDashboardView() {
                 <span>Top 5 Villages</span>
               </h2>
               <button
-                onClick={() => navigate("/crm?view=villages")}
+                onClick={openAllVillages}
                 className="bg-[#eef2ff] hover:bg-blue-100 text-[#1d4ed8] text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-colors"
               >
                 View all ›
@@ -479,7 +621,7 @@ export function BusinessDashboardView() {
                     <tr
                       key={v.rank}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/orders?village=${encodeURIComponent(v.name)}`)}
+                      onClick={openAllVillages}
                     >
                       <td className="py-2.5">
                         <span
@@ -510,7 +652,7 @@ export function BusinessDashboardView() {
                 <span>Top 5 Customers</span>
               </h2>
               <button
-                onClick={() => navigate("/customers")}
+                onClick={openAllCustomers}
                 className="bg-[#eef2ff] hover:bg-blue-100 text-[#1d4ed8] text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-colors"
               >
                 View all ›
@@ -532,7 +674,7 @@ export function BusinessDashboardView() {
                     <tr
                       key={c.rank}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/customers`)}
+                      onClick={openAllCustomers}
                     >
                       <td className="py-2.5">
                         <span
@@ -565,7 +707,7 @@ export function BusinessDashboardView() {
                 <span>Top 5 Routes</span>
               </h2>
               <button
-                onClick={() => navigate("/crm?view=routes")}
+                onClick={openAllRoutes}
                 className="bg-[#eef2ff] hover:bg-blue-100 text-[#1d4ed8] text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-colors"
               >
                 View all ›
@@ -587,7 +729,7 @@ export function BusinessDashboardView() {
                     <tr
                       key={r.rank}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/crm?view=routes`)}
+                      onClick={openAllRoutes}
                     >
                       <td className="py-2.5">
                         <span
@@ -611,6 +753,93 @@ export function BusinessDashboardView() {
           </div>
         </div>
       </div>
+
+      {/* Drill-down Interactive Modal matching Siddeshwar Enterprises M() dialogs */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
+              <div>
+                <h3 className="text-base font-black text-slate-900">{activeModal.title}</h3>
+                {activeModal.subtitle && (
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    {activeModal.subtitle}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {activeModal.rows.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 font-semibold">
+                  No records in these dates.
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold">
+                      {activeModal.headers.map((h, i) => (
+                        <th
+                          key={i}
+                          className={`pb-2 ${
+                            i === 0 ? "text-left" : i === activeModal.headers.length - 1 ? "text-right" : "text-left"
+                          }`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {activeModal.rows.map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-slate-50">
+                        {row.map((cell, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className={`py-2.5 ${
+                              cIdx === 0
+                                ? "font-bold text-slate-900"
+                                : cIdx === row.length - 1
+                                ? "text-right font-black text-[#059669]"
+                                : "text-slate-700 font-medium"
+                            }`}
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t pt-3 shrink-0">
+              {activeModal.showExport && (
+                <button
+                  onClick={() => alert("Exported to CSV")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-300"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>⬇ Export</span>
+                </button>
+              )}
+              <button
+                onClick={() => setActiveModal(null)}
+                className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
