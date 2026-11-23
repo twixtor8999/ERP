@@ -4442,15 +4442,6 @@ export function CrmTelecallerPortalPage() {
                 </div>
               </div>
             )}
-                  <span className="text-lg sm:text-xl font-bold text-slate-900 block">
-                    ₹{reportData.incentive ?? 0}
-                  </span>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    My Incentive · {reportStartDate.split("-").reverse().join("-")} to {reportEndDate.split("-").reverse().join("-")}
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* ======================================================== */}
             {/* VIEW: TEAM CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)    */}
@@ -6118,7 +6109,7 @@ export function CrmTelecallerPortalPage() {
             </div>
 
             <div className="divide-y divide-slate-800 max-h-[60vh] overflow-y-auto pr-1">
-              {(reportData.visited_customers && reportData.visited_customers.length > 0 ? reportData.visited_customers : []).map((c) => (
+              {(reportData?.visited_customers ?? []).map((c: VisitedCustomerItem) => (
                 <div key={c.id} className="py-3 flex items-center justify-between hover:bg-slate-900/40 transition-colors">
                   <div className="space-y-0.5">
                     <h4 className="font-bold text-sm text-blue-400">{c.name}</h4>
