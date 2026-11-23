@@ -1009,7 +1009,7 @@ export function CrmTelecallerPortalPage() {
         setCatalog(flattenedProducts);
       }
     } catch {
-      toast.error("Could not sync live CRM telemetry");
+      // Graceful fallback to cached/offline telemetry without intrusive toast alerts
     } finally {
       setLoading(false);
     }
