@@ -224,9 +224,10 @@ const syncDeliveredOrderToSettlements = (
       localStorage.getItem("ai_smart_bazar_settlements_v2");
     let list: any[] = raw ? JSON.parse(raw) : [];
 
+    const parts = order.orderDate.split("-");
     const dateStr =
-      order.orderDate.includes("-") && order.orderDate.split("-")[0].length === 2
-        ? order.orderDate.split("-").reverse().join("-")
+      order.orderDate.includes("-") && parts[0]?.length === 2
+        ? [...parts].reverse().join("-")
         : order.orderDate;
 
     const vehicle = order.vehicleNo || "KA28AA6256";
@@ -263,7 +264,7 @@ const syncDeliveredOrderToSettlements = (
         countedCash: cashAmt,
         diff: 0,
         denominations: { "500": Math.floor(cashAmt / 500) },
-        remarks: `Order ${order.orderNo} delivered`,
+        remarks: `Order ${order.orderNo} delivered (${paymentType})`,
         enteredBy: order.createdBy || "Santosh Pujari",
       });
     }
@@ -346,7 +347,7 @@ function DeliveryHandoverDetailView({
     }));
   };
 
-  const handleReturnReasonChange = (idx: number, maxQty: number, reason: string) => {
+  const handleReturnReasonChange = (idx: number, reason: string) => {
     setItemReturns((prev) => ({
       ...prev,
       [idx]: {
@@ -443,7 +444,7 @@ function DeliveryHandoverDetailView({
                 <td className="py-2 px-4 text-left">
                   <select
                     value={it.reason}
-                    onChange={(e) => handleReturnReasonChange(idx, it.qty, e.target.value)}
+                    onChange={(e) => handleReturnReasonChange(idx, e.target.value)}
                     className="w-full py-1 px-2 border border-slate-300 rounded bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs cursor-pointer"
                   >
                     <option value="">Select reason</option>
