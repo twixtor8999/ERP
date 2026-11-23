@@ -26,6 +26,44 @@ export interface SettlementRow {
 export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   {
     "sl": 1,
+    "date": "2026-11-22",
+    "vehicleNumber": "KA28AA6256",
+    "driverName": "Santosh Pujari",
+    "noOfOrders": 1,
+    "invoiceAmt": 6247,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 6247,
+    "qrPayment": 0,
+    "cashReceived": 6247,
+    "countedCash": 6247,
+    "diff": 0,
+    "denominations": { "500": 12, "200": 1, "20": 2, "5": 1, "2": 1 },
+    "remarks": "Order ORD-1506 delivery settlement",
+    "enteredBy": "Santosh Pujari"
+  },
+  {
+    "sl": 2,
+    "date": "2026-11-23",
+    "vehicleNumber": "KA28AA6256",
+    "driverName": "Santosh Pujari",
+    "noOfOrders": 1,
+    "invoiceAmt": 3535,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 3535,
+    "qrPayment": 955,
+    "cashReceived": 2580,
+    "countedCash": 2580,
+    "diff": 0,
+    "denominations": { "500": 5, "50": 1, "20": 1, "10": 1 },
+    "remarks": "Trip settlement in progress",
+    "enteredBy": "Santosh Pujari"
+  },
+  {
+    "sl": 3,
     "date": "2026-11-21",
     "vehicleNumber": "KA28AC0349",
     "driverName": "Ramesh Biradar",
@@ -357,7 +395,7 @@ export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   }
 ];
 
-const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v2';
+const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v3';
 
 const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 
@@ -371,8 +409,19 @@ export function WholesaleSettlementView() {
 
   const [settlements, setSettlements] = useState<SettlementRow[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
-      if (raw) return JSON.parse(raw);
+      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS) || localStorage.getItem('ai_smart_bazar_settlements_v2');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const has22 = parsed.some((r: SettlementRow) => r.date === "2026-11-22");
+          const has23 = parsed.some((r: SettlementRow) => r.date === "2026-11-23");
+          if (has22 && has23) return parsed;
+          return [
+            ...INITIAL_SETTLEMENTS.filter((init) => init.date === "2026-11-22" || init.date === "2026-11-23"),
+            ...parsed.filter((p: SettlementRow) => p.date !== "2026-11-22" && p.date !== "2026-11-23")
+          ];
+        }
+      }
     } catch (e) {
       console.error("Failed to load settlements", e);
     }
@@ -607,9 +656,8 @@ export function WholesaleSettlementView() {
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold">
             {filteredRows.length === 0 ? (
-              /* Exact Empty State matching Reference App Screenshot 7 */
-              <tr className="bg-[#0b1a30]">
-                <td colSpan={11} className="py-4 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <td colSpan={11} className="py-8 px-4 text-center text-slate-500 font-medium text-xs tracking-wide">
                   No deliveries in these dates. Delivered orders show here on the day they were delivered.
                 </td>
               </tr>

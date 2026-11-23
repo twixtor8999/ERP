@@ -154,17 +154,428 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
       { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Pkt", qty: 1, price: 105, rate: 105, gst: "5%", amount: 105 },
     ],
   },
+  {
+    id: "ord-1506-deliv",
+    orderNo: "ORD-1506",
+    invoiceNo: "INV-9179",
+    customerName: "Ashok Hadagali",
+    shopName: "Hadagali Traders",
+    village: "Devara Hippargi",
+    route: "DEVARHIPARAGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "22-11-2026",
+    orderTime: "10:56 am",
+    vehicleNo: "KA28AA6256",
+    total: 6247,
+    balance: 0,
+    stage: "delivery",
+    items: [
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 5, price: 440, rate: 440, gst: "5%", amount: 2200 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 25, price: 128, rate: 128, gst: "5%", amount: 3200 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 32, price: 26, rate: 26, gst: "0%", amount: 832 },
+    ],
+  },
+  {
+    id: "ord-1489",
+    orderNo: "ORD-1489",
+    invoiceNo: "INV-469",
+    customerName: "B M",
+    shopName: "B M Store",
+    village: "Bijapur (Rural)",
+    route: "Bijapur",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "20-11-2026",
+    orderTime: "12:30 pm",
+    vehicleNo: "KA28AB3425",
+    total: 2580,
+    balance: 0,
+    stage: "delivery",
+    items: [
+      { name: "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )", unit: "Pkt", qty: 140, price: 7, rate: 7, gst: "5%", amount: 980 },
+      { name: "BUMTUM BABY DIAPER 12RS ( M1 7-12 KG 1PANS PKT )", unit: "Pkt", qty: 100, price: 8, rate: 8, gst: "5%", amount: 800 },
+      { name: "BUMTUM BABY DIAPER 14 RS ( L1 9-14KG 1 PANS PKT )", unit: "Pkt", qty: 80, price: 10, rate: 10, gst: "5%", amount: 800 },
+    ],
+  },
 ];
 
 const VEHICLES_LIST = [
   "Select vehicle",
   "KA28AA6256",
+  "KA28AB3425",
   "KA28AC0349",
   "KA28B1092",
   "KA28B8844",
   "KA28C1002",
   "KA28D5500",
 ];
+
+const syncDeliveredOrderToSettlements = (
+  order: PipelineOrder,
+  netAmt: number,
+  paymentType: string,
+  cashAmt: number,
+  qrAmt: number
+) => {
+  try {
+    const raw =
+      localStorage.getItem("ai_smart_bazar_settlements_v3") ||
+      localStorage.getItem("ai_smart_bazar_settlements_v2");
+    let list: any[] = raw ? JSON.parse(raw) : [];
+
+    const dateStr =
+      order.orderDate.includes("-") && order.orderDate.split("-")[0].length === 2
+        ? order.orderDate.split("-").reverse().join("-")
+        : order.orderDate;
+
+    const vehicle = order.vehicleNo || "KA28AA6256";
+    const existingIdx = list.findIndex(
+      (r) =>
+        r.vehicleNumber === vehicle &&
+        (r.date === dateStr || r.date === "2026-11-22" || r.date === "2026-11-23")
+    );
+
+    if (existingIdx >= 0) {
+      list[existingIdx] = {
+        ...list[existingIdx],
+        noOfOrders: (list[existingIdx].noOfOrders || 0) + 1,
+        invoiceAmt: (list[existingIdx].invoiceAmt || 0) + netAmt,
+        netAmt: (list[existingIdx].netAmt || 0) + netAmt,
+        cashReceived: (list[existingIdx].cashReceived || 0) + cashAmt,
+        qrPayment: (list[existingIdx].qrPayment || 0) + qrAmt,
+        countedCash: (list[existingIdx].countedCash || 0) + cashAmt,
+      };
+    } else {
+      list.unshift({
+        sl: list.length + 1,
+        date: dateStr || "2026-11-22",
+        vehicleNumber: vehicle,
+        driverName: "Santosh Pujari",
+        noOfOrders: 1,
+        invoiceAmt: netAmt,
+        fullReturn: 0,
+        partialReturn: 0,
+        oldReturn: 0,
+        netAmt: netAmt,
+        qrPayment: qrAmt,
+        cashReceived: cashAmt,
+        countedCash: cashAmt,
+        diff: 0,
+        denominations: { "500": Math.floor(cashAmt / 500) },
+        remarks: `Order ${order.orderNo} delivered`,
+        enteredBy: order.createdBy || "Santosh Pujari",
+      });
+    }
+
+    localStorage.setItem("ai_smart_bazar_settlements_v3", JSON.stringify(list));
+    localStorage.setItem("ai_smart_bazar_settlements_v2", JSON.stringify(list));
+  } catch (e) {
+    console.error("Failed to sync delivery to settlement", e);
+  }
+};
+
+interface DeliveryHandoverDetailViewProps {
+  order: PipelineOrder;
+  onBack: () => void;
+  onMarkDelivered: (
+    orderId: string,
+    netAmt: number,
+    paymentType: string,
+    cashAmt: number,
+    qrAmt: number
+  ) => void;
+}
+
+function DeliveryHandoverDetailView({
+  order,
+  onBack,
+  onMarkDelivered,
+}: DeliveryHandoverDetailViewProps) {
+  // Returns state per item index
+  const [itemReturns, setItemReturns] = useState<{
+    [idx: number]: { returnQty: number; reason: string };
+  }>({});
+
+  // Payment state
+  const [paymentType, setPaymentType] = useState<string>("Cash");
+  const [customQr, setCustomQr] = useState<string>("");
+  const [customCash, setCustomCash] = useState<string | null>(null);
+
+  // Compute live amounts
+  const itemsWithDeliveries = order.items.map((it, idx) => {
+    const rate = it.rate ?? it.price;
+    const retQty = itemReturns[idx]?.returnQty || 0;
+    const reason = itemReturns[idx]?.reason || "";
+    const deliveredQty = Math.max(0, it.qty - retQty);
+    const amount = deliveredQty * rate;
+    const gst = it.gst || "5%";
+    return {
+      ...it,
+      rate,
+      retQty,
+      reason,
+      deliveredQty,
+      amount,
+      gst,
+    };
+  });
+
+  const totalOriginalQty = itemsWithDeliveries.reduce((acc, it) => acc + it.qty, 0);
+  const netToCollect = itemsWithDeliveries.reduce((acc, it) => acc + it.amount, 0);
+
+  // Effective payment inputs
+  const effectiveCash =
+    customCash !== null
+      ? customCash
+      : paymentType === "Cash"
+      ? String(netToCollect)
+      : paymentType === "Credit"
+      ? "0"
+      : "";
+  const effectiveQr = customQr;
+
+  const handleReturnQtyChange = (idx: number, maxQty: number, val: string) => {
+    const num = Math.min(maxQty, Math.max(0, Number(val) || 0));
+    setItemReturns((prev) => ({
+      ...prev,
+      [idx]: {
+        returnQty: num,
+        reason: prev[idx]?.reason || (num > 0 ? "Customer rejected" : ""),
+      },
+    }));
+  };
+
+  const handleReturnReasonChange = (idx: number, maxQty: number, reason: string) => {
+    setItemReturns((prev) => ({
+      ...prev,
+      [idx]: {
+        returnQty: prev[idx]?.returnQty || (reason ? 1 : 0),
+        reason,
+      },
+    }));
+  };
+
+  const handleFullReturn = () => {
+    const allReturns: { [idx: number]: { returnQty: number; reason: string } } = {};
+    order.items.forEach((it, idx) => {
+      allReturns[idx] = {
+        returnQty: it.qty,
+        reason: "Customer rejected",
+      };
+    });
+    setItemReturns(allReturns);
+    setCustomCash("0");
+    setCustomQr("");
+    toast.info("Full return applied to all items");
+  };
+
+  const handleConfirm = () => {
+    const cashVal = Number(effectiveCash) || 0;
+    const qrVal = Number(effectiveQr) || 0;
+    onMarkDelivered(order.id, netToCollect, paymentType, cashVal, qrVal);
+  };
+
+  return (
+    <div className="space-y-4 font-sans antialiased text-[#0f172a] p-2 sm:p-5 max-w-[820px] lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto animate-in fade-in duration-150">
+      {/* Back button matching Screenshot 2 */}
+      <div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-md text-xs font-bold text-slate-700 shadow-2xs transition-colors cursor-pointer"
+        >
+          <span>← Back</span>
+        </button>
+      </div>
+
+      {/* Header matching Screenshot 2 */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
+            {order.orderNo} · {order.invoiceNo || "INV-469"}
+          </h1>
+          <span className="text-slate-400 font-bold">•</span>
+          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 lowercase shadow-2xs">
+            dispatched
+          </span>
+        </div>
+        <p className="text-xs text-slate-600 font-medium">
+          {order.customerName}, {order.village} · {order.orderDate} · taken by {order.createdBy} · Vehicle{" "}
+          <span className="font-mono font-semibold">{order.vehicleNo || "KA28AB3425"}</span>
+        </p>
+      </div>
+
+      {/* Table matching Screenshot 2 */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-[#1d4ed8] text-white font-extrabold text-[12px]">
+              <th className="py-2.5 px-3 text-left w-12">Sl</th>
+              <th className="py-2.5 px-4 text-left">Item</th>
+              <th className="py-2.5 px-3 text-center w-20">Qty</th>
+              <th className="py-2.5 px-3 text-center w-24">Rate</th>
+              <th className="py-2.5 px-3 text-center w-28">Return Qty</th>
+              <th className="py-2.5 px-4 text-left w-52">Return Reason</th>
+              <th className="py-2.5 px-3 text-center w-20">GST</th>
+              <th className="py-2.5 px-4 text-right w-32">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-medium">
+            {itemsWithDeliveries.map((it, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
+                <td className="py-3 px-4 font-bold text-slate-900 uppercase tracking-tight">{it.name}</td>
+                <td className="py-3 px-3 text-center font-mono font-bold text-slate-800">{it.qty}</td>
+                <td className="py-3 px-3 text-center font-mono text-slate-700">
+                  {it.rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td className="py-2 px-3 text-center">
+                  <input
+                    type="number"
+                    min="0"
+                    max={it.qty}
+                    value={it.retQty === 0 ? "0" : it.retQty}
+                    onChange={(e) => handleReturnQtyChange(idx, it.qty, e.target.value)}
+                    className="w-16 py-1 px-1.5 text-center font-mono border border-slate-300 rounded bg-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                  />
+                </td>
+                <td className="py-2 px-4 text-left">
+                  <select
+                    value={it.reason}
+                    onChange={(e) => handleReturnReasonChange(idx, it.qty, e.target.value)}
+                    className="w-full py-1 px-2 border border-slate-300 rounded bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs cursor-pointer"
+                  >
+                    <option value="">Select reason</option>
+                    <option value="Damaged">Damaged</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Customer rejected">Customer rejected</option>
+                    <option value="Not ordered">Not ordered</option>
+                    <option value="Shortage">Shortage</option>
+                  </select>
+                </td>
+                <td className="py-3 px-3 text-center text-slate-600 font-mono">{it.gst}</td>
+                <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                  {it.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            ))}
+            {/* Total Row */}
+            <tr className="bg-slate-50 font-bold border-t-2 border-slate-200 text-slate-900">
+              <td className="py-3 px-3 font-black">Total</td>
+              <td className="py-3 px-4"></td>
+              <td className="py-3 px-3 text-center font-mono font-black">{totalOriginalQty}</td>
+              <td className="py-3 px-3"></td>
+              <td className="py-3 px-3"></td>
+              <td className="py-3 px-4"></td>
+              <td className="py-3 px-3"></td>
+              <td className="py-3 px-4 text-right font-mono font-black">
+                {netToCollect.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Payment Section */}
+      <div className="space-y-3 pt-2">
+        <h3 className="text-xs font-bold text-slate-900">Payment</h3>
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-700">
+          <div className="flex items-center gap-2">
+            <span>Payment Type</span>
+            <select
+              value={paymentType}
+              onChange={(e) => {
+                const newType = e.target.value;
+                setPaymentType(newType);
+                if (newType === "Cash") {
+                  setCustomCash(String(netToCollect));
+                  setCustomQr("");
+                } else if (newType === "QR / UPI") {
+                  setCustomQr(String(netToCollect));
+                  setCustomCash("");
+                } else if (newType === "Credit") {
+                  setCustomCash("0");
+                  setCustomQr("");
+                }
+              }}
+              className="border border-slate-300 rounded px-2.5 py-1 text-xs font-bold bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs cursor-pointer"
+            >
+              <option value="Cash">Cash</option>
+              <option value="QR / UPI">QR / UPI</option>
+              <option value="Credit">Credit</option>
+              <option value="Mixed">Mixed</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span>QR Amount *</span>
+            <input
+              type="text"
+              value={effectiveQr}
+              onChange={(e) => setCustomQr(e.target.value)}
+              placeholder=""
+              className="w-28 border border-slate-300 rounded px-2 py-1 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span>Cash Amount</span>
+            <input
+              type="text"
+              value={effectiveCash}
+              onChange={(e) => setCustomCash(e.target.value)}
+              className="w-28 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 pl-2">
+            <span>Net to collect</span>
+            <span className="font-mono font-black text-slate-900 text-sm">
+              {netToCollect.toLocaleString("en-IN")}
+            </span>
+          </div>
+        </div>
+
+        {/* Full Return button */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={handleFullReturn}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded shadow-2xs transition-colors cursor-pointer"
+          >
+            <span>⮌ Full Return</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Action Buttons in bottom right matching Screenshot 2 */}
+      <div className="flex items-center justify-end gap-2.5 pt-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-full shadow-2xs transition-colors cursor-pointer"
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-full shadow-2xs transition-colors cursor-pointer"
+        >
+          Duplicate Print
+        </button>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="px-5 py-1.5 bg-[#0b1a30] hover:bg-black text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
+        >
+          Mark delivered
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function WholesaleOrdersPipelineView() {
   const navigate = useNavigate();
@@ -326,22 +737,38 @@ export function WholesaleOrdersPipelineView() {
     );
   };
 
-  const handleMarkDelivered = (orderId: string) => {
+  const handleMarkDelivered = (
+    orderId: string,
+    netAmt?: number,
+    paymentType: string = "Cash",
+    cashAmt?: number,
+    qrAmt: number = 0
+  ) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    const finalNet = netAmt !== undefined ? netAmt : targetOrder.total;
+    const finalCash = cashAmt !== undefined ? cashAmt : (paymentType === "Cash" ? finalNet : 0);
+
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Delivered & Settled!`, {
-            description: `Payment of ₹${o.total.toLocaleString("en-IN")} collected`,
+            description: `Payment of ₹${finalNet.toLocaleString("en-IN")} collected via ${paymentType}`,
           });
           return {
             ...o,
             stage: "completed",
             balance: 0,
+            total: finalNet,
           };
         }
         return o;
       })
     );
+
+    // Sync to Settlements in localStorage
+    syncDeliveredOrderToSettlements(targetOrder, finalNet, paymentType, finalCash, qrAmt);
   };
 
   // Summary Matrix for "5) Orders Report"
@@ -382,9 +809,23 @@ export function WholesaleOrdersPipelineView() {
   };
 
   /* ======================================================== */
-  /* SCREEN 2: DEDICATED ORDER DETAILS VIEW (SCREENSHOT 2)    */
+  /* SCREEN 2: DEDICATED ORDER DETAILS VIEW                   */
   /* ======================================================== */
   if (viewingOrder) {
+    if (viewingOrder.stage === "delivery" || viewingOrder.stage === "dispatch") {
+      return (
+        <DeliveryHandoverDetailView
+          key={viewingOrder.id}
+          order={viewingOrder}
+          onBack={() => setViewingOrder(null)}
+          onMarkDelivered={(orderId, netAmt, pType, cashAmt, qrAmt) => {
+            handleMarkDelivered(orderId, netAmt, pType, cashAmt, qrAmt);
+            setViewingOrder(null);
+          }}
+        />
+      );
+    }
+
     const totalQty = viewingOrder.items.reduce((acc, it) => acc + (it.qty || 0), 0);
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a] p-2 sm:p-5 max-w-7xl mx-auto animate-in fade-in duration-150">
@@ -1049,7 +1490,11 @@ export function WholesaleOrdersPipelineView() {
                   </tr>
                 ) : (
                   currentStageOrders.map((o, idx) => (
-                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={o.id}
+                      onClick={() => setViewingOrder(o)}
+                      className="hover:bg-blue-50/60 transition-colors cursor-pointer"
+                    >
                       <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
                       <td className="py-3 px-3 font-mono font-bold text-blue-700">{o.invoiceNo || "—"}</td>
                       <td className="py-3 px-3 font-mono text-slate-800">{o.orderNo}</td>
@@ -1075,7 +1520,10 @@ export function WholesaleOrdersPipelineView() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <button
-                          onClick={() => handleMarkDelivered(o.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingOrder(o);
+                          }}
                           className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-2xs cursor-pointer"
                         >
                           Mark delivered
