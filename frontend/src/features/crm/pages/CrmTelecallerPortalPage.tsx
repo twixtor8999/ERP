@@ -16,9 +16,7 @@ import {
   Plus,
   Search,
   ArrowLeft,
-  CheckCircle2,
   TrendingUp,
-  Loader2,
   Calendar,
   Check,
   Building2,
@@ -38,8 +36,6 @@ import {
   ChevronRight,
   BadgeCheck,
   AlertTriangle,
-  Trash2,
-  RotateCcw,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -114,8 +110,10 @@ interface IncentiveProduct {
   mrp: number;
   target: string;
   target_pcs: number;
+  target_units?: number;
   incentive_text: string;
   incentive_amt: number;
+  incentive_per_unit?: number;
   progress_text: string;
   sold_pcs: number;
   eligible_amount: number;
@@ -359,6 +357,8 @@ interface CrmOrder {
   customer_phone: string;
   total_amount: number;
   status: string;
+  telecaller_name?: string;
+  items_count?: number;
   order_placed?: string;
   packed_confirmed?: string;
   dispatched?: string;
@@ -509,7 +509,7 @@ export function CrmTelecallerPortalPage() {
   const [skuSearch, setSkuSearch] = useState<string>("");
   const [orderCustomer, setOrderCustomer] = useState<CallingCustomer | null>(null);
   const [orderCustomerSearch, setOrderCustomerSearch] = useState<string>("");
-  const [orderBeatOnly, setOrderBeatOnly] = useState<boolean>(false);
+  const [orderBeatOnly] = useState<boolean>(false);
   const [orderItems, setOrderItems] = useState<{ [variantId: string]: number }>({});
   const [orderPayMethod, setOrderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
   const [orderPaidAmount, setOrderPaidAmount] = useState<string>("");
@@ -1475,7 +1475,7 @@ export function CrmTelecallerPortalPage() {
         );
         if (found) {
           newItems[found.id] = (newItems[found.id] || 0) + (item.quantity || 1);
-        } else if (catalog.length > 0) {
+        } else if (catalog.length > 0 && catalog[0]) {
           newItems[catalog[0].id] = (newItems[catalog[0].id] || 0) + (item.quantity || 1);
         }
       });
@@ -1483,8 +1483,8 @@ export function CrmTelecallerPortalPage() {
       toast.success(`Repeated items from ${order.order_number} added to cart!`);
       setOrderSubTab("ITEMS");
     } else {
-      if (catalog.length > 0) {
-        setOrderItems((prev) => ({ ...prev, [catalog[0].id]: (prev[catalog[0].id] || 0) + 1 }));
+      if (catalog.length > 0 && catalog[0]) {
+        setOrderItems((prev) => ({ ...prev, [catalog[0]!.id]: (prev[catalog[0]!.id] || 0) + 1 }));
         toast.success(`Items from ${order.order_number} added to cart!`);
         setOrderSubTab("ITEMS");
       }
