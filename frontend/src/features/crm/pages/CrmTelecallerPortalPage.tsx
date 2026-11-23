@@ -1353,7 +1353,27 @@ export function CrmTelecallerPortalPage() {
             </button>
             <div>
               <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
-                {activeView === "home" ? "Home" : activeView === "reports" ? "CRM Report" : activeView === "team-reports" ? "Team CRM Report" : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                {activeView === "home"
+                  ? "Home"
+                  : activeView === "reports"
+                  ? "CRM Report"
+                  : activeView === "team-reports"
+                  ? "Team CRM Reports"
+                  : activeView === "targets"
+                  ? "My Targets"
+                  : activeView === "sku-list"
+                  ? "SKU List"
+                  : activeView === "order-status"
+                  ? "Order Status"
+                  : activeView === "incentive-scheme"
+                  ? "Incentive Schemes"
+                  : activeView === "new-customer"
+                  ? "New Customer"
+                  : activeView === "customers"
+                  ? "Customer List"
+                  : activeView === "profile"
+                  ? "My Profile"
+                  : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               </h1>
               <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
                 SIDDESHWAR ENTERPRISES
@@ -1411,36 +1431,125 @@ export function CrmTelecallerPortalPage() {
 
             {/* Slide-out drawer panel with exact dark navy styling matching reference screenshot */}
             <div
-              className="relative w-72 max-w-[85vw] bg-[#1e293b] text-slate-100 h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
+              className="relative w-80 max-w-[85vw] bg-[#172338] text-slate-100 h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-hidden"
               style={{ height: "100dvh", maxHeight: "100dvh" }}
             >
-              {/* Drawer Top Bar / Close Header */}
-              <div className="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between shrink-0 bg-[#1e293b]">
+              {/* Profile Header matching media_1795408732845_45748e88.png */}
+              <div className="bg-[#0e388f] px-5 py-4 flex items-center justify-between shrink-0 shadow-sm border-b border-blue-900/40">
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveView("home");
+                    setActiveView("profile");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="text-left cursor-pointer group"
+                  className="flex items-center gap-3.5 text-left cursor-pointer group flex-1 min-w-0"
                 >
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    SIDDESHWAR CRM
-                  </h3>
-                  <p className="text-[11px] text-slate-400 font-mono">{userName}</p>
+                  <div className="w-11 h-11 rounded-full bg-[#f59e0b] text-[#1e293b] font-extrabold text-xl flex items-center justify-center shrink-0 shadow-xs select-none">
+                    {userInitial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-white leading-tight truncate group-hover:text-amber-300 transition-colors">
+                      {userName}
+                    </h3>
+                    <p className="text-xs font-bold text-[#f59e0b] tracking-wide truncate mt-0.5">
+                      {userRoleFormatted} · SIDDESHWAR ENTERPRISES
+                    </p>
+                  </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg text-blue-200 hover:text-white hover:bg-blue-800/60 transition-colors cursor-pointer ml-2"
                   title="Close Menu"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Menu Items (1:1 with media_1795372025153_de6d7870.png) */}
-              <div className="flex-1 overflow-y-auto overscroll-contain">
+              {/* Menu Items (1:1 with media_1795408732845_45748e88.png) */}
+              <div className="flex-1 overflow-y-auto overscroll-contain bg-[#172338]">
+                {/* Home */}
+                <div className="px-3 pt-3 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveView("home");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-xl font-bold text-base transition-colors cursor-pointer block ${
+                      activeView === "home"
+                        ? "bg-[#f59e0b] text-[#0f172a] shadow-xs"
+                        : "text-slate-100 hover:bg-slate-800"
+                    }`}
+                  >
+                    Home
+                  </button>
+                </div>
+
+                {/* Attendance */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("attendance");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "attendance"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  Attendance
+                </button>
+
+                {/* Callings */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("callings");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "callings"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  Callings
+                </button>
+
+                {/* Place Order */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("place-order");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "place-order"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  Place Order
+                </button>
+
+                {/* CRM Report */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView("reports");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "reports"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  CRM Report
+                </button>
+
                 {/* Team CRM Reports */}
                 <button
                   type="button"
@@ -1448,7 +1557,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("team-reports");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "team-reports"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   Team CRM Reports
                 </button>
@@ -1460,7 +1573,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("order-status");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "order-status"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   Order Status
                 </button>
@@ -1472,7 +1589,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("incentive-scheme");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "incentive-scheme"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   Incentive Schemes
                 </button>
@@ -1484,7 +1605,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("targets");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "targets"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   My Targets
                 </button>
@@ -1494,16 +1619,16 @@ export function CrmTelecallerPortalPage() {
                   <button
                     type="button"
                     onClick={() => setIsCustomerMenuOpen((prev) => !prev)}
-                    className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer flex items-center justify-between"
+                    className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer flex items-center justify-between"
                   >
                     <span>Customer</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-xs text-slate-400">
                       {isCustomerMenuOpen ? "▲" : "▼"}
                     </span>
                   </button>
 
                   {isCustomerMenuOpen && (
-                    <div className="bg-[#172033]">
+                    <div className="bg-[#121c2d]">
                       {/* New Customer */}
                       <button
                         type="button"
@@ -1511,7 +1636,11 @@ export function CrmTelecallerPortalPage() {
                           setActiveView("new-customer");
                           setIsMobileMenuOpen(false);
                         }}
-                        className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                        className={`w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium transition-colors cursor-pointer block ${
+                          activeView === "new-customer"
+                            ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                            : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                        }`}
                       >
                         New Customer
                       </button>
@@ -1523,7 +1652,11 @@ export function CrmTelecallerPortalPage() {
                           setActiveView("customers");
                           setIsMobileMenuOpen(false);
                         }}
-                        className="w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer block"
+                        className={`w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium transition-colors cursor-pointer block ${
+                          activeView === "customers"
+                            ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                            : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                        }`}
                       >
                         Customer List
                       </button>
@@ -1538,7 +1671,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("sku-list");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "sku-list"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   SKU List
                 </button>
@@ -1550,7 +1687,11 @@ export function CrmTelecallerPortalPage() {
                     setActiveView("profile");
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer block"
+                  className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${
+                    activeView === "profile"
+                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                  }`}
                 >
                   My Profile
                 </button>
@@ -1563,7 +1704,7 @@ export function CrmTelecallerPortalPage() {
                     logout();
                     navigate("/login");
                   }}
-                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-sm font-semibold text-slate-100 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer block"
+                  className="w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold text-slate-100 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer block"
                 >
                   Logout
                 </button>
