@@ -285,7 +285,7 @@ const getKannadaName = (name: string, prod?: any): string => {
 const getPackSize = (name: string, prod?: any): string => {
   if (prod?.pack_size) return prod.pack_size;
   const match = (name || "").match(/(\d+\s*(?:PCS\s*BAG|PCS\s*BOX|KG\s*BAG|PCS\s*PKT|PKT|BOX|BAG|PCS|LTR|GM|ML))/i);
-  if (match) return match[1].toUpperCase();
+  if (match && match[1]) return match[1].toUpperCase();
   return "1 UNIT";
 };
 
@@ -293,7 +293,7 @@ const getIncentiveTag = (name: string, incProducts: IncentiveProduct[]): { amoun
   const lower = (name || "").toLowerCase();
   const match = incProducts.find((ip) => ip.name.toLowerCase().includes(lower) || lower.includes(ip.name.toLowerCase()));
   if (match) {
-    return { amount: match.incentive_per_unit || 20, target: match.target_units || 5 };
+    return { amount: match.incentive_amt || match.incentive_per_unit || 20, target: match.target_pcs || match.target_units || 5 };
   }
   if (lower.includes("aramane detergent powder")) {
     return { amount: 20, target: 5 };
@@ -1473,18 +1473,20 @@ export function CrmTelecallerPortalPage() {
             p.id === item.product_id ||
             item.product_name.toLowerCase().includes(p.name.toLowerCase())
         );
+        const fallbackProd = catalog[0];
         if (found) {
           newItems[found.id] = (newItems[found.id] || 0) + (item.quantity || 1);
-        } else if (catalog.length > 0 && catalog[0]) {
-          newItems[catalog[0].id] = (newItems[catalog[0].id] || 0) + (item.quantity || 1);
+        } else if (fallbackProd) {
+          newItems[fallbackProd.id] = (newItems[fallbackProd.id] || 0) + (item.quantity || 1);
         }
       });
       setOrderItems((prev) => ({ ...prev, ...newItems }));
       toast.success(`Repeated items from ${order.order_number} added to cart!`);
       setOrderSubTab("ITEMS");
     } else {
-      if (catalog.length > 0 && catalog[0]) {
-        setOrderItems((prev) => ({ ...prev, [catalog[0]!.id]: (prev[catalog[0]!.id] || 0) + 1 }));
+      const fallbackProd = catalog[0];
+      if (fallbackProd) {
+        setOrderItems((prev) => ({ ...prev, [fallbackProd.id]: (prev[fallbackProd.id] || 0) + 1 }));
         toast.success(`Items from ${order.order_number} added to cart!`);
         setOrderSubTab("ITEMS");
       }
