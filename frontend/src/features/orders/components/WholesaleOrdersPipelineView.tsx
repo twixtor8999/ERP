@@ -279,6 +279,7 @@ const syncDeliveredOrderToSettlements = (
 interface DeliveryHandoverDetailViewProps {
   order: PipelineOrder;
   onBack: () => void;
+  onDuplicatePrint: (order: PipelineOrder) => void;
   onMarkDelivered: (
     orderId: string,
     netAmt: number,
@@ -291,6 +292,7 @@ interface DeliveryHandoverDetailViewProps {
 function DeliveryHandoverDetailView({
   order,
   onBack,
+  onDuplicatePrint,
   onMarkDelivered,
 }: DeliveryHandoverDetailViewProps) {
   // Returns state per item index
@@ -561,7 +563,7 @@ function DeliveryHandoverDetailView({
         </button>
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={() => onDuplicatePrint(order)}
           className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-full shadow-2xs transition-colors cursor-pointer"
         >
           Duplicate Print
@@ -589,9 +591,9 @@ export function WholesaleOrdersPipelineView() {
   const [orders, setOrders] = useState<PipelineOrder[]>(INITIAL_PIPELINE_ORDERS);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
-  // Date filters
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  // Date filters (defaults to current date window)
+  const [fromDate, setFromDate] = useState("2026-11-20");
+  const [toDate, setToDate] = useState("2026-11-23");
   const [pageSearch, setPageSearch] = useState("");
 
   // Stage filters
@@ -617,10 +619,23 @@ export function WholesaleOrdersPipelineView() {
     if (activeTab.includes("inv")) targetStage = "invoice";
     else if (activeTab.includes("disp")) targetStage = "dispatch";
     else if (activeTab.includes("dlv") || activeTab.includes("deliv")) targetStage = "delivery";
+    else if (activeTab.includes("comp")) targetStage = "completed";
+    else if (activeTab.includes("canc")) targetStage = "cancelled";
+    else if (activeTab.includes("ret")) targetStage = "return";
 
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
       if (o.stage !== targetStage) return false;
+
+      // Filter by Date Range (supports DD-MM-YYYY or YYYY-MM-DD)
+      if (fromDate && toDate && o.orderDate) {
+        const parts = o.orderDate.split("-");
+        const oDateStr =
+          parts[0]?.length === 2 && parts.length === 3
+            ? `${parts[2]}-${parts[1]}-${parts[0]}`
+            : o.orderDate;
+        if (oDateStr < fromDate || oDateStr > toDate) return false;
+      }
 
       const q = pageSearch.toLowerCase().trim();
       const matchSearch =
@@ -638,7 +653,7 @@ export function WholesaleOrdersPipelineView() {
 
       return matchSearch && matchRoute && matchVillage && matchVehicle;
     });
-  }, [orders, activeTab, pageSearch, routeFilter, villageFilter, selectedVehicle]);
+  }, [orders, activeTab, fromDate, toDate, pageSearch, routeFilter, villageFilter, selectedVehicle]);
 
   // Stage Totals
   const totalAmount = currentStageOrders.reduce((acc, o) => acc + o.total, 0);
@@ -659,6 +674,53 @@ export function WholesaleOrdersPipelineView() {
       else next.add(id);
       return next;
     });
+  };
+
+  // Bulk Operations
+  const handleBulkMoveToInvoice = () => {
+    if (selectedOrderIds.size === 0) return;
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (selectedOrderIds.has(o.id) && o.stage === "packing") {
+          const invNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+          return {
+            ...o,
+            stage: "invoice",
+            invoiceNo: invNum,
+            vehicleNo: o.vehicleNo || "KA28AA6256",
+          };
+        }
+        return o;
+      })
+    );
+    toast.success(`${selectedOrderIds.size} orders moved to Invoice!`);
+    setSelectedOrderIds(new Set());
+  };
+
+  const handleBulkPrintAndDispatch = () => {
+    if (selectedOrderIds.size === 0) return;
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (selectedOrderIds.has(o.id) && o.stage === "invoice") {
+          return {
+            ...o,
+            stage: "delivery",
+          };
+        }
+        return o;
+      })
+    );
+    toast.success(`${selectedOrderIds.size} orders dispatched directly to Delivery!`);
+    setSelectedOrderIds(new Set());
+  };
+
+  const handleAssignVehicleToAllShown = (veh: string) => {
+    if (!veh || veh === "0" || veh === "Select vehicle") return;
+    const ids = new Set(currentStageOrders.map((o) => o.id));
+    setOrders((prev) =>
+      prev.map((o) => (ids.has(o.id) ? { ...o, vehicleNo: veh } : o))
+    );
+    toast.success(`Assigned ${veh} to all ${ids.size} shown orders!`);
   };
 
   // Workflow transitions: Packing -> Invoice -> Dispatch -> Delivery -> Completed
@@ -819,6 +881,12 @@ export function WholesaleOrdersPipelineView() {
           key={viewingOrder.id}
           order={viewingOrder}
           onBack={() => setViewingOrder(null)}
+          onDuplicatePrint={(order) => {
+            setPrintingOrder(order);
+            setTimeout(() => {
+              window.print();
+            }, 150);
+          }}
           onMarkDelivered={(orderId, netAmt, pType, cashAmt, qrAmt) => {
             handleMarkDelivered(orderId, netAmt, pType, cashAmt, qrAmt);
             setViewingOrder(null);
@@ -829,7 +897,7 @@ export function WholesaleOrdersPipelineView() {
 
     const totalQty = viewingOrder.items.reduce((acc, it) => acc + (it.qty || 0), 0);
     return (
-      <div className="space-y-4 font-sans antialiased text-[#0f172a] p-2 sm:p-5 max-w-7xl mx-auto animate-in fade-in duration-150">
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] p-2 sm:p-5 max-w-[820px] lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto animate-in fade-in duration-150">
         {/* Back button matching Screenshot 2 */}
         <div>
           <button
@@ -844,16 +912,26 @@ export function WholesaleOrdersPipelineView() {
         {/* Order Header matching Screenshot 2 */}
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
               {viewingOrder.orderNo}
+              {viewingOrder.invoiceNo && ` · ${viewingOrder.invoiceNo}`}
             </h1>
             <span className="text-slate-400 font-bold">•</span>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#ea580c] text-white shadow-2xs lowercase">
-              {viewingOrder.stage === "packing" ? "placed" : viewingOrder.stage}
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-2xs lowercase ${
+                viewingOrder.stage === "invoice" ? "bg-blue-600" : "bg-[#ea580c]"
+              }`}
+            >
+              {viewingOrder.stage === "packing"
+                ? "placed"
+                : viewingOrder.stage === "invoice"
+                ? "invoiced"
+                : viewingOrder.stage}
             </span>
           </div>
           <p className="text-xs text-slate-600 font-medium">
             {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy}
+            {viewingOrder.vehicleNo && ` · Vehicle ${viewingOrder.vehicleNo}`}
           </p>
         </div>
 
@@ -927,7 +1005,7 @@ export function WholesaleOrdersPipelineView() {
           </table>
         </div>
 
-        {/* Action Buttons in bottom right matching Screenshot 2 */}
+        {/* Action Buttons in bottom right */}
         <div className="flex items-center justify-end gap-2.5 pt-4">
           <button
             type="button"
@@ -947,16 +1025,29 @@ export function WholesaleOrdersPipelineView() {
           >
             Cancel order
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              handleMoveToInvoice(viewingOrder.id);
-              setViewingOrder(null);
-            }}
-            className="px-5 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
-          >
-            Move to invoice
-          </button>
+          {viewingOrder.stage === "invoice" ? (
+            <button
+              type="button"
+              onClick={() => {
+                handlePrintAndDispatch(viewingOrder.id);
+                setViewingOrder(null);
+              }}
+              className="px-5 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
+            >
+              Print & Dispatch
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                handleMoveToInvoice(viewingOrder.id);
+                setViewingOrder(null);
+              }}
+              className="px-5 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
+            >
+              Move to invoice
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1053,6 +1144,12 @@ export function WholesaleOrdersPipelineView() {
           ? "Dispatch"
           : activeTab.includes("dlv") || activeTab.includes("deliv")
           ? "Delivery"
+          : activeTab.includes("comp")
+          ? "Completed Orders"
+          : activeTab.includes("canc")
+          ? "Cancelled Orders"
+          : activeTab.includes("ret")
+          ? "Return Orders"
           : activeTab.includes("rep")
           ? "Orders Report"
           : "Packing"}
@@ -1084,6 +1181,9 @@ export function WholesaleOrdersPipelineView() {
         !activeTab.includes("disp") &&
         !activeTab.includes("dlv") &&
         !activeTab.includes("deliv") &&
+        !activeTab.includes("comp") &&
+        !activeTab.includes("canc") &&
+        !activeTab.includes("ret") &&
         !activeTab.includes("rep") && (
           <div className="space-y-3">
             {/* Filter Bar: Route & Village */}
@@ -1240,20 +1340,31 @@ export function WholesaleOrdersPipelineView() {
               </select>
             </label>
 
-            <label className="flex items-center gap-1.5">
-              <span>Vehicle No (for all shown)</span>
-              <select
-                value={selectedVehicle}
-                onChange={(e) => setSelectedVehicle(e.target.value)}
-                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
-              >
-                {VEHICLES_LIST.map((v, i) => (
-                  <option key={i} value={v === "Select vehicle" ? "0" : v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5">
+                <span>Vehicle No (for all shown)</span>
+                <select
+                  value={selectedVehicle}
+                  onChange={(e) => setSelectedVehicle(e.target.value)}
+                  className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
+                >
+                  {VEHICLES_LIST.map((v, i) => (
+                    <option key={i} value={v === "Select vehicle" ? "0" : v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && currentStageOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleAssignVehicleToAllShown(selectedVehicle)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer transition-colors"
+                >
+                  Set for all ({currentStageOrders.length})
+                </button>
+              )}
+            </div>
           </div>
 
           {/* KPI Summary Bar */}
@@ -1540,6 +1651,90 @@ export function WholesaleOrdersPipelineView() {
       )}
 
       {/* ======================================================== */}
+      {/* 4.5. COMPLETED / CANCELLED / RETURN STAGES VIEW          */}
+      {/* ======================================================== */}
+      {(activeTab.includes("comp") || activeTab.includes("canc") || activeTab.includes("ret")) && (
+        <div className="space-y-3">
+          {/* KPI Summary Bar */}
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-800 px-1">
+            <span>Orders <b className="text-slate-900 font-black">{currentStageOrders.length}</b></span>
+            <span>Order total <b className="text-slate-900 font-black font-mono">₹{totalAmount.toLocaleString("en-IN")}</b></span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                  <th className="py-2.5 px-3 text-left w-10">Sl</th>
+                  <th className="py-2.5 px-3 text-left">Invoice No</th>
+                  <th className="py-2.5 px-3 text-left">Order No</th>
+                  <th className="py-2.5 px-3 text-left">Customer</th>
+                  <th className="py-2.5 px-3 text-left">Village</th>
+                  <th className="py-2.5 px-3 text-left">Order Date</th>
+                  <th className="py-2.5 px-3 text-left">Vehicle</th>
+                  <th className="py-2.5 px-3 text-right">Total</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
+                  <th className="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold">
+                {currentStageOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-slate-400 font-bold">
+                      No {activeTab} orders found.
+                    </td>
+                  </tr>
+                ) : (
+                  currentStageOrders.map((o, idx) => (
+                    <tr
+                      key={o.id}
+                      onClick={() => setViewingOrder(o)}
+                      className="hover:bg-blue-50/60 transition-colors cursor-pointer"
+                    >
+                      <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
+                      <td className="py-3 px-3 font-mono font-bold text-blue-700">{o.invoiceNo || "—"}</td>
+                      <td className="py-3 px-3 font-mono text-slate-800">{o.orderNo}</td>
+                      <td className="py-3 px-3 text-slate-900 font-bold">{o.customerName}</td>
+                      <td className="py-3 px-3 text-slate-700">{o.village}</td>
+                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "—"}</td>
+                      <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
+                        ₹{o.total.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            o.stage === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : o.stage === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {o.stage}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingOrder(o);
+                          }}
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* 5. ORDERS REPORT SUMMARY STAGE VIEW (Screenshot 5)       */}
       {/* ======================================================== */}
       {activeTab.includes("rep") && (
@@ -1566,7 +1761,7 @@ export function WholesaleOrdersPipelineView() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
-                        onClick={() => switchTab(r.key === "completed" ? "delivery" : r.key)}
+                        onClick={() => switchTab(r.key)}
                         className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
                       >
                         View
@@ -1601,6 +1796,47 @@ export function WholesaleOrdersPipelineView() {
           <div className="pt-1 text-[11px] text-slate-500 font-medium">
             Total: Orders {reportTotalOrders} | Amount ₹{reportTotalAmt.toLocaleString("en-IN")}. Return = orders with any returned item (amount = returned value).
           </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedOrderIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#0f172a] text-white px-5 py-3 rounded-2xl shadow-2xl flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-3 border border-slate-700">
+          <span className="text-xs font-bold text-slate-300">
+            <b className="text-white font-mono text-sm">{selectedOrderIds.size}</b> order(s) selected
+          </span>
+
+          {!activeTab.includes("inv") &&
+            !activeTab.includes("disp") &&
+            !activeTab.includes("dlv") &&
+            !activeTab.includes("deliv") &&
+            !activeTab.includes("rep") && (
+              <button
+                type="button"
+                onClick={handleBulkMoveToInvoice}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-xs cursor-pointer transition-colors"
+              >
+                Move to Invoice
+              </button>
+            )}
+
+          {activeTab.includes("inv") && (
+            <button
+              type="button"
+              onClick={handleBulkPrintAndDispatch}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-xs cursor-pointer transition-colors"
+            >
+              Bulk Dispatch to Delivery
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setSelectedOrderIds(new Set())}
+            className="text-xs text-slate-400 hover:text-white underline cursor-pointer ml-1"
+          >
+            Deselect all
+          </button>
         </div>
       )}
 
