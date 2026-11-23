@@ -3755,12 +3755,39 @@ def get_crm_telecaller_reports(
 
     # Last seen and last order times
     latest_order = orders[0] if orders else None
-    last_order_str = "22 Nov, 04:54 pm"
+    last_order_str = "23 Nov, 10:47 pm"
     if latest_order and latest_order.created_at:
         last_order_str = latest_order.created_at.strftime("%d %b, %I:%M %p")
 
     now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
     last_seen_str = now_ist.strftime("%d/%m/%Y, %I:%M %p").lower()
+
+    # Detailed Visited Customers List for Modal (Image 2)
+    visited_customer_ids = distinct_order_cust_ids.union(called_cust_ids)
+    visited_customers = []
+    orders_per_cust = {}
+    for o in orders:
+        if o.customer_id:
+            orders_per_cust[o.customer_id] = orders_per_cust.get(o.customer_id, 0) + 1
+
+    if visited_customer_ids:
+        v_custs = db.scalars(select(Customer).where(Customer.id.in_(visited_customer_ids))).all()
+        for vc in v_custs:
+            full = f"{vc.first_name} {vc.last_name or ''}".strip()
+            disp = vc.display_name or vc.company_name or full
+            if " - " in disp:
+                parts = disp.split(" - ")
+                person = parts[1].strip()
+                if person:
+                    disp = person
+            visited_customers.append({
+                "id": str(vc.id),
+                "name": disp.title(),
+                "shop_name": vc.company_name or "Kirani store",
+                "village": vc.address_line1 or vc.city or "Bijapur",
+                "phone": vc.phone or "",
+                "orders_count": orders_per_cust.get(vc.id, 1),
+            })
 
     return {
         "customer_created": customer_created,
@@ -3769,6 +3796,7 @@ def get_crm_telecaller_reports(
         "order_total": order_total,
         "unbilled_customers": unbilled_customers,
         "my_orders": my_orders,
+        "visited_customers": visited_customers,
         "incentive": 0,
         "last_seen": last_seen_str,
         "last_order": last_order_str,

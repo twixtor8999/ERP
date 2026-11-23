@@ -370,6 +370,15 @@ interface CrmOrder {
   items?: CrmOrderItem[];
 }
 
+interface VisitedCustomerItem {
+  id: string;
+  name: string;
+  shop_name: string;
+  village: string;
+  phone: string;
+  orders_count: number;
+}
+
 interface CrmReportData {
   customer_created?: number;
   customer_visited?: number;
@@ -384,6 +393,7 @@ interface CrmReportData {
     total_amount: number;
     status: string;
   }>;
+  visited_customers?: VisitedCustomerItem[];
   incentive?: number;
   last_seen?: string;
   last_order?: string;
@@ -612,48 +622,115 @@ export function CrmTelecallerPortalPage() {
   const [selectedStatusOrder, setSelectedStatusOrder] = useState<CrmOrder | null>(null);
 
   // CRM Reports state
-  const [reportStartDate, setReportStartDate] = useState("2026-11-22");
-  const [reportEndDate, setReportEndDate] = useState("2026-11-22");
+  const [reportStartDate, setReportStartDate] = useState("2026-11-23");
+  const [reportEndDate, setReportEndDate] = useState("2026-11-23");
+  const [showVisitedModal, setShowVisitedModal] = useState<boolean>(false);
   const [reportData, setReportData] = useState<CrmReportData>({
     customer_created: 0,
-    customer_visited: 3,
-    total_orders: 3,
-    order_total: 17077,
-    unbilled_customers: 1961,
+    customer_visited: 17,
+    total_orders: 17,
+    order_total: 51865,
+    unbilled_customers: 1960,
     my_orders: [
       {
-        id: "ord-1508",
-        customer_name: "Shankargouda Biradar",
-        order_number: "ORD-1508",
-        order_date: "22-11-2026",
-        total_amount: 410,
+        id: "ord-1661",
+        customer_name: "Ananda kumbar",
+        order_number: "ORD-1661",
+        order_date: "23-11-2026",
+        total_amount: 140,
         status: "PLACED",
       },
       {
-        id: "ord-1507",
-        customer_name: "Ramesh M Genni",
-        order_number: "ORD-1507",
-        order_date: "22-11-2026",
-        total_amount: 10420,
+        id: "ord-1664",
+        customer_name: "Ramesh s kanakappagol",
+        order_number: "ORD-1664",
+        order_date: "23-11-2026",
+        total_amount: 1570,
+        status: "PACKED",
+      },
+      {
+        id: "ord-1663",
+        customer_name: "Shrikant Rathod",
+        order_number: "ORD-1663",
+        order_date: "23-11-2026",
+        total_amount: 6652,
         status: "PLACED",
       },
       {
-        id: "ord-1506",
-        customer_name: "Ashok Hadagali",
-        order_number: "ORD-1506",
-        order_date: "22-11-2026",
-        total_amount: 6247,
+        id: "ord-1662",
+        customer_name: "Suprit",
+        order_number: "ORD-1662",
+        order_date: "23-11-2026",
+        total_amount: 2030,
+        status: "PLACED",
+      },
+      {
+        id: "ord-1660",
+        customer_name: "Ashok Uppar",
+        order_number: "ORD-1660",
+        order_date: "23-11-2026",
+        total_amount: 1090,
         status: "PLACED",
       },
     ],
+    visited_customers: [
+      {
+        id: "vc-1",
+        name: "Arun Devargudi",
+        shop_name: "Daneshwar kirana store",
+        village: "Muttagi",
+        phone: "9590705355",
+        orders_count: 1,
+      },
+      {
+        id: "vc-2",
+        name: "Hanamant tonashyal",
+        shop_name: "Hanamant kirana store",
+        village: "Bijapur (Rural)",
+        phone: "9972241061",
+        orders_count: 1,
+      },
+      {
+        id: "vc-3",
+        name: "Ananda kumbar",
+        shop_name: "Vijayalakshmi kirana store",
+        village: "Chikkarugi",
+        phone: "6362266254",
+        orders_count: 1,
+      },
+      {
+        id: "vc-4",
+        name: "Ramesh s kanakappagol",
+        shop_name: "Kanekeshara store",
+        village: "Chimmalgi R.C",
+        phone: "8748930231",
+        orders_count: 1,
+      },
+      {
+        id: "vc-5",
+        name: "Shrikant Rathod",
+        shop_name: "Someshwar kirani Store",
+        village: "Chimmalgi R.C",
+        phone: "8722946440",
+        orders_count: 1,
+      },
+      {
+        id: "vc-6",
+        name: "Anil jadav",
+        shop_name: "Roopa kirani stores",
+        village: "Kudagi",
+        phone: "9901980016",
+        orders_count: 1,
+      },
+    ],
     incentive: 0,
-    last_seen: "22/11/2026, 10:09 pm",
-    last_order: "22 Nov, 04:54 pm",
+    last_seen: "23/11/2026, 11:35 pm",
+    last_order: "23 Nov, 10:47 pm",
     calls_today: 0,
     calls_month: 109,
     connected_calls: 92,
     connection_rate_pct: 84.4,
-    orders_today: 3,
+    orders_today: 17,
     orders_month: 486,
     revenue_month: 218450,
     recent_calls: [],
@@ -1573,6 +1650,51 @@ export function CrmTelecallerPortalPage() {
         orders_today: prev.orders_today + 1,
         order_value_today: prev.order_value_today + calculatedOrderTotal,
       }));
+
+      // Real-time update of CRM Report metrics & My Orders list
+      setReportData((prev) => {
+        const orderNum = res.data?.order_number || `ORD-${Math.floor(1660 + Math.random() * 40)}`;
+        const nowD = new Date();
+        const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+        const newOrder = {
+          id: res.data?.id || `ord-${Date.now()}`,
+          order_number: orderNum,
+          order_date: dStr,
+          customer_name: orderCustomer.display_name || orderCustomer.shop_name || orderCustomer.name,
+          total_amount: calculatedOrderTotal,
+          status: "PLACED",
+        };
+
+        const existingVisited = prev.visited_customers || [];
+        const isAlreadyVisited = existingVisited.some((v) => v.id === orderCustomer.id || v.phone === orderCustomer.phone);
+        const updatedVisited = isAlreadyVisited
+          ? existingVisited.map((v) =>
+              v.id === orderCustomer.id || v.phone === orderCustomer.phone
+                ? { ...v, orders_count: (v.orders_count || 1) + 1 }
+                : v
+            )
+          : [
+              {
+                id: orderCustomer.id,
+                name: orderCustomer.display_name || orderCustomer.name,
+                shop_name: orderCustomer.shop_name || "Kirani Store",
+                village: orderCustomer.village || "Bijapur",
+                phone: orderCustomer.phone,
+                orders_count: 1,
+              },
+              ...existingVisited,
+            ];
+
+        return {
+          ...prev,
+          total_orders: (prev.total_orders || 0) + 1,
+          order_total: (prev.order_total || 0) + calculatedOrderTotal,
+          customer_visited: updatedVisited.length,
+          my_orders: [newOrder, ...(prev.my_orders || [])],
+          visited_customers: updatedVisited,
+          last_order: `${nowD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
+        };
+      });
 
       setOrderItems({});
       setOrderRemarks("");
@@ -4111,7 +4233,7 @@ export function CrmTelecallerPortalPage() {
             )}
 
             {/* ======================================================== */}
-            {/* VIEW: CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)         */}
+            {/* VIEW: CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT 1)       */}
             {/* ======================================================== */}
             {activeView === "reports" && (
               <div className="p-3 sm:p-5 space-y-3.5 max-w-2xl mx-auto">
@@ -4125,7 +4247,7 @@ export function CrmTelecallerPortalPage() {
                       type="date"
                       value={reportStartDate}
                       onChange={(e) => setReportStartDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
                     />
                   </div>
 
@@ -4137,7 +4259,7 @@ export function CrmTelecallerPortalPage() {
                       type="date"
                       value={reportEndDate}
                       onChange={(e) => setReportEndDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
                     />
                   </div>
 
@@ -4150,7 +4272,7 @@ export function CrmTelecallerPortalPage() {
                   </button>
                 </div>
 
-                {/* Team CRM Report Pill */}
+                {/* Team CRM Report Pill matching Screenshot 1 */}
                 <div>
                   <button
                     type="button"
@@ -4161,7 +4283,7 @@ export function CrmTelecallerPortalPage() {
                     className="px-3.5 py-1.5 rounded-full bg-[#132038] hover:bg-[#0c1626] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
                   >
                     <Users className="w-3.5 h-3.5 text-blue-300" />
-                    <span>Team CRM Report ›</span>
+                    <span>👥 Team CRM Report ›</span>
                   </button>
                 </div>
 
@@ -4175,19 +4297,19 @@ export function CrmTelecallerPortalPage() {
                       {userName}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Last seen: {reportData.last_seen || "22/11/2026, 10:09 pm"}
+                      Last seen: {reportData.last_seen || "23/11/2026, 11:35 pm"}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Last order: {reportData.last_order || "22 Nov, 04:54 pm"}
+                      Last order: {reportData.last_order || "23 Nov, 10:47 pm"}
                     </p>
                   </div>
                 </div>
 
-                {/* 4 Stat Metric Cards Grid */}
+                {/* 4 Stat Metric Cards Grid (Row 1) - Real-time Computed */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                   {/* Blue Card: Customer Created */}
-                  <div className="bg-[#3b82f6] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-white block mt-1">
+                  <div className="bg-[#2563eb] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-black text-white block mt-1">
                       {reportData.customer_created ?? 0}
                     </span>
                     <div>
@@ -4197,26 +4319,26 @@ export function CrmTelecallerPortalPage() {
                       <button
                         type="button"
                         onClick={() => setActiveView("new-customer")}
-                        className="text-[11px] text-blue-100/90 hover:underline mt-1 cursor-pointer font-medium"
+                        className="text-[11px] text-blue-100/90 hover:underline mt-1 cursor-pointer font-bold inline-block"
                       >
                         View ›
                       </button>
                     </div>
                   </div>
 
-                  {/* Grey Card: Customer Visited */}
+                  {/* Grey Card: Customer Visited (Clicking opens Visited Modal from Image 2) */}
                   <div className="bg-[#e2e8f0] text-slate-900 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 block mt-1">
-                      {reportData.customer_visited ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 block mt-1">
+                      {reportData.customer_visited ?? (reportData.visited_customers ? reportData.visited_customers.length : 17)}
                     </span>
                     <div>
-                      <span className="text-[11px] sm:text-xs font-semibold text-slate-700 block">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-700 block">
                         Customer Visited
                       </span>
                       <button
                         type="button"
-                        onClick={() => setActiveView("callings")}
-                        className="text-[11px] text-slate-500 hover:underline mt-1 cursor-pointer font-medium"
+                        onClick={() => setShowVisitedModal(true)}
+                        className="text-[11px] text-slate-600 hover:underline mt-1 cursor-pointer font-bold inline-block"
                       >
                         View ›
                       </button>
@@ -4224,12 +4346,12 @@ export function CrmTelecallerPortalPage() {
                   </div>
 
                   {/* Yellow Card: Total Order Count */}
-                  <div className="bg-[#eab308] text-slate-950 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-950 block mt-1">
-                      {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 3)}
+                  <div className="bg-[#f59e0b] text-slate-950 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-950 block mt-1">
+                      {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 17)}
                     </span>
                     <div>
-                      <span className="text-[11px] sm:text-xs font-bold text-amber-950/80 block">
+                      <span className="text-[11px] sm:text-xs font-black text-amber-950/90 block">
                         Total Order Count
                       </span>
                       <button
@@ -4238,7 +4360,7 @@ export function CrmTelecallerPortalPage() {
                           const el = document.getElementById("crm-my-orders-list");
                           if (el) el.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className="text-[11px] text-amber-950/70 hover:underline mt-1 cursor-pointer font-medium"
+                        className="text-[11px] text-amber-950/80 hover:underline mt-1 cursor-pointer font-bold inline-block"
                       >
                         View ›
                       </button>
@@ -4246,9 +4368,9 @@ export function CrmTelecallerPortalPage() {
                   </div>
 
                   {/* Navy Card: Order Total */}
-                  <div className="bg-[#0a1631] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-[#facc15] block mt-1">
-                      ₹{((reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 17077))).toLocaleString("en-IN")}
+                  <div className="bg-[#0b1736] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
+                    <span className="text-2xl sm:text-3xl font-black text-[#facc15] font-mono block mt-1">
+                      ₹{(reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 51865)).toLocaleString("en-IN")}
                     </span>
                     <div>
                       <span className="text-[11px] sm:text-xs font-semibold text-slate-300 block">
@@ -4260,7 +4382,7 @@ export function CrmTelecallerPortalPage() {
                           const el = document.getElementById("crm-my-orders-list");
                           if (el) el.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className="text-[11px] text-slate-400 hover:underline mt-1 cursor-pointer font-medium"
+                        className="text-[11px] text-slate-300 hover:underline mt-1 cursor-pointer font-bold inline-block"
                       >
                         View ›
                       </button>
@@ -4268,86 +4390,87 @@ export function CrmTelecallerPortalPage() {
                   </div>
                 </div>
 
-                {/* Large KPI Card: Unbilled To Bill Customers */}
+                {/* Large KPI Card (Row 2): Unbilled To Bill Customers matching Image 1 */}
                 <div className="bg-[#fef3c7] border border-amber-200/80 rounded-2xl p-4 text-center shadow-xs">
-                  <span className="text-3xl sm:text-4xl font-black text-[#854d0e] block">
-                    {reportData.unbilled_customers ?? 1961}
+                  <span className="text-3xl sm:text-4xl font-black text-[#854d0e] block font-mono">
+                    {reportData.unbilled_customers ?? 1960}
                   </span>
-                  <span className="text-xs font-bold text-amber-900/80 mt-1 block">
+                  <span className="text-xs font-bold text-amber-900/90 mt-1 block">
                     Unbilled To Bill Customers
                   </span>
                   <button
                     type="button"
                     onClick={() => setActiveView("customers")}
-                    className="text-xs text-amber-900/70 font-semibold hover:underline mt-1 cursor-pointer"
+                    className="text-xs text-amber-900/80 font-bold hover:underline mt-1 cursor-pointer inline-block"
                   >
                     View ›
                   </button>
                 </div>
 
-                {/* My orders Section */}
+                {/* My orders Section - Real-time Live punched orders */}
                 <div id="crm-my-orders-list" className="space-y-2 pt-1">
-                  <h4 className="text-xs font-bold text-slate-900">My orders</h4>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">My orders</h4>
 
                   <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
-                    {((reportData.my_orders && reportData.my_orders.length > 0)
+                    {(reportData.my_orders && reportData.my_orders.length > 0
                       ? reportData.my_orders
-                      : [
-                        {
-                          id: "ord-1508",
-                          customer_name: "Shankargouda Biradar",
-                          order_number: "ORD-1508",
-                          order_date: "22-11-2026",
-                          total_amount: 410,
-                          status: "PLACED",
-                        },
-                        {
-                          id: "ord-1507",
-                          customer_name: "Ramesh M Genni",
-                          order_number: "ORD-1507",
-                          order_date: "22-11-2026",
-                          total_amount: 10420,
-                          status: "PLACED",
-                        },
-                        {
-                          id: "ord-1506",
-                          customer_name: "Ashok Hadagali",
-                          order_number: "ORD-1506",
-                          order_date: "22-11-2026",
-                          total_amount: 6247,
-                          status: "PLACED",
-                        },
-                      ]
-                    ).map((ord) => (
-                      <div
-                        key={ord.id}
-                        className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
-                        onClick={() => setActiveView("order-status")}
-                      >
-                        <div>
-                          <h5 className="text-xs sm:text-sm font-bold text-slate-900">
-                            {ord.customer_name}
-                          </h5>
-                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            {ord.order_number} · {ord.order_date}
-                          </p>
-                        </div>
+                      : []
+                    ).map((ord) => {
+                      const isPacked = ord.status === "PACKED";
+                      const isCompleted = ord.status === "COMPLETED" || ord.status === "DELIVERED";
+                      return (
+                        <div
+                          key={ord.id}
+                          className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
+                          onClick={() => {
+                            const found = ordersList.find((o) => o.order_number === ord.order_number || o.id === ord.id);
+                            if (found) {
+                              setViewingOrderDetails(found);
+                            } else {
+                              setViewingOrderDetails({
+                                id: ord.id,
+                                order_number: ord.order_number,
+                                order_date: ord.order_date,
+                                customer_name: ord.customer_name,
+                                total_amount: ord.total_amount,
+                                status: ord.status,
+                                telecaller_name: userName,
+                              });
+                            }
+                          }}
+                        >
+                          <div>
+                            <h5 className="text-xs sm:text-sm font-bold text-slate-900">
+                              {ord.customer_name}
+                            </h5>
+                            <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                              {ord.order_number} · {ord.order_date}
+                            </p>
+                          </div>
 
-                        <div className="text-right">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900 block">
-                            ₹{ord.total_amount.toLocaleString("en-IN")}
-                          </span>
-                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase mt-0.5">
-                            {ord.status} ›
-                          </span>
+                          <div className="text-right flex flex-col items-end">
+                            <span className="text-xs sm:text-sm font-black text-slate-900 font-mono block">
+                              ₹{ord.total_amount.toLocaleString("en-IN")}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase mt-1 tracking-wider ${
+                                isPacked
+                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                  : isCompleted
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : "bg-amber-100 text-amber-800 border border-amber-200"
+                              }`}
+                            >
+                              {ord.status} ›
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-
-                {/* Bottom Card: My Incentive */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center shadow-xs">
+              </div>
+            )}
                   <span className="text-lg sm:text-xl font-bold text-slate-900 block">
                     ₹{reportData.incentive ?? 0}
                   </span>
@@ -6004,6 +6127,50 @@ export function CrmTelecallerPortalPage() {
                 type="button"
                 onClick={() => setViewingOrderDetails(null)}
                 className="px-6 py-2 rounded-full bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold text-xs border border-slate-600 shadow-sm cursor-pointer transition-colors active:scale-95"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Visited Modal (Exact 1:1 match to Image 2) */}
+      {showVisitedModal && (
+        <div className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl bg-[#0c1a2e] text-slate-100 rounded-2xl border border-slate-700/80 shadow-2xl overflow-hidden p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-blue-400">Customer Visited</h3>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                {userName || "Pushpa Patil"} · {reportStartDate ? reportStartDate.split("-").reverse().join("-") : "23-11-2026"} to {reportEndDate ? reportEndDate.split("-").reverse().join("-") : "23-11-2026"}
+              </p>
+            </div>
+
+            <div className="divide-y divide-slate-800 max-h-[60vh] overflow-y-auto pr-1">
+              {(reportData.visited_customers && reportData.visited_customers.length > 0 ? reportData.visited_customers : []).map((c) => (
+                <div key={c.id} className="py-3 flex items-center justify-between hover:bg-slate-900/40 transition-colors">
+                  <div className="space-y-0.5">
+                    <h4 className="font-bold text-sm text-blue-400">{c.name}</h4>
+                    <p className="text-xs text-slate-300 font-medium">
+                      {c.shop_name} · {c.village} · {c.phone} · {c.orders_count || 1} order(s)
+                    </p>
+                  </div>
+                  <a
+                    href={`tel:${c.phone}`}
+                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-full transition-colors cursor-pointer active:scale-95"
+                    title={`Call ${c.name} (${c.phone})`}
+                  >
+                    <Phone className="w-4 h-4 text-slate-400" />
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowVisitedModal(false)}
+                className="px-6 py-2 rounded-full bg-[#1e2e4a] hover:bg-[#15233c] text-white font-bold text-xs border border-slate-600/80 shadow-sm cursor-pointer transition-colors active:scale-95"
               >
                 Close
               </button>
