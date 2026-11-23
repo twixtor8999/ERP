@@ -3585,6 +3585,15 @@ def place_crm_quick_order(
                 total_amount=line_tot,
             )
         )
+        # Real-time stock deduction from inventory
+        sb = db.scalar(
+            select(StockBalance).where(
+                StockBalance.organization_id == org_id,
+                StockBalance.product_variant_id == it.variant_id,
+            )
+        )
+        if sb:
+            sb.quantity_on_hand = max(Decimal("0.00"), sb.quantity_on_hand - it.quantity)
 
     # Create Invoice
     invoice = Invoice(
@@ -3911,6 +3920,19 @@ def get_crm_orders_status(
     cust_ids = [o.customer_id for o in orders if o.customer_id]
     custs = {c.id: c for c in db.scalars(select(Customer).where(Customer.id.in_(cust_ids))).all()} if cust_ids else {}
 
+    order_ids = [o.id for o in orders]
+    all_items = db.scalars(select(OrderItem).where(OrderItem.order_id.in_(order_ids))).all() if order_ids else []
+    items_by_order: dict[str, list[dict[str, Any]]] = {}
+    for it in all_items:
+        items_by_order.setdefault(it.order_id, []).append({
+            "id": it.id,
+            "product_name": it.product_name,
+            "sku": it.sku,
+            "quantity": float(it.quantity),
+            "unit_price": float(it.unit_price),
+            "total_amount": float(it.total_amount),
+        })
+
     results = []
     for o in orders:
         c = custs.get(o.customer_id)
@@ -3925,9 +3947,31 @@ def get_crm_orders_status(
 
         disp_order_no = (o.order_number or "").replace("-B", "")
         placed_str = "—"
-        if o.created_at:
-            dt_ist = o.created_at.astimezone(ist) if o.created_at.tzinfo else o.created_at.replace(tzinfo=UTC).astimezone(ist)
+        if o.placed_at or o.created_at:
+            dt = o.placed_at or o.created_at
+            dt_ist = dt.astimezone(ist) if dt.tzinfo else dt.replace(tzinfo=UTC).astimezone(ist)
             placed_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+
+        packed_str = "—"
+        if o.packed_at or o.confirmed_at:
+            dt = o.packed_at or o.confirmed_at
+            dt_ist = dt.astimezone(ist) if dt.tzinfo else dt.replace(tzinfo=UTC).astimezone(ist)
+            packed_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+
+        dispatched_str = "—"
+        if o.dispatched_at:
+            dt_ist = o.dispatched_at.astimezone(ist) if o.dispatched_at.tzinfo else o.dispatched_at.replace(tzinfo=UTC).astimezone(ist)
+            dispatched_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+
+        out_for_delivery_str = "—"
+        if o.delivery_started_at:
+            dt_ist = o.delivery_started_at.astimezone(ist) if o.delivery_started_at.tzinfo else o.delivery_started_at.replace(tzinfo=UTC).astimezone(ist)
+            out_for_delivery_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+
+        delivered_str = "—"
+        if o.delivered_at:
+            dt_ist = o.delivered_at.astimezone(ist) if o.delivered_at.tzinfo else o.delivered_at.replace(tzinfo=UTC).astimezone(ist)
+            delivered_str = dt_ist.strftime("%d-%m-%Y %H:%M")
 
         # Filter if search
         if search:
@@ -3944,13 +3988,14 @@ def get_crm_orders_status(
             "total_amount": float(o.total_amount),
             "status": o.status,
             "order_placed": placed_str,
-            "packed_confirmed": "—",
-            "dispatched": "—",
-            "out_for_delivery": "—",
-            "delivered": "—",
+            "packed_confirmed": packed_str,
+            "dispatched": dispatched_str,
+            "out_for_delivery": out_for_delivery_str,
+            "delivered": delivered_str,
             "payment_method": o.payment_method or "CASH",
             "payment_status": o.payment_status or "UNPAID",
             "delivery_notes": o.delivery_notes,
+            "items": items_by_order.get(o.id, []),
         })
     return results
 

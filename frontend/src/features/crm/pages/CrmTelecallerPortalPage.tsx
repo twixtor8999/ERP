@@ -295,6 +295,15 @@ interface ProductItem {
   image_url?: string;
 }
 
+interface CrmOrderItem {
+  id: string;
+  product_name: string;
+  sku?: string;
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+}
+
 interface CrmOrder {
   id: string;
   order_number: string;
@@ -311,6 +320,7 @@ interface CrmOrder {
   payment_method: string;
   payment_status: string;
   delivery_notes?: string;
+  items?: CrmOrderItem[];
 }
 
 interface CrmReportData {
@@ -544,6 +554,7 @@ export function CrmTelecallerPortalPage() {
     },
   ]);
   const [orderStatusSearch, setOrderStatusSearch] = useState("");
+  const [selectedStatusOrder, setSelectedStatusOrder] = useState<CrmOrder | null>(null);
 
   // CRM Reports state
   const [reportStartDate, setReportStartDate] = useState("2026-11-22");
@@ -725,7 +736,26 @@ export function CrmTelecallerPortalPage() {
     setSyncTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     loadDashboardData();
     checkAttendanceStatus();
+
+    // Auto-sync every 45s so products, prices & stock from Super Admin update in real time
+    const syncInterval = setInterval(() => {
+      loadDashboardData();
+      const tick = new Date();
+      setSyncTime(tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    }, 45000);
+
+    return () => clearInterval(syncInterval);
   }, []);
+
+  // When switching to place-order or targets, immediately refresh live catalog
+  useEffect(() => {
+    if (activeView === "place-order" || activeView === "targets" || activeView === "order-status") {
+      loadDashboardData();
+      if (activeView === "order-status") {
+        loadOrderStatus();
+      }
+    }
+  }, [activeView]);
 
   const loadDashboardData = async () => {
     try {
@@ -734,7 +764,7 @@ export function CrmTelecallerPortalPage() {
         apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
         apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
         apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500"),
-        apiClient.get<ProductItem[]>("/api/v1/admin/products"),
+        apiClient.get<any[]>("/api/v1/admin/products"),
       ]);
 
       setSummary(sumRes.data);
@@ -745,7 +775,45 @@ export function CrmTelecallerPortalPage() {
 
       const custList = callRes.data && callRes.data.customers ? callRes.data.customers : [];
       setCallingCustomers(custList);
-      setCatalog(prodRes.data);
+
+      // Normalize live SKU products & variants from Super Admin (using Selling Price)
+      const flattenedProducts: ProductItem[] = [];
+      (prodRes.data || []).forEach((p: any) => {
+        if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
+          p.variants.forEach((v: any) => {
+            flattenedProducts.push({
+              id: v.id || p.id,
+              name: p.name,
+              code: v.sku || p.code || "SKU",
+              display_name: v.variant_name ? `${p.name} - ${v.variant_name}` : (p.display_name || p.name),
+              selling_price: Number(v.selling_price ?? p.selling_price ?? 0),
+              mrp: Number(v.mrp ?? v.selling_price ?? p.mrp ?? 0),
+              wholesale_price: Number(v.wholesale_price ?? v.selling_price ?? 0),
+              current_stock: Number(v.stock_on_hand ?? p.stock_on_hand ?? 0),
+              category_name: p.category || p.category_name || "General",
+              category_id: p.category_id,
+              image_url: p.image_url,
+            });
+          });
+        } else {
+          flattenedProducts.push({
+            id: p.id,
+            name: p.name,
+            code: p.code || "SKU",
+            display_name: p.display_name || p.name,
+            selling_price: Number(p.selling_price ?? 0),
+            mrp: Number(p.mrp ?? p.selling_price ?? 0),
+            wholesale_price: Number(p.wholesale_price ?? p.selling_price ?? 0),
+            current_stock: Number(p.stock_on_hand ?? p.current_stock ?? 0),
+            category_name: p.category || p.category_name || "General",
+            category_id: p.category_id,
+            image_url: p.image_url,
+          });
+        }
+      });
+      if (flattenedProducts.length > 0) {
+        setCatalog(flattenedProducts);
+      }
     } catch {
       toast.error("Could not sync live CRM telemetry");
     } finally {
@@ -1360,7 +1428,7 @@ export function CrmTelecallerPortalPage() {
       </div>
 
       {/* Main Responsive Card Container (Expanded for Laptop/Desktop View) */}
-      <div className="w-full max-w-[820px] lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60 transition-all">
+      <div className="w-full max-w-[98%] 2xl:max-w-[1780px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60 transition-all">
         {/* Card Header matching Screenshot: ☰ Home | SIDDESHWAR ENTERPRISES */}
         <header className="bg-[#1e3a8a] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -2540,7 +2608,12 @@ export function CrmTelecallerPortalPage() {
                               <div className="max-w-[60%]">
                                 <h5 className="font-bold text-slate-900 truncate">{prod.name}</h5>
                                 <p className="text-[10px] text-slate-500">
-                                  Wholesale: ₹{prod.selling_price} | MRP: ₹{prod.mrp} | Godown Stock: {prod.current_stock}
+                                  Selling Price: ₹{prod.selling_price} | MRP: ₹{prod.mrp} |{" "}
+                                  {prod.current_stock > 0 ? (
+                                    <span className="text-emerald-700 font-semibold">{prod.current_stock} in stock</span>
+                                  ) : (
+                                    <span className="text-rose-600 font-semibold">Out of Stock (0 remaining)</span>
+                                  )}
                                 </p>
                               </div>
 
@@ -3533,7 +3606,7 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: TEAM CRM REPORT (EXACT 1:1 MATCH TO SCREENSHOT)    */}
             {/* ======================================================== */}
             {activeView === "team-reports" && (
-              <div className="p-3 sm:p-5 space-y-4 max-w-2xl mx-auto">
+              <div className="p-3 sm:p-5 space-y-4 w-full max-w-6xl mx-auto">
                 {/* Date Filters Row */}
                 <div className="flex items-end gap-2.5 sm:gap-3">
                   <div className="flex-1">
@@ -3741,7 +3814,7 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: ORDER STATUS (EXACT 1:1 TO SCREENSHOT)               */}
             {/* ======================================================== */}
             {activeView === "order-status" && (
-              <div className="p-4 sm:p-6 space-y-4 bg-white max-w-5xl mx-auto">
+              <div className="p-4 sm:p-6 space-y-4 bg-white w-full">
                 {/* Row 1: Export Pill Button */}
                 <div>
                   <button
@@ -3852,7 +3925,12 @@ export function CrmTelecallerPortalPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-200 bg-white">
                         {filteredOrders.map((ord, idx) => (
-                          <tr key={ord.id} className="hover:bg-blue-50/40 transition-colors">
+                          <tr
+                            key={ord.id}
+                            onClick={() => setSelectedStatusOrder(ord)}
+                            className="hover:bg-blue-50/70 transition-colors cursor-pointer group"
+                            title="Click to view complete order details & items"
+                          >
                             <td className="px-3 py-3 text-center text-slate-800 font-bold border-r border-slate-200">
                               {idx + 1}
                             </td>
@@ -3860,7 +3938,7 @@ export function CrmTelecallerPortalPage() {
                               <div className="font-bold text-slate-900 text-xs">{ord.customer_name}</div>
                               <div className="text-slate-500 font-mono text-[11px] mt-0.5">{ord.customer_phone}</div>
                             </td>
-                            <td className="px-3 py-3 font-mono font-bold text-slate-800 border-r border-slate-200">
+                            <td className="px-3 py-3 font-mono font-bold text-blue-700 group-hover:underline border-r border-slate-200">
                               {ord.order_number}
                             </td>
                             <td className="px-3 py-3 font-mono text-slate-700 text-xs border-r border-slate-200">
@@ -3913,6 +3991,147 @@ export function CrmTelecallerPortalPage() {
                     </table>
                   </div>
                 </div>
+
+                {/* Clickable Order Inspection Modal matching reference */}
+                {selectedStatusOrder && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in zoom-in-95">
+                      {/* Modal Header */}
+                      <div className="bg-[#1e3a8a] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-base font-mono tracking-wide">
+                              {selectedStatusOrder.order_number}
+                            </h3>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white uppercase tracking-wider">
+                              {selectedStatusOrder.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-blue-200 mt-0.5">
+                            Order Date: {selectedStatusOrder.order_placed || selectedStatusOrder.order_date}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStatusOrder(null)}
+                          className="p-1.5 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Modal Body */}
+                      <div className="p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
+                        {/* Customer & Route Details */}
+                        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 grid grid-cols-2 gap-3">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Customer</span>
+                            <span className="font-bold text-slate-900 text-sm block mt-0.5">{selectedStatusOrder.customer_name}</span>
+                            <div className="text-slate-600 font-mono mt-0.5">{selectedStatusOrder.customer_phone}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Total Amount</span>
+                            <span className="font-extrabold text-blue-900 text-lg font-mono block mt-0.5">
+                              ₹{selectedStatusOrder.total_amount.toLocaleString("en-IN")}
+                            </span>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              Payment: <span className="font-semibold text-slate-800">{selectedStatusOrder.payment_method}</span> ({selectedStatusOrder.payment_status})
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 5-Stage Lifecycle Progress */}
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-bold text-slate-900 block">Order Progression Timeline</span>
+                          <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
+                            <div className={`p-2 rounded-lg border ${selectedStatusOrder.order_placed && selectedStatusOrder.order_placed !== "—" ? "bg-emerald-50 border-emerald-200 text-emerald-800 font-bold" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                              <div className="font-semibold">Placed</div>
+                              <div className="text-[9px] mt-0.5 font-mono">{selectedStatusOrder.order_placed || "—"}</div>
+                            </div>
+                            <div className={`p-2 rounded-lg border ${selectedStatusOrder.packed_confirmed && selectedStatusOrder.packed_confirmed !== "—" ? "bg-blue-50 border-blue-200 text-blue-800 font-bold" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                              <div className="font-semibold">Packed</div>
+                              <div className="text-[9px] mt-0.5 font-mono">{selectedStatusOrder.packed_confirmed || "—"}</div>
+                            </div>
+                            <div className={`p-2 rounded-lg border ${selectedStatusOrder.dispatched && selectedStatusOrder.dispatched !== "—" ? "bg-amber-50 border-amber-200 text-amber-800 font-bold" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                              <div className="font-semibold">Dispatched</div>
+                              <div className="text-[9px] mt-0.5 font-mono">{selectedStatusOrder.dispatched || "—"}</div>
+                            </div>
+                            <div className={`p-2 rounded-lg border ${selectedStatusOrder.out_for_delivery && selectedStatusOrder.out_for_delivery !== "—" ? "bg-purple-50 border-purple-200 text-purple-800 font-bold" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                              <div className="font-semibold">Out Delivery</div>
+                              <div className="text-[9px] mt-0.5 font-mono">{selectedStatusOrder.out_for_delivery || "—"}</div>
+                            </div>
+                            <div className={`p-2 rounded-lg border ${selectedStatusOrder.delivered && selectedStatusOrder.delivered !== "—" ? "bg-emerald-100 border-emerald-300 text-emerald-900 font-bold" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                              <div className="font-semibold">Delivered</div>
+                              <div className="text-[9px] mt-0.5 font-mono">{selectedStatusOrder.delivered || "—"}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ordered Items Table */}
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-bold text-slate-900 block">Ordered FMCG Items</span>
+                          <div className="border border-slate-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-100 text-slate-700 font-bold">
+                                <tr>
+                                  <th className="px-3 py-2">Item Name</th>
+                                  <th className="px-3 py-2 text-center">SKU</th>
+                                  <th className="px-3 py-2 text-center">Qty</th>
+                                  <th className="px-3 py-2 text-right">Selling Price</th>
+                                  <th className="px-3 py-2 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {(selectedStatusOrder.items && selectedStatusOrder.items.length > 0) ? (
+                                  selectedStatusOrder.items.map((it) => (
+                                    <tr key={it.id}>
+                                      <td className="px-3 py-2 font-semibold text-slate-900">{it.product_name}</td>
+                                      <td className="px-3 py-2 font-mono text-center text-slate-500">{it.sku || "—"}</td>
+                                      <td className="px-3 py-2 text-center font-bold text-slate-800">{it.quantity}</td>
+                                      <td className="px-3 py-2 text-right font-mono">₹{it.unit_price}</td>
+                                      <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">₹{it.total_amount}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={5} className="px-3 py-4 text-center text-slate-400">
+                                      Wholesale groceries booked for {selectedStatusOrder.order_number}
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {selectedStatusOrder.delivery_notes && (
+                          <div className="bg-amber-50 rounded-xl p-3 border border-amber-200 text-amber-900">
+                            <span className="font-bold text-[10px] uppercase block text-amber-700">Delivery Notes</span>
+                            <p className="mt-0.5">{selectedStatusOrder.delivery_notes}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Modal Footer */}
+                      <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between shrink-0">
+                        <a
+                          href={`tel:${selectedStatusOrder.customer_phone}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call Customer</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStatusOrder(null)}
+                          className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
