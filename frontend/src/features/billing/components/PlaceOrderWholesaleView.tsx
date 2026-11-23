@@ -13,6 +13,7 @@ import {
   Package,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FireworksOverlay } from "@/features/crm/components/FireworksOverlay";
 import realCustomersData from "@/data/realCustomers.json";
 import realProductsData from "@/data/realProducts.json";
 
@@ -140,6 +141,7 @@ export function PlaceOrderWholesaleView() {
   const [activeItemTab, setActiveItemTab] = useState<"items" | "history" | "open">("items");
   const [isViewingCart, setIsViewingCart] = useState(false);
   const [deliveryRemarks, setDeliveryRemarks] = useState("");
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Customer creation modal
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
@@ -228,6 +230,7 @@ export function PlaceOrderWholesaleView() {
     toast.success("Order Placed Successfully!", {
       description: `Order ${orderNo} created for ${activeCustomerForOrder?.name} (${activeCustomerForOrder?.village}) - ₹${cartTotal.toLocaleString("en-IN")}. Sent to Packing tab.`,
     });
+    setShowCelebration(true);
     setCart({});
     setIsViewingCart(false);
     setActiveCustomerForOrder(null);
@@ -927,6 +930,10 @@ export function PlaceOrderWholesaleView() {
             </form>
           </div>
         </div>
+      )}
+      {/* Order Placement Celebratory Firecrackers Animation */}
+      {showCelebration && (
+        <FireworksOverlay onComplete={() => setShowCelebration(false)} />
       )}
     </div>
   );

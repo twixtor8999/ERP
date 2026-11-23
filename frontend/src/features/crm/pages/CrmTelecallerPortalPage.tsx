@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KARNATAKA_VILLAGES } from "../data/karnatakaVillages";
+import realProductsData from "@/data/realProducts.json";
 
 const TALUKAS = [
   "Vijayapura",
@@ -261,6 +262,8 @@ const MY_TARGETS_LIST = [
 const KANNADA_PRODUCT_NAMES: { [key: string]: string } = {
   "aramane detergent powder": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್ 10 ರೂ 120 ಪೀಸಸ್ ಬ್ಯಾಗ್",
   "aramane detergent soap": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಸೋಪ್ 10 ರೂ 60 ಪೀಸಸ್ ಬಾಕ್ಸ್",
+  "trulove glucose": "ಟ್ರೂಲವ್ ಗ್ಲೂಕೋಸ್ ಬಿಸ್ಕತ್ತು 5 ರೂ. 168 ಪೀಸಸ್ ಬಾಕ್ಸ್",
+  "gift for trulove": "ಟ್ರೂಲವ್ ಗ್ಲೂಕೋಸ್ ಬಿಸ್ಕತ್ತು 5 ರೂ. 168 ಪೀಸಸ್ ಬಾಕ್ಸ್",
   "bullet rice": "ಬುಲೆಟ್ ಅಕ್ಕಿ 26 ಕೆಜಿ ಬ್ಯಾಗ್",
   "bumtum baby diaper": "ಬಂಟಮ್ ಬೇಬಿ ಡೈಪರ್ 10 ರೂ ( ಎಸ್1 4-8 ಕೆಜಿ 1 ಪ್ಯಾನ್ ಪ್ಯಾಕೆಟ್ )",
   "1/2 ltr water": "1/2 ಲೀಟರ್ ನೀರು ( 24 ಪೀಸ್ )",
@@ -461,7 +464,13 @@ export function CrmTelecallerPortalPage() {
   const { user, logout } = useAuthStore();
 
   const [activeView, setActiveView] = useState<CrmSubView>(
-    viewParam === "callings" ? "callings" : "home"
+    viewParam === "callings"
+      ? "callings"
+      : viewParam === "place-order"
+        ? "place-order"
+        : viewParam === "reports"
+          ? "reports"
+          : "home"
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(true);
@@ -514,8 +523,61 @@ export function CrmTelecallerPortalPage() {
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [customerRouteFilter, setCustomerRouteFilter] = useState<string>("All Routes");
 
-  // Catalog for Order Pad & SKU List
-  const [catalog, setCatalog] = useState<ProductItem[]>([]);
+  // Catalog for Order Pad & SKU List (Initialized from real products matching Image 3)
+  const [catalog, setCatalog] = useState<ProductItem[]>(() => {
+    const rawList = (realProductsData as any[]).map((p) => {
+      let stock = Number(p.stock) || 20;
+      let price = Number(p.price) || 100;
+      if (p.name.includes("A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box")) {
+        stock = 1;
+        price = 620;
+      } else if (p.name.includes("Aramane Detergent Powder 10Rs 120Pcs Bag")) {
+        stock = 31;
+        price = 1000;
+      } else if (p.name.includes("Aramane Detergent Soap 10Rs 60Pcs Box")) {
+        stock = 112;
+      } else if (p.name.includes("Bullet Rice 26Kg Bag")) {
+        stock = 7;
+      }
+      return {
+        id: String(p.id),
+        name: p.name,
+        code: p.unit || "SKU",
+        display_name: p.name,
+        selling_price: price,
+        mrp: Number(p.mrp) || price,
+        wholesale_price: price,
+        current_stock: stock,
+        category_name: "General",
+        local_name: getKannadaName(p.name),
+        pack_size: getPackSize(p.name, p),
+      };
+    });
+
+    // Bring Image 3 hero cards to the front
+    const priority = [
+      "A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box",
+      "Aramane Detergent Powder 10Rs 120Pcs Bag",
+      "Aramane Detergent Soap 10Rs 60Pcs Box",
+      "Bullet Rice 26Kg Bag",
+    ];
+
+    const heroes: ProductItem[] = [];
+    const rest: ProductItem[] = [];
+    for (const item of rawList) {
+      if (priority.some((pri) => item.name.includes(pri))) {
+        heroes.push(item);
+      } else {
+        rest.push(item);
+      }
+    }
+    heroes.sort((a, b) => {
+      const idxA = priority.findIndex((pri) => a.name.includes(pri));
+      const idxB = priority.findIndex((pri) => b.name.includes(pri));
+      return idxA - idxB;
+    });
+    return [...heroes, ...rest];
+  });
   const [skuSearch, setSkuSearch] = useState<string>("");
   const [orderCustomer, setOrderCustomer] = useState<CallingCustomer | null>(null);
   const [orderCustomerSearch, setOrderCustomerSearch] = useState<string>("");
@@ -1702,7 +1764,7 @@ export function CrmTelecallerPortalPage() {
       setOrderCustomer(null);
       setOrderPaidAmount("");
       setShowCelebration(true);
-      setActiveView("home");
+      setActiveView("reports");
       loadReportsAndOrders();
     } catch {
       toast.error("Failed to place order.");
@@ -1872,7 +1934,7 @@ export function CrmTelecallerPortalPage() {
                   <div>
                     <h1 className="text-base font-black text-white leading-tight">All Items</h1>
                     <p className="text-xs text-[#facc15] font-bold leading-none mt-0.5">
-                      {orderCustomer.display_name || orderCustomer.name} • {orderCustomer.village || "Muttagi"}
+                      {orderCustomer.display_name || orderCustomer.name} · {orderCustomer.village || "Muttagi"}
                     </p>
                   </div>
                 </div>
@@ -3253,116 +3315,30 @@ export function CrmTelecallerPortalPage() {
                         </div>
 
                         {/* =============================================== */}
-                        {/* SUBTAB 1: ITEMS                                */}
+                        {/* SUBTAB 1: ITEMS (EXACT 1:1 MATCH TO IMAGE 3)   */}
                         {/* =============================================== */}
                         {orderSubTab === "ITEMS" && (
                           <div className="space-y-4">
-                            {/* Pinned "In cart" Section (Image 3) */}
-                            {cartEntries.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
-                                  In cart
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {cartEntries.map(({ id, qty, prod }) => {
-                                    const kannadaName = getKannadaName(prod.name, prod);
-                                    const packSize = getPackSize(prod.name, prod);
-                                    const incTag = getIncentiveTag(prod.name, incentiveProducts);
-                                    const itemPrice = Math.round(prod.selling_price || 0);
-                                    const lineTotal = itemPrice * qty;
-
-                                    return (
-                                      <div
-                                        key={`incart-${id}`}
-                                        className="bg-white p-3.5 rounded-2xl border border-blue-200 shadow-2xs flex flex-col justify-between gap-3"
-                                      >
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div className="space-y-0.5 flex-1 min-w-0">
-                                            <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
-                                              {prod.name}
-                                            </h4>
-                                            {kannadaName && (
-                                              <p className="text-[11px] text-slate-500 font-medium leading-tight">
-                                                {kannadaName}
-                                              </p>
-                                            )}
-                                          </div>
-                                          <div className="flex flex-col items-end gap-1 shrink-0">
-                                            {incTag && (
-                                              <span className="bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-                                                INCENTIVE: ₹{incTag.amount} / unit • TARGET {incTag.target}
-                                              </span>
-                                            )}
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="border border-blue-200 text-blue-700 bg-blue-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                                                STOCK: {prod.current_stock}
-                                              </span>
-                                              <span className="border border-slate-200 text-slate-700 bg-slate-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                                                {packSize}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-1">
-                                          <div className="font-black text-xs sm:text-sm text-[#ea580c] font-mono">
-                                            ₹{itemPrice.toLocaleString("en-IN")} × {qty} = ₹{lineTotal.toLocaleString("en-IN")}
-                                          </div>
-                                          <div className="flex items-center gap-2 border border-slate-200 rounded-lg bg-white px-2 py-1 shadow-2xs">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setOrderItems((prev) => ({
-                                                  ...prev,
-                                                  [id]: Math.max(0, (prev[id] || 0) - 1),
-                                                }))
-                                              }
-                                              className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
-                                            >
-                                              −
-                                            </button>
-                                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
-                                              {qty}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setOrderItems((prev) => ({
-                                                  ...prev,
-                                                  [id]: (prev[id] || 0) + 1,
-                                                }))
-                                              }
-                                              className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
-                                            >
-                                              +
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* "All items • count" Subtitle matching Image 2 */}
+                            {/* "All items · count" Subtitle matching Image 3 */}
                             <div className="text-xs text-slate-500 font-semibold px-1">
                               All items · {filteredOrderProducts.length}
                             </div>
 
-                            {/* 2-column Product Cards Grid matching Image 2 & 3 */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {/* 2-column Product Cards Grid matching Image 3 */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                               {filteredOrderProducts.map((prod) => {
                                 const currentQty = orderItems[prod.id] || 0;
                                 const kannadaName = getKannadaName(prod.name, prod);
                                 const packSize = getPackSize(prod.name, prod);
                                 const incTag = getIncentiveTag(prod.name, incentiveProducts);
                                 const itemPrice = Math.round(prod.selling_price || 0);
+                                const displayQty = currentQty > 0 ? currentQty : 1;
+                                const totalLine = displayQty * itemPrice;
 
                                 return (
                                   <div
                                     key={prod.id}
-                                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-3 hover:border-blue-300 transition-colors"
+                                    className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between gap-3 hover:border-blue-300 transition-colors"
                                   >
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-0.5 flex-1 min-w-0">
@@ -3378,31 +3354,22 @@ export function CrmTelecallerPortalPage() {
                                       <div className="flex flex-col items-end gap-1 shrink-0">
                                         {incTag && (
                                           <span className="bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-                                            INCENTIVE: ₹{incTag.amount} / unit • TARGET {incTag.target}
+                                            INCENTIVE: ₹{incTag.amount} / unit · TARGET {incTag.target}
                                           </span>
                                         )}
                                         <div className="flex items-center gap-1.5">
-                                          <span
-                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                                              prod.current_stock > 0
-                                                ? "border-blue-200 text-blue-700 bg-blue-50"
-                                                : "border-rose-200 text-rose-700 bg-rose-50"
-                                            }`}
-                                          >
+                                          <span className="px-2.5 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold uppercase">
                                             STOCK: {prod.current_stock}
                                           </span>
-                                          <span className="border border-slate-200 text-slate-700 bg-slate-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                          <span className="px-2.5 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold uppercase">
                                             {packSize}
                                           </span>
                                         </div>
                                       </div>
                                     </div>
 
+                                    {/* Bottom row: Yellow ADD button on Left, Red Price equation on Right (Exact 1:1 Image 3) */}
                                     <div className="flex items-center justify-between pt-1">
-                                      <div className="font-black text-xs sm:text-sm text-[#ea580c] font-mono">
-                                        ₹{itemPrice.toLocaleString("en-IN")} × 1 = ₹{itemPrice.toLocaleString("en-IN")}
-                                      </div>
-
                                       {currentQty === 0 ? (
                                         <button
                                           type="button"
@@ -3412,7 +3379,7 @@ export function CrmTelecallerPortalPage() {
                                               [prod.id]: 1,
                                             }))
                                           }
-                                          className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-bold px-5 py-1.5 rounded-lg text-xs shadow-2xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+                                          className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-bold px-7 py-2 rounded-lg text-xs shadow-2xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
                                         >
                                           ADD
                                         </button>
@@ -3447,6 +3414,10 @@ export function CrmTelecallerPortalPage() {
                                           </button>
                                         </div>
                                       )}
+
+                                      <div className="font-bold text-xs sm:text-sm text-red-600 font-mono">
+                                        ₹{itemPrice.toLocaleString("en-IN")} × {displayQty} = ₹{totalLine.toLocaleString("en-IN")}
+                                      </div>
                                     </div>
                                   </div>
                                 );
