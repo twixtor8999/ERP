@@ -2450,7 +2450,7 @@ export function CrmTelecallerPortalPage() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleLogCall(c.id, "CONNECTED", "Direct call from Place Order customer list");
+                                  setActiveCallCust(c);
                                   window.location.href = `tel:${c.phone}`;
                                 }}
                                 className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
