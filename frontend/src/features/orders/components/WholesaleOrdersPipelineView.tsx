@@ -80,6 +80,92 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     ],
   },
   {
+    id: "ord-1489",
+    orderNo: "ORD-1489",
+    invoiceNo: "INV-469",
+    customerName: "B M",
+    shopName: "B M General Stores",
+    village: "Bijapur (Rural)",
+    route: "BIJAPUR",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "20-11-2026",
+    orderTime: "02:15 pm",
+    vehicleNo: "KA28AB3425",
+    total: 2580,
+    balance: 2580,
+    stage: "delivery",
+    items: [
+      { name: "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )", unit: "Packet", qty: 140, price: 7, rate: 7, gst: "5%", amount: 980 },
+      { name: "BUMTUM BABY DIAPER 12RS ( M1 7-12 KG 1PANS PKT )", unit: "Packet", qty: 100, price: 8, rate: 8, gst: "5%", amount: 800 },
+      { name: "BUMTUM BABY DIAPER 14 RS ( L1 9-14KG 1 PANS PKT )", unit: "Packet", qty: 80, price: 10, rate: 10, gst: "5%", amount: 800 },
+    ],
+  },
+  {
+    id: "ord-1492",
+    orderNo: "ORD-1492",
+    invoiceNo: "INV-470",
+    customerName: "Birappa Pujari",
+    shopName: "Arun Kirani stores",
+    village: "Jumnal",
+    route: "GOLASANGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "21-11-2026",
+    orderTime: "04:30 pm",
+    vehicleNo: "KA28AA6256",
+    total: 4850,
+    balance: 4850,
+    stage: "delivery",
+    items: [
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 6, price: 440, rate: 440, gst: "5%", amount: 2640 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 15, price: 128, rate: 128, gst: "5%", amount: 1920 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 11, price: 26, rate: 26, gst: "5%", amount: 286 },
+    ],
+  },
+  {
+    id: "ord-1495",
+    orderNo: "ORD-1495",
+    invoiceNo: "INV-471",
+    customerName: "Kallappa B prathamshetti",
+    shopName: "Arunkumar Kirana Stores",
+    village: "Hebbalahatti",
+    route: "TAJAPUR",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "21-11-2026",
+    orderTime: "05:10 pm",
+    vehicleNo: "KA28AA6256",
+    total: 7175,
+    balance: 7175,
+    stage: "delivery",
+    items: [
+      { name: "Madhur Pure & Hygienic Sugar 5kg", unit: "Bag", qty: 20, price: 235, rate: 235, gst: "5%", amount: 4700 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 15, price: 165, rate: 165, gst: "5%", amount: 2475 },
+    ],
+  },
+  {
+    id: "ord-1503",
+    orderNo: "ORD-1503",
+    invoiceNo: "INV-472",
+    customerName: "SANJU HUGAR",
+    shopName: "ARUN KIRANA STORE",
+    village: "Kakhandaki",
+    route: "MAMADAPUR",
+    createdBy: "Dhruthi A S",
+    source: "CRM",
+    orderDate: "21-11-2026",
+    orderTime: "05:45 pm",
+    vehicleNo: "KA28AB3425",
+    total: 5460,
+    balance: 5460,
+    stage: "delivery",
+    items: [
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128, rate: 128, gst: "5%", amount: 3840 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 10, price: 165, rate: 165, gst: "5%", amount: 1650 },
+    ],
+  },
+  {
     id: "ord-1508-a",
     orderNo: "ORD-1508",
     customerName: "Shankargouda Biradar",
@@ -193,6 +279,11 @@ export function WholesaleOrdersPipelineView() {
   const [cancellingOrder, setCancellingOrder] = useState<PipelineOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Delivery Returns & Payment State
+  const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
+  const [deliveryPaymentType, setDeliveryPaymentType] = useState<"Cash" | "QR" | "Split">("Cash");
+  const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
 
   // Switch sub-tab helper
   const switchTab = (tabName: string) => {
@@ -384,6 +475,267 @@ export function WholesaleOrdersPipelineView() {
       description: `Downloaded report for ${fromDate} to ${toDate}`,
     });
   };
+
+  if (viewingOrder && viewingOrder.stage === "delivery") {
+    const totalQty = viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0), 0);
+    const returnedAmount = viewingOrder.items.reduce((sum, it, idx) => {
+      const rQty = itemReturns[idx]?.qty || 0;
+      const rate = (it as any).rate ?? it.price;
+      return sum + rQty * rate;
+    }, 0);
+    const netToCollect = Math.max(0, viewingOrder.total - returnedAmount);
+    const calculatedCashAmount = deliveryPaymentType === "QR" ? 0 : Math.max(0, netToCollect - Number(deliveryQrAmount || 0));
+
+    const handleReturnQtyChange = (idx: number, qtyVal: number) => {
+      const maxQty = viewingOrder.items[idx]?.qty || 0;
+      const safeQty = Math.max(0, Math.min(maxQty, qtyVal));
+      setItemReturns(prev => ({
+        ...prev,
+        [idx]: {
+          qty: safeQty,
+          reason: prev[idx]?.reason || (safeQty > 0 ? "Shop Close" : "")
+        }
+      }));
+    };
+
+    const handleReturnReasonChange = (idx: number, reason: string) => {
+      setItemReturns(prev => ({
+        ...prev,
+        [idx]: {
+          qty: prev[idx]?.qty || (reason ? 1 : 0),
+          reason
+        }
+      }));
+    };
+
+    const handleFullReturn = () => {
+      const full: Record<number, { qty: number; reason: string }> = {};
+      viewingOrder.items.forEach((it, idx) => {
+        full[idx] = { qty: it.qty, reason: "Shop Close" };
+      });
+      setItemReturns(full);
+      toast.info("Full return applied. Reason set to 'Shop Close'.");
+    };
+
+    const handleCompleteDelivery = () => {
+      const hasMissingReason = viewingOrder.items.some((_, idx) => {
+        const r = itemReturns[idx];
+        return r && r.qty > 0 && !r.reason;
+      });
+      if (hasMissingReason) {
+        toast.error("Please select a return reason for all returned items.");
+        return;
+      }
+
+      setOrders(prev =>
+        prev.map(o =>
+          o.id === viewingOrder.id
+            ? { ...o, stage: "completed", balance: 0 }
+            : o
+        )
+      );
+      toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
+        description: `Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType})`,
+      });
+      setViewingOrder(null);
+      switchTab("completed");
+    };
+
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] text-xs pb-12 animate-in fade-in duration-150">
+        {/* Top Back button */}
+        <div>
+          <button
+            onClick={() => setViewingOrder(null)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md border border-slate-300 shadow-2xs cursor-pointer"
+          >
+            <span>← Back</span>
+          </button>
+        </div>
+
+        {/* Header & Stage Pill matching Image 2 */}
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900">
+            {viewingOrder.orderNo} · {viewingOrder.invoiceNo || "INV-469"} ·
+          </h2>
+          <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-slate-200 text-slate-800 border border-slate-300">
+            dispatched
+          </span>
+        </div>
+
+        {/* Subtitle matching Image 2 */}
+        <p className="text-xs text-slate-600 -mt-2">
+          {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy} · Vehicle {viewingOrder.vehicleNo || "KA28AB3425"}
+        </p>
+
+        {/* Delivery FMCG Items Table with Royal Blue Header matching Image 2 */}
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="bg-[#2f6fe4] text-white font-semibold">
+                  <th className="py-2.5 px-3 w-12 text-center">Sl</th>
+                  <th className="py-2.5 px-3">Item</th>
+                  <th className="py-2.5 px-3 w-16 text-center">Qty</th>
+                  <th className="py-2.5 px-3 w-20 text-right">Rate</th>
+                  <th className="py-2.5 px-3 w-28 text-center">Return Qty</th>
+                  <th className="py-2.5 px-3 w-44 text-left">Return Reason</th>
+                  <th className="py-2.5 px-3 w-16 text-center">GST</th>
+                  <th className="py-2.5 px-3 w-24 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {viewingOrder.items.map((it, idx) => {
+                  const rate = (it as any).rate ?? it.price;
+                  const gst = (it as any).gst ?? "5%";
+                  const amount = (it as any).amount ?? (it.qty * rate);
+                  const currentReturn = itemReturns[idx] || { qty: 0, reason: "" };
+
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-3 text-center text-slate-500">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800">{it.name}</td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-800 font-bold">{it.qty}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700">
+                        {rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <input
+                          type="number"
+                          min={0}
+                          max={it.qty}
+                          value={currentReturn.qty}
+                          onChange={(e) => handleReturnQtyChange(idx, parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-xs border border-slate-300 rounded-md bg-white text-center font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 text-left">
+                        <select
+                          value={currentReturn.reason}
+                          onChange={(e) => handleReturnReasonChange(idx, e.target.value)}
+                          className="w-full min-w-[140px] px-2 py-1 text-xs border border-slate-300 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="">Select reason</option>
+                          <option value="Fake Order">Fake Order</option>
+                          <option value="Shop Close">Shop Close</option>
+                          <option value="No Cash">No Cash</option>
+                          <option value="Quality issue / Damage">Quality issue / Damage</option>
+                          <option value="Item Missing">Item Missing</option>
+                        </select>
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-600">{gst}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-800">
+                        {amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Total row */}
+                <tr className="bg-slate-50/70 border-t border-slate-300 font-bold text-slate-900">
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3 font-bold">Total</td>
+                  <td className="py-2.5 px-3 text-center font-mono font-bold">{totalQty}</td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3 text-right font-mono font-bold">
+                    {viewingOrder.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Payment Section matching Image 2 */}
+        <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-2xs space-y-3">
+          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Payment</h4>
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-600">Payment Type:</span>
+              <select
+                value={deliveryPaymentType}
+                onChange={(e) => setDeliveryPaymentType(e.target.value as any)}
+                className="px-2.5 py-1 border border-slate-300 rounded-md bg-white font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Cash">Cash</option>
+                <option value="QR">QR</option>
+                <option value="Split">Split (Cash + QR)</option>
+              </select>
+            </div>
+
+            {(deliveryPaymentType === "QR" || deliveryPaymentType === "Split") && (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-600">QR Amount *:</span>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={deliveryQrAmount}
+                  onChange={(e) => setDeliveryQrAmount(e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-600">Cash Amount:</span>
+              <input
+                type="text"
+                readOnly
+                value={calculatedCashAmount.toLocaleString("en-IN")}
+                className="w-28 px-2 py-1 text-xs border border-slate-300 rounded-md bg-slate-100 font-mono text-slate-800 font-bold"
+              />
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-slate-600 font-semibold">Net to collect</span>
+              <b className="text-base font-extrabold text-slate-900 font-mono">
+                ₹{netToCollect.toLocaleString("en-IN")}
+              </b>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Actions Row matching Image 2 */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          {/* Full Return on the left */}
+          <div>
+            <button
+              onClick={handleFullReturn}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              <span>↶ Full Return</span>
+            </button>
+          </div>
+
+          {/* Close, Duplicate Print, Mark delivered on the right */}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setViewingOrder(null)}
+              className="px-4 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              Close
+            </button>
+
+            <button
+              onClick={() => printThermalSlip(viewingOrder)}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              Duplicate Print
+            </button>
+
+            <button
+              onClick={handleCompleteDelivery}
+              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              Mark delivered
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (viewingOrder) {
     const totalQty = viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0), 0);
@@ -1141,12 +1493,20 @@ export function WholesaleOrdersPipelineView() {
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleMarkDelivered(o.id)}
-                          className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-2xs cursor-pointer"
-                        >
-                          Mark delivered
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <button
+                            onClick={() => setViewingOrder(o)}
+                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => setViewingOrder(o)}
+                            className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
+                          >
+                            Mark delivered
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
