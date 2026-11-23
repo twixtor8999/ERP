@@ -173,3 +173,4 @@ export function FireworksOverlay({ durationMs = 3200, onComplete }: FireworksOve
     />
   );
 }
+
