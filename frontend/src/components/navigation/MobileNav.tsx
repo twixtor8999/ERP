@@ -121,8 +121,8 @@ export function MobileNav() {
           </div>
         </div>
 
-        {/* Scrollable Navigation List with contained overscroll */}
-        <div className="flex-1 overflow-y-auto px-2.5 py-2.5 overscroll-contain touch-pan-y">
+        {/* Scrollable Navigation List with contained overscroll and hidden scrollbar */}
+        <div className="flex-1 overflow-y-auto px-2.5 py-2.5 overscroll-contain touch-pan-y no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <SidebarNav
             onItemClick={() => setIsOpen(false)}
             searchQuery={mobileSearch}
@@ -130,14 +130,14 @@ export function MobileNav() {
         </div>
 
         {/* User Footer - Permanently Pinned */}
-        <div className="p-3.5 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-7 h-7 rounded-full bg-[#facc15] text-slate-950 font-black text-[11px] flex items-center justify-center shrink-0">
+        <div className="p-3.5 border-t border-[#223659] bg-[#142138] shrink-0 space-y-2">
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
                 {userInitials}
               </div>
-              <div className="overflow-hidden leading-tight">
-                <p className="font-bold text-white text-xs truncate">{user?.fullName || "Super Admin"}</p>
+              <div className="overflow-hidden leading-tight min-w-0">
+                <p className="font-bold text-white text-xs truncate">{user?.fullName || "Vijaykumar Shantagiri"}</p>
                 <p className="text-[10px] text-slate-400 capitalize truncate">{user?.role?.replace(/_/g, " ") || "Admin"}</p>
               </div>
             </div>
@@ -148,16 +148,16 @@ export function MobileNav() {
                 logout();
                 navigate("/login");
               }}
-              className="text-xs font-bold text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 cursor-pointer"
+              className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-[#1c2e4c] hover:bg-[#243c64] border border-[#2b4470] transition shrink-0 cursor-pointer"
             >
               Logout
             </button>
           </div>
 
           <div className="pt-0.5">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>Synced {syncTime || "06:28 pm"}</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Synced {syncTime || "12:26 pm"}</span>
             </span>
           </div>
         </div>

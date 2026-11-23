@@ -238,7 +238,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   });
 
   return (
-    <nav className="space-y-0.5 px-1">
+    <nav className="space-y-1 px-1">
       {filteredItems.map((item) => {
         // If it has children (like Reports and Orders)
         if (item.children && item.children.length > 0) {
@@ -253,17 +253,17 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                 type="button"
                 onClick={() => toggleSection(item.title)}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-bold rounded-lg transition-colors text-left",
+                  "w-full flex items-center justify-between px-3.5 py-2 text-[14.5px] font-semibold tracking-wide rounded-xl transition-colors text-left",
                   isParentActive
-                    ? "text-amber-400 font-extrabold"
-                    : "text-slate-200 hover:text-white hover:bg-[#22385c]"
+                    ? "text-amber-400 font-bold"
+                    : "text-[#e2e8f0] hover:text-white hover:bg-[#22385c]"
                 )}
               >
                 <span>{item.title}</span>
                 {isExpanded ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 opacity-70" />
                 ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 opacity-70" />
                 )}
               </button>
 
@@ -287,10 +287,10 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                         to={child.href}
                         onClick={onItemClick}
                         className={cn(
-                          "block px-3 py-1.5 text-xs rounded-lg transition-all text-left",
+                          "block px-3 py-1.5 text-[13.5px] rounded-lg transition-all text-left font-medium",
                           active
                             ? "bg-[#f59e0b] text-slate-950 font-bold shadow-xs"
-                            : "text-slate-200 hover:text-white hover:bg-[#22385c]"
+                            : "text-slate-300 hover:text-white hover:bg-[#22385c]"
                         )}
                       >
                         {child.title}
@@ -311,10 +311,10 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
             to={item.href}
             onClick={onItemClick}
             className={cn(
-              "block px-3 py-1.5 text-[13px] rounded-lg transition-all text-left truncate font-medium",
+              "block px-3.5 py-2 text-[14.5px] rounded-xl transition-all text-left truncate font-semibold tracking-wide",
               active
                 ? "bg-[#f59e0b] text-slate-950 font-bold shadow-xs"
-                : "text-slate-200 hover:text-white hover:bg-[#22385c]"
+                : "text-[#e2e8f0] hover:text-white hover:bg-[#22385c]"
             )}
             title={item.title}
           >

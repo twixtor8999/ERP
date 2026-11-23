@@ -95,40 +95,40 @@ export function Sidebar() {
       </div>
 
       {/* Nav Items List with Hidden Scrollbar */}
-      <div className="flex-1 overflow-y-auto px-2 py-1.5 overscroll-contain scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex-1 overflow-y-auto px-2.5 py-1.5 overscroll-contain no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <SidebarNav searchQuery={menuSearch} isCollapsed={collapsed} />
       </div>
 
       {/* Sidebar Bottom: User Profile & Live Synced Badge */}
-      <div className="p-2.5 border-t border-[#223659] bg-[#142138] shrink-0 space-y-1.5">
+      <div className="p-3 border-t border-[#223659] bg-[#142138] shrink-0 space-y-2">
         {!collapsed ? (
           <>
-            <div className="flex items-center justify-between gap-1.5">
+            <div className="flex items-center justify-between gap-2">
               <button
                 onClick={() => navigate("/profile")}
                 className={cn(
-                  "flex items-center gap-2 overflow-hidden flex-1 text-left p-1 rounded-lg transition group",
+                  "flex items-center gap-2.5 overflow-hidden flex-1 text-left p-1 rounded-lg transition group min-w-0",
                   isProfileActive
                     ? "bg-[#f59e0b] text-slate-950 font-bold shadow-2xs"
-                    : "hover:bg-slate-800/60"
+                    : "hover:bg-[#203254]"
                 )}
                 title="Open My Profile"
               >
-                <div className="w-7 h-7 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[#facc15] text-slate-950 font-black text-xs flex items-center justify-center shadow-sm shrink-0">
                   {userInitials}
                 </div>
-                <div className="overflow-hidden leading-tight">
+                <div className="overflow-hidden leading-tight min-w-0">
                   <span
                     className={cn(
-                      "text-[9px] block truncate leading-none",
-                      isProfileActive ? "text-slate-900 font-semibold" : "text-slate-400"
+                      "text-[10px] block truncate font-medium",
+                      isProfileActive ? "text-slate-900" : "text-slate-400"
                     )}
                   >
                     My Profile
                   </span>
                   <p
                     className={cn(
-                      "text-xs font-bold truncate max-w-[110px] mt-0.5",
+                      "text-xs font-bold truncate mt-0.5",
                       isProfileActive ? "text-slate-950" : "text-white"
                     )}
                   >
@@ -142,7 +142,7 @@ export function Sidebar() {
                   logout();
                   navigate("/login");
                 }}
-                className="px-2 py-1 text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-800 rounded border border-slate-700 transition shrink-0"
+                className="px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white bg-[#1c2e4c] hover:bg-[#243c64] rounded-lg border border-[#2b4470] transition shrink-0 cursor-pointer"
                 title="Logout"
               >
                 Logout
@@ -151,9 +151,9 @@ export function Sidebar() {
 
             {/* Live Synced Status Pill */}
             <div className="pt-0.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>Synced {syncTime || "07:26 pm"}</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Synced {syncTime || "12:26 pm"}</span>
               </span>
             </div>
           </>
