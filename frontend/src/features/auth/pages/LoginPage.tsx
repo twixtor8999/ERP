@@ -101,7 +101,7 @@ export function LoginPage() {
 
   if (isCrm) {
     return (
-      <div className="h-screen w-full relative flex flex-col items-center justify-center bg-white text-slate-800 antialiased p-3 sm:p-4 overflow-hidden">
+      <div className="h-screen w-full relative flex flex-col items-center justify-start pt-2 sm:pt-3 bg-white text-slate-800 antialiased px-3 sm:px-4 overflow-hidden">
         {/* Exact Reference Curved Royal Blue Canopy Arc */}
         <div
           className="absolute pointer-events-none z-0"
@@ -118,7 +118,7 @@ export function LoginPage() {
         />
 
         {/* Centered CRM Login Card matching reference 1:1 */}
-        <div className="relative z-10 w-full max-w-[408px] bg-white rounded-[22px] shadow-[0_18px_50px_rgba(13,27,76,0.25)] border-0 px-6 py-6 sm:px-7 sm:py-7 space-y-3.5 my-auto">
+        <div className="relative z-10 w-full max-w-[408px] bg-white rounded-[22px] shadow-[0_18px_50px_rgba(13,27,76,0.25)] border-0 px-6 py-6 sm:px-7 sm:py-7 space-y-3.5">
           {/* Card Header: Ai Smart Bazar CRM */}
           <div className="text-center space-y-1.5">
             <h2 className="text-2xl sm:text-[27px] font-black text-[#0d1b4c] tracking-tight">
