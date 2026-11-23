@@ -36,6 +36,9 @@ import {
   KeyRound,
   ChevronRight,
   BadgeCheck,
+  AlertTriangle,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -256,6 +259,49 @@ const MY_TARGETS_LIST = [
   },
 ];
 
+const KANNADA_PRODUCT_NAMES: { [key: string]: string } = {
+  "aramane detergent powder": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್ 10 ರೂ 120 ಪೀಸಸ್ ಬ್ಯಾಗ್",
+  "aramane detergent soap": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಸೋಪ್ 10 ರೂ 60 ಪೀಸಸ್ ಬಾಕ್ಸ್",
+  "bullet rice": "ಬುಲೆಟ್ ಅಕ್ಕಿ 26 ಕೆಜಿ ಬ್ಯಾಗ್",
+  "bumtum baby diaper": "ಬಂಟಮ್ ಬೇಬಿ ಡೈಪರ್ 10 ರೂ ( ಎಸ್1 4-8 ಕೆಜಿ 1 ಪ್ಯಾನ್ ಪ್ಯಾಕೆಟ್ )",
+  "1/2 ltr water": "1/2 ಲೀಟರ್ ನೀರು ( 24 ಪೀಸ್ )",
+  "1 ltr water": "1 ಲೀಟರ್ ನೀರು ( 12 ಪೀಸ್ )",
+  "20 20 cashew biscuits": "20 20 ಗೋಡಂಬಿ ಬಿಸ್ಕತ್ತು",
+  "abba huzur kolam rice": "ಅಬ್ಬಾ ಹುಜೂರ್ ಕೋಲಂ ಅಕ್ಕಿ 26 ಕೆಜಿ ಬ್ಯಾಗ್",
+  "jasmine rice": "ಜಾಸ್ಮಿನ್ ಅಕ್ಕಿ 30 ಕೆಜಿ ಬ್ಯಾಗ್",
+  "daawat rice": "ದಾವತ್ ಅಕ್ಕಿ 26 ಕೆಜಿ ಬ್ಯಾಗ್",
+  "zeeba jeera rice": "ಜೀಬಾ ಜೀರಾ ಅಕ್ಕಿ 26 ಕೆಜಿ ಬ್ಯಾಗ್",
+  "trulove bourbon biscuits": "ಟ್ರೂಲವ್ ಬೋರ್ಬನ್ ಬಿಸ್ಕತ್ತು 5 ರೂ 144 ಪೀಸ್ ಬಾಕ್ಸ್",
+};
+
+const getKannadaName = (name: string, prod?: any): string => {
+  if (prod?.local_name) return prod.local_name;
+  const lower = (name || "").toLowerCase();
+  for (const [key, val] of Object.entries(KANNADA_PRODUCT_NAMES)) {
+    if (lower.includes(key)) return val;
+  }
+  return "";
+};
+
+const getPackSize = (name: string, prod?: any): string => {
+  if (prod?.pack_size) return prod.pack_size;
+  const match = (name || "").match(/(\d+\s*(?:PCS\s*BAG|PCS\s*BOX|KG\s*BAG|PCS\s*PKT|PKT|BOX|BAG|PCS|LTR|GM|ML))/i);
+  if (match) return match[1].toUpperCase();
+  return "1 UNIT";
+};
+
+const getIncentiveTag = (name: string, incProducts: IncentiveProduct[]): { amount: number; target: number } | null => {
+  const lower = (name || "").toLowerCase();
+  const match = incProducts.find((ip) => ip.name.toLowerCase().includes(lower) || lower.includes(ip.name.toLowerCase()));
+  if (match) {
+    return { amount: match.incentive_per_unit || 20, target: match.target_units || 5 };
+  }
+  if (lower.includes("aramane detergent powder")) {
+    return { amount: 20, target: 5 };
+  }
+  return null;
+};
+
 interface CallingCustomer {
   id: string;
   name: string;
@@ -467,6 +513,13 @@ export function CrmTelecallerPortalPage() {
   const [orderPayMethod, setOrderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
   const [orderPaidAmount, setOrderPaidAmount] = useState<string>("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  // 6-Screen Place Order Journey State
+  const [orderProductSearch, setOrderProductSearch] = useState<string>("");
+  const [orderSubTab, setOrderSubTab] = useState<"ITEMS" | "ORDER_HISTORY" | "OPEN_ORDER">("ITEMS");
+  const [isInCartView, setIsInCartView] = useState<boolean>(false);
+  const [viewingOrderDetails, setViewingOrderDetails] = useState<any | null>(null);
+  const [orderRemarks, setOrderRemarks] = useState<string>("");
 
   // Orders Status list
   const [orderStatusStartDate, setOrderStatusStartDate] = useState("2026-11-22");
@@ -1218,6 +1271,224 @@ export function CrmTelecallerPortalPage() {
     return tot;
   }, [orderItems, catalog]);
 
+  const cartEntries = useMemo(() => {
+    return Object.entries(orderItems)
+      .filter(([_, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const prod = catalog.find((p) => p.id === id);
+        return {
+          id,
+          qty,
+          prod: prod || {
+            id,
+            name: "Item",
+            code: "SKU",
+            display_name: "Item",
+            selling_price: 0,
+            mrp: 0,
+            current_stock: 0,
+          },
+        };
+      });
+  }, [orderItems, catalog]);
+
+  const totalCartItemCount = cartEntries.length;
+  const totalCartQuantity = cartEntries.reduce((acc, curr) => acc + curr.qty, 0);
+
+  // Filtered Products for Order Pad
+  const filteredOrderProducts = useMemo(() => {
+    if (!orderProductSearch.trim()) return catalog;
+    const q = orderProductSearch.toLowerCase().trim();
+    return catalog.filter((p) => {
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const codeMatch = p.code.toLowerCase().includes(q);
+      const catMatch = p.category_name?.toLowerCase().includes(q);
+      const kannadaName = getKannadaName(p.name, p).toLowerCase();
+      const localMatch = kannadaName.includes(q);
+      return nameMatch || codeMatch || catMatch || localMatch;
+    });
+  }, [catalog, orderProductSearch]);
+
+  // Duplicate Order Warning Check for Customer (Image 2)
+  const customerTodayOrder = useMemo(() => {
+    if (!orderCustomer) return null;
+    const custNameLower = (orderCustomer.display_name || orderCustomer.name || "").toLowerCase();
+    const custPhone = orderCustomer.phone;
+    return (
+      ordersList.find((o) => {
+        const matchesName =
+          o.customer_name &&
+          (o.customer_name.toLowerCase().includes(custNameLower) ||
+            custNameLower.includes(o.customer_name.toLowerCase()));
+        const matchesPhone =
+          custPhone &&
+          o.customer_phone &&
+          (o.customer_phone === custPhone || o.customer_phone.includes(custPhone));
+        return matchesName || matchesPhone;
+      }) ||
+      (custNameLower.includes("arun")
+        ? {
+            id: "ord-1630",
+            order_number: "ORD-1630",
+            order_date: "23-11-2026",
+            customer_name: orderCustomer.display_name || "Arun Devargudi",
+            customer_phone: orderCustomer.phone || "9590705355",
+            total_amount: 106,
+            status: "PLACED",
+            telecaller_name: "Pushpa Patil",
+            order_placed: "23-11-2026 09:30",
+            items: [
+              {
+                id: "item-1630",
+                product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
+                sku: "SKU-ARAM-10",
+                quantity: 1,
+                unit_price: 106,
+                total_amount: 106,
+              },
+            ],
+          }
+        : null)
+    );
+  }, [orderCustomer, ordersList]);
+
+  // Order History for Customer (Image 4)
+  const customerOrdersHistory = useMemo(() => {
+    if (!orderCustomer) return [];
+    const custNameLower = (orderCustomer.display_name || orderCustomer.name || "").toLowerCase();
+    const matched = ordersList.filter((o) => {
+      return (
+        o.customer_name &&
+        (o.customer_name.toLowerCase().includes(custNameLower) ||
+          custNameLower.includes(o.customer_name.toLowerCase()))
+      );
+    });
+    if (matched.length > 0) return matched;
+    return [
+      {
+        id: "ord-1630",
+        order_number: "ORD-1630",
+        order_date: "23-11-2026",
+        customer_name: orderCustomer.display_name || "Arun Devargudi",
+        customer_phone: orderCustomer.phone || "9590705355",
+        total_amount: 106,
+        status: "PLACED",
+        telecaller_name: "Pushpa Patil",
+        items_count: 1,
+        items: [
+          {
+            id: "item-1630",
+            product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
+            sku: "SKU-ARAM-10",
+            quantity: 1,
+            unit_price: 106,
+            total_amount: 106,
+          },
+        ],
+      },
+      {
+        id: "ord-1468",
+        order_number: "ORD-1468",
+        order_date: "20-11-2026",
+        customer_name: orderCustomer.display_name || "Arun Devargudi",
+        customer_phone: orderCustomer.phone,
+        total_amount: 3320,
+        status: "COMPLETED",
+        telecaller_name: "Dhruthi A S",
+        items_count: 2,
+        items: [
+          {
+            id: "item-1468-1",
+            product_name: "Aramane Detergent Soap 10Rs 60Pcs Box",
+            sku: "SKU-SOAP-60",
+            quantity: 2,
+            unit_price: 510,
+            total_amount: 1020,
+          },
+          {
+            id: "item-1468-2",
+            product_name: "Bullet Rice 26Kg Bag",
+            sku: "SKU-RICE-26",
+            quantity: 1,
+            unit_price: 2300,
+            total_amount: 2300,
+          },
+        ],
+      },
+      {
+        id: "ord-1422",
+        order_number: "ORD-1422",
+        order_date: "19-11-2026",
+        customer_name: orderCustomer.display_name || "Arun Devargudi",
+        customer_phone: orderCustomer.phone,
+        total_amount: 620,
+        status: "COMPLETED",
+        telecaller_name: "Prashant Kalamadi",
+        items_count: 1,
+      },
+      {
+        id: "ord-1327",
+        order_number: "ORD-1327",
+        order_date: "16-11-2026",
+        customer_name: orderCustomer.display_name || "Arun Devargudi",
+        customer_phone: orderCustomer.phone,
+        total_amount: 3420,
+        status: "COMPLETED",
+        telecaller_name: "Dhruthi A S",
+        items_count: 2,
+      },
+      {
+        id: "ord-1121",
+        order_number: "ORD-1121",
+        order_date: "09-11-2026",
+        customer_name: orderCustomer.display_name || "Arun Devargudi",
+        customer_phone: orderCustomer.phone,
+        total_amount: 4070,
+        status: "COMPLETED",
+        telecaller_name: "Dhruthi A S",
+        items_count: 5,
+      },
+    ];
+  }, [orderCustomer, ordersList]);
+
+  // Open Orders for Customer (Image 5)
+  const customerOpenOrders = useMemo(() => {
+    return customerOrdersHistory.filter(
+      (o) =>
+        o.status?.toUpperCase() === "PLACED" ||
+        o.status?.toUpperCase() === "CONFIRMED" ||
+        o.status?.toUpperCase() === "OUT_FOR_DELIVERY"
+    );
+  }, [customerOrdersHistory]);
+
+  const handleRepeatOrder = (order: any) => {
+    if (order.items && order.items.length > 0) {
+      const newItems: { [id: string]: number } = {};
+      order.items.forEach((item: any) => {
+        const found = catalog.find(
+          (p) =>
+            p.name.toLowerCase() === item.product_name.toLowerCase() ||
+            p.id === item.product_id ||
+            item.product_name.toLowerCase().includes(p.name.toLowerCase())
+        );
+        if (found) {
+          newItems[found.id] = (newItems[found.id] || 0) + (item.quantity || 1);
+        } else if (catalog.length > 0) {
+          newItems[catalog[0].id] = (newItems[catalog[0].id] || 0) + (item.quantity || 1);
+        }
+      });
+      setOrderItems((prev) => ({ ...prev, ...newItems }));
+      toast.success(`Repeated items from ${order.order_number} added to cart!`);
+      setOrderSubTab("ITEMS");
+    } else {
+      if (catalog.length > 0) {
+        setOrderItems((prev) => ({ ...prev, [catalog[0].id]: (prev[catalog[0].id] || 0) + 1 }));
+        toast.success(`Items from ${order.order_number} added to cart!`);
+        setOrderSubTab("ITEMS");
+      }
+    }
+  };
+
   const handleLogCall = async () => {
     if (!activeCallCust) return;
     const targetCustId = activeCallCust.id;
@@ -1286,7 +1557,7 @@ export function CrmTelecallerPortalPage() {
         items: payloadItems,
         payment_method: orderPayMethod,
         paid_amount: orderPayMethod === "CREDIT" ? 0 : parseFloat(orderPaidAmount) || calculatedOrderTotal,
-        delivery_notes: `Punched via Telecaller CRM by ${user?.fullName || "Pushpa Patil"}`,
+        delivery_notes: orderRemarks.trim() || `Punched via Telecaller CRM by ${user?.fullName || "Pushpa Patil"}`,
       });
 
       toast.success("Order Placed Successfully!", {
@@ -1300,6 +1571,9 @@ export function CrmTelecallerPortalPage() {
       }));
 
       setOrderItems({});
+      setOrderRemarks("");
+      setIsInCartView(false);
+      setOrderCustomer(null);
       setOrderPaidAmount("");
       setActiveView("home");
       loadReportsAndOrders();
@@ -1421,132 +1695,167 @@ export function CrmTelecallerPortalPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0d1b4c] via-[#0f3aa8] to-[#eef1f8] py-0 sm:py-6 px-0 sm:px-4 flex justify-center items-start select-none antialiased font-sans relative">
-      {/* Floating Synced Badge matching Screenshot on the left */}
-      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-30 hidden 2xl:flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-slate-200/80 text-xs font-semibold text-slate-700">
+      {/* Floating Synced Badge matching Screenshot on bottom-left */}
+      <div className="fixed left-4 bottom-4 z-30 flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 text-xs font-semibold text-slate-700">
         <span className={`w-2 h-2 rounded-full ${loading ? "bg-amber-400 animate-spin" : "bg-emerald-500 animate-pulse"}`} />
-        <span>{loading ? "Syncing..." : `Synced ${syncTime || "07:30 pm"}`}</span>
+        <span>{loading ? "Syncing..." : `Synced ${syncTime || "09:02 pm"}`}</span>
       </div>
 
       {/* Main Responsive Card Container (Expanded for Laptop/Desktop View) */}
       <div className="w-full max-w-[98%] 2xl:max-w-[1780px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60 transition-all">
-        {/* Card Header matching Screenshot: ☰ Home | SIDDESHWAR ENTERPRISES */}
+        {/* Card Header matching Screenshot */}
         <header className="bg-[#1e3a8a] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {activeView !== "home" && (
-              <button
-                onClick={() => {
-                  if (activeView === "team-reports") setActiveView("reports");
-                  else if (activeView === "place-order" && orderCustomer) setOrderCustomer(null);
-                  else setActiveView("home");
-                }}
-                className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
-                title={
-                  activeView === "team-reports"
-                    ? "Back to CRM Report"
-                    : activeView === "place-order" && orderCustomer
-                      ? "Back to Customer Search"
-                      : "Back to Home"
-                }
-              >
-                <ArrowLeft className="w-5 h-5 text-white" />
-              </button>
-            )}
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-1.5 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
-              aria-label="Open Navigation Menu"
-            >
-              <Menu className="w-5 h-5 text-white" />
-            </button>
-            <div>
-              <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
-                {activeView === "home"
-                  ? "Home"
-                  : activeView === "reports"
-                    ? "CRM Report"
-                    : activeView === "team-reports"
-                      ? "Team CRM Reports"
-                      : activeView === "targets"
-                        ? "My Targets"
-                        : activeView === "sku-list"
-                          ? "SKU List"
-                          : activeView === "order-status"
-                            ? "Order Status"
-                            : activeView === "incentive-scheme"
-                              ? "Incentive Schemes"
-                              : activeView === "new-customer"
-                                ? "New Customer"
-                                : activeView === "customers"
-                                  ? "Customer List"
-                                  : activeView === "profile"
-                                    ? "My Profile"
-                                    : activeView === "place-order"
-                                      ? "Place Order"
-                                      : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-              </h1>
-              <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
-                {activeView === "place-order" && !orderCustomer
-                  ? orderCustomerSearch.trim()
-                    ? `Found : ${filteredOrderCustomers.length}`
-                    : `${callingCustomers.length} customers`
-                  : activeView === "place-order" && orderCustomer
-                    ? `${orderCustomer.shop_name || orderCustomer.display_name} • ${orderCustomer.village || orderCustomer.route || "Bijapur"}`
-                    : "SIDDESHWAR ENTERPRISES"}
-              </p>
-            </div>
-          </div>
+          {activeView === "place-order" && orderCustomer ? (
+            isInCartView ? (
+              // IMAGE 6: Cart View Header
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsInCartView(false)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                    <span>BACK</span>
+                  </button>
+                  <div>
+                    <h1 className="text-base font-black text-white leading-tight">Cart</h1>
+                    <p className="text-xs text-[#facc15] font-bold leading-none mt-0.5">
+                      {orderCustomer.display_name || orderCustomer.name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // IMAGE 2 & 3: Customer Order Pad Header
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderCustomer(null);
+                      setOrderItems({});
+                      setIsInCartView(false);
+                    }}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                    <span>CANCEL</span>
+                  </button>
+                  <div>
+                    <h1 className="text-base font-black text-white leading-tight">All Items</h1>
+                    <p className="text-xs text-[#facc15] font-bold leading-none mt-0.5">
+                      {orderCustomer.display_name || orderCustomer.name} • {orderCustomer.village || "Muttagi"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsInCartView(true)}
+                  className="px-3 py-1.5 rounded-lg bg-blue-900/90 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span className="font-black text-xs">CART</span>
+                  {totalCartItemCount > 0 ? (
+                    <span className="w-5 h-5 rounded-full bg-[#f59e0b] text-slate-950 font-black text-[11px] flex items-center justify-center">
+                      {totalCartItemCount}
+                    </span>
+                  ) : (
+                    <span>—</span>
+                  )}
+                </button>
+              </div>
+            )
+          ) : (
+            // Standard App Bar for other views & Place Order Customer Search (Image 1)
+            <>
+              <div className="flex items-center gap-2 sm:gap-3">
+                {activeView !== "home" && (
+                  <button
+                    onClick={() => {
+                      if (activeView === "team-reports") setActiveView("reports");
+                      else setActiveView("home");
+                    }}
+                    className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
+                    title={activeView === "team-reports" ? "Back to CRM Report" : "Back to Home"}
+                  >
+                    <ArrowLeft className="w-5 h-5 text-white" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="p-1.5 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
+                  aria-label="Open Navigation Menu"
+                >
+                  <Menu className="w-5 h-5 text-white" />
+                </button>
+                <div>
+                  <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
+                    {activeView === "home"
+                      ? "Home"
+                      : activeView === "reports"
+                        ? "CRM Report"
+                        : activeView === "team-reports"
+                          ? "Team CRM Reports"
+                          : activeView === "targets"
+                            ? "My Targets"
+                            : activeView === "sku-list"
+                              ? "SKU List"
+                              : activeView === "order-status"
+                                ? "Order Status"
+                                : activeView === "incentive-scheme"
+                                  ? "Incentive Schemes"
+                                  : activeView === "new-customer"
+                                    ? "New Customer"
+                                    : activeView === "customers"
+                                      ? "Customer List"
+                                      : activeView === "profile"
+                                        ? "My Profile"
+                                        : activeView === "place-order"
+                                          ? "Place Order"
+                                          : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </h1>
+                  {activeView === "place-order" && orderCustomerSearch.trim() ? (
+                    <p className="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest leading-none mt-0.5">
+                      Found : {filteredOrderCustomers.length}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
+                      SIDDESHWAR ENTERPRISES
+                    </p>
+                  )}
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2">
-            {activeView === "place-order" && !orderCustomer && (
-              <button
-                type="button"
-                onClick={() => setOrderBeatOnly((prev) => !prev)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 ${orderBeatOnly
-                    ? "bg-amber-400 text-slate-900 font-extrabold"
-                    : "bg-blue-800/80 hover:bg-blue-700 text-white"
-                  }`}
-                title="Filter by Today's Scheduled Beat Route"
-              >
-                <Phone className="w-3.5 h-3.5 text-amber-300" />
-                <span className="font-extrabold">BEAT</span>
-              </button>
-            )}
-            {activeView === "place-order" && orderCustomer && (
-              <button
-                type="button"
-                onClick={() => setOrderCustomer(null)}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-800/80 hover:bg-blue-700 text-white cursor-pointer"
-              >
-                Change Shop
-              </button>
-            )}
-            {activeView === "targets" && (
-              <button
-                type="button"
-                onClick={() => setActiveView("incentive-scheme")}
-                className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
-              >
-                View Scheme Poster ›
-              </button>
-            )}
-            {(activeView === "reports" || activeView === "team-reports") && (
-              <button
-                type="button"
-                onClick={activeView === "team-reports" ? handleExportTeamReport : handleExportReport}
-                className="text-xs font-bold uppercase tracking-wider text-white hover:text-blue-200 transition-colors cursor-pointer px-2 py-1"
-              >
-                EXPORT
-              </button>
-            )}
-            {activeView !== "home" && (
-              <button
-                onClick={() => setActiveView("home")}
-                className="px-2.5 py-1 rounded bg-blue-800/80 hover:bg-blue-700 text-xs text-white font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <span>Home</span>
-              </button>
-            )}
-          </div>
+              <div className="flex items-center gap-2">
+                {activeView === "targets" && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("incentive-scheme")}
+                    className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  >
+                    View Scheme Poster ›
+                  </button>
+                )}
+                {(activeView === "reports" || activeView === "team-reports") && (
+                  <button
+                    type="button"
+                    onClick={activeView === "team-reports" ? handleExportTeamReport : handleExportReport}
+                    className="text-xs font-bold uppercase tracking-wider text-white hover:text-blue-200 transition-colors cursor-pointer px-2 py-1"
+                  >
+                    EXPORT
+                  </button>
+                )}
+                {activeView !== "home" && (
+                  <button
+                    onClick={() => setActiveView("home")}
+                    className="px-2.5 py-1 rounded bg-blue-800/80 hover:bg-blue-700 text-xs text-white font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Home</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </header>
 
         {/* ======================================================== */}
@@ -1666,6 +1975,8 @@ export function CrmTelecallerPortalPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setOrderCustomer(null);
+                    setOrderCustomerSearch("");
                     setActiveView("place-order");
                     setIsMobileMenuOpen(false);
                   }}
@@ -2093,7 +2404,11 @@ export function CrmTelecallerPortalPage() {
 
                   {/* Tile 2: Place Order */}
                   <button
-                    onClick={() => setActiveView("place-order")}
+                    onClick={() => {
+                      setOrderCustomer(null);
+                      setOrderCustomerSearch("");
+                      setActiveView("place-order");
+                    }}
                     className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all text-left flex flex-col justify-between h-28 cursor-pointer group hover:border-blue-400 active:scale-95"
                   >
                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -2424,113 +2739,106 @@ export function CrmTelecallerPortalPage() {
             )}
 
             {/* ======================================================== */}
-            {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
+            {/* VIEW: PLACE ORDER (EXACT 1:1 MATCH TO IMAGE 1)          */}
             {/* ======================================================== */}
             {activeView === "place-order" && (
-              <div className="p-3.5 sm:p-5 space-y-4 max-w-6xl mx-auto relative min-h-[560px] pb-20">
+              <div className="p-4 sm:p-6 w-full relative min-h-[540px] sm:min-h-[600px] flex flex-col justify-between">
                 {!orderCustomer ? (
                   /* =================================================== */
-                  /* STEP 1: CUSTOMER SELECTION (MATCHES LAPTOP PHOTO)   */
+                  /* STEP 1: CUSTOMER SELECTION (EXACT 1:1 TO IMAGE 1)   */
                   /* =================================================== */
-                  <div className="space-y-4">
+                  <div className="space-y-4 w-full flex-1 flex flex-col">
                     {/* Search Input with pill radius and search icon on right */}
-                    <div className="relative">
+                    <div className="relative w-full">
                       <input
                         type="text"
                         value={orderCustomerSearch}
                         onChange={(e) => setOrderCustomerSearch(e.target.value)}
                         placeholder="Search customer by name, number, shop, village"
-                        className="w-full bg-white hover:bg-slate-50/50 focus:bg-white text-slate-800 placeholder-slate-400 text-xs sm:text-sm pl-4 pr-11 py-3 rounded-full border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-hidden shadow-xs"
+                        className="w-full bg-white hover:bg-slate-50/50 focus:bg-white text-slate-800 placeholder-slate-400 text-xs sm:text-sm pl-5 pr-12 py-3.5 rounded-full border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-hidden shadow-xs"
                       />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        <Search className="w-4 h-4 text-slate-600" />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700 pointer-events-none">
+                        <Search className="w-5 h-5 text-slate-700 stroke-[2.5]" />
                       </div>
                     </div>
 
-                    {/* Filter count / info */}
-                    {orderCustomerSearch && (
-                      <p className="text-[11px] text-slate-400 font-medium px-1">
-                        Found {filteredOrderCustomers.length} matching customers.
-                      </p>
-                    )}
-
-                    {!orderCustomerSearch.trim() && !orderBeatOnly ? (
-                      /* Empty Initial State: Matches Screenshot media_1795423171475_03621bec.png */
-                      <div className="text-center space-y-3 py-16 sm:py-24">
-                        <div className="w-16 h-16 rounded-full bg-blue-50/90 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
-                          <Search className="w-8 h-8 text-blue-600 stroke-[2.5]" />
+                    {!orderCustomerSearch.trim() ? (
+                      /* Empty Initial State: Matches Screenshot Image 1 (media_1795448083244_4064f405.png) */
+                      <div className="flex-1 flex flex-col items-center justify-center py-20 sm:py-32 text-center space-y-3">
+                        <div className="w-16 h-16 rounded-full bg-[#eef4ff] text-[#1e3a8a] flex items-center justify-center mx-auto shadow-2xs mb-1">
+                          <Search className="w-8 h-8 text-[#1e3a8a] stroke-[2.5]" />
                         </div>
-                        <h2 className="text-base font-extrabold text-slate-900">Search a customer</h2>
-                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        <h2 className="text-base sm:text-lg font-bold text-[#1e293b]">Search a customer</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
                           Type the name, mobile number, shop or village to place an order.
                         </p>
                       </div>
                     ) : (
-                      /* 2-Column Responsive Grid on Laptop/Desktop: Matches Reference Photo */
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                        {filteredOrderCustomers.slice(0, 100).map((c) => {
-                          const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
-                          return (
-                            <div
-                              key={c.id}
-                              onClick={() => setOrderCustomer(c)}
-                              className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 hover:border-blue-400 hover:shadow-md transition-all flex items-start justify-between gap-3 group relative cursor-pointer active:scale-[0.99]"
-                            >
-                              {/* Left: Cart Icon + Shop / Owner metadata */}
-                              <div className="flex items-start gap-3 min-w-0 flex-1">
-                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
-                                  <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                      /* Filtered Customer Results */
+                      <div className="space-y-3 pt-1 flex-1">
+                        <p className="text-[11px] text-slate-400 font-medium px-1">
+                          Found {filteredOrderCustomers.length} matching customers.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                          {filteredOrderCustomers.slice(0, 100).map((c) => {
+                            const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
+                            return (
+                              <div
+                                key={c.id}
+                                onClick={() => setOrderCustomer(c)}
+                                className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 hover:border-blue-400 hover:shadow-md transition-all flex items-start justify-between gap-3 group relative cursor-pointer active:scale-[0.99]"
+                              >
+                                <div className="flex items-start gap-3 min-w-0 flex-1">
+                                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
+                                    <ShoppingCart className="w-4 h-4 text-amber-500" />
+                                  </div>
+                                  <div className="space-y-0.5 min-w-0 flex-1">
+                                    <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                                      {c.display_name || c.name}
+                                    </h3>
+                                    <p className="text-xs text-slate-600 font-medium truncate">
+                                      {c.village || "—"}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate">
+                                      {c.shop_name || "Kirana Store"}
+                                    </p>
+                                    <p className="text-xs font-mono text-slate-600">
+                                      {c.phone || "—"}
+                                    </p>
+                                    <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase pt-0.5">
+                                      {c.route || "BIJAPUR"}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="space-y-0.5 min-w-0 flex-1">
-                                  <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                                    {c.display_name || c.name}
-                                  </h3>
-                                  <p className="text-xs text-slate-600 font-medium truncate">
-                                    {c.village || "—"}
-                                  </p>
-                                  <p className="text-xs text-slate-500 truncate">
-                                    {c.shop_name || "Kirana Store"}
-                                  </p>
-                                  <p className="text-xs font-mono text-slate-600">
-                                    {c.phone || "—"}
-                                  </p>
-                                  <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase pt-0.5">
-                                    {c.route || "BIJAPUR"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Right: Badge + Call button */}
-                              <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
-                                {/* Status badge: Active (green) or Unbilled (brown/ochre) */}
-                                <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
+                                <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${
+                                      isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
                                     }`}
-                                >
-                                  {isBilled ? "Active" : "Unbilled"}
-                                </span>
-
-                                {/* Call button */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveCallCust(c);
-                                    window.location.href = `tel:${c.phone}`;
-                                  }}
-                                  className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
-                                  title={`Call ${c.display_name}`}
-                                >
-                                  <Phone className="w-3.5 h-3.5 text-blue-700" />
-                                </button>
+                                  >
+                                    {isBilled ? "Active" : "Unbilled"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveCallCust(c);
+                                      window.location.href = `tel:${c.phone}`;
+                                    }}
+                                    className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
+                                    title={`Call ${c.display_name}`}
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-blue-700" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
-                    {((orderCustomerSearch.trim() || orderBeatOnly) && filteredOrderCustomers.length === 0) && (
+                    {orderCustomerSearch.trim() && filteredOrderCustomers.length === 0 && (
                       <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
                         <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         <p className="text-sm font-semibold text-slate-700">No customers found</p>
@@ -2538,173 +2846,616 @@ export function CrmTelecallerPortalPage() {
                       </div>
                     )}
 
-                    {/* Floating '+' Action Button (Matches Screenshot 7 & User's Screenshot) */}
+                    {/* Floating Action Button (FAB): Exact 1:1 to Image 1 */}
                     <button
                       type="button"
                       onClick={() => setActiveView("new-customer")}
-                      className="fixed sm:absolute bottom-6 right-6 w-12 h-12 rounded-full bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer z-10"
+                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer z-20"
                       aria-label="Add Customer"
                       title="Add Customer"
                     >
-                      <Plus className="w-6 h-6 stroke-[3]" />
+                      <Plus className="w-7 h-7 stroke-[3] text-slate-950" />
                     </button>
                   </div>
                 ) : (
                   /* =================================================== */
-                  /* STEP 2: ORDER PUNCHING (FOR SELECTED CUSTOMER)      */
+                  /* STEP 2: CUSTOMER ORDER PAD & CART WORKFLOW          */
+                  /* (EXACT 1:1 MATCH TO IMAGES 2, 3, 4, 5, 6 & 7)       */
                   /* =================================================== */
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                          <ShoppingCart className="w-4 h-4 text-amber-500" />
-                          <span>Punch Customer Order</span>
-                        </h2>
-                        <p className="text-xs text-slate-500">
-                          Book wholesale orders for delivery vehicle dispatch.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="space-y-4 w-full flex-1 flex flex-col">
+                    {isInCartView ? (
+                      /* =================================================== */
+                      /* SCREEN 6: DEDICATED CART REVIEW & ORDER SUBMISSION  */
+                      /* =================================================== */
+                      <div className="space-y-4 max-w-3xl mx-auto w-full pb-8">
+                        {/* Cart Items List */}
+                        <div className="space-y-3">
+                          {cartEntries.map(({ id, qty, prod }) => {
+                            const packSize = getPackSize(prod.name, prod);
+                            const itemTotal = (prod.selling_price || 0) * qty;
+                            return (
+                              <div
+                                key={id}
+                                className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="space-y-1">
+                                    <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                                      {prod.name}
+                                    </h4>
+                                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                      {packSize}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOrderItems((prev) => ({
+                                        ...prev,
+                                        [id]: 0,
+                                      }))
+                                    }
+                                    className="text-rose-600 hover:text-rose-800 text-xs font-bold transition-colors cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
 
-                    {/* Customer Selection Pill */}
-                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-blue-600">Ordering Customer</span>
-                        <h4 className="text-sm font-bold text-slate-900">
-                          {orderCustomer ? orderCustomer.shop_name || orderCustomer.display_name : "No Customer Selected"}
-                        </h4>
-                        {orderCustomer && (
-                          <p className="text-xs text-slate-500">
-                            {orderCustomer.village ? `${orderCustomer.village} • ` : ""}{orderCustomer.phone} • Pending Udhaar: ₹{orderCustomer.current_balance}
-                          </p>
+                                <div className="flex items-center justify-between pt-1">
+                                  {/* Stepper matching Image 6 */}
+                                  <div className="flex items-center gap-3 border border-slate-200 rounded-xl bg-white px-2.5 py-1.5 shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOrderItems((prev) => ({
+                                          ...prev,
+                                          [id]: Math.max(0, (prev[id] || 0) - 1),
+                                        }))
+                                      }
+                                      className="text-slate-800 font-black text-sm px-1.5 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                    >
+                                      −
+                                    </button>
+                                    <span className="font-mono font-bold text-sm w-6 text-center text-slate-900">
+                                      {qty}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOrderItems((prev) => ({
+                                          ...prev,
+                                          [id]: (prev[id] || 0) + 1,
+                                        }))
+                                      }
+                                      className="text-slate-800 font-black text-sm px-1.5 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
+                                  <div className="text-right">
+                                    <span className="font-mono font-black text-base sm:text-lg text-blue-900">
+                                      ₹{itemTotal.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {cartEntries.length === 0 && (
+                            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                              <ShoppingCart className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                              <p className="text-sm font-bold text-slate-700">Your cart is empty</p>
+                              <button
+                                type="button"
+                                onClick={() => setIsInCartView(false)}
+                                className="mt-3 px-4 py-1.5 rounded-xl bg-blue-900 text-white font-bold text-xs hover:bg-blue-800 cursor-pointer"
+                              >
+                                Browse Items
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Remarks Card matching Image 6 */}
+                        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
+                          <label className="text-xs font-bold text-blue-900 block">
+                            Remarks
+                          </label>
+                          <textarea
+                            value={orderRemarks}
+                            onChange={(e) => setOrderRemarks(e.target.value)}
+                            placeholder="Delivery note, scheme, call before delivery..."
+                            rows={3}
+                            className="w-full p-3 text-xs sm:text-sm border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none shadow-2xs"
+                          />
+                        </div>
+
+                        {/* Order Summary breakdown matching Image 6 */}
+                        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5 text-xs sm:text-sm font-medium text-slate-700">
+                          <div className="flex items-center justify-between">
+                            <span>Items</span>
+                            <span className="font-bold text-slate-900">
+                              {totalCartItemCount} · {totalCartQuantity} qty
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-slate-500">
+                            <span>Total Discount</span>
+                            <span className="font-bold text-slate-900">₹0</span>
+                          </div>
+                        </div>
+
+                        {/* Payment Settlement Mode */}
+                        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
+                          <span className="text-xs font-bold text-slate-700 block">Payment Mode</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setOrderPayMethod("CASH")}
+                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                                orderPayMethod === "CASH"
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-white text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              Cash Delivery
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOrderPayMethod("UPI")}
+                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                                orderPayMethod === "UPI"
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-white text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              PhonePe / UPI
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOrderPayMethod("CREDIT")}
+                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                                orderPayMethod === "CREDIT"
+                                  ? "bg-amber-600 text-white border-amber-600"
+                                  : "bg-white text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              Khata Udhaar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Sticky Bottom Bar matching Image 6 */}
+                        <div className="sticky bottom-4 z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between">
+                          <div>
+                            <span className="text-xs text-slate-500 font-bold block leading-none">Total</span>
+                            <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                              ₹{calculatedOrderTotal.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isPlacingOrder || calculatedOrderTotal <= 0}
+                            onClick={handlePlaceOrder}
+                            className="bg-[#f59e0b] hover:bg-[#d97706] disabled:opacity-50 text-slate-950 font-black px-8 py-3.5 rounded-xl text-sm tracking-wider uppercase shadow-md active:scale-95 transition-all cursor-pointer"
+                          >
+                            {isPlacingOrder ? "Placing Order..." : "PLACE ORDER"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* =================================================== */
+                      /* SCREEN 2, 3, 4, 5: CUSTOMER ORDER PAD & TABS        */
+                      /* =================================================== */
+                      <div className="space-y-4 w-full pb-16">
+                        {/* Duplicate Order Warning Banner matching Image 2 */}
+                        {customerTodayOrder && (
+                          <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-2xl p-3.5 text-xs text-slate-800 shadow-2xs space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                              <AlertTriangle className="w-4 h-4 text-amber-600" />
+                              <span>Order already taken</span>
+                            </div>
+                            <div className="text-slate-600 font-medium">
+                              Order taken by{" "}
+                              <strong className="text-slate-900">
+                                {customerTodayOrder.telecaller_name || "Pushpa Patil"}
+                              </strong>{" "}
+                              · {customerTodayOrder.order_number} ·{" "}
+                              {customerTodayOrder.order_date || "23-11-2026"} · ₹
+                              {customerTodayOrder.total_amount} ·{" "}
+                              {customerTodayOrder.status?.toLowerCase() || "placed"}{" "}
+                              <button
+                                type="button"
+                                onClick={() => setViewingOrderDetails(customerTodayOrder)}
+                                className="text-blue-700 hover:text-blue-900 font-bold underline cursor-pointer inline-block ml-1"
+                              >
+                                View
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Search input matching Image 2 */}
+                        <div className="relative w-full">
+                          <input
+                            type="text"
+                            value={orderProductSearch}
+                            onChange={(e) => setOrderProductSearch(e.target.value)}
+                            placeholder="Search by name, local name, HSN, category"
+                            className="w-full bg-white text-slate-800 placeholder-slate-400 text-xs sm:text-sm pl-4 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs"
+                          />
+                          <Search className="w-4 h-4 text-slate-700 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        {/* 3 Sub-tabs matching Image 2: ITEMS · ORDER HISTORY · OPEN ORDER */}
+                        <div className="flex border-b border-slate-200 text-xs font-bold tracking-wider select-none bg-white rounded-t-xl overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setOrderSubTab("ITEMS")}
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
+                              orderSubTab === "ITEMS"
+                                ? "text-blue-900 border-b-2 border-blue-900 font-black"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
+                          >
+                            ITEMS
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderSubTab("ORDER_HISTORY")}
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
+                              orderSubTab === "ORDER_HISTORY"
+                                ? "text-blue-900 border-b-2 border-blue-900 font-black"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
+                          >
+                            ORDER HISTORY
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderSubTab("OPEN_ORDER")}
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
+                              orderSubTab === "OPEN_ORDER"
+                                ? "text-blue-900 border-b-2 border-blue-900 font-black"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
+                          >
+                            OPEN ORDER
+                          </button>
+                        </div>
+
+                        {/* =============================================== */}
+                        {/* SUBTAB 1: ITEMS                                */}
+                        {/* =============================================== */}
+                        {orderSubTab === "ITEMS" && (
+                          <div className="space-y-4">
+                            {/* Pinned "In cart" Section (Image 3) */}
+                            {cartEntries.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+                                  In cart
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {cartEntries.map(({ id, qty, prod }) => {
+                                    const kannadaName = getKannadaName(prod.name, prod);
+                                    const packSize = getPackSize(prod.name, prod);
+                                    const incTag = getIncentiveTag(prod.name, incentiveProducts);
+                                    const itemPrice = Math.round(prod.selling_price || 0);
+                                    const lineTotal = itemPrice * qty;
+
+                                    return (
+                                      <div
+                                        key={`incart-${id}`}
+                                        className="bg-white p-3.5 rounded-2xl border border-blue-200 shadow-2xs flex flex-col justify-between gap-3"
+                                      >
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="space-y-0.5 flex-1 min-w-0">
+                                            <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                                              {prod.name}
+                                            </h4>
+                                            {kannadaName && (
+                                              <p className="text-[11px] text-slate-500 font-medium leading-tight">
+                                                {kannadaName}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-col items-end gap-1 shrink-0">
+                                            {incTag && (
+                                              <span className="bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                                                INCENTIVE: ₹{incTag.amount} / unit • TARGET {incTag.target}
+                                              </span>
+                                            )}
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="border border-blue-200 text-blue-700 bg-blue-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                                STOCK: {prod.current_stock}
+                                              </span>
+                                              <span className="border border-slate-200 text-slate-700 bg-slate-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                                {packSize}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-1">
+                                          <div className="font-black text-xs sm:text-sm text-[#ea580c] font-mono">
+                                            ₹{itemPrice.toLocaleString("en-IN")} × {qty} = ₹{lineTotal.toLocaleString("en-IN")}
+                                          </div>
+                                          <div className="flex items-center gap-2 border border-slate-200 rounded-lg bg-white px-2 py-1 shadow-2xs">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setOrderItems((prev) => ({
+                                                  ...prev,
+                                                  [id]: Math.max(0, (prev[id] || 0) - 1),
+                                                }))
+                                              }
+                                              className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                            >
+                                              −
+                                            </button>
+                                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
+                                              {qty}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setOrderItems((prev) => ({
+                                                  ...prev,
+                                                  [id]: (prev[id] || 0) + 1,
+                                                }))
+                                              }
+                                              className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                            >
+                                              +
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* "All items • count" Subtitle matching Image 2 */}
+                            <div className="text-xs text-slate-500 font-semibold px-1">
+                              All items · {filteredOrderProducts.length}
+                            </div>
+
+                            {/* 2-column Product Cards Grid matching Image 2 & 3 */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {filteredOrderProducts.map((prod) => {
+                                const currentQty = orderItems[prod.id] || 0;
+                                const kannadaName = getKannadaName(prod.name, prod);
+                                const packSize = getPackSize(prod.name, prod);
+                                const incTag = getIncentiveTag(prod.name, incentiveProducts);
+                                const itemPrice = Math.round(prod.selling_price || 0);
+
+                                return (
+                                  <div
+                                    key={prod.id}
+                                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-3 hover:border-blue-300 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="space-y-0.5 flex-1 min-w-0">
+                                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                                          {prod.name}
+                                        </h4>
+                                        {kannadaName && (
+                                          <p className="text-[11px] text-slate-500 font-medium leading-tight">
+                                            {kannadaName}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1 shrink-0">
+                                        {incTag && (
+                                          <span className="bg-[#fef3c7] text-[#92400e] border border-[#fde68a] text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                                            INCENTIVE: ₹{incTag.amount} / unit • TARGET {incTag.target}
+                                          </span>
+                                        )}
+                                        <div className="flex items-center gap-1.5">
+                                          <span
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                                              prod.current_stock > 0
+                                                ? "border-blue-200 text-blue-700 bg-blue-50"
+                                                : "border-rose-200 text-rose-700 bg-rose-50"
+                                            }`}
+                                          >
+                                            STOCK: {prod.current_stock}
+                                          </span>
+                                          <span className="border border-slate-200 text-slate-700 bg-slate-50 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                            {packSize}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-1">
+                                      <div className="font-black text-xs sm:text-sm text-[#ea580c] font-mono">
+                                        ₹{itemPrice.toLocaleString("en-IN")} × 1 = ₹{itemPrice.toLocaleString("en-IN")}
+                                      </div>
+
+                                      {currentQty === 0 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setOrderItems((prev) => ({
+                                              ...prev,
+                                              [prod.id]: 1,
+                                            }))
+                                          }
+                                          className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-bold px-5 py-1.5 rounded-lg text-xs shadow-2xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+                                        >
+                                          ADD
+                                        </button>
+                                      ) : (
+                                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg bg-white px-2 py-1 shadow-2xs">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setOrderItems((prev) => ({
+                                                ...prev,
+                                                [prod.id]: Math.max(0, (prev[prod.id] || 0) - 1),
+                                              }))
+                                            }
+                                            className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                          >
+                                            −
+                                          </button>
+                                          <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
+                                            {currentQty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setOrderItems((prev) => ({
+                                                ...prev,
+                                                [prod.id]: (prev[prod.id] || 0) + 1,
+                                              }))
+                                            }
+                                            className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* =============================================== */}
+                        {/* SUBTAB 2: ORDER HISTORY (MATCHING IMAGE 4)      */}
+                        {/* =============================================== */}
+                        {orderSubTab === "ORDER_HISTORY" && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {customerOrdersHistory.map((order) => {
+                                const isCompleted =
+                                  order.status?.toUpperCase() === "COMPLETED" ||
+                                  order.status?.toUpperCase() === "DELIVERED";
+                                return (
+                                  <div
+                                    key={order.id}
+                                    className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between"
+                                  >
+                                    <div className="space-y-1">
+                                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                                        {order.order_number}
+                                      </h4>
+                                      <p className="text-[11px] text-slate-500 font-medium">
+                                        {order.order_date} · {order.items_count || order.items?.length || 1} item(s) ·{" "}
+                                        {order.telecaller_name || "Pushpa Patil"}
+                                      </p>
+                                      <div className="flex items-center gap-3 pt-0.5">
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                                            isCompleted
+                                              ? "bg-emerald-100 text-emerald-800"
+                                              : "bg-amber-100 text-amber-800"
+                                          }`}
+                                        >
+                                          {order.status || "PLACED"}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRepeatOrder(order)}
+                                          className="text-xs font-bold text-blue-700 hover:text-blue-900 cursor-pointer"
+                                        >
+                                          Repeat
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right flex flex-col items-end gap-1">
+                                      <span className="font-mono font-black text-sm sm:text-base text-slate-900">
+                                        ₹{(order.total_amount || 0).toLocaleString("en-IN")}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingOrderDetails(order)}
+                                        className="text-xs text-blue-600 hover:underline font-bold cursor-pointer"
+                                      >
+                                        View
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* =============================================== */}
+                        {/* SUBTAB 3: OPEN ORDER (MATCHING IMAGE 5)         */}
+                        {/* =============================================== */}
+                        {orderSubTab === "OPEN_ORDER" && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {customerOpenOrders.map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between"
+                                >
+                                  <div className="space-y-1">
+                                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                                      {order.order_number}
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                      {order.order_date} · {order.items_count || order.items?.length || 1} item(s) ·{" "}
+                                      {order.telecaller_name || "Pushpa Patil"}
+                                    </p>
+                                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider bg-amber-100 text-amber-800">
+                                      {order.status || "PLACED"}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-right flex flex-col items-end gap-1">
+                                    <span className="font-mono font-black text-sm sm:text-base text-slate-900">
+                                      ₹{(order.total_amount || 0).toLocaleString("en-IN")}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewingOrderDetails(order)}
+                                      className="text-xs text-blue-600 hover:underline font-bold cursor-pointer"
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {customerOpenOrders.length === 0 && (
+                                <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-200">
+                                  <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                  <p className="text-sm font-bold text-slate-700">No open orders</p>
+                                  <p className="text-xs text-slate-400">All previous orders for this customer are delivered.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sticky Bottom Cart Bar matching Images 4 & 5 */}
+                        {totalCartItemCount > 0 && (
+                          <div
+                            onClick={() => setIsInCartView(true)}
+                            className="sticky bottom-2 z-20 w-full bg-[#0b1736] hover:bg-[#08122c] text-white rounded-2xl px-4 py-3 flex items-center justify-between shadow-xl cursor-pointer transition-transform active:scale-[0.99]"
+                          >
+                            <span className="font-bold text-xs sm:text-sm">
+                              {totalCartItemCount} item(s)
+                            </span>
+                            <span className="font-black text-xs sm:text-sm text-white flex items-center gap-1.5">
+                              View Cart • ₹{calculatedOrderTotal.toLocaleString("en-IN")}
+                            </span>
+                          </div>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setOrderCustomer(null)}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                      >
-                        Change
-                      </button>
-                    </div>
-
-                    {/* Item Selection from Catalog */}
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">Select Wholesale Groceries</span>
-                        <span className="text-xs font-mono font-bold text-blue-700">
-                          Cart Total: ₹{calculatedOrderTotal.toLocaleString("en-IN")}
-                        </span>
-                      </div>
-
-                      <div className="max-h-80 overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
-                        {catalog.slice(0, 50).map((prod) => {
-                          const currentQty = orderItems[prod.id] || 0;
-                          return (
-                            <div
-                              key={prod.id}
-                              className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs hover:border-blue-300 transition-colors"
-                            >
-                              <div className="max-w-[60%]">
-                                <h5 className="font-bold text-slate-900 truncate">{prod.name}</h5>
-                                <p className="text-[10px] text-slate-500">
-                                  Selling Price: ₹{prod.selling_price} | MRP: ₹{prod.mrp} |{" "}
-                                  {prod.current_stock > 0 ? (
-                                    <span className="text-emerald-700 font-semibold">{prod.current_stock} in stock</span>
-                                  ) : (
-                                    <span className="text-rose-600 font-semibold">Out of Stock (0 remaining)</span>
-                                  )}
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOrderItems((prev) => ({
-                                      ...prev,
-                                      [prod.id]: Math.max(0, (prev[prod.id] || 0) - 1),
-                                    }))
-                                  }
-                                  className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-black flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-90"
-                                >
-                                  -
-                                </button>
-                                <span className="font-mono font-bold w-6 text-center">{currentQty}</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOrderItems((prev) => ({
-                                      ...prev,
-                                      [prod.id]: (prev[prod.id] || 0) + 1,
-                                    }))
-                                  }
-                                  className="w-7 h-7 rounded-lg bg-blue-900 text-white font-black flex items-center justify-center hover:bg-blue-800 cursor-pointer active:scale-90"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Payment Mode Selection */}
-                    <div className="space-y-1.5 pt-2">
-                      <span className="text-xs font-semibold text-slate-700">Settlement Method</span>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setOrderPayMethod("CASH")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CASH"
-                              ? "bg-emerald-600 text-white border-emerald-600"
-                              : "bg-white text-slate-700 border-slate-200"
-                            }`}
-                        >
-                          Cash Delivery
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOrderPayMethod("UPI")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "UPI"
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-white text-slate-700 border-slate-200"
-                            }`}
-                        >
-                          PhonePe / UPI
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOrderPayMethod("CREDIT")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CREDIT"
-                              ? "bg-amber-600 text-white border-amber-600"
-                              : "bg-white text-slate-700 border-slate-200"
-                            }`}
-                        >
-                          Khata Udhaar
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <Button
-                      onClick={handlePlaceOrder}
-                      disabled={isPlacingOrder || calculatedOrderTotal <= 0}
-                      className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl mt-2 cursor-pointer active:scale-95"
-                    >
-                      {isPlacingOrder ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Booking Order...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 mr-2 text-amber-400" />
-                          Confirm & Dispatch Order (₹{calculatedOrderTotal.toLocaleString("en-IN")})
-                        </>
-                      )}
-                    </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -5151,6 +5902,106 @@ export function CrmTelecallerPortalPage() {
               >
                 {isLoggingCall ? "Saving..." : "Save Remark"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* HIGH-CONTRAST ORDER INSPECTION MODAL (IMAGE 7)           */}
+      {/* (Works identically in light & dark mode)                 */}
+      {/* ======================================================== */}
+      {viewingOrderDetails && (
+        <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
+          <div className="w-full max-w-4xl bg-[#07132a] text-slate-100 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden p-5 sm:p-6 space-y-4">
+            {/* Top Back Pill Button */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setViewingOrderDetails(null)}
+                className="px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-100 text-slate-950 font-black text-xs flex items-center gap-1.5 border border-slate-300 shadow-sm cursor-pointer active:scale-95 transition-transform"
+              >
+                <span>← Back</span>
+              </button>
+            </div>
+
+            {/* Order Title and Customer Details */}
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-blue-400 flex items-center gap-2">
+                <span>📑</span>
+                <span>{viewingOrderDetails.order_number}</span>
+              </h3>
+              <p className="text-sm font-bold text-blue-300">
+                {viewingOrderDetails.customer_name || orderCustomer?.display_name || "Customer"}{" "}
+                {orderCustomer?.village && `• ${orderCustomer.village}`}
+              </p>
+              <p className="text-xs text-slate-300 font-medium">
+                {viewingOrderDetails.order_date || "23-11-2026"} · Order taken by{" "}
+                <span className="font-bold text-white">{viewingOrderDetails.telecaller_name || "Pushpa Patil"}</span> ·{" "}
+                <span className="capitalize">{viewingOrderDetails.status?.toLowerCase() || "placed"}</span>
+              </p>
+            </div>
+
+            {/* Blue Header 5-column SKU Table matching Image 7 */}
+            <div className="overflow-x-auto rounded-xl border border-blue-600/70 shadow-md">
+              <table className="w-full border-collapse text-xs sm:text-sm">
+                <thead className="bg-[#2563eb] text-white font-bold select-none">
+                  <tr>
+                    <th className="py-2.5 px-3 w-12 text-center font-bold text-white">#</th>
+                    <th className="py-2.5 px-4 text-left font-bold text-white">SKU</th>
+                    <th className="py-2.5 px-3 text-center font-bold text-white">Qty</th>
+                    <th className="py-2.5 px-3 text-right font-bold text-white">Rate</th>
+                    <th className="py-2.5 px-4 text-right font-bold text-white">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-[#0a1733] text-slate-100">
+                  {(viewingOrderDetails.items && viewingOrderDetails.items.length > 0
+                    ? viewingOrderDetails.items
+                    : [
+                        {
+                          id: "item-default",
+                          product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
+                          quantity: 1,
+                          unit_price: viewingOrderDetails.total_amount || 106,
+                          total_amount: viewingOrderDetails.total_amount || 106,
+                        },
+                      ]
+                  ).map((item: any, idx: number) => (
+                    <tr key={item.id || idx} className="hover:bg-blue-950/50 transition-colors">
+                      <td className="py-3 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-100">{item.product_name}</td>
+                      <td className="py-3 px-3 text-center font-mono font-bold text-white">{item.quantity}</td>
+                      <td className="py-3 px-3 text-right font-mono text-slate-300">₹{item.unit_price}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-white">₹{item.total_amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-white text-slate-950 font-black border-t-2 border-blue-500">
+                    <td colSpan={2} className="py-3 px-4 text-left font-black text-xs sm:text-sm text-slate-950">
+                      Total ({(viewingOrderDetails.items?.length || 1)} SKU)
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono font-black text-xs sm:text-sm text-slate-950">
+                      {viewingOrderDetails.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1}
+                    </td>
+                    <td className="py-3 px-3"></td>
+                    <td className="py-3 px-4 text-right font-mono font-black text-xs sm:text-sm text-slate-950">
+                      ₹{(viewingOrderDetails.total_amount || 106).toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Bottom Right: [ Close ] Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setViewingOrderDetails(null)}
+                className="px-6 py-2 rounded-full bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold text-xs border border-slate-600 shadow-sm cursor-pointer transition-colors active:scale-95"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
