@@ -1359,8 +1359,8 @@ export function CrmTelecallerPortalPage() {
         <span>{loading ? "Syncing..." : `Synced ${syncTime || "07:30 pm"}`}</span>
       </div>
 
-      {/* Main 820px Card Container matching Reference Screenshot */}
-      <div className="w-full max-w-[820px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60">
+      {/* Main Responsive Card Container (Expanded for Laptop/Desktop View) */}
+      <div className="w-full max-w-[820px] lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60 transition-all">
         {/* Card Header matching Screenshot: ☰ Home | SIDDESHWAR ENTERPRISES */}
         <header className="bg-[#1e3a8a] text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -2359,12 +2359,12 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
             {/* ======================================================== */}
             {activeView === "place-order" && (
-              <div className="p-3.5 sm:p-5 space-y-4 max-w-4xl mx-auto">
+              <div className="p-3.5 sm:p-5 space-y-4 max-w-6xl mx-auto relative min-h-[560px] pb-20">
                 {!orderCustomer ? (
                   /* =================================================== */
                   /* STEP 1: CUSTOMER SELECTION (MATCHES LAPTOP PHOTO)   */
                   /* =================================================== */
-                  <div className="space-y-3.5">
+                  <div className="space-y-4">
                     {/* Search Input with pill radius and search icon on right */}
                     <div className="relative">
                       <input
@@ -2380,82 +2380,106 @@ export function CrmTelecallerPortalPage() {
                     </div>
 
                     {/* Filter count / info */}
-                    {!orderCustomerSearch && (
+                    {orderCustomerSearch && (
                       <p className="text-[11px] text-slate-400 font-medium px-1">
-                        {orderBeatOnly ? "Showing today's Beat Route customers." : "Recent customers. Type to search all."}
+                        Found {filteredOrderCustomers.length} matching customers.
                       </p>
                     )}
 
-                    {/* 2-Column Responsive Grid on Laptop/Desktop matching screenshot */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                      {filteredOrderCustomers.slice(0, orderCustomerSearch ? 100 : 40).map((c) => {
-                        const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
-                        return (
-                          <div
-                            key={c.id}
-                            onClick={() => setOrderCustomer(c)}
-                            className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 hover:border-blue-400 hover:shadow-md transition-all flex items-start justify-between gap-3 group relative cursor-pointer active:scale-[0.99]"
-                          >
-                            {/* Left: Cart Icon + Shop / Owner metadata */}
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
-                                <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                    {!orderCustomerSearch.trim() && !orderBeatOnly ? (
+                      /* Empty Initial State: Matches Screenshot media_1795423171475_03621bec.png */
+                      <div className="text-center space-y-3 py-16 sm:py-24">
+                        <div className="w-16 h-16 rounded-full bg-blue-50/90 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
+                          <Search className="w-8 h-8 text-blue-600 stroke-[2.5]" />
+                        </div>
+                        <h2 className="text-base font-extrabold text-slate-900">Search a customer</h2>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                          Type the name, mobile number, shop or village to place an order.
+                        </p>
+                      </div>
+                    ) : (
+                      /* 2-Column Responsive Grid on Laptop/Desktop: Matches Reference Photo */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        {filteredOrderCustomers.slice(0, 100).map((c) => {
+                          const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => setOrderCustomer(c)}
+                              className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 hover:border-blue-400 hover:shadow-md transition-all flex items-start justify-between gap-3 group relative cursor-pointer active:scale-[0.99]"
+                            >
+                              {/* Left: Cart Icon + Shop / Owner metadata */}
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
+                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
+                                  <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                                </div>
+                                <div className="space-y-0.5 min-w-0 flex-1">
+                                  <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                                    {c.display_name || c.name}
+                                  </h3>
+                                  <p className="text-xs text-slate-600 font-medium truncate">
+                                    {c.village || "—"}
+                                  </p>
+                                  <p className="text-xs text-slate-500 truncate">
+                                    {c.shop_name || "Kirana Store"}
+                                  </p>
+                                  <p className="text-xs font-mono text-slate-600">
+                                    {c.phone || "—"}
+                                  </p>
+                                  <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase pt-0.5">
+                                    {c.route || "BIJAPUR"}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-0.5 min-w-0 flex-1">
-                                <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                                  {c.display_name || c.name}
-                                </h3>
-                                <p className="text-xs text-slate-600 font-medium truncate">
-                                  {c.village || "—"}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">
-                                  {c.shop_name || "Kirana Store"}
-                                </p>
-                                <p className="text-xs font-mono text-slate-600">
-                                  {c.phone || "—"}
-                                </p>
-                                <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase pt-0.5">
-                                  {c.route || "BIJAPUR"}
-                                </p>
+
+                              {/* Right: Badge + Call button */}
+                              <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
+                                {/* Status badge: Active (green) or Unbilled (brown/ochre) */}
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
+                                    }`}
+                                >
+                                  {isBilled ? "Active" : "Unbilled"}
+                                </span>
+
+                                {/* Call button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveCallCust(c);
+                                    window.location.href = `tel:${c.phone}`;
+                                  }}
+                                  className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
+                                  title={`Call ${c.display_name}`}
+                                >
+                                  <Phone className="w-3.5 h-3.5 text-blue-700" />
+                                </button>
                               </div>
                             </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                            {/* Right: Badge + Call button */}
-                            <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
-                              {/* Status badge: Active (green) or Unbilled (brown/ochre) */}
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
-                                  }`}
-                              >
-                                {isBilled ? "Active" : "Unbilled"}
-                              </span>
-
-                              {/* Call button */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveCallCust(c);
-                                  window.location.href = `tel:${c.phone}`;
-                                }}
-                                className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
-                                title={`Call ${c.display_name}`}
-                              >
-                                <Phone className="w-3.5 h-3.5 text-blue-700" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {filteredOrderCustomers.length === 0 && (
+                    {((orderCustomerSearch.trim() || orderBeatOnly) && filteredOrderCustomers.length === 0) && (
                       <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
                         <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         <p className="text-sm font-semibold text-slate-700">No customers found</p>
                         <p className="text-xs text-slate-400">Try searching with a different name, shop or phone number.</p>
                       </div>
                     )}
+
+                    {/* Floating '+' Action Button (Matches Screenshot 7 & User's Screenshot) */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveView("new-customer")}
+                      className="fixed sm:absolute bottom-6 right-6 w-12 h-12 rounded-full bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer z-10"
+                      aria-label="Add Customer"
+                      title="Add Customer"
+                    >
+                      <Plus className="w-6 h-6 stroke-[3]" />
+                    </button>
                   </div>
                 ) : (
                   /* =================================================== */

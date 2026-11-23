@@ -147,8 +147,8 @@ export function PlaceOrderWholesaleView() {
 
   return (
     <div className="min-h-[82vh] flex flex-col items-center justify-start py-4 sm:py-6 px-2 font-sans antialiased text-[#0f172a] relative">
-      {/* Centered Modal Card matching Reference App Screenshot 7 */}
-      <div className="w-full max-w-xl bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden flex flex-col min-h-[520px] relative">
+      {/* Centered Modal Card matching Reference App (Responsive for Laptop/Desktop) */}
+      <div className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden flex flex-col min-h-[560px] relative">
         {/* Top Navy Bar: < Place Order and 📞 BEAT */}
         <div className="bg-[#132038] text-white px-4 py-3.5 flex items-center justify-between">
           <button
@@ -210,27 +210,31 @@ export function PlaceOrderWholesaleView() {
               </button>
             </div>
           ) : (
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-3">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 Matching Customers ({filteredCustomers.length})
               </p>
-              {filteredCustomers.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => setActiveCustomerForOrder(c)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-slate-50/80 cursor-pointer transition-all"
-                >
-                  <div>
-                    <h3 className="font-extrabold text-xs text-slate-900">{c.name}</h3>
-                    <p className="text-[11px] text-slate-500">{c.shop} · {c.village}</p>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{c.phone} · Route: {c.route}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {filteredCustomers.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => setActiveCustomerForOrder(c)}
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all bg-white"
+                  >
+                    <div className="space-y-0.5 min-w-0 flex-1 pr-2">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">{c.name}</h3>
+                      <p className="text-xs text-slate-600 truncate">{c.village || "—"}</p>
+                      <p className="text-xs text-slate-500 truncate">{c.shop}</p>
+                      <p className="text-xs font-mono text-slate-600">{c.phone}</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{c.route}</p>
+                    </div>
+                    <button className="flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold px-3 py-2 rounded-xl shadow-2xs shrink-0 cursor-pointer">
+                      <ShoppingCart className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Order</span>
+                    </button>
                   </div>
-                  <button className="flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-2xs">
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Order</span>
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
