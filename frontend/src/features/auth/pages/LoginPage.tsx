@@ -505,18 +505,7 @@ export function LoginPage() {
                 </Button>
               </form>
 
-              {/* New phone? Create Owner account */}
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => navigate("/register")}
-                  className="text-[11px] font-bold text-[#1e3a8a] hover:underline cursor-pointer"
-                >
-                  New phone? Create Owner account
-                </button>
-              </div>
 
-              {/* Footer with Lock & Version 5.08 matching Screenshot */}
               <div className="text-center pt-0.5 space-y-0.5">
                 <div className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
                   <Lock className="w-3.5 h-3.5 text-slate-400" />
