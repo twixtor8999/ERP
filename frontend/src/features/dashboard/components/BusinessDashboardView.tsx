@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Search } from "lucide-react";
+import { ArrowLeft, ChevronDown, Search, Plus } from "lucide-react";
+import { getStoredEmployees } from "@/features/employees/data/mockEmployees";
 
 interface CrmStaffMember {
   id: string;
@@ -276,6 +277,82 @@ const DEFAULT_STAFF: CrmStaffMember[] = [
   },
 ];
 
+const STAFF_COLORS = [
+  "#2563eb",
+  "#db2777",
+  "#ea580c",
+  "#059669",
+  "#7c3aed",
+  "#0891b2",
+  "#d97706",
+  "#4f46e5",
+  "#0d9488",
+  "#e11d48",
+];
+
+function getDynamicStaffList(): CrmStaffMember[] {
+  try {
+    const employees = getStoredEmployees();
+    if (!employees || employees.length === 0) return DEFAULT_STAFF;
+
+    const knownStaffMap = new Map<string, CrmStaffMember>();
+    DEFAULT_STAFF.forEach((s) => {
+      knownStaffMap.set(s.name.trim().toLowerCase(), s);
+    });
+
+    const list: CrmStaffMember[] = [];
+    employees.forEach((emp, index) => {
+      const known = knownStaffMap.get(emp.name.trim().toLowerCase());
+      if (known) {
+        list.push({
+          ...known,
+          id: String(emp.id),
+        });
+      } else {
+        const parts = emp.name.trim().split(/\s+/);
+        const p0 = parts[0] || "";
+        const p1 = parts[1] || "";
+        const initials =
+          parts.length >= 2 && p0 && p1
+            ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
+            : emp.name.slice(0, 2).toUpperCase();
+
+        list.push({
+          id: String(emp.id),
+          name: emp.name,
+          initials: initials || "ST",
+          themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
+          orders: 0,
+          salesK: "₹0",
+          coveredVillages: 0,
+          callings: 0,
+          salesReturnK: "₹0",
+          salesReturnOrders: 0,
+          salesReturnDate: "As on 21-11-2026",
+          obSalesK: "₹0",
+          targetK: "Target ₹1.2L",
+          targetPercent: 0,
+        });
+      }
+    });
+
+    return list.length > 0 ? list : DEFAULT_STAFF;
+  } catch {
+    return DEFAULT_STAFF;
+  }
+}
+
+const getStaffData = (staff: CrmStaffMember): StaffDetailData => {
+  if (STAFF_DRILLDOWN_DATA[staff.id]) return STAFF_DRILLDOWN_DATA[staff.id]!;
+  if (staff.name.includes("Pushpa")) return STAFF_DRILLDOWN_DATA["1"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Dhruthi")) return STAFF_DRILLDOWN_DATA["2"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Mahalaxmi")) return STAFF_DRILLDOWN_DATA["3"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Vijaykumar")) return STAFF_DRILLDOWN_DATA["4"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Prashant")) return STAFF_DRILLDOWN_DATA["5"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Arun")) return STAFF_DRILLDOWN_DATA["6"] || EMPTY_STAFF_DATA;
+  return EMPTY_STAFF_DATA;
+};
+
 type SubViewType = "none" | "sales" | "villages" | "callings" | "returns" | "obsales" | "all_villages" | "all_customers" | "all_routes";
 
 export function BusinessDashboardView() {
@@ -285,11 +362,24 @@ export function BusinessDashboardView() {
   const [toDate, setToDate] = useState(todayStr);
   const [currentTime] = useState("08:03 pm");
 
-  const [staffList] = useState<CrmStaffMember[]>(DEFAULT_STAFF);
+  const [staffList, setStaffList] = useState<CrmStaffMember[]>(() => getDynamicStaffList());
+
+  useEffect(() => {
+    const refresh = () => setStaffList(getDynamicStaffList());
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
-  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(DEFAULT_STAFF[0]!);
+  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(() => {
+    const initialList = getDynamicStaffList();
+    return initialList[0] || DEFAULT_STAFF[0]!;
+  });
   const [searchQuery, setSearchQuery] = useState("");
 
   // Top 5 Villages Data
@@ -319,7 +409,7 @@ export function BusinessDashboardView() {
   // SUB-VIEW 1: Sales by [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "sales") {
-    const staffData = STAFF_DRILLDOWN_DATA[activeStaff.id] || EMPTY_STAFF_DATA;
+    const staffData = getStaffData(activeStaff);
     const staffSales = staffData.sales;
 
     const filteredRows = staffSales.rows.filter((r) =>
@@ -449,7 +539,7 @@ export function BusinessDashboardView() {
   // SUB-VIEW 2: Covered villages · [Staff Name] (Dynamic per staff)
   // -------------------------------------------------------------
   if (currentView === "villages") {
-    const staffData = STAFF_DRILLDOWN_DATA[activeStaff.id] || EMPTY_STAFF_DATA;
+    const staffData = getStaffData(activeStaff);
     const staffVillages = staffData.villages;
     const totalOrders = staffVillages.reduce((sum, v) => sum + v.orders, 0);
     const totalSalesNum = staffVillages.reduce(
@@ -531,7 +621,7 @@ export function BusinessDashboardView() {
   // SUB-VIEW 3: Callings · [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "callings") {
-    const staffData = STAFF_DRILLDOWN_DATA[activeStaff.id] || EMPTY_STAFF_DATA;
+    const staffData = getStaffData(activeStaff);
     const staffCallings = staffData.callings;
 
     return (
@@ -601,7 +691,7 @@ export function BusinessDashboardView() {
   // SUB-VIEW 4: Sales Return · [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "returns") {
-    const staffData = STAFF_DRILLDOWN_DATA[activeStaff.id] || EMPTY_STAFF_DATA;
+    const staffData = getStaffData(activeStaff);
     const staffReturns = staffData.returns;
 
     const filteredReturns = staffReturns.rows.filter((r) =>
@@ -870,8 +960,18 @@ export function BusinessDashboardView() {
             <p className="text-xs font-semibold text-slate-400 mt-0.5">Today</p>
           </div>
 
-          <div className="bg-[#0f172a] text-white px-3.5 py-1 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
-            {currentTime}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/employees?tab=list&action=new')}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs"
+              title="Create new employee or staff"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ New Staff</span>
+            </button>
+            <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
+              {currentTime}
+            </div>
           </div>
         </div>
 
@@ -1063,6 +1163,23 @@ export function BusinessDashboardView() {
               </div>
             </div>
           ))}
+
+          {/* Quick Add Staff / Employee Card */}
+          <div
+            onClick={() => navigate('/employees?tab=list&action=new')}
+            className="w-[200px] min-w-[200px] bg-slate-50 hover:bg-blue-50/50 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-xs group shrink-0"
+            title="Click to create a new employee or staff member"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors mb-2.5 shadow-2xs">
+              <Plus className="w-6 h-6" />
+            </div>
+            <span className="font-extrabold text-xs text-slate-800 group-hover:text-blue-700">
+              + Create Employee
+            </span>
+            <span className="text-[11px] text-slate-500 mt-0.5">
+              Add staff & role
+            </span>
+          </div>
         </div>
 
         {/* 2. Middle Row: 5 Operational KPI Stat Cards */}

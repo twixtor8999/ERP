@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -58,6 +59,7 @@ const REQUIRED_DOCS = [
 ] as const;
 
 export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>(() => getStoredEmployees());
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -116,6 +118,15 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
     setFormDocs({ ph: false, adh: false, pan: false, pb: false });
     setShowModal(true);
   };
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      openCreateModal();
+      const p = new URLSearchParams(searchParams);
+      p.delete('action');
+      setSearchParams(p, { replace: true });
+    }
+  }, [searchParams]);
 
   const openEditModal = (emp: Employee) => {
     setEditingId(emp.id);
