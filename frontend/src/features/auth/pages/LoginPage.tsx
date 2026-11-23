@@ -30,8 +30,8 @@ function resolveSmartRoute(role?: string, fallbackRoute?: string | null): string
   if (r.includes("delivery")) return "/deliveries";
   if (r.includes("inventory")) return "/inventory";
   if (r.includes("crm") || r.includes("telecaller")) return "/crm";
-  if (r.includes("super_admin") || r.includes("admin") || r.includes("owner")) return fallbackRoute || "/home";
-  return fallbackRoute || "/home";
+  if (r.includes("super_admin") || r.includes("admin") || r.includes("owner")) return "/home";
+  return "/home";
 }
 
 export function LoginPage() {

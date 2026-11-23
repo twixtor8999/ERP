@@ -256,7 +256,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                   "w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-bold rounded-lg transition-colors text-left",
                   isParentActive
                     ? "text-amber-400 font-extrabold"
-                    : "text-slate-300 hover:text-white hover:bg-[#1a2d4b]"
+                    : "text-slate-200 hover:text-white hover:bg-[#22385c]"
                 )}
               >
                 <span>{item.title}</span>
@@ -290,7 +290,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                           "block px-3 py-1.5 text-xs rounded-lg transition-all text-left",
                           active
                             ? "bg-[#f59e0b] text-slate-950 font-bold shadow-xs"
-                            : "text-slate-300 hover:text-white hover:bg-[#1a2d4b]"
+                            : "text-slate-200 hover:text-white hover:bg-[#22385c]"
                         )}
                       >
                         {child.title}
@@ -314,7 +314,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
               "block px-3 py-1.5 text-[13px] rounded-lg transition-all text-left truncate font-medium",
               active
                 ? "bg-[#f59e0b] text-slate-950 font-bold shadow-xs"
-                : "text-slate-200 hover:text-white hover:bg-[#1a2d4b]"
+                : "text-slate-200 hover:text-white hover:bg-[#22385c]"
             )}
             title={item.title}
           >
