@@ -6,6 +6,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 
 export interface PipelineOrder {
   id: string;
@@ -760,11 +761,15 @@ export function WholesaleOrdersPipelineView() {
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) return;
 
-    // Trigger printing of the invoice
-    setPrintingOrder(targetOrder);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    // Trigger printing of thermal slip and wholesale invoice
+    try {
+      printThermalSlip(targetOrder);
+    } catch {
+      setPrintingOrder(targetOrder);
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    }
 
     // Directly move order to "delivery" stage
     setOrders((prev) =>
