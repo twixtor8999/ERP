@@ -467,10 +467,10 @@ export const INITIAL_TARGET_STATUS_ROWS: TargetStatusRow[] = [
 ];
 
 // LocalStorage helpers
-const SKU_TGT_KEY = 'erp_incentives_sku_targets_v1';
-const SCH_TGT_KEY = 'erp_incentives_scheme_targets_v1';
-const ACH_TGT_KEY = 'erp_incentives_achieved_targets_v1';
-const STAT_TGT_KEY = 'erp_incentives_status_rows_v1';
+const SKU_TGT_KEY = 'erp_incentives_sku_targets_v2';
+const SCH_TGT_KEY = 'erp_incentives_scheme_targets_v2';
+const ACH_TGT_KEY = 'erp_incentives_achieved_targets_v2';
+const STAT_TGT_KEY = 'erp_incentives_status_rows_v2';
 
 export function getStoredSkuTargets(): SkuTargetItem[] {
   try {

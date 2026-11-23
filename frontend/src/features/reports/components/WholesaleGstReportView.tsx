@@ -8,17 +8,17 @@ interface Props {
 }
 
 export const WholesaleGstReportView: React.FC<Props> = ({ onBack }) => {
-  const [fromDate, setFromDate] = useState('2026-11-22');
+  const [fromDate, setFromDate] = useState('2026-11-01');
   const [toDate, setToDate] = useState('2026-11-22');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSampleData, setShowSampleData] = useState(false);
 
   const rows: GstRateRow[] = useMemo(() => {
-    // If showSampleData is true or dates changed from today, show populated data
-    if (showSampleData || fromDate !== '2026-11-22' || toDate !== '2026-11-22') {
-      return SAMPLE_POPULATED_GST;
+    // If selected single day today where no sales occurred, show 0s
+    if (fromDate === '2026-11-22' && toDate === '2026-11-22' && !showSampleData) {
+      return DEFAULT_GST_SLABS;
     }
-    return DEFAULT_GST_SLABS;
+    return SAMPLE_POPULATED_GST;
   }, [showSampleData, fromDate, toDate]);
 
   const filteredRows = useMemo(() => {

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 export interface SettlementRow {
   sl: number;
+  date?: string;
   vehicleNumber: string;
   driverName: string;
   noOfOrders: number;
@@ -15,49 +16,348 @@ export interface SettlementRow {
   netAmt: number;
   qrPayment: number;
   cashReceived: number;
-  countedCash?: number;
-  diff?: number;
-  denominations?: Record<string, number>;
+  countedCash?: number | null;
+  diff?: number | null;
+  denominations?: Record<string, number> | null;
   remarks?: string;
   enteredBy?: string;
 }
 
-const SAMPLE_SETTLEMENTS: SettlementRow[] = [
+export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   {
-    sl: 1,
-    vehicleNumber: "KA28AA6256",
-    driverName: "Santosh Pujari",
-    noOfOrders: 4,
-    invoiceAmt: 22450,
-    fullReturn: 0,
-    partialReturn: 650,
-    oldReturn: 0,
-    netAmt: 21800,
-    qrPayment: 6800,
-    cashReceived: 15000,
-    countedCash: 15000,
-    diff: 0,
-    denominations: { "500": 26, "200": 8, "100": 4 },
-    remarks: "Route Tamba completed on time",
-    enteredBy: "Vijaykumar Shantagiri",
+    "sl": 1,
+    "date": "2026-11-21",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 28,
+    "invoiceAmt": 193931,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 193931,
+    "qrPayment": 48483,
+    "cashReceived": 145448,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1795236733988136 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
   },
   {
-    sl: 2,
-    vehicleNumber: "KA28AC0349",
-    driverName: "Ramesh Biradar",
-    noOfOrders: 2,
-    invoiceAmt: 6247,
-    fullReturn: 0,
-    partialReturn: 0,
-    oldReturn: 0,
-    netAmt: 6247,
-    qrPayment: 2247,
-    cashReceived: 4000,
-    countedCash: undefined, // Pending denomination
-    diff: undefined,
-    enteredBy: "Vijaykumar Shantagiri",
+    "sl": 2,
+    "date": "2026-11-19",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 31,
+    "invoiceAmt": 123880,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 123880,
+    "qrPayment": 30970,
+    "cashReceived": 92910,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1795060266790136 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
   },
+  {
+    "sl": 3,
+    "date": "2026-11-18",
+    "vehicleNumber": "KA28AA6256",
+    "driverName": "Santosh Pujari",
+    "noOfOrders": 18,
+    "invoiceAmt": 85327,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 85327,
+    "qrPayment": 21332,
+    "cashReceived": 63995,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794978416406136 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 4,
+    "date": "2026-11-18",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 25,
+    "invoiceAmt": 137451,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 137451,
+    "qrPayment": 34363,
+    "cashReceived": 103088,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794973016545136 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 5,
+    "date": "2026-11-17",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 44,
+    "invoiceAmt": 147184,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 147184,
+    "qrPayment": 36796,
+    "cashReceived": 110388,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794888988009136 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 6,
+    "date": "2026-11-16",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 25,
+    "invoiceAmt": 109277,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 109277,
+    "qrPayment": 27319,
+    "cashReceived": 81958,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794801716126136 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 7,
+    "date": "2026-11-13",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 38,
+    "invoiceAmt": 165509,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 165509,
+    "qrPayment": 41377,
+    "cashReceived": 124132,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794539916749490 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 8,
+    "date": "2026-11-12",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 30,
+    "invoiceAmt": 163974,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 163974,
+    "qrPayment": 40994,
+    "cashReceived": 122980,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794460210294490 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 9,
+    "date": "2026-11-07",
+    "vehicleNumber": "KA28AA6256",
+    "driverName": "Santosh Pujari",
+    "noOfOrders": 15,
+    "invoiceAmt": 109590,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 109590,
+    "qrPayment": 27398,
+    "cashReceived": 82192,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794044208978490 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 10,
+    "date": "2026-11-06",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 37,
+    "invoiceAmt": 192160,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 192160,
+    "qrPayment": 48040,
+    "cashReceived": 144120,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1793936631725154 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 11,
+    "date": "2026-11-07",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 18,
+    "invoiceAmt": 108370,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 108370,
+    "qrPayment": 27092,
+    "cashReceived": 81278,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794025742858154 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 12,
+    "date": "2026-11-05",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 11,
+    "invoiceAmt": 56710,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 56710,
+    "qrPayment": 14178,
+    "cashReceived": 42532,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1793851583231154 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 13,
+    "date": "2026-11-04",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 11,
+    "invoiceAmt": 71140,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 71140,
+    "qrPayment": 17785,
+    "cashReceived": 53355,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1793775418166154 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  },
+  {
+    "sl": 14,
+    "date": "2026-11-10",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 39,
+    "invoiceAmt": 186604,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 186604,
+    "qrPayment": 46651,
+    "cashReceived": 139953,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794278933161490 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 15,
+    "date": "2026-11-11",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 20,
+    "invoiceAmt": 68932,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 52894,
+    "qrPayment": 0,
+    "cashReceived": 52894,
+    "countedCash": 52894,
+    "diff": 0.01,
+    "denominations": {
+      "1": 4,
+      "10": 2,
+      "20": 1,
+      "50": 1,
+      "100": 3,
+      "200": 50,
+      "500": 85
+    },
+    "remarks": "Trip 1794372483944490 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 16,
+    "date": "2026-11-14",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 19,
+    "invoiceAmt": 104601,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 104601,
+    "qrPayment": 26150,
+    "cashReceived": 78451,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1794632364328136 settled successfully",
+    "enteredBy": "Prashant Kalamadi"
+  },
+  {
+    "sl": 17,
+    "date": "2026-11-20",
+    "vehicleNumber": "KA28AC0349",
+    "driverName": "Ramesh Biradar",
+    "noOfOrders": 47,
+    "invoiceAmt": 156033,
+    "fullReturn": 0,
+    "partialReturn": 0,
+    "oldReturn": 0,
+    "netAmt": 156033,
+    "qrPayment": 39008,
+    "cashReceived": 117025,
+    "countedCash": null,
+    "diff": null,
+    "denominations": null,
+    "remarks": "Trip 1795143890853136 settled successfully",
+    "enteredBy": "Vijaykumar Shantagiri"
+  }
 ];
+
+const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v2';
 
 const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 
@@ -65,11 +365,19 @@ export function WholesaleSettlementView() {
   const navigate = useNavigate();
 
   // Date range
-  const [fromDate, setFromDate] = useState("2026-11-22");
+  const [fromDate, setFromDate] = useState("2026-11-01");
   const [toDate, setToDate] = useState("2026-11-22");
   const [pageSearch, setPageSearch] = useState("");
 
-  const [settlements, setSettlements] = useState<SettlementRow[]>(SAMPLE_SETTLEMENTS);
+  const [settlements, setSettlements] = useState<SettlementRow[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.error("Failed to load settlements", e);
+    }
+    return INITIAL_SETTLEMENTS;
+  });
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Denomination Modal state
@@ -143,11 +451,29 @@ export function WholesaleSettlementView() {
       })`,
     });
 
+    // Save to localStorage
+    try {
+      const updated = settlements.map((r) =>
+        r.sl === activeDenomRow.sl
+          ? {
+              ...r,
+              countedCash: calculatedCountedCash,
+              diff: cashDiscrepancy,
+              denominations: { ...noteCounts },
+              remarks: denomRemarks,
+            }
+          : r
+      );
+      localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Failed to save settlements to storage", e);
+    }
     setActiveDenomRow(null);
   };
 
   // Filtered rows
   const filteredRows = settlements.filter((r) => {
+    if (r.date && (r.date < fromDate || r.date > toDate)) return false;
     if (!pageSearch) return true;
     const q = pageSearch.toLowerCase();
     return (
@@ -293,7 +619,7 @@ export function WholesaleSettlementView() {
                   <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
                   <td className="py-3 px-3">
                     <div className="font-bold text-slate-900 font-mono">{r.vehicleNumber}</div>
-                    <div className="text-[10px] text-slate-400">{r.driverName}</div>
+                    <div className="text-[10px] text-slate-400">{r.driverName} {r.date ? `• ${r.date}` : ""}</div>
                   </td>
                   <td className="py-3 px-3 text-center font-bold text-slate-800">{r.noOfOrders}</td>
                   <td className="py-3 px-3 text-right font-mono text-slate-800">
@@ -321,7 +647,7 @@ export function WholesaleSettlementView() {
                     {r.countedCash !== undefined ? (
                       <div>
                         <span className="font-mono font-bold text-slate-900">
-                          ₹{r.countedCash.toLocaleString("en-IN")}
+                          ₹{(r.countedCash ?? 0).toLocaleString("en-IN")}
                         </span>
                         <div className="text-[10px] font-bold">
                           {r.diff === 0 ? (
@@ -412,7 +738,7 @@ export function WholesaleSettlementView() {
 
             <form onSubmit={handleSaveDenomination} className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                {DENOMINATION_NOTES.map((note) => {
+                {DENOMINATION_NOTES.map((note: string) => {
                   const count = noteCounts[note] || 0;
                   const rowTotal = Number(note) * count;
                   return (

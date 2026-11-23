@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Search } from "lucide-react";
+import { ArrowLeft, ChevronDown, Search, Plus } from "lucide-react";
+import { getStoredEmployees } from "@/features/employees/data/mockEmployees";
 
 interface CrmStaffMember {
   id: string;
@@ -18,6 +19,164 @@ interface CrmStaffMember {
   targetK: string;
   targetPercent: number;
 }
+
+interface StaffSalesRecord {
+  id: string;
+  date: string;
+  customer: string;
+  village: string;
+  sales: string;
+  cost: string;
+  profit: string;
+  margin: string;
+}
+
+interface StaffReturnRecord {
+  order: string;
+  customer: string;
+  village: string;
+  item: string;
+  qty: number;
+  amount: string;
+}
+
+interface StaffVillageRecord {
+  name: string;
+  orders: number;
+  sales: string;
+}
+
+interface StaffCallingRecord {
+  time: string;
+  customer: string;
+  mobile: string;
+  village: string;
+}
+
+interface StaffDetailData {
+  sales: {
+    rows: StaffSalesRecord[];
+    totalOrders: number;
+    totalSales: string;
+    totalCost: string;
+    totalProfit: string;
+    margin: string;
+  };
+  returns: {
+    subtitle: string;
+    rows: StaffReturnRecord[];
+    totalQty: number;
+    totalAmount: string;
+  };
+  villages: StaffVillageRecord[];
+  callings: StaffCallingRecord[];
+}
+
+const EMPTY_STAFF_DATA: StaffDetailData = {
+  sales: {
+    rows: [],
+    totalOrders: 0,
+    totalSales: "0",
+    totalCost: "0",
+    totalProfit: "0",
+    margin: "—",
+  },
+  returns: {
+    subtitle: "As on 21-11-2026 · 0 order(s) · 0",
+    rows: [],
+    totalQty: 0,
+    totalAmount: "0",
+  },
+  villages: [],
+  callings: [],
+};
+
+const STAFF_DRILLDOWN_DATA: Record<string, StaffDetailData> = {
+  // 1. Pushpa Patil
+  "1": {
+    sales: {
+      rows: [
+        { id: "ORD-1458", date: "22-11-2026", customer: "Ramesh M Genni", village: "Rugi", sales: "10,420", cost: "8,336", profit: "2,084", margin: "20.0%" },
+        { id: "ORD-1455", date: "22-11-2026", customer: "Ashok Hadagali", village: "Devara Hippargi", sales: "6,247", cost: "4,998", profit: "1,249", margin: "20.0%" },
+        { id: "ORD-1452", date: "22-11-2026", customer: "Shankargouda Biradar", village: "Devara Hippargi", sales: "410", cost: "328", profit: "82", margin: "20.0%" },
+      ],
+      totalOrders: 3,
+      totalSales: "17,077",
+      totalCost: "13,662",
+      totalProfit: "3,415",
+      margin: "20.0%",
+    },
+    returns: {
+      subtitle: "As on 21-11-2026 · 6 order(s) · 11,034",
+      rows: [
+        { order: "ORD-1484", customer: "Balaji", village: "Kanamadi", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1479", customer: "THANARAM PATEL", village: "Babaleshwar", item: "Zeeba Steam Rice 20kg Bag", qty: 1, amount: "2,050" },
+        { order: "ORD-1475", customer: "Somnata pujari", village: "Somadevarahatti", item: "BUMTUM BABY DIAPER 10 RS (S) 4-8KG (PANS PKT)", qty: 2, amount: "16" },
+        { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 14 RS (L) 9-14KG 1 PANS PKT", qty: 2, amount: "20" },
+        { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 46RS (S) 3-8 KG 5 PANS PKT", qty: 2, amount: "76" },
+        { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 16RS (NB) 2-5 KG 2 PANS PKT", qty: 2, amount: "32" },
+        { order: "ORD-1483", customer: "S A Mulla", village: "Babanagar", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1483", customer: "S A Mulla", village: "Babanagar", item: "Sooji 30kg Bag", qty: 1, amount: "1,270" },
+        { order: "ORD-1486", customer: "Vijay", village: "Itangihal", item: "Zeeba Steam Rice 20kg Bag", qty: 1, amount: "2,050" },
+      ],
+      totalQty: 13,
+      totalAmount: "11,034",
+    },
+    villages: [
+      { name: "Rugi", orders: 1, sales: "10,420" },
+      { name: "Devara Hippargi", orders: 2, sales: "6,657" },
+    ],
+    callings: [],
+  },
+
+  // 2. Dhruthi A S
+  "2": {
+    sales: {
+      rows: [
+        { id: "ORD-1460", date: "22-11-2026", customer: "M M TALAWAR", village: "Tadavalga", sales: "5,800", cost: "4,640", profit: "1,160", margin: "20.0%" },
+        { id: "ORD-1461", date: "22-11-2026", customer: "Chandrshekhar", village: "Tadavalga", sales: "5,820", cost: "4,656", profit: "1,164", margin: "20.0%" },
+      ],
+      totalOrders: 2,
+      totalSales: "11,620",
+      totalCost: "9,296",
+      totalProfit: "2,324",
+      margin: "20.0%",
+    },
+    returns: {
+      subtitle: "As on 21-11-2026 · 10 order(s) · 21,680",
+      rows: [
+        { order: "ORD-1474", customer: "I D biradar", village: "Kanamadi", item: "Vilmaa Femiluv Dry Pads - XL 280mm 1Pcs Pkt", qty: 12, amount: "300" },
+        { order: "ORD-1486", customer: "Jagadev", village: "Kanamadi", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1487", customer: "A I Talwar", village: "Kanamadi", item: "Sugar S-30 50Kg Bag", qty: 2, amount: "5,520" },
+        { order: "ORD-1483", customer: "Mahesh", village: "Kanamadi", item: "Zeeba Steam Rice 26kg Bag", qty: 1, amount: "2,050" },
+        { order: "ORD-1473", customer: "B B Biradar", village: "Tajapur", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1490", customer: "Mahesh Hiremath", village: "Kanamadi", item: "Gajaraj Kesar Sooji 30Kg Bag", qty: 1, amount: "1,300" },
+        { order: "ORD-1470", customer: "Ramesh Bidari", village: "Tajapur", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1475", customer: "Vinod", village: "Tajapur", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
+        { order: "ORD-1478", customer: "Umesh naralay", village: "Kanamadi", item: "Raag Gold Palm Oil 1Ltr 10Pcs Box", qty: 1, amount: "1,400" },
+        { order: "ORD-1472", customer: "N B Biradar", village: "Tajapur", item: "VST Vegetable Oil 1Kg 10Pcs Box", qty: 1, amount: "70" },
+      ],
+      totalQty: 22,
+      totalAmount: "21,680",
+    },
+    villages: [
+      { name: "Tadavalga", orders: 2, sales: "11,620" },
+    ],
+    callings: [],
+  },
+
+  // 3. Mahalaxmi Hiremath
+  "3": { ...EMPTY_STAFF_DATA },
+
+  // 4. Vijaykumar Shantagiri
+  "4": { ...EMPTY_STAFF_DATA },
+
+  // 5. Prashant Kalamadi
+  "5": { ...EMPTY_STAFF_DATA },
+
+  // 6. Arun Patil
+  "6": { ...EMPTY_STAFF_DATA },
+};
 
 const DEFAULT_STAFF: CrmStaffMember[] = [
   {
@@ -118,6 +277,82 @@ const DEFAULT_STAFF: CrmStaffMember[] = [
   },
 ];
 
+const STAFF_COLORS = [
+  "#2563eb",
+  "#db2777",
+  "#ea580c",
+  "#059669",
+  "#7c3aed",
+  "#0891b2",
+  "#d97706",
+  "#4f46e5",
+  "#0d9488",
+  "#e11d48",
+];
+
+function getDynamicStaffList(): CrmStaffMember[] {
+  try {
+    const employees = getStoredEmployees();
+    if (!employees || employees.length === 0) return DEFAULT_STAFF;
+
+    const knownStaffMap = new Map<string, CrmStaffMember>();
+    DEFAULT_STAFF.forEach((s) => {
+      knownStaffMap.set(s.name.trim().toLowerCase(), s);
+    });
+
+    const list: CrmStaffMember[] = [];
+    employees.forEach((emp, index) => {
+      const known = knownStaffMap.get(emp.name.trim().toLowerCase());
+      if (known) {
+        list.push({
+          ...known,
+          id: String(emp.id),
+        });
+      } else {
+        const parts = emp.name.trim().split(/\s+/);
+        const p0 = parts[0] || "";
+        const p1 = parts[1] || "";
+        const initials =
+          parts.length >= 2 && p0 && p1
+            ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
+            : emp.name.slice(0, 2).toUpperCase();
+
+        list.push({
+          id: String(emp.id),
+          name: emp.name,
+          initials: initials || "ST",
+          themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
+          orders: 0,
+          salesK: "₹0",
+          coveredVillages: 0,
+          callings: 0,
+          salesReturnK: "₹0",
+          salesReturnOrders: 0,
+          salesReturnDate: "As on 21-11-2026",
+          obSalesK: "₹0",
+          targetK: "Target ₹1.2L",
+          targetPercent: 0,
+        });
+      }
+    });
+
+    return list.length > 0 ? list : DEFAULT_STAFF;
+  } catch {
+    return DEFAULT_STAFF;
+  }
+}
+
+const getStaffData = (staff: CrmStaffMember): StaffDetailData => {
+  if (STAFF_DRILLDOWN_DATA[staff.id]) return STAFF_DRILLDOWN_DATA[staff.id]!;
+  if (staff.name.includes("Pushpa")) return STAFF_DRILLDOWN_DATA["1"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Dhruthi")) return STAFF_DRILLDOWN_DATA["2"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Mahalaxmi")) return STAFF_DRILLDOWN_DATA["3"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Vijaykumar")) return STAFF_DRILLDOWN_DATA["4"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Prashant")) return STAFF_DRILLDOWN_DATA["5"] || EMPTY_STAFF_DATA;
+  if (staff.name.includes("Arun")) return STAFF_DRILLDOWN_DATA["6"] || EMPTY_STAFF_DATA;
+  return EMPTY_STAFF_DATA;
+};
+
 type SubViewType = "none" | "sales" | "villages" | "callings" | "returns" | "obsales" | "all_villages" | "all_customers" | "all_routes";
 
 export function BusinessDashboardView() {
@@ -127,11 +362,24 @@ export function BusinessDashboardView() {
   const [toDate, setToDate] = useState(todayStr);
   const [currentTime] = useState("08:03 pm");
 
-  const [staffList] = useState<CrmStaffMember[]>(DEFAULT_STAFF);
+  const [staffList, setStaffList] = useState<CrmStaffMember[]>(() => getDynamicStaffList());
+
+  useEffect(() => {
+    const refresh = () => setStaffList(getDynamicStaffList());
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
-  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(DEFAULT_STAFF[0]!);
+  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(() => {
+    const initialList = getDynamicStaffList();
+    return initialList[0] || DEFAULT_STAFF[0]!;
+  });
   const [searchQuery, setSearchQuery] = useState("");
 
   // Top 5 Villages Data
@@ -158,28 +406,57 @@ export function BusinessDashboardView() {
   ];
 
   // -------------------------------------------------------------
-  // SUB-VIEW 1: Sales by [Staff Name] (Screenshots 2 & 3)
+  // SUB-VIEW 1: Sales by [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "sales") {
-    const salesRows = [
-      { id: "ORD-1458", date: "22-11-2026", customer: "Ramesh M Genni", village: "Rugi", sales: "10,420", cost: "8,336", profit: "2,084", margin: "20.0%" },
-      { id: "ORD-1455", date: "22-11-2026", customer: "Ashok Hadagali", village: "Devara Hippargi", sales: "6,247", cost: "4,998", profit: "1,249", margin: "20.0%" },
-      { id: "ORD-1452", date: "22-11-2026", customer: "Shankargouda Biradar", village: "Devara Hippargi", sales: "410", cost: "328", profit: "82", margin: "20.0%" },
-    ];
+    const staffData = getStaffData(activeStaff);
+    const staffSales = staffData.sales;
 
-    const filteredRows = salesRows.filter((r) =>
-      searchQuery ? r.customer.toLowerCase().includes(searchQuery.toLowerCase()) || r.village.toLowerCase().includes(searchQuery.toLowerCase()) || r.id.toLowerCase().includes(searchQuery.toLowerCase()) : true
+    const filteredRows = staffSales.rows.filter((r) =>
+      searchQuery
+        ? r.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.village.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.id.toLowerCase().includes(searchQuery.toLowerCase())
+        : true
     );
+
+    const handleExportSales = () => {
+      const csv = [
+        "Order,Date,Customer,Village,Sales,Cost,Profit,Margin",
+        ...staffSales.rows.map(
+          (r) =>
+            `"${r.id}","${r.date}","${r.customer}","${r.village}","${r.sales}","${r.cost}","${r.profit}","${r.margin}"`
+        ),
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales_${activeStaff.name.replace(/\s+/g, "_")}_2026-11-22.csv`;
+      a.click();
+    };
 
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a]">
-        <button
-          onClick={() => setCurrentView("none")}
-          className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              setCurrentView("none");
+              setSearchQuery("");
+            }}
+            className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
+
+          <button
+            onClick={handleExportSales}
+            className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
+          >
+            <span>⬇ Export</span>
+          </button>
+        </div>
 
         <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
           Sales by {activeStaff.name}
@@ -212,33 +489,43 @@ export function BusinessDashboardView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold">
-              {filteredRows.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50">
-                  <td className="py-2.5 px-3 font-bold text-blue-600">{row.id}</td>
-                  <td className="py-2.5 px-3 text-slate-600">{row.date}</td>
-                  <td className="py-2.5 px-3 font-bold text-slate-900">{row.customer}</td>
-                  <td className="py-2.5 px-3 text-slate-600">{row.village}</td>
-                  <td className="py-2.5 px-3 text-right font-black text-[#059669]">{row.sales}</td>
-                  <td className="py-2.5 px-3 text-right text-slate-600">{row.cost}</td>
-                  <td className="py-2.5 px-3 text-right text-slate-900">{row.profit}</td>
-                  <td className="py-2.5 px-3 text-right text-slate-600">{row.margin}</td>
-                  <td className="py-2.5 px-3 text-center">
-                    <button
-                      onClick={() => navigate(`/orders?no=${row.id}`)}
-                      className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs"
-                    >
-                      Open
-                    </button>
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                    0 orders recorded in these dates.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRows.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="py-2.5 px-3 font-bold text-blue-600">{row.id}</td>
+                    <td className="py-2.5 px-3 text-slate-600">{row.date}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900">{row.customer}</td>
+                    <td className="py-2.5 px-3 text-slate-600">{row.village}</td>
+                    <td className="py-2.5 px-3 text-right font-black text-[#059669]">{row.sales}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-600">{row.cost}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-900">{row.profit}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-600">{row.margin}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <button
+                        onClick={() => navigate(`/orders?no=${row.id}`)}
+                        className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs"
+                      >
+                        Open
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
               <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
                 <td className="py-2.5 px-3">Total</td>
-                <td className="py-2.5 px-3" colSpan={3}>3 order(s)</td>
-                <td className="py-2.5 px-3 text-right text-[#059669]">17,077</td>
-                <td className="py-2.5 px-3 text-right">13,662</td>
-                <td className="py-2.5 px-3 text-right">3,415</td>
-                <td className="py-2.5 px-3 text-right">20.0%</td>
+                <td className="py-2.5 px-3" colSpan={3}>
+                  {staffSales.totalOrders} order(s)
+                </td>
+                <td className="py-2.5 px-3 text-right text-[#059669]">{staffSales.totalSales}</td>
+                <td className="py-2.5 px-3 text-right">{staffSales.totalCost}</td>
+                <td className="py-2.5 px-3 text-right">{staffSales.totalProfit}</td>
+                <td className="py-2.5 px-3 text-right">{staffSales.margin}</td>
                 <td className="py-2.5 px-3"></td>
               </tr>
             </tbody>
@@ -249,13 +536,24 @@ export function BusinessDashboardView() {
   }
 
   // -------------------------------------------------------------
-  // SUB-VIEW 2: Covered villages · [Staff Name] (Screenshot 4)
+  // SUB-VIEW 2: Covered villages · [Staff Name] (Dynamic per staff)
   // -------------------------------------------------------------
   if (currentView === "villages") {
+    const staffData = getStaffData(activeStaff);
+    const staffVillages = staffData.villages;
+    const totalOrders = staffVillages.reduce((sum, v) => sum + v.orders, 0);
+    const totalSalesNum = staffVillages.reduce(
+      (sum, v) => sum + parseInt(v.sales.replace(/,/g, "") || "0", 10),
+      0
+    );
+
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a]">
         <button
-          onClick={() => setCurrentView("none")}
+          onClick={() => {
+            setCurrentView("none");
+            setSearchQuery("");
+          }}
           className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -276,23 +574,40 @@ export function BusinessDashboardView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold">
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 font-bold text-slate-900">Rugi</td>
-                <td className="py-3 px-4 text-center text-blue-600 font-bold">1</td>
-                <td className="py-3 px-4 text-right font-black text-[#059669]">10,420</td>
-              </tr>
-              <tr className="hover:bg-slate-50">
-                <td className="py-3 px-4 font-bold text-slate-900">Devara Hippargi</td>
-                <td className="py-3 px-4 text-center text-blue-600 font-bold">2</td>
-                <td className="py-3 px-4 text-right font-black text-[#059669]">6,657</td>
-              </tr>
+              {staffVillages.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                    0 villages covered in these dates.
+                  </td>
+                </tr>
+              ) : (
+                staffVillages.map((v, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-3 px-4 font-bold text-slate-900">{v.name}</td>
+                    <td className="py-3 px-4 text-center text-blue-600 font-bold">{v.orders}</td>
+                    <td className="py-3 px-4 text-right font-black text-[#059669]">{v.sales}</td>
+                  </tr>
+                ))
+              )}
+              {staffVillages.length > 0 && (
+                <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
+                  <td className="py-3 px-4 font-bold">Total</td>
+                  <td className="py-3 px-4 text-center text-blue-600 font-bold">{totalOrders}</td>
+                  <td className="py-3 px-4 text-right font-black text-[#059669]">
+                    {totalSalesNum.toLocaleString("en-IN")}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="flex justify-end pt-2">
           <button
-            onClick={() => setCurrentView("none")}
+            onClick={() => {
+              setCurrentView("none");
+              setSearchQuery("");
+            }}
             className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-5 py-1.5 rounded-full shadow-2xs"
           >
             Close
@@ -303,13 +618,19 @@ export function BusinessDashboardView() {
   }
 
   // -------------------------------------------------------------
-  // SUB-VIEW 3: Callings · [Staff Name] (Screenshot 5)
+  // SUB-VIEW 3: Callings · [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "callings") {
+    const staffData = getStaffData(activeStaff);
+    const staffCallings = staffData.callings;
+
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a]">
         <button
-          onClick={() => setCurrentView("none")}
+          onClick={() => {
+            setCurrentView("none");
+            setSearchQuery("");
+          }}
           className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -331,18 +652,32 @@ export function BusinessDashboardView() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-semibold">
-                  0 callings recorded in these dates.
-                </td>
-              </tr>
+              {staffCallings.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                    0 callings recorded in these dates.
+                  </td>
+                </tr>
+              ) : (
+                staffCallings.map((c, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-2.5 px-4 font-bold text-slate-600">{c.time}</td>
+                    <td className="py-2.5 px-4 font-bold text-slate-900">{c.customer}</td>
+                    <td className="py-2.5 px-4 text-slate-600">{c.mobile}</td>
+                    <td className="py-2.5 px-4 text-slate-600">{c.village}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="flex justify-end pt-2">
           <button
-            onClick={() => setCurrentView("none")}
+            onClick={() => {
+              setCurrentView("none");
+              setSearchQuery("");
+            }}
             className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-5 py-1.5 rounded-full shadow-2xs"
           >
             Close
@@ -353,38 +688,77 @@ export function BusinessDashboardView() {
   }
 
   // -------------------------------------------------------------
-  // SUB-VIEW 4: Sales Return · [Staff Name] (Screenshot 6)
+  // SUB-VIEW 4: Sales Return · [Staff Name] (Dynamic per staff member)
   // -------------------------------------------------------------
   if (currentView === "returns") {
-    const returnRows = [
-      { order: "ORD-1484", customer: "Balaji", village: "Kanamadi", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
-      { order: "ORD-1479", customer: "THANARAM PATEL", village: "Babaleshwar", item: "Zeeba Steam Rice 20kg Bag", qty: 1, amount: "2,050" },
-      { order: "ORD-1475", customer: "Somnata pujari", village: "Somadevarahatti", item: "BUMTUM BABY DIAPER 10 RS (S) 4-8KG (PANS PKT)", qty: 2, amount: "16" },
-      { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 14 RS (L) 9-14KG 1 PANS PKT", qty: 2, amount: "20" },
-      { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 46RS (S) 3-8 KG 5 PANS PKT", qty: 2, amount: "76" },
-      { order: "ORD-1469", customer: "Babulal", village: "Babanagar", item: "BUMTUM BABY DIAPER 16RS (NB) 2-5 KG 2 PANS PKT", qty: 2, amount: "32" },
-      { order: "ORD-1483", customer: "S A Mulla", village: "Babanagar", item: "Sugar S-30 50Kg Bag", qty: 1, amount: "2,760" },
-      { order: "ORD-1483", customer: "S A Mulla", village: "Babanagar", item: "Sooji 30kg Bag", qty: 1, amount: "1,270" },
-      { order: "ORD-1486", customer: "Vijay", village: "Itangihal", item: "Zeeba Steam Rice 20kg Bag", qty: 1, amount: "2,050" },
-    ];
+    const staffData = getStaffData(activeStaff);
+    const staffReturns = staffData.returns;
+
+    const filteredReturns = staffReturns.rows.filter((r) =>
+      searchQuery
+        ? r.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.village.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.order.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.item.toLowerCase().includes(searchQuery.toLowerCase())
+        : true
+    );
+
+    const handleExportReturns = () => {
+      const csv = [
+        "Order,Customer,Village,Item,Qty,Amount",
+        ...staffReturns.rows.map(
+          (r) =>
+            `"${r.order}","${r.customer}","${r.village}","${r.item}",${r.qty},"${r.amount}"`
+        ),
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales_returns_${activeStaff.name.replace(/\s+/g, "_")}_2026-11-21.csv`;
+      a.click();
+    };
 
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a]">
-        <button
-          onClick={() => setCurrentView("none")}
-          className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              setCurrentView("none");
+              setSearchQuery("");
+            }}
+            className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
+
+          <button
+            onClick={handleExportReturns}
+            className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors"
+          >
+            <span>⬇ Export</span>
+          </button>
+        </div>
 
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
             Sales Return · {activeStaff.name}
           </h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
-            As on 21-11-2026 · 6 order(s) · 11,034
+            {staffReturns.subtitle}
           </p>
+        </div>
+
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search in this page..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
+          />
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
@@ -400,21 +774,31 @@ export function BusinessDashboardView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold">
-              {returnRows.map((r, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 font-bold text-blue-600">{r.order}</td>
-                  <td className="py-2 px-3 font-bold text-slate-800">{r.customer}</td>
-                  <td className="py-2 px-3 text-slate-600">{r.village}</td>
-                  <td className="py-2 px-3 text-slate-700">{r.item}</td>
-                  <td className="py-2 px-3 text-center text-slate-600">{r.qty}</td>
-                  <td className="py-2 px-3 text-right font-black text-slate-900">{r.amount}</td>
+              {filteredReturns.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                    0 sales returns recorded in these dates.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredReturns.map((r, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-2 px-3 font-bold text-blue-600">{r.order}</td>
+                    <td className="py-2 px-3 font-bold text-slate-800">{r.customer}</td>
+                    <td className="py-2 px-3 text-slate-600">{r.village}</td>
+                    <td className="py-2 px-3 text-slate-700">{r.item}</td>
+                    <td className="py-2 px-3 text-center text-slate-600">{r.qty}</td>
+                    <td className="py-2 px-3 text-right font-black text-slate-900">{r.amount}</td>
+                  </tr>
+                ))
+              )}
               <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
                 <td className="py-2.5 px-3">Total</td>
                 <td className="py-2.5 px-3" colSpan={3}></td>
-                <td className="py-2.5 px-3 text-center font-bold">13</td>
-                <td className="py-2.5 px-3 text-right font-black text-slate-900">11,034</td>
+                <td className="py-2.5 px-3 text-center font-bold">{staffReturns.totalQty}</td>
+                <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                  {staffReturns.totalAmount}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -422,7 +806,10 @@ export function BusinessDashboardView() {
 
         <div className="flex justify-end pt-2">
           <button
-            onClick={() => setCurrentView("none")}
+            onClick={() => {
+              setCurrentView("none");
+              setSearchQuery("");
+            }}
             className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-5 py-1.5 rounded-full shadow-2xs"
           >
             Close
@@ -573,8 +960,18 @@ export function BusinessDashboardView() {
             <p className="text-xs font-semibold text-slate-400 mt-0.5">Today</p>
           </div>
 
-          <div className="bg-[#0f172a] text-white px-3.5 py-1 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
-            {currentTime}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/employees?tab=list&action=new')}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs"
+              title="Create new employee or staff"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ New Staff</span>
+            </button>
+            <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
+              {currentTime}
+            </div>
           </div>
         </div>
 
@@ -592,6 +989,7 @@ export function BusinessDashboardView() {
                   className="flex items-center gap-2.5 cursor-pointer"
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("sales");
                   }}
                 >
@@ -614,6 +1012,7 @@ export function BusinessDashboardView() {
                 <button
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("sales");
                   }}
                   className="text-xs font-extrabold text-[#e11d48] hover:underline"
@@ -629,6 +1028,7 @@ export function BusinessDashboardView() {
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("sales");
                   }}
                   title="Click to view staff orders"
@@ -647,6 +1047,7 @@ export function BusinessDashboardView() {
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("sales");
                   }}
                   title="Click to view total staff sales"
@@ -665,6 +1066,7 @@ export function BusinessDashboardView() {
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("villages");
                   }}
                   title="Click to view covered villages"
@@ -685,6 +1087,7 @@ export function BusinessDashboardView() {
                   className="bg-[#f8fafc] hover:bg-slate-100/80 border border-slate-200/60 rounded-xl p-2 cursor-pointer transition-colors"
                   onClick={() => {
                     setActiveStaff(staff);
+                    setSearchQuery("");
                     setCurrentView("callings");
                   }}
                   title="Click to view callings register"
@@ -704,6 +1107,7 @@ export function BusinessDashboardView() {
                 className="bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-2.5 cursor-pointer hover:bg-orange-100/60 transition-colors"
                 onClick={() => {
                   setActiveStaff(staff);
+                  setSearchQuery("");
                   setCurrentView("returns");
                 }}
                 title="Click to view sales return breakdown"
@@ -732,6 +1136,7 @@ export function BusinessDashboardView() {
                 className="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-2 cursor-pointer hover:bg-blue-100/60 transition-colors"
                 onClick={() => {
                   setActiveStaff(staff);
+                  setSearchQuery("");
                   setCurrentView("obsales");
                 }}
                 title="Click to view OB sales breakdown"
@@ -758,6 +1163,23 @@ export function BusinessDashboardView() {
               </div>
             </div>
           ))}
+
+          {/* Quick Add Staff / Employee Card */}
+          <div
+            onClick={() => navigate('/employees?tab=list&action=new')}
+            className="w-[200px] min-w-[200px] bg-slate-50 hover:bg-blue-50/50 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-xs group shrink-0"
+            title="Click to create a new employee or staff member"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors mb-2.5 shadow-2xs">
+              <Plus className="w-6 h-6" />
+            </div>
+            <span className="font-extrabold text-xs text-slate-800 group-hover:text-blue-700">
+              + Create Employee
+            </span>
+            <span className="text-[11px] text-slate-500 mt-0.5">
+              Add staff & role
+            </span>
+          </div>
         </div>
 
         {/* 2. Middle Row: 5 Operational KPI Stat Cards */}
