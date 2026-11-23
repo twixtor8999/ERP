@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CallingsRunSheetView } from "../components/CallingsRunSheetView";
+import { FireworksOverlay } from "../components/FireworksOverlay";
 import {
   Phone,
   ShoppingCart,
@@ -520,6 +521,7 @@ export function CrmTelecallerPortalPage() {
   const [isInCartView, setIsInCartView] = useState<boolean>(false);
   const [viewingOrderDetails, setViewingOrderDetails] = useState<any | null>(null);
   const [orderRemarks, setOrderRemarks] = useState<string>("");
+  const [showCelebration, setShowCelebration] = useState<boolean>(false);
 
   // Orders Status list
   const [orderStatusStartDate, setOrderStatusStartDate] = useState("2026-11-22");
@@ -1575,6 +1577,7 @@ export function CrmTelecallerPortalPage() {
       setIsInCartView(false);
       setOrderCustomer(null);
       setOrderPaidAmount("");
+      setShowCelebration(true);
       setActiveView("home");
       loadReportsAndOrders();
     } catch {
@@ -6005,6 +6008,11 @@ export function CrmTelecallerPortalPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Order Placement Celebratory Firecrackers Animation (Exact match to screenshot) */}
+      {showCelebration && (
+        <FireworksOverlay onComplete={() => setShowCelebration(false)} />
       )}
 
       {/* Synced footer indicator badge (Exact match to screenshots) */}
