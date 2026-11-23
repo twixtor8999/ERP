@@ -18,7 +18,6 @@ import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPag
 import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
 import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
 import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
-import { PlaceOrderWholesaleView } from "@/features/billing/components/PlaceOrderWholesaleView";
 import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheetView";
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
@@ -180,7 +179,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "place-order",
-        element: <PlaceOrderWholesaleView />,
+        element: <Navigate to="/crm?view=place-order" replace />,
       },
       {
         path: "callings",
