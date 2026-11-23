@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
+import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 
 export interface PipelineOrder {
   id: string;
@@ -25,6 +26,7 @@ export interface PipelineOrder {
   total: number;
   balance: number;
   stage: "placed" | "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "cancelled" | "return";
+  phone?: string;
   items: Array<{
     name: string;
     unit: string;
@@ -39,6 +41,48 @@ export interface PipelineOrder {
 }
 
 const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
+  {
+    id: "ord-1664",
+    orderNo: "ORD-1664",
+    customerName: "Ramesh s kanakappagol",
+    shopName: "Kanekeshara store",
+    village: "Chimmalgi R.C",
+    route: "Chimmalagi RC",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "23-11-2026",
+    orderTime: "08:51 pm",
+    phone: "8748930231",
+    total: 1570,
+    balance: 0,
+    stage: "packing",
+    items: [
+      { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 1, price: 1570, rate: 1570, gst: "5%", amount: 1570 },
+    ],
+  },
+  {
+    id: "ord-1663",
+    orderNo: "ORD-1663",
+    customerName: "Shrikant Rathod",
+    shopName: "Rathod Traders",
+    village: "Chimmalgi R.C",
+    route: "Chimmalagi RC",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "23-11-2026",
+    orderTime: "08:50 pm",
+    phone: "9845123456",
+    total: 6652,
+    balance: 0,
+    stage: "packing",
+    items: [
+      { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 2, price: 1570, rate: 1570, gst: "5%", amount: 3140 },
+      { name: "Zeeba Steam Rice 26kg Bag", unit: "Bag", qty: 1, price: 2050, rate: 2050, gst: "0%", amount: 2050 },
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 3, price: 440, rate: 440, gst: "5%", amount: 1320 },
+      { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Sheet", qty: 1, price: 105, rate: 105, gst: "5%", amount: 105 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 1, price: 37, rate: 37, gst: "0%", amount: 37 },
+    ],
+  },
   {
     id: "ord-1513",
     orderNo: "ORD-1513",
@@ -276,6 +320,7 @@ export function WholesaleOrdersPipelineView() {
 
   // Modals
   const [viewingOrder, setViewingOrder] = useState<PipelineOrder | null>(null);
+  const [packingSlipOrder, setPackingSlipOrder] = useState<PipelineOrder | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<PipelineOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -367,6 +412,22 @@ export function WholesaleOrdersPipelineView() {
         return o;
       })
     );
+  };
+
+  const handlePrintPackingSlip = (order: PipelineOrder) => {
+    const opened = openPackingSlipWindow({
+      orderNo: order.orderNo,
+      customerName: order.customerName,
+      shopName: order.shopName,
+      village: order.village,
+      route: order.route,
+      phone: order.phone || "8748930231",
+      orderDate: order.orderDate,
+      items: order.items.map((it) => ({ name: it.name, qty: it.qty, unit: it.unit })),
+    });
+    if (!opened) {
+      setPackingSlipOrder(order);
+    }
   };
 
   const handlePrintAndDispatch = (orderId: string) => {
@@ -490,6 +551,121 @@ export function WholesaleOrdersPipelineView() {
       description: `Downloaded report for ${fromDate} to ${toDate}`,
     });
   };
+
+  if (packingSlipOrder) {
+    const totalQty = packingSlipOrder.items.reduce((sum, it) => sum + (it.qty || 0), 0);
+    const route = packingSlipOrder.route ? (packingSlipOrder.route.toLowerCase().includes("route") ? packingSlipOrder.route : `${packingSlipOrder.route} Route`) : "—";
+    const phone = packingSlipOrder.phone || "8748930231";
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
+        {/* Top Bar matching Image 2 */}
+        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
+          <button
+            onClick={() => setPackingSlipOrder(null)}
+            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 transition-colors cursor-pointer"
+            title="Back to the app"
+          >
+            ← Back
+          </button>
+          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
+            packing_{packingSlipOrder.orderNo}
+          </b>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90"
+              title="Print"
+            >
+              🖨
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="bg-white text-[#0d1b4c] text-xs font-bold px-3.5 py-1.5 rounded-full cursor-pointer hover:bg-slate-100"
+              title="Save as PDF"
+            >
+              ⬇ PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Centered Slip Card matching Image 2 */}
+        <div className="pt-20 pb-12 px-4 flex justify-center">
+          <div className="bg-white text-black p-4 w-[320px] max-w-full shadow-lg border border-slate-300 text-[11px] leading-[1.38]">
+            <div className="font-bold text-center text-[14.5px] uppercase tracking-wide">
+              SIDDESHWAR ENTERPRISES
+            </div>
+            <div className="font-bold text-center text-[13.5px] uppercase mt-1 mb-2">
+              PACKING LIST
+            </div>
+
+            <div className="grid grid-cols-2 border border-black rounded-[7px] text-center my-2 text-[11px]">
+              <div className="p-1">
+                Order No:<br />
+                <b>{packingSlipOrder.orderNo}</b>
+              </div>
+              <div className="p-1 border-l border-black">
+                Packed on:<br />
+                <b>{packingSlipOrder.orderDate}</b>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[1.25fr_1fr] gap-x-2 my-2.5 text-[11px] leading-[1.35]">
+              <div>
+                M/s: {packingSlipOrder.customerName}
+                {packingSlipOrder.village && (
+                  <>
+                    <br />
+                    Village: {packingSlipOrder.village}
+                  </>
+                )}
+                <br />
+                Mob: {phone}
+              </div>
+              <div>
+                Route: {route}
+                <br />
+                Order date: {packingSlipOrder.orderDate}
+              </div>
+            </div>
+
+            <table className="w-full border-collapse border border-black my-2 text-[11px]">
+              <thead>
+                <tr className="bg-[#cfe2f3] font-bold text-black">
+                  <th className="border border-black p-1 text-center w-7">Sl</th>
+                  <th className="border border-black p-1 text-left">Product Name</th>
+                  <th className="border border-black p-1 text-right w-9">Qty</th>
+                  <th className="border border-black p-1 text-center w-11">Check</th>
+                </tr>
+              </thead>
+              <tbody>
+                {packingSlipOrder.items.map((it, idx) => (
+                  <tr key={idx}>
+                    <td className="border border-black p-1 text-center">{idx + 1}</td>
+                    <td className="border border-black p-1 text-left">{it.name}</td>
+                    <td className="border border-black p-1 text-right">{it.qty}</td>
+                    <td className="border border-black p-1"></td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={2} className="border border-black p-1 font-bold">
+                    Total Items
+                  </td>
+                  <td className="border border-black p-1 text-right font-bold">
+                    {totalQty}
+                  </td>
+                  <td className="border border-black p-1"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p className="mt-4 text-[11px]">
+              Packed by: ____________ &nbsp; Checked by: ____________
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (viewingOrder && viewingOrder.stage === "delivery") {
     const totalQty = viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0), 0);
@@ -873,7 +1049,13 @@ export function WholesaleOrdersPipelineView() {
           </button>
 
           <button
-            onClick={() => printThermalSlip(viewingOrder)}
+            onClick={() => {
+              if (viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed') {
+                handlePrintPackingSlip(viewingOrder);
+              } else {
+                printThermalSlip(viewingOrder);
+              }
+            }}
             className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -1222,10 +1404,7 @@ export function WholesaleOrdersPipelineView() {
                               View
                             </button>
                             <button
-                              onClick={() => {
-                                setViewingOrder(o);
-                                setTimeout(() => window.print(), 300);
-                              }}
+                              onClick={() => handlePrintPackingSlip(o)}
                               className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
                             >
                               Print
