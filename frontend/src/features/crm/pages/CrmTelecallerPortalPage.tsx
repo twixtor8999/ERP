@@ -1382,6 +1382,15 @@ export function CrmTelecallerPortalPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {activeView === "targets" && (
+              <button
+                type="button"
+                onClick={() => setActiveView("incentive-scheme")}
+                className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
+              >
+                View Scheme Poster ›
+              </button>
+            )}
             {(activeView === "reports" || activeView === "team-reports") && (
               <button
                 type="button"
@@ -1391,7 +1400,7 @@ export function CrmTelecallerPortalPage() {
                 EXPORT
               </button>
             )}
-            {activeView !== "home" && activeView !== "reports" && activeView !== "team-reports" && (
+            {activeView !== "home" && (
               <button
                 onClick={() => setActiveView("home")}
                 className="px-2.5 py-1 rounded bg-blue-800/80 hover:bg-blue-700 text-xs text-white font-semibold flex items-center gap-1 cursor-pointer"
@@ -2293,26 +2302,8 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
             {/* ======================================================== */}
             {activeView === "place-order" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">Place Order</h2>
-                </div>
-                <div className="p-4 sm:p-5 space-y-4">
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -2461,39 +2452,13 @@ export function CrmTelecallerPortalPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: SKU LIST (EXACT 1:1 TO SCREENSHOT WITH 254 SKUs)   */}
             {/* ======================================================== */}
             {activeView === "sku-list" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-                {/* Header: Blue bar with Back arrow, Hamburger menu, and subtitle */}
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <div>
-                    <h2 className="text-base font-bold text-white tracking-tight leading-none">SKU List</h2>
-                    <p className="text-[10px] font-bold text-amber-300 tracking-wider mt-0.5">SIDDESHWAR ENTERPRISES</p>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50 max-w-4xl mx-auto">
                   {/* Search input with rounded pill / smooth border and search icon on right */}
                   <div className="relative">
                     <input
@@ -2571,46 +2536,14 @@ export function CrmTelecallerPortalPage() {
                     </table>
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: MY TARGETS (EXACT 1:1 TO SCREENSHOT)               */}
             {/* ======================================================== */}
             {activeView === "targets" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-slate-50/50 shadow-xl max-w-4xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setActiveView("home")}
-                      className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                      title="Back to Home"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setIsMobileMenuOpen(true)}
-                      className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                      title="Open Menu"
-                    >
-                      <Menu className="w-5 h-5" />
-                    </button>
-                    <div>
-                      <h2 className="text-base font-bold text-white tracking-tight leading-tight">My Targets</h2>
-                      <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("incentive-scheme")}
-                    className="px-3 py-1 rounded-full bg-blue-800/80 hover:bg-blue-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer active:scale-95"
-                  >
-                    View Scheme Poster ›
-                  </button>
-                </div>
-
-                <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
-                  {/* 2 Top Metric Cards (Exact Match to Screenshot) */}
+              <div className="p-4 sm:p-5 space-y-3.5 bg-slate-50/50 max-w-4xl mx-auto">
+                {/* 2 Top Metric Cards (Exact Match to Screenshot) */}
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {/* Left: Eligible Incentive ₹490 */}
                     <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 sm:p-4 text-center shadow-xs">
@@ -2681,37 +2614,14 @@ export function CrmTelecallerPortalPage() {
                     ))}
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: INCENTIVE SCHEME POSTER (EXACT 1:1 TO SCREENSHOTS) */}
             {/* ======================================================== */}
             {activeView === "incentive-scheme" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <div>
-                    <h2 className="text-base font-bold text-white tracking-tight leading-tight">Incentive Scheme</h2>
-                    <p className="text-[10px] font-bold text-amber-300 tracking-wider">SIDDESHWAR ENTERPRISES</p>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-5 space-y-4 bg-white">
-                  {/* Date Filters Row */}
+              <div className="p-4 sm:p-5 space-y-4 bg-white max-w-4xl mx-auto">
+                {/* Date Filters Row */}
                   <div className="flex items-end gap-2.5 sm:gap-3">
                     <div className="flex-1">
                       <label className="text-[11px] font-semibold text-slate-700 block mb-1">
@@ -3186,7 +3096,6 @@ export function CrmTelecallerPortalPage() {
                     </div>
                   )}
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
@@ -3649,27 +3558,8 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: ORDER STATUS (EXACT 1:1 TO SCREENSHOT)               */}
             {/* ======================================================== */}
             {activeView === "order-status" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-5xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">Order Status</h2>
-                </div>
-
-                <div className="p-4 sm:p-6 space-y-4 bg-white">
-                  {/* Row 1: Export Pill Button */}
+              <div className="p-4 sm:p-6 space-y-4 bg-white max-w-5xl mx-auto">
+                {/* Row 1: Export Pill Button */}
                   <div>
                     <button
                       onClick={handleExportOrderStatusExcel}
@@ -3841,37 +3731,14 @@ export function CrmTelecallerPortalPage() {
                     </div>
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: NEW CUSTOMER ONBOARDING (EXACT 1:1 TO SCREENSHOT)  */}
             {/* ======================================================== */}
             {activeView === "new-customer" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
-                {/* Header: Blue bar with Back arrow and Hamburger menu */}
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">New Customer</h2>
-                </div>
-
-                <div className="p-4 sm:p-6 bg-white">
-                  <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
+              <div className="p-4 sm:p-6 bg-white max-w-2xl mx-auto">
+                <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
                     {/* Hidden file input for Aadhaar image */}
                     <input
                       type="file"
@@ -4173,33 +4040,14 @@ export function CrmTelecallerPortalPage() {
                     </div>
                   </form>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: ATTENDANCE PUNCH                                   */}
             {/* ======================================================== */}
             {activeView === "attendance" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">Attendance</h2>
-                </div>
-                <div className="p-4 sm:p-5 space-y-4">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4 max-w-md mx-auto">
+              <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4 max-w-md mx-auto">
                     <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                       <Clock className="w-8 h-8" />
                     </div>
@@ -4240,33 +4088,14 @@ export function CrmTelecallerPortalPage() {
                     </div>
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: CUSTOMERS LIST (VILLAGE STORE DIRECTORY & KHATA)   */}
             {/* ======================================================== */}
             {activeView === "customers" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-4xl mx-auto">
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">Customers</h2>
-                </div>
-                <div className="p-4 sm:p-5 space-y-4">
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -4479,37 +4308,14 @@ export function CrmTelecallerPortalPage() {
                     </div>
                   </div>
                 </div>
-              </div>
             )}
 
             {/* ======================================================== */}
             {/* VIEW: MY PROFILE (EXACT 1:1 TO SCREENSHOT FOR ALL STAFF) */}
             {/* ======================================================== */}
             {activeView === "profile" && (
-              <div className="rounded-2xl border border-blue-900/30 overflow-hidden bg-white shadow-xl max-w-2xl mx-auto">
-                {/* Header: Blue bar with Back arrow and Hamburger menu */}
-                <div className="bg-[#1e3a8a] text-white px-4 py-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView("home")}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Back to Home"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-1 rounded-lg hover:bg-blue-800 transition-colors cursor-pointer text-white flex items-center active:scale-95"
-                    title="Open Menu"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-base font-bold text-white tracking-tight">My Profile</h2>
-                </div>
-
-                <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50">
-                  {/* Title & Search bar */}
+              <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50 max-w-2xl mx-auto">
+                {/* Title & Search bar */}
                   <div>
                     <h3 className="text-base font-bold text-slate-900 mb-2">My profile</h3>
                     <div className="relative">
@@ -4727,7 +4533,6 @@ export function CrmTelecallerPortalPage() {
                     <span>Logout</span>
                   </button>
                 </div>
-              </div>
             )}
           </div>
         </main>
