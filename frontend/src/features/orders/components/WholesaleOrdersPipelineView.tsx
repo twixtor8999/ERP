@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Search,
   Download,
-  Printer,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -268,6 +266,12 @@ export function WholesaleOrdersPipelineView() {
     );
   };
 
+  const handleCancelOrder = (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, stage: "cancelled" } : o))
+    );
+  };
+
   const handlePrintAndDispatch = (orderId: string) => {
     setOrders((prev) =>
       prev.map((o) => {
@@ -473,7 +477,7 @@ export function WholesaleOrdersPipelineView() {
           <button
             type="button"
             onClick={() => {
-              handleMoveOrder(viewingOrder.id, "cancelled");
+              handleCancelOrder(viewingOrder.id);
               setViewingOrder(null);
               toast.error(`Order ${viewingOrder.orderNo} cancelled`);
             }}
@@ -484,9 +488,8 @@ export function WholesaleOrdersPipelineView() {
           <button
             type="button"
             onClick={() => {
-              handleMoveOrder(viewingOrder.id, "invoice");
+              handleMoveToInvoice(viewingOrder.id);
               setViewingOrder(null);
-              toast.success(`Order ${viewingOrder.orderNo} moved to Invoice stage`);
             }}
             className="px-5 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
           >
