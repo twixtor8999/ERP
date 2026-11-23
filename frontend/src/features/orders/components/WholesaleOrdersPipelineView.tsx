@@ -4,12 +4,19 @@ import {
   ArrowLeft,
   Search,
   Download,
-  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, generateTaxInvoiceInnerHtml, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+
+export interface OrderHistoryItem {
+  when: string;
+  from: string;
+  to: string;
+  by: string;
+  where: string;
+}
 
 export interface PipelineOrder {
   id: string;
@@ -27,6 +34,8 @@ export interface PipelineOrder {
   total: number;
   balance: number;
   stage: "placed" | "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "cancelled" | "return";
+  status?: string;
+  history?: OrderHistoryItem[];
   phone?: string;
   items: Array<{
     name: string;
@@ -57,6 +66,16 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     total: 1570,
     balance: 0,
     stage: "packing",
+    status: "packed",
+    history: [
+      {
+        when: "2026-11-23 17:42",
+        from: "Placed",
+        to: "Packed",
+        by: "Vijaykumar Shantagiri",
+        where: "pack",
+      },
+    ],
     items: [
       { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 1, price: 1570, rate: 1570, gst: "5%", amount: 1570 },
     ],
@@ -404,11 +423,20 @@ export function WholesaleOrdersPipelineView() {
           toast.success(`Order ${o.orderNo} moved to Invoice!`, {
             description: `Generated Invoice: ${invNum}`,
           });
+          const historyEntry: OrderHistoryItem = {
+            when: new Date().toISOString().replace("T", " ").substring(0, 16),
+            from: "Packed",
+            to: "Invoice",
+            by: "Vijaykumar Shantagiri",
+            where: "invoice",
+          };
           return {
             ...o,
             stage: "invoice",
             invoiceNo: invNum,
             vehicleNo: "KA28AA6256",
+            status: "invoiced",
+            history: [...(o.history || []), historyEntry],
           };
         }
         return o;
@@ -1035,7 +1063,7 @@ export function WholesaleOrdersPipelineView() {
         <div>
           <button
             onClick={() => setViewingOrder(null)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md border border-slate-300 shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-full border border-slate-300 shadow-2xs cursor-pointer transition-colors"
           >
             <span>← Back</span>
           </button>
@@ -1046,9 +1074,11 @@ export function WholesaleOrdersPipelineView() {
           <h2 className="text-lg font-bold text-slate-900">
             {viewingOrder.orderNo} ·
           </h2>
-          <span className={`px-2 py-0.5 text-xs font-semibold rounded-md ${
-            viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed'
-              ? 'bg-[#d97706]/20 text-[#b45309] border border-[#d97706]/40'
+          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
+            viewingOrder.status === 'packed' || viewingOrder.stage === 'packing'
+              ? 'bg-[#2563eb] text-white'
+              : viewingOrder.stage === 'placed'
+              ? 'bg-[#fed7aa] text-[#9a3412] border border-[#f97316]/30'
               : viewingOrder.stage === 'invoice'
               ? 'bg-blue-100 text-blue-800 border border-blue-300'
               : viewingOrder.stage === 'delivery'
@@ -1057,7 +1087,7 @@ export function WholesaleOrdersPipelineView() {
               ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
               : 'bg-red-100 text-red-800 border border-red-300'
           }`}>
-            {viewingOrder.stage === 'packing' ? 'placed' : viewingOrder.stage}
+            {viewingOrder.status || (viewingOrder.stage === 'packing' ? 'packed' : viewingOrder.stage)}
           </span>
         </div>
 
@@ -1138,11 +1168,11 @@ export function WholesaleOrdersPipelineView() {
           </div>
         </div>
 
-        {/* Action Buttons at bottom right */}
+        {/* Action Buttons at bottom right matching Image 2 */}
         <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
           <button
             onClick={() => setViewingOrder(null)}
-            className="px-4 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
           >
             Close
           </button>
@@ -1150,7 +1180,7 @@ export function WholesaleOrdersPipelineView() {
           {viewingOrder.invoiceNo && (
             <button
               onClick={() => handleDuplicatePrint(viewingOrder)}
-              className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
               <span>Duplicate Print</span>
             </button>
@@ -1164,16 +1194,15 @@ export function WholesaleOrdersPipelineView() {
                 handleDuplicatePrint(viewingOrder);
               }
             }}
-            className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print Slip' : 'Print'}</span>
+            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print packed items' : 'Print'}</span>
           </button>
 
           {['placed', 'packing'].includes(viewingOrder.stage) && (
             <button
               onClick={() => setCancellingOrder(viewingOrder)}
-              className="px-4 py-1.5 bg-[#991b1b] hover:bg-[#7f1d1d] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-[#a9252b] hover:bg-[#8e1f24] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
               Cancel order
             </button>
@@ -1186,7 +1215,7 @@ export function WholesaleOrdersPipelineView() {
                 setViewingOrder(null);
                 switchTab("invoice");
               }}
-              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1a2c4e] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
               Move to invoice
             </button>
@@ -1198,7 +1227,7 @@ export function WholesaleOrdersPipelineView() {
                 handlePrintAndDispatch(viewingOrder.id);
                 setViewingOrder(null);
               }}
-              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1a2c4e] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
               Print & Dispatch
             </button>
@@ -1211,7 +1240,7 @@ export function WholesaleOrdersPipelineView() {
                 setViewingOrder(null);
                 switchTab("delivery");
               }}
-              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1a2c4e] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
               Move to Delivery
             </button>
@@ -1224,12 +1253,60 @@ export function WholesaleOrdersPipelineView() {
                 setViewingOrder(null);
                 switchTab("completed");
               }}
-              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
               Mark delivered
             </button>
           )}
         </div>
+
+        {/* Order history section matching Reference Image 2 */}
+        {(() => {
+          const orderHistory: OrderHistoryItem[] =
+            viewingOrder.history && viewingOrder.history.length > 0
+              ? viewingOrder.history
+              : [
+                  {
+                    when: "2026-11-23 17:42",
+                    from: "Placed",
+                    to: "Packed",
+                    by: "Vijaykumar Shantagiri",
+                    where: "pack",
+                  },
+                ];
+
+          return (
+            <div className="mt-8 space-y-2.5">
+              <h3 className="text-sm font-extrabold text-slate-900">Order history</h3>
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="bg-[#2f6fe4] text-white font-semibold whitespace-nowrap">
+                        <th className="py-2.5 px-3">When</th>
+                        <th className="py-2.5 px-3">From</th>
+                        <th className="py-2.5 px-3">To</th>
+                        <th className="py-2.5 px-3">By</th>
+                        <th className="py-2.5 px-3">Where</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {orderHistory.map((h, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 whitespace-nowrap">
+                          <td className="py-2.5 px-3 text-slate-700 font-mono">{h.when}</td>
+                          <td className="py-2.5 px-3 text-slate-800">{h.from}</td>
+                          <td className="py-2.5 px-3 text-slate-800">{h.to}</td>
+                          <td className="py-2.5 px-3 text-slate-800">{h.by}</td>
+                          <td className="py-2.5 px-3 text-slate-600">{h.where}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Cancellation Reason Modal */}
         {cancellingOrder && (

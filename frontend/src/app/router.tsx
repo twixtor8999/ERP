@@ -180,7 +180,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "place-order",
-        element: <Navigate to="/crm?view=place-order" replace />,
+        element: <PlaceOrderWholesaleView />,
       },
       {
         path: "callings",
