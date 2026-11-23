@@ -280,6 +280,12 @@ export function WholesaleOrdersPipelineView() {
   const [cancelReason, setCancelReason] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  // Dedicated Drilldown view for Orders Report (matching reference nxOrList452)
+  const [reportDrilldown, setReportDrilldown] = useState<{
+    title: string;
+    stageKey: PipelineOrder["stage"] | null;
+  } | null>(null);
+
   // Delivery Returns & Payment State
   const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
   const [deliveryPaymentType, setDeliveryPaymentType] = useState<"Cash" | "QR" | "Split">("Cash");
@@ -467,6 +473,15 @@ export function WholesaleOrdersPipelineView() {
 
   const reportTotalOrders = reportStats.reduce((acc, s) => acc + s.count, 0);
   const reportTotalAmt = reportStats.reduce((acc, s) => acc + s.total, 0);
+
+  // Drilldown orders computed from stageKey (or all orders for View All)
+  const drilldownOrders = useMemo(() => {
+    if (!reportDrilldown) return [];
+    if (!reportDrilldown.stageKey) return orders;
+    return orders.filter((o) => o.stage === reportDrilldown.stageKey);
+  }, [orders, reportDrilldown]);
+
+  const drilldownTotalAmt = drilldownOrders.reduce((sum, o) => sum + o.total, 0);
 
   // Export CSV
   const handleExportCSV = (type = "Customer") => {
@@ -1521,65 +1536,203 @@ export function WholesaleOrdersPipelineView() {
       {/* 5. ORDERS REPORT SUMMARY STAGE VIEW (Screenshot 5)       */}
       {/* ======================================================== */}
       {activeTab.includes("rep") && (
-        <div className="space-y-3">
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
-                  <th className="py-2.5 px-3 text-left w-12">Sl</th>
-                  <th className="py-2.5 px-4 text-left">Status</th>
-                  <th className="py-2.5 px-4 text-center">Order Count</th>
-                  <th className="py-2.5 px-4 text-right">Order Total</th>
-                  <th className="py-2.5 px-4 text-center w-24">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold">
-                {reportStats.map((r) => (
-                  <tr key={r.key} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
-                    <td className="py-3 px-4 font-bold text-slate-900">{r.label}</td>
-                    <td className="py-3 px-4 text-center font-bold text-slate-800">{r.count}</td>
-                    <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
-                      ₹{r.total.toLocaleString("en-IN")}
+        reportDrilldown ? (
+          <div className="space-y-4">
+            {/* Top Back Navigation Bar */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setReportDrilldown(null)}
+                className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>← Back</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportCSV(reportDrilldown.title)}
+                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export</span>
+              </button>
+            </div>
+
+            {/* Section Header */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">{reportDrilldown.title}</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {fromDate} to {toDate} · {drilldownOrders.length} order(s)
+              </p>
+            </div>
+
+            {/* Orders List Table matching nxOrList452 */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                      <th className="py-2.5 px-3 text-left w-10">Sl</th>
+                      <th className="py-2.5 px-3 text-left">Order No</th>
+                      <th className="py-2.5 px-3 text-left">Invoice No</th>
+                      <th className="py-2.5 px-3 text-left">Order Date</th>
+                      <th className="py-2.5 px-4 text-left">Customer</th>
+                      <th className="py-2.5 px-3 text-left">Village</th>
+                      <th className="py-2.5 px-3 text-left">Taken by</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-4 text-right">Amount</th>
+                      <th className="py-2.5 px-3 text-center w-20">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold">
+                    {drilldownOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-8 text-center text-slate-500 font-medium">
+                          No orders in this stage.
+                        </td>
+                      </tr>
+                    ) : (
+                      drilldownOrders.map((o, idx) => (
+                        <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-slate-900">{o.orderNo}</td>
+                          <td className="py-3 px-3 font-mono text-blue-700 font-semibold">{o.invoiceNo || "—"}</td>
+                          <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                          <td className="py-3 px-4 font-bold text-slate-900">{o.customerName}</td>
+                          <td className="py-3 px-3 text-slate-700">{o.village}</td>
+                          <td className="py-3 px-3 text-slate-700">{o.createdBy}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold capitalize ${
+                                o.stage === "completed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : o.stage === "cancelled"
+                                  ? "bg-red-100 text-red-800"
+                                  : o.stage === "delivery"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {o.stage === "completed" ? "Complete" : o.stage}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
+                            ₹{o.total.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setViewingOrder(o)}
+                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer transition-colors"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {drilldownOrders.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900">
+                        <td className="py-3 px-3"></td>
+                        <td className="py-3 px-3">Total</td>
+                        <td colSpan={6}></td>
+                        <td className="py-3 px-4 text-right font-mono text-sm">
+                          ₹{drilldownTotalAmt.toLocaleString("en-IN")}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+
+            {/* Bottom Back Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setReportDrilldown(null)}
+                className="px-5 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>← Back</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                    <th className="py-2.5 px-3 text-left w-12">Sl</th>
+                    <th className="py-2.5 px-4 text-left">Status</th>
+                    <th className="py-2.5 px-4 text-center">Order Count</th>
+                    <th className="py-2.5 px-4 text-right">Order Total</th>
+                    <th className="py-2.5 px-4 text-center w-24">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold">
+                  {reportStats.map((r) => (
+                    <tr key={r.key} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900">{r.label}</td>
+                      <td className="py-3 px-4 text-center font-bold text-slate-800">{r.count}</td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
+                        ₹{r.total.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() =>
+                            setReportDrilldown({
+                              title: `${r.label} orders`,
+                              stageKey: r.key,
+                            })
+                          }
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {/* Total Footer */}
+                <tfoot>
+                  <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900">
+                    <td className="py-3 px-3"></td>
+                    <td className="py-3 px-4">Total</td>
+                    <td className="py-3 px-4 text-center text-sm">{reportTotalOrders}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm">
+                      ₹{reportTotalAmt.toLocaleString("en-IN")}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
-                        onClick={() => switchTab(r.key === "completed" ? "delivery" : r.key)}
-                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
+                        onClick={() =>
+                          setReportDrilldown({
+                            title: "All orders",
+                            stageKey: null,
+                          })
+                        }
+                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
                       >
-                        View
+                        View All
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              {/* Total Footer */}
-              <tfoot>
-                <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900">
-                  <td className="py-3 px-3"></td>
-                  <td className="py-3 px-4">Total</td>
-                  <td className="py-3 px-4 text-center text-sm">{reportTotalOrders}</td>
-                  <td className="py-3 px-4 text-right font-mono text-sm">
-                    ₹{reportTotalAmt.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => switchTab("packing")}
-                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs"
-                    >
-                      View All
-                    </button>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                </tfoot>
+              </table>
+            </div>
 
-          {/* Footnote matching Reference Screenshot 5 */}
-          <div className="pt-1 text-[11px] text-slate-500 font-medium">
-            Total: Orders {reportTotalOrders} | Amount ₹{reportTotalAmt.toLocaleString("en-IN")}. Return = orders with any returned item (amount = returned value).
+            {/* Footnote matching Reference Screenshot 5 */}
+            <div className="pt-1 text-[11px] text-slate-500 font-medium">
+              Total: Orders {reportTotalOrders} | Amount ₹{reportTotalAmt.toLocaleString("en-IN")}. Return = orders with any returned item (amount = returned value).
+            </div>
           </div>
-        </div>
+        )
       )}
     </div>
   );

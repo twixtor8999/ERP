@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -36,15 +36,11 @@ function resolveSmartRoute(role?: string, fallbackRoute?: string | null): string
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isCrm =
-    searchParams.get("portal") === "crm" ||
-    location.pathname.startsWith("/crm") ||
-    (typeof window !== "undefined" && window.location.hostname.includes("crm"));
+  const isCrm = searchParams.get("portal") !== "retail";
 
   const { setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
@@ -113,7 +109,7 @@ export function LoginPage() {
             height: "42vh",
             minHeight: "260px",
             maxHeight: "380px",
-            background: "linear-gradient(135deg, #0d1b4c, #0f3aa8)",
+            background: "linear-gradient(180deg, #0d369c 0%, #1149bd 100%)",
             borderRadius: "0 0 50% 50% / 0 0 28% 28%",
           }}
         />

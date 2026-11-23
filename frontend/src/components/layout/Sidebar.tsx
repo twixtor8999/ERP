@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utilities/cn";
 import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function Sidebar() {
-  const [collapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -49,14 +49,22 @@ export function Sidebar() {
         {!collapsed ? (
           <div className="space-y-2.5">
             {/* White PK AI Brand Card matching Reference App: Left-aligned with bottom divider */}
-            <div className="flex justify-start px-0.5 pb-2.5 border-b border-[#2a3e63]">
-              <div className="bg-white rounded-2xl p-1.5 w-16 h-16 shadow-md flex items-center justify-center border border-slate-100">
+            <div className="flex items-center justify-between px-0.5 pb-2.5 border-b border-[#2a3e63]">
+              <div className="bg-white rounded-2xl p-1.5 w-14 h-14 shadow-md flex items-center justify-center border border-slate-100">
                 <img
                   src="/pk-ai-logo.png"
                   alt="PK AI Smart Bazar"
                   className="w-full h-full object-contain"
                 />
               </div>
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                className="p-1.5 rounded-lg bg-[#203254] hover:bg-[#283f68] border border-[#2c4470] text-slate-300 hover:text-white transition cursor-pointer"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Organization Tag wrapped in rounded pill box container */}
@@ -81,7 +89,7 @@ export function Sidebar() {
             </div>
           </div>
         ) : (
-          <div className="flex justify-center py-1">
+          <div className="flex flex-col items-center gap-2 py-1">
             <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center border border-slate-200 shadow-sm">
               <img
                 src="/pk-ai-logo.png"
@@ -89,6 +97,14 @@ export function Sidebar() {
                 className="w-full h-full object-contain"
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              className="p-1 rounded bg-[#203254] hover:bg-[#283f68] border border-[#2c4470] text-slate-300 hover:text-white transition cursor-pointer"
+              title="Expand sidebar"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
       </div>
