@@ -41,6 +41,13 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // CRM wrong-portal modal state
+  const [crmModal, setCrmModal] = useState<{
+    visible: boolean;
+    userName: string;
+    role: string;
+  }>({ visible: false, userName: "", role: "" });
+
   const isCrm =
     searchParams.get("portal") === "crm" ||
     location.pathname.startsWith("/crm");
@@ -77,6 +84,21 @@ export function LoginPage() {
           setActiveBranch(defaultBranch);
         }
       }
+
+      const role = response.user.role?.toLowerCase().replace(/[-\s]/g, "_") || "";
+      const isCrmRole = role.includes("crm") || role.includes("telecaller");
+
+      // If a CRM/Telecaller user logs in on the admin page → show wrong-portal modal
+      if (!isCrm && isCrmRole) {
+        setCrmModal({
+          visible: true,
+          userName: response.user.fullName || "CRM User",
+          role: response.user.role || "Telecaller/CRM",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       toast.success("Authentication Successful", {
         description: `Welcome back, ${response.user.fullName}`,
       });
@@ -248,6 +270,68 @@ export function LoginPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-white text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden">
+
+      {/* ── CRM Wrong-Portal Modal ────────────────────────────────────────── */}
+      {crmModal.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            {/* Title */}
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <h2 className="text-base font-black text-slate-900">Use your own login link</h2>
+            </div>
+
+            {/* User identity line */}
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-900">
+                {crmModal.userName}{" "}
+                <span className="text-slate-500 font-normal">·</span>{" "}
+                <span className="font-semibold text-slate-700">{crmModal.role} · SIDDESHWAR ENTERPRISES</span>
+              </p>
+
+              <p className="text-sm text-slate-600">This login works only on:</p>
+
+              <p className="text-sm font-black text-slate-900 tracking-tight">
+                erp-9kr.pages.dev/crm/login
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Save this link on your phone{" "}
+                <span className="text-slate-400">(Chrome: ⋮ → Add to Home screen).</span>
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setCrmModal({ visible: false, userName: "", role: "" })}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCrmModal({ visible: false, userName: "", role: "" });
+                  navigate("/crm/login");
+                }}
+                className="px-4 py-2 rounded-lg bg-[#0d1b4c] hover:bg-[#081233] text-white text-sm font-bold flex items-center gap-2 transition cursor-pointer shadow-md"
+              >
+                Open my link
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
       {/* Top Application Header matching Screenshot 4 */}
       <header className="h-11 sm:h-12 px-4 sm:px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
