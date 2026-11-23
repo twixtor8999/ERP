@@ -332,15 +332,15 @@ export function LoginPage() {
         </div>
       )}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* Top Application Header matching Screenshot 4 */}
-      <header className="h-11 sm:h-12 px-4 sm:px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 z-20">
+      {/* Top Application Header matching Reference App */}
+      <header className="h-14 sm:h-16 px-6 sm:px-8 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
-          <ShoppingCart className="w-5 h-5 text-blue-600" />
+          <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
           <div className="flex flex-col leading-tight">
-            <span className="font-extrabold text-[#d97706] text-sm sm:text-base tracking-tight">
+            <span className="font-extrabold text-[#d97706] text-base sm:text-lg tracking-tight">
               PK Ai Smart Bazar
             </span>
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-blue-600">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-blue-600">
               BILLING SOFTWARE
             </span>
           </div>
@@ -349,8 +349,8 @@ export function LoginPage() {
 
       {/* Main Split-Screen Canvas */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Side: Retail Photography & Operations Value Prop matching Screenshot 4 */}
-        <div className="relative hidden lg:flex lg:w-[60%] xl:w-[62%] bg-slate-900 overflow-hidden items-end p-6 xl:p-10 pb-8 shrink-0">
+        {/* Left Side: Retail Photography & Operations Value Prop matching Reference */}
+        <div className="relative hidden lg:flex lg:w-[72%] xl:w-[73%] bg-slate-900 overflow-hidden items-end p-8 xl:p-12 pb-10 shrink-0">
           <img
             src="/family-shopping.jpg"
             alt="Indian family shopping in supermarket aisle"
@@ -366,8 +366,8 @@ export function LoginPage() {
               <span className="text-slate-100 font-bold">all in one app</span>
             </h2>
 
-            {/* 5 Operational Badges matching Screenshot 4 */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* 5 Operational Badges matching Reference */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>CRM</span>
@@ -392,43 +392,43 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Right Side: Single Clean Login Card matching Screenshot 4 */}
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-2 sm:p-4 bg-white overflow-hidden">
-          <div className="w-full max-w-[360px] sm:max-w-[380px]">
-            {/* Back to home link matching Screenshot 4 */}
+        {/* Right Side: Single Clean Login Card matching Reference 1:1 */}
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-white overflow-hidden">
+          <div className="w-full max-w-[408px] sm:max-w-[420px]">
+            {/* Back to home link */}
             <button
               type="button"
               onClick={() => navigate("/home")}
-              className="text-[#1e3a8a] hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 mb-1.5 sm:mb-2 transition cursor-pointer"
+              className="text-[#1e3a8a] hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 mb-3 transition cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back to home
             </button>
 
-            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-sm px-4 py-3 sm:px-6 sm:py-4 space-y-2 sm:space-y-2.5 relative">
+            <div className="w-full bg-white border border-slate-200/90 rounded-[22px] shadow-sm px-6 py-6 sm:px-8 sm:py-8 space-y-4 relative">
               {/* Circular Siddeshwar Enterprises Temple Logo matching reference screenshot */}
-              <div className="text-center space-y-1">
+              <div className="text-center space-y-2">
                 <div className="inline-block relative">
                   <img
                     src="/siddeshwar-logo.png"
                     alt="Siddeshwar Enterprises Logo"
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-contain mx-auto"
+                    className="w-20 h-20 rounded-full object-contain mx-auto"
                   />
                 </div>
                 <div>
-                  <h1 className="text-xs sm:text-sm font-black tracking-tight text-[#162a52] uppercase">
+                  <h1 className="text-sm sm:text-base font-black tracking-tight text-[#0d1b4c] uppercase">
                     SIDDESHWAR ENTERPRISES
                   </h1>
-                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
                     Welcome back! Sign in to continue
                   </p>
                 </div>
               </div>
 
               {/* Single Clean Login Form */}
-              <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-2">
+              <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-3.5">
                 {/* Mobile / Email / Username Input */}
-                <div className="space-y-0.5">
-                  <Label htmlFor="identifier" className="text-[11px] font-bold text-slate-700">
+                <div className="space-y-1">
+                  <Label htmlFor="identifier" className="text-xs font-bold text-slate-700">
                     Mobile / Email / Username
                   </Label>
                   <div className="relative">
@@ -436,7 +436,7 @@ export function LoginPage() {
                       id="identifier"
                       type="text"
                       placeholder="Registered mobile number / username"
-                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none"
+                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 sm:h-11 rounded-[12px] shadow-none px-3.5"
                       disabled={isSubmitting}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -453,8 +453,8 @@ export function LoginPage() {
                 </div>
 
                 {/* Password Input with Hide/Show Toggle Inside Input */}
-                <div className="space-y-0.5">
-                  <Label htmlFor="password" className="text-[11px] font-bold text-slate-700">
+                <div className="space-y-1">
+                  <Label htmlFor="password" className="text-xs font-bold text-slate-700">
                     Password
                   </Label>
                   <div className="relative">
@@ -462,14 +462,14 @@ export function LoginPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter password"
-                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none pr-14"
+                      className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 sm:h-11 rounded-[12px] shadow-none px-3.5 pr-14"
                       disabled={isSubmitting}
                       {...loginRegister("password")}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1.5 sm:top-2 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition cursor-pointer"
+                      className="absolute right-3.5 top-3 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition cursor-pointer"
                     >
                       {showPassword ? "Hide" : "Show"}
                     </button>
@@ -480,51 +480,40 @@ export function LoginPage() {
                 </div>
 
                 {/* Forgot Password Link */}
-                <div className="flex justify-end">
-                  <span className="text-[11px] text-[#1e3a8a] hover:underline font-bold cursor-pointer">
+                <div className="flex justify-end pt-0.5">
+                  <span className="text-xs text-[#1e3a8a] hover:underline font-bold cursor-pointer">
                     Forgot password?
                   </span>
                 </div>
 
-                {/* Sign In Button with Orange Arrow Circle matching Screenshot */}
+                {/* Sign In Button with Orange Arrow Circle matching Reference */}
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-[#132d5e] hover:bg-[#0f244a] text-white font-bold h-8 sm:h-9 rounded-full shadow-sm transition-all flex items-center justify-between px-4 sm:px-5 cursor-pointer"
+                  className="w-full bg-[#0d1b4c] hover:bg-[#081233] text-white font-bold h-10 sm:h-11 rounded-[12px] shadow-[0_6px_14px_-6px_rgba(15,58,168,0.55)] transition-all flex items-center justify-between px-5 cursor-pointer"
                 >
-                  <span className="flex-1 text-center font-bold text-xs sm:text-sm pl-4">
+                  <span className="flex-1 text-center font-bold text-sm pl-4">
                     {isSubmitting ? "Signing in..." : "Sign In"}
                   </span>
-                  <span className="w-5 h-5 rounded-full bg-[#e65100] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-5 h-5 rounded-full bg-[#f08a1c] text-white flex items-center justify-center shrink-0 shadow-xs">
                     {isSubmitting ? (
                       <Loader2 className="w-3 h-3 animate-spin text-white" />
                     ) : (
-                      <ArrowRight className="w-3 h-3 text-white" />
+                      <ArrowRight className="w-3.5 h-3.5 text-white" />
                     )}
                   </span>
                 </Button>
               </form>
 
-
-              <div className="text-center pt-0.5 space-y-0.5">
-                <div className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+              {/* Footer with Lock & Version 5.17 matching Reference */}
+              <div className="text-center pt-2 space-y-1">
+                <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
                   <Lock className="w-3.5 h-3.5 text-slate-400" />
                   <span>Secure login</span>
                 </div>
-                <p className="text-[10px] font-mono text-slate-400">
-                  5.08
+                <p className="text-[11px] font-mono text-slate-400">
+                  5.17
                 </p>
-              </div>
-
-              {/* Switch to CRM Portal Link */}
-              <div className="text-center pt-1.5 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => navigate("/crm/login")}
-                  className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
-                >
-                  Go to Ai Smart Bazar CRM Portal →
-                </button>
               </div>
             </div>
           </div>
