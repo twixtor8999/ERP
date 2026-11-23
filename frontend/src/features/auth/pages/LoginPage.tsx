@@ -242,26 +242,15 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {/* Footer with Lock & Version 5.08 matching reference */}
+          {/* Footer with Lock & Version 5.17 matching reference */}
           <div className="text-center pt-2 space-y-1">
             <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
               <Lock className="w-3.5 h-3.5 text-slate-400" />
               <span>Secure login</span>
             </div>
             <p className="text-[11px] font-mono text-slate-400">
-              5.08
+              5.17
             </p>
-          </div>
-
-          {/* Switch to Admin Login */}
-          <div className="text-center pt-1 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-            >
-              ← Back to Admin Login
-            </button>
           </div>
         </div>
       </div>

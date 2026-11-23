@@ -241,7 +241,7 @@ export function CrmOrderStatusView() {
                 </div>
                 <div className="text-right">
                   <span className="text-gray-400 block text-[10px] uppercase font-bold">Total Amount</span>
-                  <span className="font-extrabold text-gray-900 text-base font-mono">₹{selectedOrder.totalAmount?.toLocaleString("en-IN") || "—"}</span>
+                  <span className="font-extrabold text-gray-900 text-base font-mono">₹{selectedOrder.total?.toLocaleString("en-IN") || "—"}</span>
                 </div>
               </div>
 
