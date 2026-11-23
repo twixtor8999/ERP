@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarNav } from "./SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
 import { useNavigate } from "react-router-dom";
+import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,20 +13,15 @@ export function MobileNav() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const [syncTime, setSyncTime] = useState("");
+  const [syncTime, setSyncTime] = useState(() => getIstTimeString());
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      setSyncTime(
-        now.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }).toLowerCase()
-      );
+      setSyncTime(getIstTimeString());
     };
     updateTime();
+    const interval = setInterval(updateTime, 10000);
+    return () => clearInterval(interval);
   }, [isOpen]);
 
   // Prevent background document scrolling and dragging when mobile drawer is open

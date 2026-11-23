@@ -5,6 +5,7 @@ import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utilities/cn";
+import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -15,22 +16,15 @@ export function Sidebar() {
 
   const isProfileActive = location.pathname === "/profile" || location.pathname === "/my-profile";
 
-  // Current time formatted as hh:mm a for the live synced pill
-  const [syncTime, setSyncTime] = useState("");
+  // Current time formatted in Indian Standard Time (IST) for the live synced pill
+  const [syncTime, setSyncTime] = useState(() => getIstTimeString());
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      setSyncTime(
-        now.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }).toLowerCase()
-      );
+      setSyncTime(getIstTimeString());
     };
     updateTime();
-    const interval = setInterval(updateTime, 30000);
+    const interval = setInterval(updateTime, 10000);
     return () => clearInterval(interval);
   }, []);
 
