@@ -102,10 +102,11 @@ export function DashboardPage() {
   const { roleView } = useParams<{ roleView?: string }>();
   const navigate = useNavigate();
 
+  const normalizedRole = (user?.role || "").toLowerCase().replace(/[-\s]/g, "_");
   const userDashboard = getRoleDashboardView(user?.role);
-  const isSuperAdmin = user?.role?.toLowerCase().includes("super_admin");
-  const isOwner = user?.role?.toLowerCase().includes("owner") || user?.role?.toLowerCase().includes("org_admin");
-  const isExecutive = isSuperAdmin || isOwner || user?.role?.toLowerCase().includes("admin");
+  const isSuperAdmin = normalizedRole.includes("super_admin");
+  const isOwner = normalizedRole.includes("owner") || normalizedRole.includes("org_admin");
+  const isExecutive = isSuperAdmin || isOwner || normalizedRole.includes("admin") || !user;
 
   // Check if user is attempting to access a different dashboard route
   const isMismatched = roleView && roleView !== userDashboard && !isExecutive;
@@ -143,7 +144,7 @@ export function DashboardPage() {
   const effectiveView = roleView || userDashboard;
 
   // 1:1 Pixel Match for Business Dashboard matching Siddeshwar Enterprises reference app
-  if (isExecutive && (!roleView || roleView === "admin" || roleView === "owner")) {
+  if (isExecutive && (!roleView || roleView === "admin" || roleView === "owner" || roleView === "executive")) {
     return <BusinessDashboardView />;
   }
 

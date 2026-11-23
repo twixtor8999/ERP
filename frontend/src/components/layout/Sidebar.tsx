@@ -5,6 +5,7 @@ import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utilities/cn";
+import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -15,22 +16,15 @@ export function Sidebar() {
 
   const isProfileActive = location.pathname === "/profile" || location.pathname === "/my-profile";
 
-  // Current time formatted as hh:mm a for the live synced pill
-  const [syncTime, setSyncTime] = useState("");
+  // Current time formatted in Indian Standard Time (IST) for the live synced pill
+  const [syncTime, setSyncTime] = useState(() => getIstTimeString());
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      setSyncTime(
-        now.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }).toLowerCase()
-      );
+      setSyncTime(getIstTimeString());
     };
     updateTime();
-    const interval = setInterval(updateTime, 30000);
+    const interval = setInterval(updateTime, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -44,42 +38,45 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col border-r border-[#1b2b45] bg-[#132038] text-white transition-all duration-300 relative select-none h-screen overflow-hidden",
-        collapsed ? "w-16" : "w-64"
+        "hidden lg:flex flex-col border-r border-[#223659] bg-[#1c2b47] text-white transition-all duration-300 relative select-none h-screen overflow-hidden",
+        collapsed ? "w-16" : "w-60"
       )}
+      style={{
+        background: "radial-gradient(120% 60% at 0% 0%, #243658 0%, rgba(36, 54, 88, 0) 60%), radial-gradient(120% 70% at 100% 100%, #16233b 0%, rgba(22, 35, 59, 0) 60%), #1c2b47",
+      }}
     >
       {/* Top Header with PK AI Brand Logo */}
-      <div className="p-3 border-b border-[#1b2b45] shrink-0">
+      <div className="p-3 border-b border-[#223659] shrink-0">
         {!collapsed ? (
           <div className="space-y-2.5">
-            {/* White PK AI Brand Card matching Reference App */}
-            <div className="flex justify-center">
-              <div className="bg-white rounded-2xl p-1 w-14 h-14 shadow-sm flex items-center justify-center border border-slate-200">
+            {/* White PK AI Brand Card matching Reference App: Left-aligned with bottom divider */}
+            <div className="flex justify-start px-0.5 pb-2.5 border-b border-[#2a3e63]">
+              <div className="bg-white rounded-2xl p-1.5 w-16 h-16 shadow-md flex items-center justify-center border border-slate-100">
                 <img
                   src="/pk-ai-logo.png"
                   alt="PK AI Smart Bazar"
-                  className="w-full h-full object-contain rounded-xl"
+                  className="w-full h-full object-contain"
                 />
               </div>
             </div>
 
-            {/* Organization Tag */}
-            <div className="px-1 text-center">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 truncate">
+            {/* Organization Tag wrapped in rounded pill box container */}
+            <div className="w-full bg-[#203254] hover:bg-[#253b63] border border-[#2c4470] rounded-xl px-3 py-2 text-center shadow-xs transition">
+              <span className="text-[13px] font-black tracking-wide text-white uppercase truncate block">
                 {user?.organizationName ? (user.organizationName.length > 16 ? user.organizationName.slice(0, 15) + "..." : user.organizationName) : "SIDDESHWAR ENT..."}
-              </p>
+              </span>
             </div>
 
             {/* Search Menu Input with Cyan dot */}
             <div className="relative">
-              <div className="flex items-center gap-2 bg-[#0c1626] border border-[#1e2e4a] rounded-lg px-2.5 py-1.5 shadow-inner">
+              <div className="flex items-center gap-2 bg-[#142138] border border-[#25395c] rounded-lg px-2.5 py-1.5 shadow-inner">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
                 <input
                   type="text"
                   placeholder="Search menu..."
                   value={menuSearch}
                   onChange={(e) => setMenuSearch(e.target.value)}
-                  className="bg-transparent text-xs text-white placeholder:text-slate-400 focus:outline-none w-full"
+                  className="bg-transparent text-xs text-white placeholder:text-slate-300 focus:outline-none w-full"
                 />
               </div>
             </div>
@@ -103,7 +100,7 @@ export function Sidebar() {
       </div>
 
       {/* Sidebar Bottom: User Profile & Live Synced Badge */}
-      <div className="p-2.5 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-1.5">
+      <div className="p-2.5 border-t border-[#223659] bg-[#142138] shrink-0 space-y-1.5">
         {!collapsed ? (
           <>
             <div className="flex items-center justify-between gap-1.5">

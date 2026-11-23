@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Search, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { getStoredEmployees } from "@/features/employees/data/mockEmployees";
+import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
 
 interface CrmStaffMember {
   id: string;
@@ -293,47 +295,54 @@ const STAFF_COLORS = [
 function getDynamicStaffList(): CrmStaffMember[] {
   try {
     const employees = getStoredEmployees();
-    if (!employees || employees.length === 0) return DEFAULT_STAFF;
-
     const knownStaffMap = new Map<string, CrmStaffMember>();
+
+    // Seed with DEFAULT_STAFF (telecallers with real orders & performance data)
     DEFAULT_STAFF.forEach((s) => {
-      knownStaffMap.set(s.name.trim().toLowerCase(), s);
+      knownStaffMap.set(s.name.trim().toLowerCase(), { ...s });
     });
 
-    const list: CrmStaffMember[] = [];
-    employees.forEach((emp, index) => {
-      const known = knownStaffMap.get(emp.name.trim().toLowerCase());
-      if (known) {
-        list.push({
-          ...known,
-          id: String(emp.id),
-        });
-      } else {
-        const parts = emp.name.trim().split(/\s+/);
-        const p0 = parts[0] || "";
-        const p1 = parts[1] || "";
-        const initials =
-          parts.length >= 2 && p0 && p1
-            ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
-            : emp.name.slice(0, 2).toUpperCase();
+    // Merge in any employees from the employee module
+    if (employees && employees.length > 0) {
+      employees.forEach((emp, index) => {
+        const key = emp.name.trim().toLowerCase();
+        // If not already in knownStaffMap and not a generic "Owner" placeholder, add them
+        if (!knownStaffMap.has(key) && key !== "owner") {
+          const parts = emp.name.trim().split(/\s+/);
+          const p0 = parts[0] || "";
+          const p1 = parts[1] || "";
+          const initials =
+            parts.length >= 2 && p0 && p1
+              ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
+              : emp.name.slice(0, 2).toUpperCase();
 
-        list.push({
-          id: String(emp.id),
-          name: emp.name,
-          initials: initials || "ST",
-          themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
-          orders: 0,
-          salesK: "₹0",
-          coveredVillages: 0,
-          callings: 0,
-          salesReturnK: "₹0",
-          salesReturnOrders: 0,
-          salesReturnDate: "As on 21-11-2026",
-          obSalesK: "₹0",
-          targetK: "Target ₹1.2L",
-          targetPercent: 0,
-        });
-      }
+          knownStaffMap.set(key, {
+            id: String(emp.id),
+            name: emp.name,
+            initials: initials || "ST",
+            themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
+            orders: 0,
+            salesK: "₹0",
+            coveredVillages: 0,
+            callings: 0,
+            salesReturnK: "₹0",
+            salesReturnOrders: 0,
+            salesReturnDate: "As on 21-11-2026",
+            obSalesK: "₹0",
+            targetK: "Target ₹1.2L",
+            targetPercent: 0,
+          });
+        }
+      });
+    }
+
+    // Convert map to array and sort so active telecallers with orders/sales come FIRST
+    const list = Array.from(knownStaffMap.values());
+    list.sort((a, b) => {
+      if (b.orders !== a.orders) return b.orders - a.orders;
+      const bSales = parseFloat(b.salesK.replace(/[^\d.]/g, "")) || 0;
+      const aSales = parseFloat(a.salesK.replace(/[^\d.]/g, "")) || 0;
+      return bSales - aSales;
     });
 
     return list.length > 0 ? list : DEFAULT_STAFF;
@@ -344,12 +353,13 @@ function getDynamicStaffList(): CrmStaffMember[] {
 
 const getStaffData = (staff: CrmStaffMember): StaffDetailData => {
   if (STAFF_DRILLDOWN_DATA[staff.id]) return STAFF_DRILLDOWN_DATA[staff.id]!;
-  if (staff.name.includes("Pushpa")) return STAFF_DRILLDOWN_DATA["1"] || EMPTY_STAFF_DATA;
-  if (staff.name.includes("Dhruthi")) return STAFF_DRILLDOWN_DATA["2"] || EMPTY_STAFF_DATA;
-  if (staff.name.includes("Mahalaxmi")) return STAFF_DRILLDOWN_DATA["3"] || EMPTY_STAFF_DATA;
-  if (staff.name.includes("Vijaykumar")) return STAFF_DRILLDOWN_DATA["4"] || EMPTY_STAFF_DATA;
-  if (staff.name.includes("Prashant")) return STAFF_DRILLDOWN_DATA["5"] || EMPTY_STAFF_DATA;
-  if (staff.name.includes("Arun")) return STAFF_DRILLDOWN_DATA["6"] || EMPTY_STAFF_DATA;
+  const name = staff.name.toLowerCase();
+  if (name.includes("pushpa")) return STAFF_DRILLDOWN_DATA["1"] || EMPTY_STAFF_DATA;
+  if (name.includes("dhruthi")) return STAFF_DRILLDOWN_DATA["2"] || EMPTY_STAFF_DATA;
+  if (name.includes("mahalaxmi")) return STAFF_DRILLDOWN_DATA["3"] || EMPTY_STAFF_DATA;
+  if (name.includes("vijaykumar")) return STAFF_DRILLDOWN_DATA["4"] || EMPTY_STAFF_DATA;
+  if (name.includes("prashant")) return STAFF_DRILLDOWN_DATA["5"] || EMPTY_STAFF_DATA;
+  if (name.includes("arun")) return STAFF_DRILLDOWN_DATA["6"] || EMPTY_STAFF_DATA;
   return EMPTY_STAFF_DATA;
 };
 
@@ -357,10 +367,12 @@ type SubViewType = "none" | "sales" | "villages" | "callings" | "returns" | "obs
 
 export function BusinessDashboardView() {
   const navigate = useNavigate();
-  const todayStr = "2026-11-22";
-  const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate, setToDate] = useState(todayStr);
-  const [currentTime] = useState("08:03 pm");
+  // Dynamic Live Indian Standard Time (IST) Clock & Date
+  const liveClock = useIstLiveClock(1000);
+
+  const [fromDate, setFromDate] = useState(() => getIstDateString());
+  const [toDate, setToDate] = useState(() => getIstDateString());
+  const [displaySubtitle, setDisplaySubtitle] = useState("Today");
 
   const [staffList, setStaffList] = useState<CrmStaffMember[]>(() => getDynamicStaffList());
 
@@ -373,6 +385,21 @@ export function BusinessDashboardView() {
       window.removeEventListener("focus", refresh);
     };
   }, []);
+
+  const handleDateFilterSubmit = () => {
+    if (fromDate === toDate) {
+      if (fromDate === liveClock.dateStr) {
+        setDisplaySubtitle("Today");
+      } else {
+        setDisplaySubtitle(`Date: ${fromDate}`);
+      }
+    } else {
+      setDisplaySubtitle(`${fromDate} to ${toDate}`);
+    }
+    toast.success("Dashboard Filter Applied", {
+      description: `Showing business metrics for ${fromDate} to ${toDate}`,
+    });
+  };
 
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
@@ -941,8 +968,8 @@ export function BusinessDashboardView() {
           </div>
 
           <button
-            onClick={() => {}}
-            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-4 py-1 rounded-md text-xs font-bold transition-colors shadow-2xs"
+            onClick={handleDateFilterSubmit}
+            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-4 py-1 rounded-md text-xs font-bold transition-colors shadow-2xs cursor-pointer"
           >
             Submit
           </button>
@@ -951,26 +978,26 @@ export function BusinessDashboardView() {
 
       {/* Main Business Dashboard Card Container matching .nxcb */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5 space-y-4">
-        {/* Header: Title, Subtitle & Live Time Pill matching .nxd-hd */}
+        {/* Header: Title, Subtitle & Live Indian Standard Time (IST) Pill matching .nxd-hd */}
         <div className="flex items-center justify-between pb-1">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
               Business Dashboard
             </h1>
-            <p className="text-xs font-semibold text-slate-400 mt-0.5">Today</p>
+            <p className="text-xs font-semibold text-slate-400 mt-0.5">{displaySubtitle}</p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/employees?tab=list&action=new')}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs"
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer"
               title="Create new employee or staff"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ New Staff</span>
             </button>
-            <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs">
-              {currentTime}
+            <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs font-mono" title="Live Indian Standard Time (IST)">
+              {liveClock.time}
             </div>
           </div>
         </div>
