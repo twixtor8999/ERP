@@ -165,31 +165,31 @@ export function LoginPage() {
               <ArrowLeft className="w-3.5 h-3.5" /> Back to home
             </button>
 
-            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-100 p-6 sm:p-8 space-y-6 relative">
-              {/* 3rd Image: Circular Siddeshwar Enterprises Logo */}
-              <div className="text-center space-y-3">
+            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-sm p-6 sm:p-8 space-y-5 relative">
+              {/* Circular Siddeshwar Enterprises Temple Logo matching reference screenshot */}
+              <div className="text-center space-y-2.5">
                 <div className="inline-block relative">
                   <img
                     src="/siddeshwar-logo.png"
                     alt="Siddeshwar Enterprises Logo"
-                    className="w-24 h-24 rounded-full object-contain mx-auto shadow-md border-2 border-amber-600/30 p-0.5 bg-white"
+                    className="w-24 h-24 rounded-full object-contain mx-auto"
                   />
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#1e3a8a] uppercase">
+                  <h1 className="text-base sm:text-lg font-black tracking-tight text-[#162a52] uppercase">
                     SIDDESHWAR ENTERPRISES
                   </h1>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                  <p className="text-xs text-slate-400 mt-0.5 font-medium">
                     Welcome back! Sign in to continue
                   </p>
                 </div>
               </div>
 
-            {/* Single Clean Login Form (No Public Sign-Up) */}
+            {/* Single Clean Login Form */}
             <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-4">
               {/* Mobile / Email / Username Input */}
-              <div className="space-y-1.5">
-                <Label htmlFor="identifier" className="text-xs font-semibold text-slate-700">
+              <div className="space-y-1">
+                <Label htmlFor="identifier" className="text-xs font-bold text-slate-700">
                   Mobile / Email / Username
                 </Label>
                 <div className="relative">
@@ -197,7 +197,7 @@ export function LoginPage() {
                     id="identifier"
                     type="text"
                     placeholder="Registered mobile number / username"
-                    className="bg-[#f0f4f8] border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-11 shadow-2xs rounded-lg"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-lg shadow-none"
                     disabled={isSubmitting}
                     {...loginRegister("identifier")}
                   />
@@ -208,8 +208,8 @@ export function LoginPage() {
               </div>
 
               {/* Password Input with Hide/Show Toggle Inside Input */}
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-semibold text-slate-700">
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-xs font-bold text-slate-700">
                   Password
                 </Label>
                 <div className="relative">
@@ -217,14 +217,14 @@ export function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter password"
-                    className="bg-[#f0f4f8] border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-blue-500 text-sm h-11 shadow-2xs rounded-lg pr-14"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-lg shadow-none pr-14"
                     disabled={isSubmitting}
                     {...loginRegister("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-3.5 text-xs font-semibold text-blue-600 hover:text-blue-700 transition"
+                    className="absolute right-3 top-2.5 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition"
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -235,33 +235,44 @@ export function LoginPage() {
               </div>
 
               {/* Forgot Password Link */}
-              <div className="flex justify-end">
-                <span className="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+              <div className="flex justify-end pt-0.5">
+                <span className="text-xs text-[#1e3a8a] hover:underline font-bold cursor-pointer">
                   Forgot password?
                 </span>
               </div>
 
-              {/* Sign In Button with Orange Arrow Circle matching Screenshot 1 */}
+              {/* Sign In Button with Orange Arrow Circle matching Screenshot */}
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#1a2942] hover:bg-[#132035] text-white font-bold h-11 rounded-full shadow-md transition-all flex items-center justify-between px-6"
+                className="w-full bg-[#132d5e] hover:bg-[#0f244a] text-white font-bold h-10 rounded-full shadow-sm transition-all flex items-center justify-between px-6"
               >
-                <span className="flex-1 text-center font-bold text-sm">
+                <span className="flex-1 text-center font-bold text-sm pl-4">
                   {isSubmitting ? "Signing in..." : "Sign In"}
                 </span>
-                <span className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <span className="w-6 h-6 rounded-full bg-[#e65100] text-white flex items-center justify-center shrink-0 shadow-xs">
                   {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                   ) : (
-                    <ArrowRight className="w-4 h-4 text-white" />
+                    <ArrowRight className="w-3.5 h-3.5 text-white" />
                   )}
                 </span>
               </Button>
             </form>
 
-            {/* Footer with Lock & Version 5.08 matching Screenshot 1 */}
-            <div className="text-center pt-2 space-y-1">
+            {/* New phone? Create Owner account */}
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
+                className="text-xs font-bold text-[#1e3a8a] hover:underline cursor-pointer"
+              >
+                New phone? Create Owner account
+              </button>
+            </div>
+
+            {/* Footer with Lock & Version 5.08 matching Screenshot */}
+            <div className="text-center pt-2 space-y-0.5">
               <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
                 <Lock className="w-3.5 h-3.5 text-slate-400" />
                 <span>Secure login</span>
