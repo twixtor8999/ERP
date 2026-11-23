@@ -49,15 +49,9 @@ export function LoginPage() {
   const { user, isAuthenticated, setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      if (isCrm) {
-        navigate("/crm", { replace: true });
-      } else {
-        navigate(resolveSmartRoute(user.role, user.dashboardRoute), { replace: true });
-      }
-    }
-  }, [isAuthenticated, user, navigate, isCrm]);
+  // Note: We intentionally do NOT auto-redirect on page load so the login screen
+  // never kicks the user into the app automatically while they are typing their details.
+  // The user must explicitly tap the "Sign In" button to authenticate.
 
   const {
     register: loginRegister,
@@ -149,6 +143,12 @@ export function LoginPage() {
                 placeholder="Registered mobile number / username"
                 className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none"
                 disabled={isSubmitting}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    document.getElementById("crm-password")?.focus();
+                  }
+                }}
                 {...loginRegister("identifier")}
               />
               {loginErrors.identifier && (
@@ -354,6 +354,12 @@ export function LoginPage() {
                       placeholder="Registered mobile number / username"
                       className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none"
                       disabled={isSubmitting}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          document.getElementById("password")?.focus();
+                        }
+                      }}
                       {...loginRegister("identifier")}
                     />
                   </div>
