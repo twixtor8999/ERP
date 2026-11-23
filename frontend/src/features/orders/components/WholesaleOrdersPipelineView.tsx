@@ -161,6 +161,9 @@ const VEHICLES_LIST = [
   "KA28AA6256",
   "KA28AC0349",
   "KA28B1092",
+  "KA28B8844",
+  "KA28C1002",
+  "KA28D5500",
 ];
 
 export function WholesaleOrdersPipelineView() {
@@ -186,6 +189,7 @@ export function WholesaleOrdersPipelineView() {
 
   // Modals
   const [viewingOrder, setViewingOrder] = useState<PipelineOrder | null>(null);
+  const [printingOrder, setPrintingOrder] = useState<PipelineOrder | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Switch sub-tab helper
@@ -272,16 +276,32 @@ export function WholesaleOrdersPipelineView() {
     );
   };
 
+  const handleVehicleChange = (orderId: string, vehicleNo: string) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, vehicleNo } : o))
+    );
+  };
+
   const handlePrintAndDispatch = (orderId: string) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    // Trigger printing of the invoice
+    setPrintingOrder(targetOrder);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+
+    // Directly move order to "delivery" stage
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
-          toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched!`, {
-            description: `Assigned to vehicle ${o.vehicleNo || "KA28AA6256"}`,
+          toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched & Moved to Delivery!`, {
+            description: `Vehicle: ${o.vehicleNo || "KA28AA6256"} · Out for Delivery`,
           });
           return {
             ...o,
-            stage: "dispatch",
+            stage: "delivery",
           };
         }
         return o;
@@ -846,7 +866,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
                       <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{o.source}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-2 font-mono" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={o.vehicleNo || "KA28AA6256"}
+                          onChange={(e) => handleVehicleChange(o.id, e.target.value)}
+                          className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        >
+                          {VEHICLES_LIST.filter((v) => v !== "Select vehicle").map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
@@ -920,7 +952,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-900 font-bold">{o.customerName}</td>
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-2 font-mono" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={o.vehicleNo || "KA28AA6256"}
+                          onChange={(e) => handleVehicleChange(o.id, e.target.value)}
+                          className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        >
+                          {VEHICLES_LIST.filter((v) => v !== "Select vehicle").map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
@@ -1013,7 +1057,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-2 font-mono" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={o.vehicleNo || "KA28AA6256"}
+                          onChange={(e) => handleVehicleChange(o.id, e.target.value)}
+                          className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        >
+                          {VEHICLES_LIST.filter((v) => v !== "Select vehicle").map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
@@ -1095,6 +1151,85 @@ export function WholesaleOrdersPipelineView() {
           {/* Footnote matching Reference Screenshot 5 */}
           <div className="pt-1 text-[11px] text-slate-500 font-medium">
             Total: Orders {reportTotalOrders} | Amount ₹{reportTotalAmt.toLocaleString("en-IN")}. Return = orders with any returned item (amount = returned value).
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Wholesale Tax Invoice Print Container for window.print() */}
+      {printingOrder && (
+        <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 text-black font-sans">
+          <div className="border-b-2 border-slate-900 pb-4 mb-4 flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">SIDDESHWAR ENTERPRISES</h1>
+              <p className="text-xs text-slate-600">Wholesale Groceries & FMCG Distributor</p>
+              <p className="text-xs text-slate-600">Main Road, Bijapur - 586101 | Phone: 9845123456</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">GSTIN: 29AAAAA0000A1Z5</p>
+            </div>
+            <div className="text-right">
+              <span className="text-lg font-black text-slate-900 block font-mono">TAX INVOICE</span>
+              <p className="text-sm font-bold font-mono">Inv No: {printingOrder.invoiceNo || "INV-1001"}</p>
+              <p className="text-xs text-slate-600">Order Ref: {printingOrder.orderNo}</p>
+              <p className="text-xs text-slate-600">Date: {printingOrder.orderDate} {printingOrder.orderTime}</p>
+              <p className="text-xs font-black text-blue-900 font-mono mt-1">
+                Vehicle No: {printingOrder.vehicleNo || "KA28AA6256"}
+              </p>
+            </div>
+          </div>
+
+          {/* Customer info */}
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-4 text-xs">
+            <p className="font-bold text-slate-900 text-sm">{printingOrder.customerName}</p>
+            <p className="text-slate-700 font-medium">{printingOrder.shopName} · {printingOrder.village}</p>
+            <p className="text-slate-600">Beat / Route: {printingOrder.route} | Booked by: {printingOrder.createdBy}</p>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-xs border border-slate-300 mb-4">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-300 font-black">
+                <th className="py-1.5 px-2 text-left w-8">#</th>
+                <th className="py-1.5 px-2 text-left">Item Description</th>
+                <th className="py-1.5 px-2 text-center w-16">Qty</th>
+                <th className="py-1.5 px-2 text-right w-24">Rate</th>
+                <th className="py-1.5 px-2 text-center w-16">GST</th>
+                <th className="py-1.5 px-2 text-right w-24">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 font-medium">
+              {printingOrder.items.map((it, idx) => {
+                const rate = it.rate ?? it.price;
+                const gst = it.gst ?? "5%";
+                const amount = it.amount ?? (it.qty * rate);
+                return (
+                  <tr key={idx}>
+                    <td className="py-1 px-2 text-slate-600">{idx + 1}</td>
+                    <td className="py-1 px-2 font-bold text-slate-900">{it.name}</td>
+                    <td className="py-1 px-2 text-center font-mono font-bold">{it.qty}</td>
+                    <td className="py-1 px-2 text-right font-mono">{rate.toFixed(2)}</td>
+                    <td className="py-1 px-2 text-center font-mono">{gst}</td>
+                    <td className="py-1 px-2 text-right font-mono font-bold">{amount.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-slate-100 font-black border-t-2 border-slate-300">
+                <td colSpan={2} className="py-1.5 px-2">Total</td>
+                <td className="py-1.5 px-2 text-center font-mono">{printingOrder.items.reduce((acc, it) => acc + (it.qty || 0), 0)}</td>
+                <td colSpan={2}></td>
+                <td className="py-1.5 px-2 text-right font-mono text-sm">₹{printingOrder.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Footer dispatch sign */}
+          <div className="pt-8 flex justify-between text-xs text-slate-700">
+            <div>
+              <p>Vehicle Driver Signature: __________________</p>
+              <p className="text-[10px] text-slate-500 mt-1">Vehicle: {printingOrder.vehicleNo || "KA28AA6256"}</p>
+            </div>
+            <div className="text-right">
+              <p>For Siddeshwar Enterprises</p>
+              <p className="mt-8 font-bold">Authorized Signatory</p>
+            </div>
           </div>
         </div>
       )}
