@@ -45,7 +45,144 @@ export function WholesaleVehiclesListView() {
     const dmy = dateStr.split("-").reverse().join("-");
 
     if (diffDays < 0) {
-      return (
+      if (selectedVehicle) {
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] pb-12">
+        {/* Top Back Navigation Bar matching Image 3 */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setSelectedVehicle(null)}
+            className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>← Back</span>
+          </button>
+        </div>
+
+        {/* Header Title with Vehicle No & Badge matching Image 3 */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
+              {selectedVehicle.no}
+            </h2>
+            <span className="text-slate-400 font-bold">·</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+              {selectedVehicle.type || "Commercial"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 font-medium">
+            {selectedVehicle.model} · {selectedVehicle.brand} · Owner: {selectedVehicle.own} ({selectedVehicle.oph}) · {selectedVehicle.addr}
+          </p>
+        </div>
+
+        {/* 3 KPI Summary Cards matching Image 3 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Card 1: Vehicle Model */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+            <span className="text-xs font-bold text-slate-500 block">Brand / Model</span>
+            <p className="text-xl font-black text-slate-900 truncate">
+              {selectedVehicle.brand} {selectedVehicle.model}
+            </p>
+          </div>
+
+          {/* Card 2: Insurance Expiry */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+            <span className="text-xs font-bold text-slate-500 block">Insurance Valid Till</span>
+            <p className="text-xl font-black text-slate-900 font-mono">
+              {selectedVehicle.insx || "—"}
+            </p>
+          </div>
+
+          {/* Card 3: Assigned Driver */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
+            <span className="text-xs font-bold text-slate-500 block">Assigned Driver</span>
+            <p className="text-xl font-black text-slate-900 truncate">
+              {selectedVehicle.dr || "No driver assigned"}
+            </p>
+          </div>
+        </div>
+
+        {/* Specifications Table with Solid Royal Blue (#2563eb / #2f6fe4) Header matching Image 3 */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                  <th className="py-2.5 px-4 text-left w-12">Sl</th>
+                  <th className="py-2.5 px-4 text-left w-48">Parameter</th>
+                  <th className="py-2.5 px-4 text-left">Details</th>
+                  <th className="py-2.5 px-4 text-left w-48">Status / Verification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">1</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Registration Number</td>
+                  <td className="py-3 px-4 font-mono font-bold text-slate-900">{selectedVehicle.no}</td>
+                  <td className="py-3 px-4 font-bold text-emerald-600">Verified</td>
+                </tr>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">2</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Vehicle Type</td>
+                  <td className="py-3 px-4 text-slate-800">{selectedVehicle.type}</td>
+                  <td className="py-3 px-4 text-slate-500">Commercial Goods</td>
+                </tr>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">3</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Brand & Model</td>
+                  <td className="py-3 px-4 text-slate-800">{selectedVehicle.brand} · {selectedVehicle.model}</td>
+                  <td className="py-3 px-4 text-slate-500">Registered</td>
+                </tr>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">4</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Owner Name & Contact</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{selectedVehicle.own} ({selectedVehicle.oph})</td>
+                  <td className="py-3 px-4 font-mono text-blue-600">{selectedVehicle.oph}</td>
+                </tr>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">5</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Owner Address</td>
+                  <td className="py-3 px-4 text-slate-800">{selectedVehicle.addr}</td>
+                  <td className="py-3 px-4 text-slate-500">Karnataka</td>
+                </tr>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 text-slate-500 font-bold">6</td>
+                  <td className="py-3 px-4 text-slate-500 font-bold">Policy / Insurance</td>
+                  <td className="py-3 px-4 font-mono text-slate-800">{selectedVehicle.pol || "Policy on record"} · Valid till {selectedVehicle.insx || "—"}</td>
+                  <td className="py-3 px-4 font-bold text-emerald-600">Active</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Bottom Action Bar matching Image 3 */}
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={() => handleDelete(selectedVehicle.id, selectedVehicle.no)}
+            className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Vehicle</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedVehicle(null)}
+              className="px-5 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
         <span className="inline-block px-2 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-100 rounded">
           Expired {dmy}
         </span>
@@ -187,76 +324,7 @@ export function WholesaleVehiclesListView() {
         </div>
       </div>
 
-      {/* View / Edit Vehicle Modal */}
-      {selectedVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 font-mono">{selectedVehicle.no}</h3>
-                <div className="text-xs text-slate-500">{selectedVehicle.model}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedVehicle(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Vehicle Type</span>
-                <span className="font-bold text-slate-800">{selectedVehicle.type}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Brand</span>
-                <span className="font-bold text-slate-800">{selectedVehicle.brand}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Owner Name</span>
-                <span className="font-bold text-slate-800">{selectedVehicle.own}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Owner Contact</span>
-                <span className="font-bold text-slate-800 font-mono">{selectedVehicle.oph}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg col-span-2">
-                <span className="text-slate-400 block mb-0.5">Owner Address</span>
-                <span className="font-medium text-slate-800">{selectedVehicle.addr}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Policy Number</span>
-                <span className="font-mono text-slate-800">{selectedVehicle.pol || "—"}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Insurance Valid Till</span>
-                <span className="font-medium text-slate-800">{selectedVehicle.insx || "—"}</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => handleDelete(selectedVehicle.id, selectedVehicle.no)}
-                className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete Vehicle
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedVehicle(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
