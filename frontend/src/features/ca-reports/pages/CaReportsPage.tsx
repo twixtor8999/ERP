@@ -48,42 +48,7 @@ export function CaReportsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Top Sub-tabs Navigation Pill Bar */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 overflow-x-auto">
-        {[
-          { id: 'gstr', label: 'All GST Returns' },
-          { id: 'gstr1', label: 'GSTR-1 · Sales' },
-          { id: 'gstr2', label: 'GSTR-2 · Purchases' },
-          { id: 'gstr3b', label: 'GSTR-3B · Summary' },
-          { id: 'gstr9', label: 'GSTR-9 · Annual' },
-          { id: 'carsal', label: 'Sales Register' },
-          { id: 'carpur', label: 'Purchase Register' },
-          { id: 'carcdn', label: 'Credit / Debit Notes' },
-          { id: 'carexp', label: 'Expense Register' },
-          { id: 'carhsn', label: 'HSN Summary' },
-          { id: 'cargsm', label: 'GST Summary' },
-          { id: 'carven', label: 'Vendor Purchases' },
-          { id: 'carstk', label: 'Stock Summary' },
-          { id: 'carday', label: 'Day Book' },
-        ].map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleTabChange(item.id as CaTabKey)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-                isActive
-                  ? 'bg-[#f59e0b] text-slate-950 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Render selected view */}
+      {/* Render selected view directly driven by sidebar sub-tabs */}
       {isGstReturnTab ? (
         <WholesaleGstReturnsView
           initialReturnTab={getGstrInitialType()}
