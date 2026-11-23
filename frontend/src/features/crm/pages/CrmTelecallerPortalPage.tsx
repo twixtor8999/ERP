@@ -451,6 +451,8 @@ export function CrmTelecallerPortalPage() {
   const [catalog, setCatalog] = useState<ProductItem[]>([]);
   const [skuSearch, setSkuSearch] = useState<string>("");
   const [orderCustomer, setOrderCustomer] = useState<CallingCustomer | null>(null);
+  const [orderCustomerSearch, setOrderCustomerSearch] = useState<string>("");
+  const [orderBeatOnly, setOrderBeatOnly] = useState<boolean>(false);
   const [orderItems, setOrderItems] = useState<{ [variantId: string]: number }>({});
   const [orderPayMethod, setOrderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
   const [orderPaidAmount, setOrderPaidAmount] = useState<string>("");
@@ -1044,6 +1046,36 @@ export function CrmTelecallerPortalPage() {
     });
   }, [callingCustomers, customerRouteFilter, customerSearch]);
 
+  // Filter Customers for Place Order Customer Selection Screen (Matches reference photo)
+  const filteredOrderCustomers = useMemo(() => {
+    let list = callingCustomers;
+    if (orderBeatOnly) {
+      const todayDay = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+      list = list.filter(
+        (c) =>
+          (c.beat_day || "").toLowerCase() === todayDay ||
+          (c.beat_day || "").toLowerCase() === selectedBeatDay.toLowerCase() ||
+          (c.beat_day || "").toLowerCase() === "all days"
+      );
+    }
+    const q = orderCustomerSearch.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((c) => {
+      const name = (c.name || c.display_name || "").toLowerCase();
+      const shop = (c.shop_name || "").toLowerCase();
+      const village = (c.village || "").toLowerCase();
+      const phone = (c.phone || "").replace(/\D/g, "");
+      const route = (c.route || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        shop.includes(q) ||
+        village.includes(q) ||
+        phone.includes(q) ||
+        route.includes(q)
+      );
+    });
+  }, [callingCustomers, orderBeatOnly, selectedBeatDay, orderCustomerSearch]);
+
   // Filter SKU Master
   const filteredSkuCatalog = useMemo(() => {
     return catalog
@@ -1336,10 +1368,17 @@ export function CrmTelecallerPortalPage() {
               <button
                 onClick={() => {
                   if (activeView === "team-reports") setActiveView("reports");
+                  else if (activeView === "place-order" && orderCustomer) setOrderCustomer(null);
                   else setActiveView("home");
                 }}
                 className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
-                title={activeView === "team-reports" ? "Back to CRM Report" : "Back to Home"}
+                title={
+                  activeView === "team-reports"
+                    ? "Back to CRM Report"
+                    : activeView === "place-order" && orderCustomer
+                    ? "Back to Customer Search"
+                    : "Back to Home"
+                }
               >
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
@@ -1373,15 +1412,47 @@ export function CrmTelecallerPortalPage() {
                   ? "Customer List"
                   : activeView === "profile"
                   ? "My Profile"
+                  : activeView === "place-order"
+                  ? "Place Order"
                   : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               </h1>
               <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest leading-none mt-0.5">
-                SIDDESHWAR ENTERPRISES
+                {activeView === "place-order" && !orderCustomer
+                  ? orderCustomerSearch.trim()
+                    ? `Found : ${filteredOrderCustomers.length}`
+                    : `${callingCustomers.length} customers`
+                  : activeView === "place-order" && orderCustomer
+                  ? `${orderCustomer.shop_name || orderCustomer.display_name} • ${orderCustomer.village || orderCustomer.route || "Bijapur"}`
+                  : "SIDDESHWAR ENTERPRISES"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {activeView === "place-order" && !orderCustomer && (
+              <button
+                type="button"
+                onClick={() => setOrderBeatOnly((prev) => !prev)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 ${
+                  orderBeatOnly
+                    ? "bg-amber-400 text-slate-900 font-extrabold"
+                    : "bg-blue-800/80 hover:bg-blue-700 text-white"
+                }`}
+                title="Filter by Today's Scheduled Beat Route"
+              >
+                <Phone className="w-3.5 h-3.5 text-amber-300" />
+                <span className="font-extrabold">BEAT</span>
+              </button>
+            )}
+            {activeView === "place-order" && orderCustomer && (
+              <button
+                type="button"
+                onClick={() => setOrderCustomer(null)}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-800/80 hover:bg-blue-700 text-white cursor-pointer"
+              >
+                Change Shop
+              </button>
+            )}
             {activeView === "targets" && (
               <button
                 type="button"
@@ -2302,8 +2373,110 @@ export function CrmTelecallerPortalPage() {
             {/* VIEW: PLACE ORDER (TELECALLER QUICK ORDER PAD)           */}
             {/* ======================================================== */}
             {activeView === "place-order" && (
-              <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="p-3.5 sm:p-5 space-y-4 max-w-4xl mx-auto">
+                {!orderCustomer ? (
+                  /* =================================================== */
+                  /* STEP 1: CUSTOMER SELECTION (MATCHES LAPTOP PHOTO)   */
+                  /* =================================================== */
+                  <div className="space-y-3.5">
+                    {/* Search Input with pill radius and search icon on right */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={orderCustomerSearch}
+                        onChange={(e) => setOrderCustomerSearch(e.target.value)}
+                        placeholder="Search customer by name, number, shop, village"
+                        className="w-full bg-white hover:bg-slate-50/50 focus:bg-white text-slate-800 placeholder-slate-400 text-xs sm:text-sm pl-4 pr-11 py-3 rounded-full border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-hidden shadow-xs"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <Search className="w-4 h-4 text-slate-600" />
+                      </div>
+                    </div>
+
+                    {/* Filter count / info */}
+                    {!orderCustomerSearch && (
+                      <p className="text-[11px] text-slate-400 font-medium px-1">
+                        {orderBeatOnly ? "Showing today's Beat Route customers." : "Recent customers. Type to search all."}
+                      </p>
+                    )}
+
+                    {/* 2-Column Responsive Grid on Laptop/Desktop matching screenshot */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {filteredOrderCustomers.slice(0, orderCustomerSearch ? 100 : 40).map((c) => {
+                        const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => setOrderCustomer(c)}
+                            className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 hover:border-blue-400 hover:shadow-md transition-all flex items-start justify-between gap-3 group relative cursor-pointer active:scale-[0.99]"
+                          >
+                            {/* Left: Cart Icon + Shop / Owner metadata */}
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
+                                <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                              </div>
+                              <div className="space-y-0.5 min-w-0 flex-1">
+                                <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                                  {c.display_name || c.name}
+                                </h3>
+                                <p className="text-xs text-slate-600 font-medium truncate">
+                                  {c.village || "—"}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">
+                                  {c.shop_name || "Kirana Store"}
+                                </p>
+                                <p className="text-xs font-mono text-slate-600">
+                                  {c.phone || "—"}
+                                </p>
+                                <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase pt-0.5">
+                                  {c.route || "BIJAPUR"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Right: Badge + Call button */}
+                            <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
+                              {/* Status badge: Active (green) or Unbilled (brown/ochre) */}
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${
+                                  isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
+                                }`}
+                              >
+                                {isBilled ? "Active" : "Unbilled"}
+                              </span>
+
+                              {/* Call button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLogCall(c.id, "CONNECTED", "Direct call from Place Order customer list");
+                                  window.location.href = `tel:${c.phone}`;
+                                }}
+                                className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
+                                title={`Call ${c.display_name}`}
+                              >
+                                <Phone className="w-3.5 h-3.5 text-blue-700" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {filteredOrderCustomers.length === 0 && (
+                      <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-slate-700">No customers found</p>
+                        <p className="text-xs text-slate-400">Try searching with a different name, shop or phone number.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* =================================================== */
+                  /* STEP 2: ORDER PUNCHING (FOR SELECTED CUSTOMER)      */
+                  /* =================================================== */
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -2325,13 +2498,13 @@ export function CrmTelecallerPortalPage() {
                         </h4>
                         {orderCustomer && (
                           <p className="text-xs text-slate-500">
-                            {orderCustomer.phone} • Pending Udhaar: ₹{orderCustomer.current_balance}
+                            {orderCustomer.village ? `${orderCustomer.village} • ` : ""}{orderCustomer.phone} • Pending Udhaar: ₹{orderCustomer.current_balance}
                           </p>
                         )}
                       </div>
                       <button
                         type="button"
-                        onClick={() => setActiveView("callings")}
+                        onClick={() => setOrderCustomer(null)}
                         className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
                       >
                         Change
@@ -2402,30 +2575,33 @@ export function CrmTelecallerPortalPage() {
                         <button
                           type="button"
                           onClick={() => setOrderPayMethod("CASH")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CASH"
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                            orderPayMethod === "CASH"
                               ? "bg-emerald-600 text-white border-emerald-600"
                               : "bg-white text-slate-700 border-slate-200"
-                            }`}
+                          }`}
                         >
                           Cash Delivery
                         </button>
                         <button
                           type="button"
                           onClick={() => setOrderPayMethod("UPI")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "UPI"
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                            orderPayMethod === "UPI"
                               ? "bg-blue-600 text-white border-blue-600"
                               : "bg-white text-slate-700 border-slate-200"
-                            }`}
+                          }`}
                         >
                           PhonePe / UPI
                         </button>
                         <button
                           type="button"
                           onClick={() => setOrderPayMethod("CREDIT")}
-                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${orderPayMethod === "CREDIT"
+                          className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
+                            orderPayMethod === "CREDIT"
                               ? "bg-amber-600 text-white border-amber-600"
                               : "bg-white text-slate-700 border-slate-200"
-                            }`}
+                          }`}
                         >
                           Khata Udhaar
                         </button>
@@ -2451,7 +2627,8 @@ export function CrmTelecallerPortalPage() {
                       )}
                     </Button>
                   </div>
-                </div>
+                )}
+              </div>
             )}
 
             {/* ======================================================== */}
