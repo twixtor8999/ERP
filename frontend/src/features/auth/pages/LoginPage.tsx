@@ -7,7 +7,6 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
-  ShoppingCart,
   Users,
   Receipt,
   FileText,
@@ -260,46 +259,40 @@ export function LoginPage() {
   return (
     <div className="h-screen w-full flex flex-col bg-white text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden">
 
-      {/* ── CRM Wrong-Portal Modal ────────────────────────────────────────── */}
+      {/* ── CRM Wrong-Portal Modal matching Image 1 ───────────────────────── */}
       {crmModal.visible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs px-4">
+          <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-lg p-6 sm:p-7 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-slate-100">
             {/* Title */}
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <h2 className="text-base font-black text-slate-900">Use your own login link</h2>
+              <span className="text-indigo-400 text-lg">🔗</span>
+              <h2 className="text-base font-bold text-[#0d1b4c]">Use your own login link</h2>
             </div>
 
             {/* User identity line */}
-            <div className="space-y-2">
+            <div className="space-y-3 pt-1">
               <p className="text-sm font-bold text-slate-900">
-                {crmModal.userName}{" "}
-                <span className="text-slate-500 font-normal">·</span>{" "}
-                <span className="font-semibold text-slate-700">{crmModal.role} · SIDDESHWAR ENTERPRISES</span>
+                {crmModal.userName} - {crmModal.role} - SIDDESHWAR ENTERPRISES
               </p>
 
-              <p className="text-sm text-slate-600">This login works only on:</p>
-
-              <p className="text-sm font-black text-slate-900 tracking-tight">
-                erp-9kr.pages.dev/crm/login
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-slate-700">This login works only on:</p>
+                <p className="text-base font-extrabold text-[#0d1b4c] tracking-tight">
+                  siddeshwar-ent-crm.web.app
+                </p>
+              </div>
 
               <p className="text-xs text-slate-500">
-                Save this link on your phone{" "}
-                <span className="text-slate-400">(Chrome: ⋮ → Add to Home screen).</span>
+                Save this link on your phone (Chrome : → Add to Home screen).
               </p>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-1">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setCrmModal({ visible: false, userName: "", role: "" })}
-                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50 transition cursor-pointer"
+                className="px-6 py-2 rounded-full border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
               >
                 Close
               </button>
@@ -309,12 +302,10 @@ export function LoginPage() {
                   setCrmModal({ visible: false, userName: "", role: "" });
                   navigate("/crm/login");
                 }}
-                className="px-4 py-2 rounded-lg bg-[#0d1b4c] hover:bg-[#081233] text-white text-sm font-bold flex items-center gap-2 transition cursor-pointer shadow-md"
+                className="px-6 py-2 rounded-full bg-[#0d1b4c] hover:bg-[#081233] text-white text-sm font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
               >
-                Open my link
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
+                <span>Open my link</span>
+                <span className="text-base font-light">↗</span>
               </button>
             </div>
           </div>
@@ -322,14 +313,29 @@ export function LoginPage() {
       )}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* Top Application Header matching Reference App */}
-      <header className="h-14 sm:h-16 px-6 sm:px-8 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
+      <header className="h-[52px] px-6 sm:px-8 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
-          <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-          <div className="flex flex-col leading-tight">
-            <span className="font-extrabold text-[#d97706] text-base sm:text-lg tracking-tight">
-              PK Ai Smart Bazar
+          <svg
+            viewBox="0 0 40 40"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="w-8 h-8 text-[#0f3aa8] shrink-0"
+          >
+            <path d="M3 10h5l4 16h20l4-12H10" />
+            <path d="M17 14v8M23 14v8M29 14v8" />
+            <circle cx="14" cy="33" r="2" fill="currentColor" />
+            <circle cx="29" cy="33" r="2" fill="currentColor" />
+            <path d="M2 17h5M3 22h4" />
+          </svg>
+          <div className="flex flex-col leading-none">
+            <span className="text-[19px] font-extrabold tracking-[-0.01em] text-[#0f3aa8]">
+              PK Ai <span className="text-[#d99a00] font-extrabold">Smart Bazar</span>
             </span>
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-blue-600">
+            <span className="text-[10px] tracking-[0.2em] font-medium text-[#4a5270] uppercase mt-0.5">
               BILLING SOFTWARE
             </span>
           </div>

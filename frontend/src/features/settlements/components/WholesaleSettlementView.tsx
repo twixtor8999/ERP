@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Download, X, Calculator, Coins } from "lucide-react";
+import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
+import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
+import { openTaxInvoiceWindow, generateTaxInvoiceInnerHtml, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
 export interface SettlementRow {
   sl: number;
@@ -25,7 +27,26 @@ export interface SettlementRow {
 
 export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   {
-    "sl": 1,
+    sl: 1,
+    date: "2026-11-23",
+    vehicleNumber: "KA28AB3425",
+    driverName: "Arun Patil",
+    noOfOrders: 27,
+    invoiceAmt: 126817,
+    fullReturn: 11052,
+    partialReturn: 4820,
+    oldReturn: 0,
+    netAmt: 110945,
+    qrPayment: 0,
+    cashReceived: 110945,
+    countedCash: null,
+    diff: null,
+    denominations: null,
+    remarks: "Settlement for trip KA28AB3425",
+    enteredBy: "Vijaykumar Shantagiri",
+  },
+  {
+    "sl": 2,
     "date": "2026-11-22",
     "vehicleNumber": "KA28AA6256",
     "driverName": "Santosh Pujari",
@@ -395,31 +416,31 @@ export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   }
 ];
 
-const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v3';
+const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v5';
 
 const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 
 export function WholesaleSettlementView() {
   const navigate = useNavigate();
 
-  // Date range
-  const [fromDate, setFromDate] = useState("2026-11-01");
-  const [toDate, setToDate] = useState("2026-11-22");
+  // Date range matching Reference App Screenshot
+  const [fromDate, setFromDate] = useState("2026-11-23");
+  const [toDate, setToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
+
+  // Drill-down states matching Reference App Image 8, 9, 10
+  const [selectedVehicleSettlement, setSelectedVehicleSettlement] = useState<SettlementRow | null>(null);
+  const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<SettlementInvoiceOrder | null>(null);
+  const [duplicateInvoiceOrder, setDuplicateInvoiceOrder] = useState<TaxInvoiceOrder | null>(null);
 
   const [settlements, setSettlements] = useState<SettlementRow[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS) || localStorage.getItem('ai_smart_bazar_settlements_v2');
+      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const has22 = parsed.some((r: SettlementRow) => r.date === "2026-11-22");
-          const has23 = parsed.some((r: SettlementRow) => r.date === "2026-11-23");
-          if (has22 && has23) return parsed;
-          return [
-            ...INITIAL_SETTLEMENTS.filter((init) => init.date === "2026-11-22" || init.date === "2026-11-23"),
-            ...parsed.filter((p: SettlementRow) => p.date !== "2026-11-22" && p.date !== "2026-11-23")
-          ];
+          const hasKA28AB3425 = parsed.some((r: SettlementRow) => r.vehicleNumber === "KA28AB3425");
+          if (hasKA28AB3425) return parsed;
         }
       }
     } catch (e) {
@@ -428,6 +449,44 @@ export function WholesaleSettlementView() {
     return INITIAL_SETTLEMENTS;
   });
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const handleDuplicatePrint = (order: SettlementInvoiceOrder) => {
+    const taxOrder: TaxInvoiceOrder = {
+      orderNo: order.orderNo,
+      invoiceNo: order.invoiceNo,
+      orderDate: order.orderDate,
+      orderTime: order.orderTime || "10:00 AM",
+      customerName: order.customerName,
+      customerNameKn: order.customerNameKn || (order.customerName === "B M" ? "ಬಿ ಎಮ್" : undefined),
+      customerShop: order.shopName || `${order.customerName} kirana store`,
+      customerVillage: order.village,
+      customerVillageKn: order.villageKn || (order.village.includes("Bijapur") ? "ಬಿಜಾಪುರ" : undefined),
+      customerPhone: order.phone || "8105690356",
+      customerLandmark: order.landmark || "Madina Nagar",
+      customerTaluka: order.taluka || "Vijayapura",
+      customerDistrict: order.district || "Vijayapura",
+      customerRoute: order.route || "Bijapur",
+      customerGstin: "N/A",
+      vehicleNo: order.vehicleNo,
+      createdBy: order.createdBy || "Arun Patil",
+      creatorPhone: order.creatorPhone || "9916801495",
+      items: order.items.map((i: any) => ({
+        name: i.name,
+        nameKn: i.nameKn,
+        hsn: i.hsn || "96190030",
+        qty: i.qty,
+        price: i.price,
+        gst: i.gst || 5,
+        total: i.amount != null ? i.amount : i.qty * i.price,
+      })),
+      total: order.invoiceAmount,
+    };
+
+    const opened = openTaxInvoiceWindow(taxOrder, true);
+    if (!opened) {
+      setDuplicateInvoiceOrder(taxOrder);
+    }
+  };
 
   // Denomination Modal state
   const [activeDenomRow, setActiveDenomRow] = useState<SettlementRow | null>(null);
@@ -543,7 +602,6 @@ export function WholesaleSettlementView() {
   const totalQR = filteredRows.reduce((a, b) => a + b.qrPayment, 0);
   const totalCash = filteredRows.reduce((a, b) => a + b.cashReceived, 0);
   const totalCounted = filteredRows.reduce((a, b) => a + (b.countedCash || 0), 0);
-  const totalDiff = totalCounted - totalCash;
 
   const handleExport = (type = "Vehicle") => {
     setShowExportMenu(false);
@@ -551,6 +609,252 @@ export function WholesaleSettlementView() {
       description: `Downloaded Settlement_${fromDate}_to_${toDate}.xlsx`,
     });
   };
+
+  if (duplicateInvoiceOrder) {
+    const docTitle = `${duplicateInvoiceOrder.invoiceNo || duplicateInvoiceOrder.orderNo}_duplicate`;
+    const innerHtml = generateTaxInvoiceInnerHtml(duplicateInvoiceOrder, true);
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
+        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
+          <button
+            onClick={() => setDuplicateInvoiceOrder(null)}
+            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 transition-colors cursor-pointer"
+            title="Back to the app"
+          >
+            ← Back
+          </button>
+          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
+            {docTitle}
+          </b>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90 flex items-center justify-center"
+              title="Print"
+              aria-label="Print"
+            >
+              🖨
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="bg-white text-[#0d1b4c] text-xs px-3.5 py-1.5 rounded-full font-bold cursor-pointer hover:opacity-90"
+              title="Save as PDF"
+            >
+              ⬇ PDF
+            </button>
+          </div>
+        </div>
+
+        <div className="pt-16 pb-12 px-4 flex justify-center">
+          <div
+            id="pr"
+            className="bg-white text-black p-2 shadow-xl rounded-sm max-w-full overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: innerHtml }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedInvoiceOrder) {
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] pb-10">
+        {/* Top Back button matching Image 9 */}
+        <div>
+          <button
+            onClick={() => setSelectedInvoiceOrder(null)}
+            className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-1 rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            <span>← Back</span>
+          </button>
+        </div>
+
+        {/* Title and metadata matching Image 9 */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              {selectedInvoiceOrder.orderNo} · {selectedInvoiceOrder.invoiceNo}
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              {selectedInvoiceOrder.status || "completed"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 font-medium">
+            {selectedInvoiceOrder.customerName}, {selectedInvoiceOrder.village} · {selectedInvoiceOrder.orderDate} · taken by {selectedInvoiceOrder.createdBy || "Arun Patil"} · Vehicle {selectedInvoiceOrder.vehicleNo} · Paid Cash {selectedInvoiceOrder.cash.toLocaleString("en-IN")}
+          </p>
+        </div>
+
+        {/* Items Table matching Image 9 */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+                <th className="py-2.5 px-3 text-left">Sl</th>
+                <th className="py-2.5 px-3 text-left">Item</th>
+                <th className="py-2.5 px-3 text-right">Qty</th>
+                <th className="py-2.5 px-3 text-right">Rate</th>
+                <th className="py-2.5 px-3 text-right">GST</th>
+                <th className="py-2.5 px-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold">
+              {selectedInvoiceOrder.items.map((it: any, idx: number) => (
+                <tr key={idx} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
+                  <td className="py-3 px-3 font-bold text-slate-900">{it.name}</td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-800">{it.qty}</td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-800">{it.price.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-600">{it.gst || 5}%</td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    {(it.amount != null ? it.amount : it.qty * it.price).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900 whitespace-nowrap">
+                <td className="py-3 px-3 font-bold" colSpan={2}>
+                  Total
+                </td>
+                <td className="py-3 px-3 text-right font-mono">
+                  {selectedInvoiceOrder.items.reduce((sum: number, it: any) => sum + it.qty, 0)}
+                </td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3"></td>
+                <td className="py-3 px-3 text-right font-mono">
+                  {selectedInvoiceOrder.invoiceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Action Buttons at bottom right matching Image 9: [Back] [Move back] [Duplicate Print] [Close] */}
+        <div className="flex items-center justify-end gap-2.5 pt-3">
+          <button
+            onClick={() => setSelectedInvoiceOrder(null)}
+            className="px-5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={() => toast.info("Move back action requested")}
+            className="px-5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+          >
+            Move back
+          </button>
+          <button
+            onClick={() => handleDuplicatePrint(selectedInvoiceOrder)}
+            className="px-5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+          >
+            Duplicate Print
+          </button>
+          <button
+            onClick={() => {
+              setSelectedInvoiceOrder(null);
+              setSelectedVehicleSettlement(null);
+            }}
+            className="px-5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedVehicleSettlement) {
+    const vehicleOrders = KA28AB3425_SETTLEMENT_ORDERS;
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] pb-10">
+        {/* Top Header matching Image 8 */}
+        <div className="flex items-center justify-between gap-4">
+          <button
+            onClick={() => setSelectedVehicleSettlement(null)}
+            className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-1 rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            <span>← Back</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toast.info("Customer wise breakdown exported")}
+              className="inline-flex items-center gap-1 bg-[#0d1b4c] hover:bg-[#1a2d73] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <span>⬇ Customer wise</span>
+            </button>
+            <button
+              onClick={() => toast.info("Item wise breakdown exported")}
+              className="inline-flex items-center gap-1 bg-[#0d1b4c] hover:bg-[#1a2d73] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <span>⬇ Item wise</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Heading Title & Subtitle matching Image 8 */}
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
+            Settlement – {selectedVehicleSettlement.vehicleNumber}
+          </h1>
+          <p className="text-xs text-slate-500 font-medium">
+            23-11-2026 to 24-11-2026 · {vehicleOrders.length} invoice(s)
+          </p>
+        </div>
+
+        {/* Invoices Table matching Image 8 */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+                <th className="py-2.5 px-3 text-left">Sl No</th>
+                <th className="py-2.5 px-3 text-left">Invoice No</th>
+                <th className="py-2.5 px-3 text-left">Order No</th>
+                <th className="py-2.5 px-3 text-left">Customer Name</th>
+                <th className="py-2.5 px-3 text-left">Village</th>
+                <th className="py-2.5 px-3 text-right">Invoice Amount</th>
+                <th className="py-2.5 px-3 text-right">Return Amount</th>
+                <th className="py-2.5 px-3 text-right">QR</th>
+                <th className="py-2.5 px-3 text-right">Cash</th>
+                <th className="py-2.5 px-3 text-center"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold">
+              {vehicleOrders.map((ord: SettlementInvoiceOrder) => (
+                <tr key={ord.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <td className="py-3 px-3 text-slate-500 font-bold">{ord.sl}</td>
+                  <td className="py-3 px-3 font-mono font-bold text-slate-900">{ord.invoiceNo}</td>
+                  <td className="py-3 px-3 font-mono text-slate-600">{ord.orderNo}</td>
+                  <td className="py-3 px-3 text-slate-800">{ord.customerName}</td>
+                  <td className="py-3 px-3 text-slate-600">{ord.village}</td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-800">
+                    {ord.invoiceAmount.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-slate-500">
+                    {ord.returnAmount > 0 ? ord.returnAmount.toLocaleString("en-IN") : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-blue-600">
+                    {ord.qr > 0 ? ord.qr.toLocaleString("en-IN") : "0"}
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    {ord.cash.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <button
+                      onClick={() => setSelectedInvoiceOrder(ord)}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-semibold shadow-2xs cursor-pointer"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-10">
@@ -636,6 +940,11 @@ export function WholesaleSettlementView() {
         />
       </div>
 
+      {/* Compulsory Denomination Alert Banner matching Image 7 */}
+      <div className="bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg px-4 py-2.5 text-xs font-medium">
+        1 vehicle(s) without denomination – entry is compulsory for every vehicle. Select one day (From = To) to enter it.
+      </div>
+
       {/* Settlement Table matching Reference App Screenshot 1 */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs">
@@ -651,13 +960,14 @@ export function WholesaleSettlementView() {
               <th className="py-2.5 px-3 text-right">Net Amt</th>
               <th className="py-2.5 px-3 text-right">QR Payment</th>
               <th className="py-2.5 px-3 text-right">Cash Received</th>
-              <th className="py-2.5 px-3 text-right">Denomination (Cash counted)</th>
+              <th className="py-2.5 px-3 text-center">Denomination (Cash counted)</th>
+              <th className="py-2.5 px-3 text-center"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold">
             {filteredRows.length === 0 ? (
               <tr className="bg-slate-50 border-b border-slate-200">
-                <td colSpan={11} className="py-8 px-4 text-center text-slate-500 font-medium text-xs tracking-wide">
+                <td colSpan={12} className="py-8 px-4 text-center text-slate-500 font-medium text-xs tracking-wide">
                   No deliveries in these dates. Delivered orders show here on the day they were delivered.
                 </td>
               </tr>
@@ -667,35 +977,34 @@ export function WholesaleSettlementView() {
                   <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
                   <td className="py-3 px-3">
                     <div className="font-bold text-slate-900 font-mono">{r.vehicleNumber}</div>
-                    <div className="text-[10px] text-slate-400">{r.driverName} {r.date ? `• ${r.date}` : ""}</div>
                   </td>
                   <td className="py-3 px-3 text-center font-bold text-slate-800">{r.noOfOrders}</td>
                   <td className="py-3 px-3 text-right font-mono text-slate-800">
-                    ₹{r.invoiceAmt.toLocaleString("en-IN")}
+                    {r.invoiceAmt.toLocaleString("en-IN")}
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-slate-500">
-                    {r.fullReturn > 0 ? `₹${r.fullReturn.toLocaleString("en-IN")}` : "0"}
+                    {r.fullReturn > 0 ? r.fullReturn.toLocaleString("en-IN") : "0"}
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-slate-500">
-                    {r.partialReturn > 0 ? `₹${r.partialReturn.toLocaleString("en-IN")}` : "0"}
+                    {r.partialReturn > 0 ? r.partialReturn.toLocaleString("en-IN") : "0"}
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-slate-500">
-                    {r.oldReturn > 0 ? `₹${r.oldReturn.toLocaleString("en-IN")}` : "0"}
+                    {r.oldReturn > 0 ? r.oldReturn.toLocaleString("en-IN") : "0"}
                   </td>
                   <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                    ₹{r.netAmt.toLocaleString("en-IN")}
+                    {r.netAmt.toLocaleString("en-IN")}
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-blue-600">
-                    ₹{r.qrPayment.toLocaleString("en-IN")}
+                    {r.qrPayment > 0 ? r.qrPayment.toLocaleString("en-IN") : "0"}
                   </td>
                   <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                    ₹{r.cashReceived.toLocaleString("en-IN")}
+                    {r.cashReceived.toLocaleString("en-IN")}
                   </td>
-                  <td className="py-3 px-3 text-right">
-                    {r.countedCash !== undefined ? (
+                  <td className="py-3 px-3 text-center">
+                    {r.countedCash != null ? (
                       <div>
                         <span className="font-mono font-bold text-slate-900">
-                          ₹{(r.countedCash ?? 0).toLocaleString("en-IN")}
+                          {r.countedCash.toLocaleString("en-IN")}
                         </span>
                         <div className="text-[10px] font-bold">
                           {r.diff === 0 ? (
@@ -709,13 +1018,22 @@ export function WholesaleSettlementView() {
                       </div>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => openDenominationModal(r)}
-                        className="inline-flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                        className="text-[#c53030] hover:text-[#9b1c1c] hover:underline font-bold text-xs cursor-pointer"
+                        title="Click to enter denomination"
                       >
-                        <Coins className="w-3 h-3 text-amber-400" />
-                        <span>＋ Enter</span>
+                        Pending
                       </button>
                     )}
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <button
+                      onClick={() => setSelectedVehicleSettlement(r)}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-semibold shadow-2xs cursor-pointer"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))
@@ -729,31 +1047,17 @@ export function WholesaleSettlementView() {
                 <td className="py-3 px-3"></td>
                 <td className="py-3 px-3">Total</td>
                 <td className="py-3 px-3 text-center">{totalOrders}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalInvoice.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalFullRet.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalPartRet.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalOldRet.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalNet.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalQR.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalCash.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">
-                  {totalCounted > 0 ? (
-                    <div>
-                      <span>₹{totalCounted.toLocaleString("en-IN")}</span>
-                      <div className="text-[10px]">
-                        {totalDiff === 0 ? (
-                          <span className="text-emerald-600 font-bold">✔ 0</span>
-                        ) : totalDiff < 0 ? (
-                          <span className="text-rose-600 font-bold">Short ₹{Math.abs(totalDiff).toLocaleString("en-IN")}</span>
-                        ) : (
-                          <span className="text-amber-600 font-bold">Excess ₹{totalDiff.toLocaleString("en-IN")}</span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    "—"
-                  )}
+                <td className="py-3 px-3 text-right font-mono">{totalInvoice.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalFullRet > 0 ? totalFullRet.toLocaleString("en-IN") : "0"}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalPartRet > 0 ? totalPartRet.toLocaleString("en-IN") : "0"}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalOldRet > 0 ? totalOldRet.toLocaleString("en-IN") : "0"}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalNet.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalQR > 0 ? totalQR.toLocaleString("en-IN") : "0"}</td>
+                <td className="py-3 px-3 text-right font-mono">{totalCash.toLocaleString("en-IN")}</td>
+                <td className="py-3 px-3 text-center font-mono">
+                  {totalCounted > 0 ? totalCounted.toLocaleString("en-IN") : "0"}
                 </td>
+                <td className="py-3 px-3"></td>
               </tr>
             </tfoot>
           )}

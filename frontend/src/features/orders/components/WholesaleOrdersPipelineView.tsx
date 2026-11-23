@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
+import { openTaxInvoiceWindow, generateTaxInvoiceInnerHtml, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
 export interface PipelineOrder {
   id: string;
@@ -321,6 +322,7 @@ export function WholesaleOrdersPipelineView() {
   // Modals
   const [viewingOrder, setViewingOrder] = useState<PipelineOrder | null>(null);
   const [packingSlipOrder, setPackingSlipOrder] = useState<PipelineOrder | null>(null);
+  const [duplicateInvoiceOrder, setDuplicateInvoiceOrder] = useState<TaxInvoiceOrder | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<PipelineOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -427,6 +429,55 @@ export function WholesaleOrdersPipelineView() {
     });
     if (!opened) {
       setPackingSlipOrder(order);
+    }
+  };
+
+  const handleDuplicatePrint = (order: PipelineOrder) => {
+    const taxOrder: TaxInvoiceOrder = {
+      orderNo: order.orderNo,
+      invoiceNo: order.invoiceNo || "INV-469",
+      orderDate: order.orderDate,
+      orderTime: order.orderTime || "10:00 AM",
+      customerName: order.customerName,
+      customerNameKn: order.customerName === "B M" ? "ಬಿ ಎಮ್" : undefined,
+      customerShop: order.shopName,
+      customerVillage: order.village,
+      customerVillageKn: order.village === "Bijapur (Rural)" ? "ಬಿಜಾಪುರ" : undefined,
+      customerPhone: order.phone || "8105690356",
+      customerLandmark: "Madina Nagar",
+      customerTaluka: "Vijayapura",
+      customerDistrict: "Vijayapura",
+      customerRoute: order.route,
+      customerGstin: "N/A",
+      vehicleNo: order.vehicleNo || "KA28AB3425",
+      createdBy: order.createdBy,
+      creatorPhone: "9916801495",
+      items: order.items.map((i) => {
+        let nameKn: string | undefined;
+        const hsn = "96190030";
+        if (i.name.includes("10 RS") || i.name.includes("10RS")) {
+          nameKn = "BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S1, 4-8 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)";
+        } else if (i.name.includes("12RS") || i.name.includes("12 RS")) {
+          nameKn = "BUMTUM ಬೇಬಿ ಡೈಪರ್ 12 ರೂ. (M1, 7-12 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)";
+        } else if (i.name.includes("14 RS") || i.name.includes("14RS")) {
+          nameKn = "BUMTUM ಬೇಬಿ ಡೈಪರ್ 14 ರೂ. (L1, 9-14 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)";
+        }
+        return {
+          name: i.name,
+          nameKn,
+          hsn,
+          qty: i.qty,
+          price: i.price,
+          gst: 5,
+          total: i.amount != null ? i.amount : i.qty * i.price,
+        };
+      }),
+      total: order.total,
+    };
+
+    const opened = openTaxInvoiceWindow(taxOrder, true);
+    if (!opened) {
+      setDuplicateInvoiceOrder(taxOrder);
     }
   };
 
@@ -662,6 +713,54 @@ export function WholesaleOrdersPipelineView() {
               Packed by: ____________ &nbsp; Checked by: ____________
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (duplicateInvoiceOrder) {
+    const docTitle = `${duplicateInvoiceOrder.invoiceNo || duplicateInvoiceOrder.orderNo}_duplicate`;
+    const innerHtml = generateTaxInvoiceInnerHtml(duplicateInvoiceOrder, true);
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
+        {/* Top Header Bar matching Image 10 */}
+        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
+          <button
+            onClick={() => setDuplicateInvoiceOrder(null)}
+            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 transition-colors cursor-pointer"
+            title="Back to the app"
+          >
+            ← Back
+          </button>
+          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
+            {docTitle}
+          </b>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90 flex items-center justify-center"
+              title="Print"
+              aria-label="Print"
+            >
+              🖨
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="bg-white text-[#0d1b4c] text-xs px-3.5 py-1.5 rounded-full font-bold cursor-pointer hover:opacity-90"
+              title="Save as PDF"
+            >
+              ⬇ PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Invoice Body matching Image 10 */}
+        <div className="pt-16 pb-12 px-4 flex justify-center">
+          <div
+            id="pr"
+            className="bg-white text-black p-2 shadow-xl rounded-sm max-w-full overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: innerHtml }}
+          />
         </div>
       </div>
     );
@@ -910,7 +1009,7 @@ export function WholesaleOrdersPipelineView() {
             </button>
 
             <button
-              onClick={() => printThermalSlip(viewingOrder)}
+              onClick={() => handleDuplicatePrint(viewingOrder)}
               className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
               Duplicate Print
@@ -1048,18 +1147,27 @@ export function WholesaleOrdersPipelineView() {
             Close
           </button>
 
+          {viewingOrder.invoiceNo && (
+            <button
+              onClick={() => handleDuplicatePrint(viewingOrder)}
+              className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              <span>Duplicate Print</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               if (viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed') {
                 handlePrintPackingSlip(viewingOrder);
               } else {
-                printThermalSlip(viewingOrder);
+                handleDuplicatePrint(viewingOrder);
               }
             }}
             className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Slip</span>
+            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print Slip' : 'Print'}</span>
           </button>
 
           {['placed', 'packing'].includes(viewingOrder.stage) && (

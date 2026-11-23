@@ -24,7 +24,7 @@ interface Burst {
   colorPalette: string[];
 }
 
-const PALETTES = [
+const PALETTES: string[][] = [
   ["#facc15", "#fde047", "#ffffff", "#fbbf24"], // Gold / Yellow
   ["#38bdf8", "#06b6d4", "#ffffff", "#67e8f9"], // Cyan / Sky Blue
   ["#f43f5e", "#ec4899", "#f472b6", "#fda4af"], // Pink / Rose
@@ -58,14 +58,14 @@ export function FireworksOverlay({ durationMs = 3200, onComplete }: FireworksOve
 
     // Staggered burst origins matching the reference screenshot media_1795454294185_58bcc848.jpg
     const bursts: Burst[] = [
-      { x: 0.22, y: 0.28, delayMs: 50, colorPalette: PALETTES[1] },  // Cyan burst left
-      { x: 0.50, y: 0.18, delayMs: 150, colorPalette: PALETTES[0] }, // Gold burst center-top
-      { x: 0.78, y: 0.25, delayMs: 250, colorPalette: PALETTES[2] }, // Pink burst right
-      { x: 0.35, y: 0.38, delayMs: 400, colorPalette: PALETTES[3] }, // Emerald burst mid-left
-      { x: 0.65, y: 0.32, delayMs: 550, colorPalette: PALETTES[0] }, // Gold burst mid-right
-      { x: 0.15, y: 0.20, delayMs: 700, colorPalette: PALETTES[4] }, // Multi burst high-left
-      { x: 0.85, y: 0.18, delayMs: 850, colorPalette: PALETTES[1] }, // Cyan burst high-right
-      { x: 0.45, y: 0.26, delayMs: 1000, colorPalette: PALETTES[4] }, // Grand multi finale center
+      { x: 0.22, y: 0.28, delayMs: 50, colorPalette: PALETTES[1]! },  // Cyan burst left
+      { x: 0.50, y: 0.18, delayMs: 150, colorPalette: PALETTES[0]! }, // Gold burst center-top
+      { x: 0.78, y: 0.25, delayMs: 250, colorPalette: PALETTES[2]! }, // Pink burst right
+      { x: 0.35, y: 0.38, delayMs: 400, colorPalette: PALETTES[3]! }, // Emerald burst mid-left
+      { x: 0.65, y: 0.32, delayMs: 550, colorPalette: PALETTES[0]! }, // Gold burst mid-right
+      { x: 0.15, y: 0.20, delayMs: 700, colorPalette: PALETTES[4]! }, // Multi burst high-left
+      { x: 0.85, y: 0.18, delayMs: 850, colorPalette: PALETTES[1]! }, // Cyan burst high-right
+      { x: 0.45, y: 0.26, delayMs: 1000, colorPalette: PALETTES[4]! }, // Grand multi finale center
     ];
 
     const launchedBursts = new Set<number>();
@@ -78,7 +78,7 @@ export function FireworksOverlay({ durationMs = 3200, onComplete }: FireworksOve
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 1.5 + Math.random() * 5.5;
-        const color = burst.colorPalette[Math.floor(Math.random() * burst.colorPalette.length)];
+        const color = burst.colorPalette[Math.floor(Math.random() * burst.colorPalette.length)] || "#ffffff";
 
         particles.push({
           x: cx,
@@ -112,6 +112,7 @@ export function FireworksOverlay({ durationMs = 3200, onComplete }: FireworksOve
       // Update and draw particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
+        if (!p) continue;
         p.x += p.vx;
         p.y += p.vy;
         p.vx *= 0.965; // Air friction
