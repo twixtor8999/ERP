@@ -131,6 +131,10 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
+    path: "/crm/login",
+    element: <LoginPage />,
+  },
+  {
     path: "/register",
     element: <LoginPage />,
   },
