@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,7 +46,7 @@ export function LoginPage() {
     location.pathname.startsWith("/crm") ||
     (typeof window !== "undefined" && window.location.hostname.includes("crm"));
 
-  const { user, isAuthenticated, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
 
   // Note: We intentionally do NOT auto-redirect on page load so the login screen
