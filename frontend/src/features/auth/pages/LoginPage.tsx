@@ -102,46 +102,58 @@ export function LoginPage() {
 
   if (isCrm) {
     return (
-      <div className="h-screen w-full relative flex flex-col items-center justify-center bg-[#f4f7fc] text-slate-800 antialiased p-3 sm:p-4 overflow-hidden">
-        {/* Curved Deep Navy Top Banner matching reference screenshot media_1795408708877_dea55063.jpg */}
-        <div className="absolute top-0 left-0 right-0 h-[38vh] max-h-[280px] bg-gradient-to-b from-[#091b42] to-[#0d2261] rounded-b-[40px] sm:rounded-b-[70px] shadow-md z-0" />
+      <div className="h-screen w-full relative flex flex-col items-center justify-center bg-white text-slate-800 antialiased p-3 sm:p-4 overflow-hidden">
+        {/* Exact Reference Curved Royal Blue Canopy Arc */}
+        <div
+          className="absolute pointer-events-none z-0"
+          style={{
+            top: 0,
+            left: "-15%",
+            right: "-15%",
+            height: "42vh",
+            minHeight: "260px",
+            maxHeight: "380px",
+            background: "linear-gradient(135deg, #0d1b4c, #0f3aa8)",
+            borderRadius: "0 0 50% 50% / 0 0 28% 28%",
+          }}
+        />
 
-        {/* Centered CRM Login Card */}
-        <div className="relative z-10 w-full max-w-[360px] sm:max-w-[380px] bg-white rounded-3xl shadow-2xl border border-slate-100 px-5 py-4 sm:px-6 sm:py-5 space-y-2.5 my-auto">
+        {/* Centered CRM Login Card matching reference 1:1 */}
+        <div className="relative z-10 w-full max-w-[408px] bg-white rounded-[22px] shadow-[0_18px_50px_rgba(13,27,76,0.25)] border-0 px-6 py-6 sm:px-7 sm:py-7 space-y-3.5 my-auto">
           {/* Card Header: Ai Smart Bazar CRM */}
           <div className="text-center space-y-1.5">
-            <h2 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">
+            <h2 className="text-2xl sm:text-[27px] font-black text-[#0d1b4c] tracking-tight">
               Ai Smart Bazar <span className="text-[#f59e0b]">CRM</span>
             </h2>
-            <div className="inline-block relative">
+            <div className="inline-block relative pt-0.5">
               <img
                 src="/siddeshwar-logo.png"
                 alt="Siddeshwar Enterprises Logo"
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-contain mx-auto"
+                className="w-16 h-16 rounded-full object-contain mx-auto"
               />
             </div>
-            <div>
-              <h1 className="text-xs sm:text-sm font-black tracking-tight text-[#162a52] uppercase">
+            <div className="pt-0.5">
+              <h1 className="text-sm font-extrabold tracking-tight text-[#0d1b4c] uppercase">
                 SIDDESHWAR ENTERPRISES
               </h1>
-              <p className="text-[11px] text-slate-400 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Welcome back! Sign in to continue
               </p>
             </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-2.5">
+          <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-3">
             {/* Mobile / Email / Username Input */}
-            <div className="space-y-0.5">
-              <Label htmlFor="crm-identifier" className="text-[11px] font-bold text-slate-700">
+            <div className="space-y-1">
+              <Label htmlFor="crm-identifier" className="text-xs font-bold text-slate-700">
                 Mobile / Email / Username
               </Label>
               <Input
                 id="crm-identifier"
                 type="text"
                 placeholder="Registered mobile number / username"
-                className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none"
+                className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-[12px] shadow-none"
                 disabled={isSubmitting}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -157,8 +169,8 @@ export function LoginPage() {
             </div>
 
             {/* Password Input with Hide/Show Toggle */}
-            <div className="space-y-0.5">
-              <Label htmlFor="crm-password" className="text-[11px] font-bold text-slate-700">
+            <div className="space-y-1">
+              <Label htmlFor="crm-password" className="text-xs font-bold text-slate-700">
                 Password
               </Label>
               <div className="relative">
@@ -166,14 +178,14 @@ export function LoginPage() {
                   id="crm-password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter password"
-                  className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-8 sm:h-9 rounded-lg shadow-none pr-14"
+                  className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-[12px] shadow-none pr-14"
                   disabled={isSubmitting}
                   {...loginRegister("password")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1.5 sm:top-2 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition cursor-pointer"
+                  className="absolute right-3.5 top-2.5 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition cursor-pointer"
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -184,62 +196,40 @@ export function LoginPage() {
             </div>
 
             {/* Forgot Password Link */}
-            <div className="flex justify-end">
-              <span className="text-[11px] text-[#1e3a8a] hover:underline font-bold cursor-pointer">
+            <div className="flex justify-end pt-0.5">
+              <span className="text-xs text-[#1e3a8a] hover:underline font-bold cursor-pointer">
                 Forgot password?
               </span>
             </div>
 
-            {/* Sign In Button with Orange Arrow Circle */}
+            {/* Sign In Button matching reference styling */}
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-[#0a1e4a] hover:bg-[#071638] text-white font-bold h-8 sm:h-9 rounded-full shadow-sm transition-all flex items-center justify-between px-5 cursor-pointer"
+              className="w-full bg-[#0d1b4c] hover:bg-[#081233] text-white font-bold h-10 rounded-[12px] shadow-[0_6px_14px_-6px_rgba(15,58,168,0.55)] transition-all flex items-center justify-between px-5 cursor-pointer"
             >
-              <span className="flex-1 text-center font-bold text-xs sm:text-sm pl-4">
+              <span className="flex-1 text-center font-bold text-sm pl-4">
                 {isSubmitting ? "Signing in..." : "Sign In"}
               </span>
-              <span className="w-5 h-5 rounded-full bg-[#e65100] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <span className="w-5 h-5 rounded-full bg-[#f08a1c] text-white flex items-center justify-center shrink-0 shadow-xs">
                 {isSubmitting ? (
                   <Loader2 className="w-3 h-3 animate-spin text-white" />
                 ) : (
-                  <ArrowRight className="w-3 h-3 text-white" />
+                  <ArrowRight className="w-3.5 h-3.5 text-white" />
                 )}
               </span>
             </Button>
           </form>
 
-          {/* New phone? Create Owner account */}
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              onClick={() => navigate("/register")}
-              className="text-[11px] font-bold text-[#1e3a8a] hover:underline cursor-pointer"
-            >
-              New phone? Create Owner account
-            </button>
-          </div>
-
-          {/* Footer with Lock & Version 5.08 */}
-          <div className="text-center pt-0.5 space-y-0.5">
-            <div className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
-              <Lock className="w-3 h-3 text-slate-400" />
+          {/* Footer with Lock & Version 5.08 matching reference */}
+          <div className="text-center pt-2 space-y-1">
+            <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
               <span>Secure login</span>
             </div>
-            <p className="text-[10px] font-mono text-slate-400">
+            <p className="text-[11px] font-mono text-slate-400">
               5.08
             </p>
-          </div>
-
-          {/* Portal Switcher */}
-          <div className="pt-1.5 text-center border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer"
-            >
-              ← Go to Main Store Portal
-            </button>
           </div>
         </div>
       </div>
