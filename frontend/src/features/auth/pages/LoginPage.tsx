@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -36,11 +36,14 @@ function resolveSmartRoute(role?: string, fallbackRoute?: string | null): string
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isCrm = searchParams.get("portal") !== "retail";
+  const isCrm =
+    searchParams.get("portal") === "crm" ||
+    location.pathname.startsWith("/crm");
 
   const { setUser } = useAuthStore();
   const { setAvailableBranches, setActiveBranch } = useBranchStore();
@@ -226,6 +229,17 @@ export function LoginPage() {
             <p className="text-[11px] font-mono text-slate-400">
               5.08
             </p>
+          </div>
+
+          {/* Switch to Admin Login */}
+          <div className="text-center pt-1 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+            >
+              ← Back to Admin Login
+            </button>
           </div>
         </div>
       </div>
