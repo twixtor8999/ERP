@@ -3314,7 +3314,7 @@ def get_crm_incentive_products(
             "progress_text": "Eligible ₹5",
             "sold_pcs": 1,
             "eligible_amount": 5,
-            "image_url": "/assets/crm/inc-10-water-bottle.png",
+            "image_url": "/assets/crm/inc-11-water-bottle-half-ltr.png",
         },
         {
             "id": "inc-12",
@@ -3329,7 +3329,7 @@ def get_crm_incentive_products(
             "progress_text": "2/5 • 3 more",
             "sold_pcs": 2,
             "eligible_amount": 0,
-            "image_url": "/assets/crm/inc-05-trulove-bourbon.png",
+            "image_url": "/assets/crm/inc-12-trulove-butter-waves.png",
         },
     ]
 

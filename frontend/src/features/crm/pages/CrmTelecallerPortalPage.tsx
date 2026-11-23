@@ -129,8 +129,8 @@ const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
   "inc-08": "/assets/crm/inc-08-zeeba-jeera-rice.png",
   "inc-09": "/assets/crm/inc-09-zeeba-steam-rice.png",
   "inc-10": "/assets/crm/inc-10-water-bottle.png",
-  "inc-11": "/assets/crm/inc-10-water-bottle.png",
-  "inc-12": "/assets/crm/inc-05-trulove-bourbon.png",
+  "inc-11": "/assets/crm/inc-11-water-bottle-half-ltr.png",
+  "inc-12": "/assets/crm/inc-12-trulove-butter-waves.png",
 };
 
 const BEAT_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "All Days"];
@@ -1894,7 +1894,7 @@ export function CrmTelecallerPortalPage() {
                               <img
                                 src={imgSrc}
                                 alt={p.name}
-                                className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
+                                className="w-full h-full object-contain p-0.5 rounded-md group-hover:scale-105 transition-transform"
                                 loading="lazy"
                               />
                               {p.badge && (
@@ -2805,7 +2805,7 @@ export function CrmTelecallerPortalPage() {
                                   <img
                                     src={imgSrc}
                                     alt={p.name}
-                                    className="w-full h-full object-cover rounded-md group-hover:scale-105 transition-transform"
+                                    className="w-full h-full object-contain p-0.5 rounded-md group-hover:scale-105 transition-transform"
                                     loading="lazy"
                                   />
                                   {p.badge && (
@@ -4567,9 +4567,9 @@ export function CrmTelecallerPortalPage() {
             <div className="flex gap-3 items-center">
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 flex items-center justify-center">
                 <img
-                  src={selectedIncentiveProduct.image_url}
+                  src={PRODUCT_IMAGE_FALLBACKS[selectedIncentiveProduct.id] || selectedIncentiveProduct.image_url}
                   alt={selectedIncentiveProduct.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-1"
                 />
               </div>
               <div className="space-y-1">
