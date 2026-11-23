@@ -31,13 +31,19 @@ export function MobileNav() {
   // Prevent background document scrolling and dragging when mobile drawer is open
   useEffect(() => {
     if (isOpen) {
+      window.scrollTo({ left: 0 });
       const originalOverflow = document.body.style.overflow;
       const originalTouchAction = document.body.style.touchAction;
+      const originalDocOverflowX = document.documentElement.style.overflowX;
       document.body.style.overflow = "hidden";
+      document.body.style.overflowX = "hidden";
       document.body.style.touchAction = "none";
+      document.documentElement.style.overflowX = "hidden";
       return () => {
         document.body.style.overflow = originalOverflow;
+        document.body.style.overflowX = "";
         document.body.style.touchAction = originalTouchAction;
+        document.documentElement.style.overflowX = originalDocOverflowX;
       };
     }
   }, [isOpen]);
@@ -51,20 +57,20 @@ export function MobileNav() {
 
   const drawerContent = isOpen ? (
     <div
-      className="fixed inset-0 z-[9999] flex select-none"
+      className="fixed inset-0 z-[9999] select-none overflow-hidden"
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        height: "100dvh",
-        width: "100vw",
+        width: "100%",
+        height: "100%",
       }}
     >
       {/* Backdrop overlay */}
       <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
         onClick={() => setIsOpen(false)}
         onTouchMove={(e) => {
           e.preventDefault();
@@ -72,16 +78,15 @@ export function MobileNav() {
         }}
       />
 
-      {/* Full Height Fixed Mobile Drawer with Midnight Navy theme */}
+      {/* Full Height Fixed Mobile Drawer anchored to left: 0 */}
       <div
-        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-[290px] max-w-[85vw] flex-col bg-[#132038] text-white border-r border-[#1b2b45] shadow-2xl animate-in slide-in-from-left duration-200 overflow-hidden"
-        style={{ height: "100dvh", maxHeight: "100dvh" }}
+        className="absolute top-0 left-0 bottom-0 z-10 flex h-full w-[295px] max-w-[86vw] flex-col bg-[#132038] text-white border-r border-[#1b2b45] shadow-2xl animate-in slide-in-from-left duration-200 overflow-hidden"
       >
         {/* Drawer Header - Permanently Pinned */}
-        <div className="p-3 border-b border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2.5">
+        <div className="p-3.5 border-b border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2.5">
           <div className="flex items-center justify-between">
             {/* White PK AI Brand Card matching Screenshot 2 */}
-            <div className="bg-white rounded-xl p-1 shadow-sm flex items-center justify-center border border-slate-200 w-11 h-11">
+            <div className="bg-white rounded-xl p-1 shadow-sm flex items-center justify-center border border-slate-200 w-11 h-11 ml-0.5">
               <img
                 src="/pk-ai-logo.png"
                 alt="PK AI"
@@ -93,21 +98,21 @@ export function MobileNav() {
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+              className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg cursor-pointer"
             >
               <X className="w-5 h-5" />
               <span className="sr-only">Close</span>
             </Button>
           </div>
 
-          <div className="px-0.5">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300 truncate">
-              {user?.organizationName || "SIDDESHWAR ENT..."}
+          <div className="px-1 text-left">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 truncate">
+              {user?.organizationName ? (user.organizationName.length > 16 ? user.organizationName.slice(0, 15) + "..." : user.organizationName) : "SIDDESHWAR ENT..."}
             </p>
           </div>
 
           {/* Search menu input with cyan dot */}
-          <div className="flex items-center gap-2 bg-[#132038] border border-[#1e2e4a] rounded-lg px-2.5 py-1 shadow-inner">
+          <div className="flex items-center gap-2 bg-[#132038] border border-[#1e2e4a] rounded-lg px-2.5 py-1.5 shadow-inner">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
             <input
               type="text"
@@ -120,7 +125,7 @@ export function MobileNav() {
         </div>
 
         {/* Scrollable Navigation List with contained overscroll */}
-        <div className="flex-1 overflow-y-auto px-2 py-2 overscroll-contain touch-pan-y">
+        <div className="flex-1 overflow-y-auto px-2.5 py-2.5 overscroll-contain touch-pan-y">
           <SidebarNav
             onItemClick={() => setIsOpen(false)}
             searchQuery={mobileSearch}
@@ -128,7 +133,7 @@ export function MobileNav() {
         </div>
 
         {/* User Footer - Permanently Pinned */}
-        <div className="p-3 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2">
+        <div className="p-3.5 border-t border-[#1b2b45] bg-[#0c1626] shrink-0 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="w-7 h-7 rounded-full bg-[#facc15] text-slate-950 font-black text-[11px] flex items-center justify-center shrink-0">
@@ -146,7 +151,7 @@ export function MobileNav() {
                 logout();
                 navigate("/login");
               }}
-              className="text-xs font-bold text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800"
+              className="text-xs font-bold text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 cursor-pointer"
             >
               Logout
             </button>

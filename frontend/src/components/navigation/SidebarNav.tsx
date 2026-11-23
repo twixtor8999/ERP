@@ -12,30 +12,6 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   const location = useLocation();
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    Reports: true,
-    Orders: true,
-    B2B: true,
-    Customer: true,
-    Vehicle: true,
-    Purchase: true,
-    "CRM Report": true,
-    Expenses: true,
-    Inventory: true,
-    "SKU's": true,
-    Employees: true,
-    "Incentive Scheme": true,
-    "CA Reports": true,
-    "P & L": true,
-  });
-
-  const toggleSection = (title: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [title]: !prev[title],
-    }));
-  };
-
   const currentPath = location.pathname;
   const currentSearch = location.search;
   const fullUrl = `${currentPath}${currentSearch}`;
@@ -228,6 +204,30 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     return currentPath === item.href || (item.href !== "/" && currentPath.startsWith(item.href));
   };
 
+  // Only open subtitles if user is currently inside that section's page.
+  // All other submenus remain cleanly collapsed by default until the user clicks on them!
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const item of navigationItems) {
+      if (item.children && item.children.length > 0) {
+        const matchesCurrent =
+          currentPath.startsWith(item.href) ||
+          item.children.some((c) => isItemActive(c));
+        if (matchesCurrent) {
+          initial[item.title] = true;
+        }
+      }
+    }
+    return initial;
+  });
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  };
+
   const query = searchQuery.trim().toLowerCase();
 
   const filteredItems = navigationItems.filter((item) => {
@@ -238,11 +238,11 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   });
 
   return (
-    <nav className="space-y-0.5">
+    <nav className="space-y-0.5 px-1">
       {filteredItems.map((item) => {
         // If it has children (like Reports and Orders)
         if (item.children && item.children.length > 0) {
-          const isExpanded = expandedSections[item.title] ?? true;
+          const isExpanded = query ? true : !!expandedSections[item.title];
           const isParentActive =
             currentPath.startsWith(item.href) ||
             item.children.some((c) => isItemActive(c));

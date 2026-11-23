@@ -51,9 +51,13 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(resolveSmartRoute(user.role, user.dashboardRoute), { replace: true });
+      if (isCrm) {
+        navigate("/crm", { replace: true });
+      } else {
+        navigate(resolveSmartRoute(user.role, user.dashboardRoute), { replace: true });
+      }
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isCrm]);
 
   const {
     register: loginRegister,
@@ -83,7 +87,11 @@ export function LoginPage() {
       toast.success("Authentication Successful", {
         description: `Welcome back, ${response.user.fullName}`,
       });
-      navigate(resolveSmartRoute(response.user.role, response.user.dashboardRoute), { replace: true });
+      if (isCrm) {
+        navigate("/crm", { replace: true });
+      } else {
+        navigate(resolveSmartRoute(response.user.role, response.user.dashboardRoute), { replace: true });
+      }
     } catch (err: unknown) {
       const errorMsg =
         err && typeof err === "object" && "response" in err
@@ -239,9 +247,9 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-white text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+    <div className="h-screen w-full flex flex-col bg-white text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-hidden">
       {/* Top Application Header matching Screenshot 4 */}
-      <header className="h-14 sm:h-16 px-4 sm:px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 z-20">
+      <header className="h-12 sm:h-14 px-4 sm:px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
           <ShoppingCart className="w-5 h-5 text-blue-600" />
           <div className="flex flex-col leading-tight">
@@ -256,9 +264,9 @@ export function LoginPage() {
       </header>
 
       {/* Main Split-Screen Canvas */}
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Side: Retail Photography & Operations Value Prop matching Screenshot 4 */}
-        <div className="relative hidden lg:flex lg:w-[60%] xl:w-[62%] bg-slate-900 overflow-hidden items-end p-8 xl:p-14 shrink-0">
+        <div className="relative hidden lg:flex lg:w-[60%] xl:w-[62%] bg-slate-900 overflow-hidden items-end p-6 xl:p-10 pb-8 shrink-0">
           <img
             src="/family-shopping.jpg"
             alt="Indian family shopping in supermarket aisle"
@@ -268,14 +276,14 @@ export function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
 
           {/* Hero Branding Content */}
-          <div className="relative z-10 space-y-5 max-w-xl">
-            <h2 className="text-3xl xl:text-4xl font-extrabold text-white tracking-tight leading-snug">
+          <div className="relative z-10 space-y-4 max-w-xl">
+            <h2 className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight leading-snug">
               Run your store, <br />
               <span className="text-slate-100 font-bold">all in one app</span>
             </h2>
 
             {/* 5 Operational Badges matching Screenshot 4 */}
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141e2e]/90 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-md">
                 <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>CRM</span>
@@ -301,39 +309,39 @@ export function LoginPage() {
         </div>
 
         {/* Right Side: Single Clean Login Card matching Screenshot 4 */}
-        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 bg-white">
-          <div className="w-full max-w-md">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 bg-white overflow-y-auto lg:overflow-hidden">
+          <div className="w-full max-w-sm sm:max-w-md">
             {/* Back to home link matching Screenshot 4 */}
             <button
               type="button"
               onClick={() => navigate("/home")}
-              className="text-[#1e3a8a] hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 mb-4 transition"
+              className="text-[#1e3a8a] hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 mb-2 sm:mb-3 transition cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back to home
             </button>
 
-            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-sm p-6 sm:p-8 space-y-5 relative">
+            <div className="w-full bg-white border border-slate-200/90 rounded-2xl shadow-sm p-4 sm:p-6 space-y-3 sm:space-y-3.5 relative">
               {/* Circular Siddeshwar Enterprises Temple Logo matching reference screenshot */}
-              <div className="text-center space-y-2.5">
+              <div className="text-center space-y-1.5">
                 <div className="inline-block relative">
                   <img
                     src="/siddeshwar-logo.png"
                     alt="Siddeshwar Enterprises Logo"
-                    className="w-24 h-24 rounded-full object-contain mx-auto"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain mx-auto"
                   />
                 </div>
                 <div>
-                  <h1 className="text-base sm:text-lg font-black tracking-tight text-[#162a52] uppercase">
+                  <h1 className="text-sm sm:text-base font-black tracking-tight text-[#162a52] uppercase">
                     SIDDESHWAR ENTERPRISES
                   </h1>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                  <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 font-medium">
                     Welcome back! Sign in to continue
                   </p>
                 </div>
               </div>
 
             {/* Single Clean Login Form */}
-            <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-4">
+            <form onSubmit={handleLoginSubmit(onLoginSubmit)} className="space-y-2.5 sm:space-y-3">
               {/* Mobile / Email / Username Input */}
               <div className="space-y-1">
                 <Label htmlFor="identifier" className="text-xs font-bold text-slate-700">
@@ -344,7 +352,7 @@ export function LoginPage() {
                     id="identifier"
                     type="text"
                     placeholder="Registered mobile number / username"
-                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-lg shadow-none"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-9 sm:h-10 rounded-lg shadow-none"
                     disabled={isSubmitting}
                     {...loginRegister("identifier")}
                   />
@@ -364,14 +372,14 @@ export function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter password"
-                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-lg shadow-none pr-14"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-xs sm:text-sm h-9 sm:h-10 rounded-lg shadow-none pr-14"
                     disabled={isSubmitting}
                     {...loginRegister("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition"
+                    className="absolute right-3 top-2 sm:top-2.5 text-xs font-bold text-[#1e3a8a] hover:text-blue-700 transition cursor-pointer"
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -392,12 +400,12 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#132d5e] hover:bg-[#0f244a] text-white font-bold h-10 rounded-full shadow-sm transition-all flex items-center justify-between px-6"
+                className="w-full bg-[#132d5e] hover:bg-[#0f244a] text-white font-bold h-9 sm:h-10 rounded-full shadow-sm transition-all flex items-center justify-between px-5 sm:px-6 cursor-pointer"
               >
-                <span className="flex-1 text-center font-bold text-sm pl-4">
+                <span className="flex-1 text-center font-bold text-xs sm:text-sm pl-4">
                   {isSubmitting ? "Signing in..." : "Sign In"}
                 </span>
-                <span className="w-6 h-6 rounded-full bg-[#e65100] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#e65100] text-white flex items-center justify-center shrink-0 shadow-xs">
                   {isSubmitting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                   ) : (
@@ -408,7 +416,7 @@ export function LoginPage() {
             </form>
 
             {/* New phone? Create Owner account */}
-            <div className="text-center pt-2">
+            <div className="text-center pt-1.5">
               <button
                 type="button"
                 onClick={() => navigate("/register")}
@@ -419,7 +427,7 @@ export function LoginPage() {
             </div>
 
             {/* Footer with Lock & Version 5.08 matching Screenshot */}
-            <div className="text-center pt-2 space-y-0.5">
+            <div className="text-center pt-1.5 space-y-0.5">
               <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
                 <Lock className="w-3.5 h-3.5 text-slate-400" />
                 <span>Secure login</span>
@@ -430,11 +438,11 @@ export function LoginPage() {
             </div>
 
             {/* Switch to CRM Portal Link */}
-            <div className="text-center pt-2.5 border-t border-slate-100">
+            <div className="text-center pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => navigate("/crm/login")}
-                className="text-xs font-bold text-amber-600 hover:text-amber-700 hover:underline"
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
               >
                 Go to Ai Smart Bazar CRM Portal →
               </button>
