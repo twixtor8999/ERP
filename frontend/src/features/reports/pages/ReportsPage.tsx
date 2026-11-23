@@ -49,7 +49,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-4">
       {/* Wholesale Subtabs Navigation Bar */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 flex-wrap">
         {[
           { id: 'gst', label: '1) GST Report', icon: FileText },
           { id: 'ai', label: '2) AI Assistant', icon: Bot },

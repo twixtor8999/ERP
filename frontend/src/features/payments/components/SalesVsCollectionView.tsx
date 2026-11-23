@@ -65,10 +65,8 @@ export function SalesVsCollectionView() {
   const [records] = useState<SvcRecord[]>(SAMPLE_SVC_RECORDS);
   const [selectedRecord, setSelectedRecord] = useState<SvcRecord | null>(null);
 
-  const filteredRecords = records.filter((r) => {
-    if (!pageSearch) return true;
-    const q = pageSearch.toLowerCase();
-    if (selectedRecord) {
+  // ─── Full-page drilldown for a single vehicle's denomination breakdown ───
+  if (selectedRecord) {
     const denomEntries = Object.entries(selectedRecord.denominations || {})
       .filter(([_, count]) => count > 0)
       .map(([note, count]) => ({
@@ -82,7 +80,7 @@ export function SalesVsCollectionView() {
 
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a] pb-12">
-        {/* Top Back Navigation Bar matching Image 3 */}
+        {/* Top Back Navigation Bar */}
         <div>
           <button
             type="button"
@@ -94,7 +92,7 @@ export function SalesVsCollectionView() {
           </button>
         </div>
 
-        {/* Header Title with Vehicle No & Status Badge matching Image 3 */}
+        {/* Header Title with Vehicle No & Status Badge */}
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
@@ -118,25 +116,20 @@ export function SalesVsCollectionView() {
           </p>
         </div>
 
-        {/* 3 KPI Summary Cards matching Image 3 */}
+        {/* 3 KPI Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Card 1: Net Sales */}
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
             <span className="text-xs font-bold text-slate-500 block">Net Sales</span>
             <p className="text-2xl font-black text-slate-900 font-mono">
               ₹{selectedRecord.netSales.toLocaleString("en-IN")}
             </p>
           </div>
-
-          {/* Card 2: Counted Cash */}
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
             <span className="text-xs font-bold text-slate-500 block">Counted Cash</span>
             <p className="text-2xl font-black text-slate-900 font-mono">
               ₹{selectedRecord.cash.toLocaleString("en-IN")}
             </p>
           </div>
-
-          {/* Card 3: QR + Bank */}
           <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
             <span className="text-xs font-bold text-slate-500 block">QR + Bank</span>
             <p className="text-2xl font-black text-blue-600 font-mono">
@@ -145,7 +138,7 @@ export function SalesVsCollectionView() {
           </div>
         </div>
 
-        {/* FMCG Table with Solid Royal Blue (#2563eb / #2f6fe4) Header matching Image 3 */}
+        {/* Denomination Breakdown Table — Royal Blue #2563eb header */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -185,7 +178,6 @@ export function SalesVsCollectionView() {
                   ))
                 )}
               </tbody>
-              {/* Table Total Row matching Image 3 */}
               <tfoot>
                 <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900">
                   <td className="py-3 px-4"></td>
@@ -201,7 +193,7 @@ export function SalesVsCollectionView() {
           </div>
         </div>
 
-        {/* Bottom Action Buttons Bar matching Image 3 */}
+        {/* Bottom Action Buttons */}
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
@@ -222,7 +214,11 @@ export function SalesVsCollectionView() {
     );
   }
 
-  return (
+  // ─── List view (default) ───
+  const filteredRecords = records.filter((r) => {
+    if (!pageSearch) return true;
+    const q = pageSearch.toLowerCase();
+    return (
       r.vehicle.toLowerCase().includes(q) ||
       r.date.includes(q) ||
       r.remarks.toLowerCase().includes(q) ||
@@ -230,7 +226,7 @@ export function SalesVsCollectionView() {
     );
   });
 
-  // 4 KPI Summary Totals matching Screenshot 2
+  // 4 KPI Summary Totals
   const totalNetSales = filteredRecords.reduce((acc, r) => acc + r.netSales, 0);
   const totalCash = filteredRecords.reduce((acc, r) => acc + r.cash, 0);
   const totalQrBank = filteredRecords.reduce((acc, r) => acc + r.qr + r.bank, 0);
@@ -251,7 +247,7 @@ export function SalesVsCollectionView() {
 
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-10">
-      {/* Top Bar: Back button matching Reference App */}
+      {/* Top Bar: Back button */}
       <div>
         <button
           onClick={() => navigate(-1)}
@@ -262,7 +258,7 @@ export function SalesVsCollectionView() {
         </button>
       </div>
 
-      {/* Date Filter & Export Strip matching Reference App */}
+      {/* Date Filter & Export Strip */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
           <span>From</span>
@@ -287,7 +283,6 @@ export function SalesVsCollectionView() {
           </button>
         </div>
 
-        {/* ⬇ Export Button */}
         <button
           onClick={handleExport}
           className="inline-flex items-center gap-1 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
@@ -297,7 +292,7 @@ export function SalesVsCollectionView() {
         </button>
       </div>
 
-      {/* Heading Title & Description matching Screenshot 2 */}
+      {/* Heading */}
       <div>
         <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
           Sales vs Collection
@@ -307,7 +302,7 @@ export function SalesVsCollectionView() {
         </p>
       </div>
 
-      {/* Search Input matching Screenshot 2 */}
+      {/* Search Input */}
       <div className="relative max-w-lg">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
         <input
@@ -319,33 +314,26 @@ export function SalesVsCollectionView() {
         />
       </div>
 
-      {/* 4 Metric KPI Cards matching Reference App Screenshot 2 */}
+      {/* 4 Metric KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Net sales */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
           <span className="text-xs font-bold text-slate-500 block">Net sales</span>
           <p className="text-2xl font-black text-slate-900 font-mono">
             {totalNetSales > 0 ? `₹${totalNetSales.toLocaleString("en-IN")}` : "0"}
           </p>
         </div>
-
-        {/* Cash */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
           <span className="text-xs font-bold text-slate-500 block">Cash</span>
           <p className="text-2xl font-black text-slate-900 font-mono">
             {totalCash > 0 ? `₹${totalCash.toLocaleString("en-IN")}` : "0"}
           </p>
         </div>
-
-        {/* QR + Bank */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
           <span className="text-xs font-bold text-slate-500 block">QR + Bank</span>
           <p className="text-2xl font-black text-slate-900 font-mono">
             {totalQrBank > 0 ? `₹${totalQrBank.toLocaleString("en-IN")}` : "0"}
           </p>
         </div>
-
-        {/* Short / Excess */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
           <span className="text-xs font-bold text-slate-500 block">Short / Excess</span>
           <p className="text-2xl font-black font-mono">
@@ -360,7 +348,7 @@ export function SalesVsCollectionView() {
         </div>
       </div>
 
-      {/* Sales vs Collection Table matching Screenshot 2 */}
+      {/* Sales vs Collection Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
         <table className="w-full text-xs">
           <thead>
@@ -382,9 +370,9 @@ export function SalesVsCollectionView() {
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold">
             {filteredRecords.length === 0 ? (
-              <tr className="bg-[#0b1a30]">
-                <td colSpan={13} className="py-4 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
-                  No denomination saved in these dates.
+              <tr>
+                <td colSpan={13} className="py-4 px-3 text-center text-slate-400 font-medium text-xs tracking-wide">
+                  No records found for this date range.
                 </td>
               </tr>
             ) : (
@@ -435,7 +423,6 @@ export function SalesVsCollectionView() {
             )}
           </tbody>
 
-          {/* Totals Row */}
           {filteredRecords.length > 0 && (
             <tfoot>
               <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900 whitespace-nowrap">
@@ -465,8 +452,6 @@ export function SalesVsCollectionView() {
           )}
         </table>
       </div>
-
-
     </div>
   );
 }
