@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
-import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utilities/cn";
 import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -181,19 +180,6 @@ export function Sidebar() {
             </button>
           </div>
         )}
-
-        {/* Collapse Toggle */}
-        <div className="flex justify-end pt-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCollapsed(!collapsed)}
-            className="h-6 w-6 text-slate-400 hover:text-white hover:bg-slate-800"
-            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-          </Button>
-        </div>
       </div>
     </aside>
   );
