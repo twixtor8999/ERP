@@ -3359,7 +3359,7 @@ def get_crm_callings_sheet(
         ).all()
         for cid, max_dt in order_rows:
             if cid and max_dt:
-                last_orders[str(cid)] = max_dt.strftime("%d-%m-%Y")
+                last_orders[cid] = max_dt.strftime("%d-%m-%Y")
     except Exception:
         pass
 
@@ -3435,7 +3435,7 @@ def get_crm_callings_sheet(
         b_day = DAYS[abs(hash(village_name)) % len(DAYS)]
 
         # Last Order Date
-        last_ord = last_orders.get(str(c.id), "—")
+        last_ord = last_orders.get(c.id, "—")
 
         gmap_query = f"{village_name}, {route_assigned}, Vijayapura, Karnataka"
         gmap_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote_plus(gmap_query)}"
@@ -3861,8 +3861,8 @@ def get_crm_team_reports(
         },
     ]
 
-    total_orders = sum(r["order_count"] for r in sale_report)
-    total_amount = sum(r["order_total"] for r in sale_report)
+    total_orders = sum(int(r["order_count"]) for r in sale_report)
+    total_amount = sum(int(r["order_total"]) for r in sale_report)
 
     return {
         "start_date": s_date.strftime("%d/%m/%Y"),
