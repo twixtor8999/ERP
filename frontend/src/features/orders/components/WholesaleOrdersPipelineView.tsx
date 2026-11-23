@@ -27,9 +27,12 @@ export interface PipelineOrder {
   stage: "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "cancelled" | "return";
   items: Array<{
     name: string;
-    unit: string;
+    unit?: string;
     qty: number;
     price: number;
+    rate?: number;
+    gst?: string;
+    amount?: number;
   }>;
 }
 
@@ -49,9 +52,9 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     balance: 0,
     stage: "packing",
     items: [
-      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 5, price: 440 },
-      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 25, price: 128 },
-      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 32, price: 26 },
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 5, price: 440, rate: 440, gst: "5%", amount: 2200 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 25, price: 128, rate: 128, gst: "5%", amount: 3200 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 32, price: 26, rate: 26, gst: "0%", amount: 832 },
     ],
   },
   {
@@ -69,9 +72,9 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     balance: 0,
     stage: "packing",
     items: [
-      { name: "Parle-G Gold Biscuits 1kg Family Pack", unit: "Box", qty: 2, price: 110 },
-      { name: "Surf Excel Easy Wash Detergent Powder 1kg", unit: "Packet", qty: 1, price: 140 },
-      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 1, price: 26 },
+      { name: "Parle-G Gold Biscuits 1kg Family Pack", unit: "Box", qty: 2, price: 110, rate: 110, gst: "5%", amount: 220 },
+      { name: "Surf Excel Easy Wash Detergent Powder 1kg", unit: "Packet", qty: 1, price: 140, rate: 140, gst: "18%", amount: 140 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 1, price: 26, rate: 26, gst: "0%", amount: 26 },
     ],
   },
   {
@@ -89,8 +92,8 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     balance: 0,
     stage: "packing",
     items: [
-      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128 },
-      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 11, price: 165 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128, rate: 128, gst: "5%", amount: 3840 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 11, price: 165, rate: 165, gst: "0%", amount: 1815 },
     ],
   },
   {
@@ -108,9 +111,9 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     balance: 0,
     stage: "packing",
     items: [
-      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 10, price: 440 },
-      { name: "Madhur Pure & Hygienic Sugar 5kg", unit: "Bag", qty: 6, price: 235 },
-      { name: "Everest Turmeric Powder 500g", unit: "Box", qty: 1, price: 150 },
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 10, price: 440, rate: 440, gst: "5%", amount: 4400 },
+      { name: "Madhur Pure & Hygienic Sugar 5kg", unit: "Bag", qty: 6, price: 235, rate: 235, gst: "5%", amount: 1410 },
+      { name: "Everest Turmeric Powder 500g", unit: "Box", qty: 1, price: 150, rate: 150, gst: "5%", amount: 150 },
     ],
   },
   {
@@ -128,9 +131,29 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
     balance: 0,
     stage: "packing",
     items: [
-      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 12, price: 440 },
-      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128 },
-      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 8, price: 165 },
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 12, price: 440, rate: 440, gst: "5%", amount: 5280 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128, rate: 128, gst: "5%", amount: 3840 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 8, price: 165, rate: 165, gst: "0%", amount: 1320 },
+    ],
+  },
+  {
+    id: "ord-1513",
+    orderNo: "ORD-1513",
+    customerName: "Girish mahatpati",
+    shopName: "Girish Kirana Store",
+    village: "Kudgi",
+    route: "Tamba",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "23-11-2026",
+    orderTime: "11:20 am",
+    total: 3535,
+    balance: 0,
+    stage: "packing",
+    items: [
+      { name: "Raag Gold Palm Oil 1Ltr 10Pcs Box", unit: "Box", qty: 1, price: 1380, rate: 1380, gst: "5%", amount: 1380 },
+      { name: "Zeeba Steam Rice 26kg Bag", unit: "Bag", qty: 1, price: 2050, rate: 2050, gst: "0%", amount: 2050 },
+      { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Pkt", qty: 1, price: 105, rate: 105, gst: "5%", amount: 105 },
     ],
   },
 ];
@@ -334,6 +357,146 @@ export function WholesaleOrdersPipelineView() {
     });
   };
 
+  /* ======================================================== */
+  /* SCREEN 2: DEDICATED ORDER DETAILS VIEW (SCREENSHOT 2)    */
+  /* ======================================================== */
+  if (viewingOrder) {
+    const totalQty = viewingOrder.items.reduce((acc, it) => acc + (it.qty || 0), 0);
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] p-2 sm:p-5 max-w-7xl mx-auto animate-in fade-in duration-150">
+        {/* Back button matching Screenshot 2 */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setViewingOrder(null)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-md text-xs font-bold text-slate-700 shadow-2xs transition-colors cursor-pointer"
+          >
+            <span>← Back</span>
+          </button>
+        </div>
+
+        {/* Order Header matching Screenshot 2 */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {viewingOrder.orderNo}
+            </h1>
+            <span className="text-slate-400 font-bold">•</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#ea580c] text-white shadow-2xs lowercase">
+              {viewingOrder.stage === "packing" ? "placed" : viewingOrder.stage}
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 font-medium">
+            {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy}
+          </p>
+        </div>
+
+        {/* 3 Metric Summary Cards matching Screenshot 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+            <span className="text-xs text-slate-500 font-semibold block">Total</span>
+            <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+              {viewingOrder.total.toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+            <span className="text-xs text-slate-500 font-semibold block">Items</span>
+            <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+              {viewingOrder.items.length}
+            </span>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+            <span className="text-xs text-slate-500 font-semibold block">Qty</span>
+            <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+              {totalQty}
+            </span>
+          </div>
+        </div>
+
+        {/* Items Table matching Screenshot 2 */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#1d4ed8] text-white font-extrabold text-[12px]">
+                <th className="py-2.5 px-4 text-left w-12">Sl</th>
+                <th className="py-2.5 px-4 text-left">Item</th>
+                <th className="py-2.5 px-4 text-center w-24">Qty</th>
+                <th className="py-2.5 px-4 text-right w-32">Rate</th>
+                <th className="py-2.5 px-4 text-center w-24">GST</th>
+                <th className="py-2.5 px-4 text-right w-36">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {viewingOrder.items.map((it, idx) => {
+                const rate = it.rate ?? it.price;
+                const gst = it.gst ?? "5%";
+                const amount = it.amount ?? (it.qty * rate);
+                return (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 text-slate-500 font-bold">{idx + 1}</td>
+                    <td className="py-3 px-4 font-bold text-slate-900">{it.name}</td>
+                    <td className="py-3 px-4 text-center font-mono font-bold text-slate-800">{it.qty}</td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-700">
+                      {rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-center text-slate-600 font-mono">{gst}</td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                      {amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                );
+              })}
+              {/* Total Summary Row */}
+              <tr className="bg-slate-50 font-bold border-t-2 border-slate-200 text-slate-900">
+                <td className="py-3 px-4 font-black">Total</td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 text-center font-mono font-black">{totalQty}</td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 text-right font-mono font-black">
+                  {viewingOrder.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Action Buttons in bottom right matching Screenshot 2 */}
+        <div className="flex items-center justify-end gap-2.5 pt-4">
+          <button
+            type="button"
+            onClick={() => setViewingOrder(null)}
+            className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-full shadow-2xs transition-colors cursor-pointer"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleMoveOrder(viewingOrder.id, "cancelled");
+              setViewingOrder(null);
+              toast.error(`Order ${viewingOrder.orderNo} cancelled`);
+            }}
+            className="px-4 py-1.5 bg-[#991b1b] hover:bg-[#7f1d1d] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
+          >
+            Cancel order
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleMoveOrder(viewingOrder.id, "invoice");
+              setViewingOrder(null);
+              toast.success(`Order ${viewingOrder.orderNo} moved to Invoice stage`);
+            }}
+            className="px-5 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white text-xs font-bold rounded-full shadow-xs transition-colors cursor-pointer"
+          >
+            Move to invoice
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-10">
       {/* Top Bar: Back button */}
@@ -528,9 +691,13 @@ export function WholesaleOrdersPipelineView() {
                     </tr>
                   ) : (
                     currentStageOrders.map((o, idx) => (
-                      <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr
+                        key={o.id}
+                        onClick={() => setViewingOrder(o)}
+                        className="hover:bg-blue-50/50 transition-colors cursor-pointer"
+                      >
                         <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
-                        <td className="py-3 px-2 text-center">
+                        <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedOrderIds.has(o.id)}
@@ -925,96 +1092,6 @@ export function WholesaleOrdersPipelineView() {
           {/* Footnote matching Reference Screenshot 5 */}
           <div className="pt-1 text-[11px] text-slate-500 font-medium">
             Total: Orders {reportTotalOrders} | Amount ₹{reportTotalAmt.toLocaleString("en-IN")}. Return = orders with any returned item (amount = returned value).
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* ORDER DETAILS & PACKING SLIP MODAL                       */}
-      {/* ======================================================== */}
-      {viewingOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-[#132038] text-white px-4 py-3 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="font-extrabold text-sm text-white">
-                  Order Details · {viewingOrder.orderNo}
-                </h3>
-                <p className="text-[11px] text-slate-300">
-                  {viewingOrder.customerName} ({viewingOrder.shopName}) · {viewingOrder.village}
-                </p>
-              </div>
-              <button
-                onClick={() => setViewingOrder(null)}
-                className="text-slate-300 hover:text-white p-1 rounded-md"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto flex-1 space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">ROUTE / BEAT</span>
-                  <span className="font-bold text-slate-800">{viewingOrder.route}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">BOOKED BY</span>
-                  <span className="font-bold text-slate-800">{viewingOrder.createdBy} ({viewingOrder.source})</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">DATE & TIME</span>
-                  <span className="font-bold text-slate-800">{viewingOrder.orderDate} {viewingOrder.orderTime}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">CURRENT STAGE</span>
-                  <span className="font-bold uppercase text-blue-700">{viewingOrder.stage}</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
-                  Ordered FMCG Items
-                </p>
-                <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
-                  {viewingOrder.items.map((it, i) => (
-                    <div key={i} className="p-2 flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-slate-900">{it.name}</p>
-                        <p className="text-[10px] text-slate-400">{it.qty} {it.unit} × ₹{it.price}</p>
-                      </div>
-                      <span className="font-mono font-bold text-slate-900">
-                        ₹{(it.qty * it.price).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 border-t border-slate-200 shrink-0 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase">Grand Total</p>
-                <p className="text-lg font-black text-slate-900 font-mono">
-                  ₹{viewingOrder.total.toLocaleString("en-IN")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Slip</span>
-                </button>
-                <button
-                  onClick={() => setViewingOrder(null)}
-                  className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold rounded-lg"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
