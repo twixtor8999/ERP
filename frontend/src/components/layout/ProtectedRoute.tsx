@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/auth.store";
 import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
+import { LoginPage } from "@/features/auth/pages/LoginPage";
 
 interface ProtectedRouteProps {
   children?: ReactNode;
@@ -21,6 +22,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (!isAuthenticated) {
+    if (location.pathname === "/" || location.pathname === "") {
+      return <LoginPage />;
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

@@ -18,6 +18,7 @@ import { loginSchema, type LoginFormData } from "../schemas/login.schema";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import { useBranchStore } from "@/stores/branch.store";
+import { tokenStorage } from "@/lib/auth/token-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,20 +76,12 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       const response = await authService.login(data);
-      setUser(response.user);
-      if (response.user.allowedBranches && response.user.allowedBranches.length > 0) {
-        setAvailableBranches(response.user.allowedBranches);
-        const defaultBranch = response.user.allowedBranches[0];
-        if (defaultBranch) {
-          setActiveBranch(defaultBranch);
-        }
-      }
-
       const role = response.user.role?.toLowerCase().replace(/[-\s]/g, "_") || "";
       const isCrmRole = role.includes("crm") || role.includes("telecaller");
 
-      // If a CRM/Telecaller user logs in on the admin page → show wrong-portal modal
+      // If a CRM/Telecaller user logs in on the admin page → show wrong-portal modal and do NOT log them into admin
       if (!isCrm && isCrmRole) {
+        tokenStorage.clear();
         setCrmModal({
           visible: true,
           userName: response.user.fullName || "CRM User",
@@ -96,6 +89,15 @@ export function LoginPage() {
         });
         setIsSubmitting(false);
         return;
+      }
+
+      setUser(response.user);
+      if (response.user.allowedBranches && response.user.allowedBranches.length > 0) {
+        setAvailableBranches(response.user.allowedBranches);
+        const defaultBranch = response.user.allowedBranches[0];
+        if (defaultBranch) {
+          setActiveBranch(defaultBranch);
+        }
       }
 
       toast.success("Authentication Successful", {
@@ -300,7 +302,8 @@ export function LoginPage() {
                 type="button"
                 onClick={() => {
                   setCrmModal({ visible: false, userName: "", role: "" });
-                  navigate("/crm/login");
+                  const crmUrl = `${window.location.origin}/crm/login`;
+                  window.open(crmUrl, "_blank");
                 }}
                 className="px-6 py-2 rounded-full bg-[#0d1b4c] hover:bg-[#081233] text-white text-sm font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
               >

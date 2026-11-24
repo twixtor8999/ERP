@@ -155,7 +155,7 @@ export function Sidebar() {
               <button
                 onClick={() => {
                   logout();
-                  navigate("/login");
+                  navigate("/");
                 }}
                 className="px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white bg-[#1c2e4c] hover:bg-[#243c64] rounded-lg border border-[#2b4470] transition shrink-0 cursor-pointer"
                 title="Logout"
@@ -187,7 +187,7 @@ export function Sidebar() {
             <button
               onClick={() => {
                 logout();
-                navigate("/login");
+                navigate("/");
               }}
               title="Logout"
               className="text-slate-400 hover:text-white"

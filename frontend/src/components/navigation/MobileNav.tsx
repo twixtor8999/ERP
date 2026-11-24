@@ -146,7 +146,7 @@ export function MobileNav() {
               onClick={() => {
                 setIsOpen(false);
                 logout();
-                navigate("/login");
+                navigate("/");
               }}
               className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-[#1c2e4c] hover:bg-[#243c64] border border-[#2b4470] transition shrink-0 cursor-pointer"
             >
