@@ -623,88 +623,37 @@ export function CrmTelecallerPortalPage() {
   // Orders Status list
   const [orderStatusStartDate, setOrderStatusStartDate] = useState<string>(getTodayIsoDate);
   const [orderStatusEndDate, setOrderStatusEndDate] = useState<string>(getTodayIsoDate);
-  const [ordersList, setOrdersList] = useState<CrmOrder[]>([
-    {
-      id: "ord-1",
-      order_number: "ORD-1508",
-      order_date: "2026-11-22",
-      customer_name: "M M TALAWAR",
-      customer_phone: "9880012569",
-      total_amount: 410,
-      status: "PLACED",
-      order_placed: "22-11-2026 17:39",
-      packed_confirmed: "—",
-      dispatched: "—",
-      out_for_delivery: "—",
-      delivered: "—",
-      payment_method: "CASH",
-      payment_status: "UNPAID",
-    },
-    {
-      id: "ord-2",
-      order_number: "ORD-1508",
-      order_date: "2026-11-22",
-      customer_name: "Shankargouda Biradar",
-      customer_phone: "8861146082",
-      total_amount: 410,
-      status: "PLACED",
-      order_placed: "22-11-2026 16:54",
-      packed_confirmed: "—",
-      dispatched: "—",
-      out_for_delivery: "—",
-      delivered: "—",
-      payment_method: "CASH",
-      payment_status: "UNPAID",
-    },
-    {
-      id: "ord-3",
-      order_number: "ORD-1507",
-      order_date: "2026-11-22",
-      customer_name: "Chandrshekhar",
-      customer_phone: "9686638706",
-      total_amount: 5210,
-      status: "PLACED",
-      order_placed: "22-11-2026 17:30",
-      packed_confirmed: "—",
-      dispatched: "—",
-      out_for_delivery: "—",
-      delivered: "—",
-      payment_method: "CASH",
-      payment_status: "UNPAID",
-    },
-    {
-      id: "ord-4",
-      order_number: "ORD-1507",
-      order_date: "2026-11-22",
-      customer_name: "Ramesh M Genni",
-      customer_phone: "7483168829",
-      total_amount: 5210,
-      status: "PLACED",
-      order_placed: "22-11-2026 16:52",
-      packed_confirmed: "—",
-      dispatched: "—",
-      out_for_delivery: "—",
-      delivered: "—",
-      payment_method: "CASH",
-      payment_status: "UNPAID",
-    },
-    {
-      id: "ord-5",
-      order_number: "ORD-1506",
-      order_date: "2026-11-22",
-      customer_name: "Ashok Hadagali",
-      customer_phone: "9035755872",
-      total_amount: 6247,
-      status: "PLACED",
-      order_placed: "22-11-2026 10:56",
-      packed_confirmed: "—",
-      dispatched: "—",
-      out_for_delivery: "—",
-      delivered: "—",
-      payment_method: "CASH",
-      payment_status: "UNPAID",
-    },
-  ]);
+  const [ordersList, setOrdersList] = useState<CrmOrder[]>(() => {
+    // Only initialize with orders placed today, otherwise clean 0
+    const todayIso = getTodayIsoDate();
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(`crm_reports_${todayIso}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.my_orders && Array.isArray(parsed.my_orders)) {
+            return parsed.my_orders.map((mo: any) => ({
+              id: mo.id || `ord-${Math.random()}`,
+              order_number: mo.order_number,
+              order_date: todayIso,
+              customer_name: mo.customer_name,
+              customer_phone: mo.customer_phone || "",
+              total_amount: mo.total_amount || 0,
+              status: mo.status || "PLACED",
+              order_placed: mo.order_placed || todayIso,
+              packed_confirmed: mo.packed_confirmed || "—",
+              dispatched: mo.dispatched || "—",
+              out_for_delivery: mo.out_for_delivery || "—",
+              delivered: mo.delivered || "—",
+              payment_method: "CASH",
+              payment_status: "UNPAID",
+            }));
+          }
+        } catch {}
+      }
+    }
+    return [];
+  });
   const [orderStatusSearch, setOrderStatusSearch] = useState("");
   const [selectedStatusOrder, setSelectedStatusOrder] = useState<CrmOrder | null>(null);
 
@@ -1135,7 +1084,7 @@ export function CrmTelecallerPortalPage() {
     try {
       const [repRes, ordRes] = await Promise.all([
         apiClient.get<CrmReportData>(`/api/v1/admin/crm/reports?start_date=${sDate}&end_date=${eDate}`),
-        apiClient.get<CrmOrder[]>("/api/v1/admin/crm/orders?limit=40"),
+        apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`),
       ]);
       if (repRes.data) {
         setReportData(repRes.data);
@@ -1151,7 +1100,28 @@ export function CrmTelecallerPortalPage() {
         const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
         if (stored) {
           try {
-            setReportData(JSON.parse(stored));
+            const parsed = JSON.parse(stored);
+            setReportData(parsed);
+            if (parsed.my_orders && Array.isArray(parsed.my_orders)) {
+              setOrdersList(parsed.my_orders.map((mo: any) => ({
+                id: mo.id || `ord-${Math.random()}`,
+                order_number: mo.order_number,
+                order_date: todayIso,
+                customer_name: mo.customer_name,
+                customer_phone: mo.customer_phone || "",
+                total_amount: mo.total_amount || 0,
+                status: mo.status || "PLACED",
+                order_placed: mo.order_placed || todayIso,
+                packed_confirmed: mo.packed_confirmed || "—",
+                dispatched: mo.dispatched || "—",
+                out_for_delivery: mo.out_for_delivery || "—",
+                delivered: mo.delivered || "—",
+                payment_method: "CASH",
+                payment_status: "UNPAID",
+              })));
+            } else {
+              setOrdersList([]);
+            }
             return;
           } catch {}
         }
@@ -1164,6 +1134,7 @@ export function CrmTelecallerPortalPage() {
           unbilled_customers: prev.unbilled_customers ?? 1958,
           incentive_today: prev.incentive_today ?? 0,
         }));
+        setOrdersList([]);
       } else if (sDate.includes("2026-11-23") || eDate.includes("2026-11-23")) {
         // Historical query for yesterday
         setReportData({
@@ -1232,12 +1203,43 @@ export function CrmTelecallerPortalPage() {
   const loadOrderStatus = async (sDate = orderStatusStartDate, eDate = orderStatusEndDate) => {
     try {
       const res = await apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`);
-      if (res.data && res.data.length > 0) {
+      if (res.data) {
         setOrdersList(res.data);
-        toast.success(`Loaded ${res.data.length} orders for ${sDate}`);
+        toast.success(`Loaded ${res.data.length} orders`);
       }
     } catch {
-      toast.error("Failed to load order status");
+      const todayIso = getTodayIsoDate();
+      if (sDate === todayIso && eDate === todayIso) {
+        // Fallback for today: check local storage if any orders were placed today
+        const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed.my_orders && Array.isArray(parsed.my_orders)) {
+              setOrdersList(parsed.my_orders.map((mo: any) => ({
+                id: mo.id || `ord-${Math.random()}`,
+                order_number: mo.order_number,
+                order_date: todayIso,
+                customer_name: mo.customer_name,
+                customer_phone: mo.customer_phone || "",
+                total_amount: mo.total_amount || 0,
+                status: mo.status || "PLACED",
+                order_placed: mo.order_placed || todayIso,
+                packed_confirmed: mo.packed_confirmed || "—",
+                dispatched: mo.dispatched || "—",
+                out_for_delivery: mo.out_for_delivery || "—",
+                delivered: mo.delivered || "—",
+                payment_method: "CASH",
+                payment_status: "UNPAID",
+              })));
+              return;
+            }
+          } catch {}
+        }
+        setOrdersList([]);
+      } else {
+        toast.error("Failed to load order status");
+      }
     }
   };
 
@@ -4873,16 +4875,16 @@ export function CrmTelecallerPortalPage() {
                   <p className="text-2xl font-black text-slate-900 mt-0.5">{filteredOrders.length}</p>
                 </div>
 
-                {/* Row 5: The Excel Grid Table (100% visible, crisp white background, dark legible text, Excel borders) */}
+                {/* Row 5: The Excel Grid Table (Fixed height ~10 rows viewport, internal vertical scroll, sticky header & sticky footer) */}
                 <div className="rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-white">
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead>
+                      <thead className="sticky top-0 z-10 shadow-xs">
                         <tr className="bg-[#1976d2] text-white">
-                          <th className="px-3 py-3 font-bold text-center border-r border-blue-400/40 w-12">SI</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[200px]">Customer Name</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[110px]">Order No</th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[160px]">
+                          <th className="px-3 py-3 font-bold text-center border-r border-blue-400/40 w-12 bg-[#1976d2]">SI</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[200px] bg-[#1976d2]">Customer Name</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[110px] bg-[#1976d2]">Order No</th>
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[160px] bg-[#1976d2]">
                             <div className="flex items-center gap-1.5">
                               <span>Order Placed</span>
                               <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -4890,7 +4892,7 @@ export function CrmTelecallerPortalPage() {
                               </span>
                             </div>
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[170px]">
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[170px] bg-[#1976d2]">
                             <div className="flex items-center gap-1.5">
                               <span>Packed & Confirmed</span>
                               <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -4898,7 +4900,7 @@ export function CrmTelecallerPortalPage() {
                               </span>
                             </div>
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[130px]">
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[130px] bg-[#1976d2]">
                             <div className="flex items-center gap-1.5">
                               <span>Dispatched</span>
                               <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -4906,7 +4908,7 @@ export function CrmTelecallerPortalPage() {
                               </span>
                             </div>
                           </th>
-                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[140px]">
+                          <th className="px-3 py-3 font-bold border-r border-blue-400/40 min-w-[140px] bg-[#1976d2]">
                             <div className="flex items-center gap-1.5">
                               <span>Out For Delivery</span>
                               <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -4914,7 +4916,7 @@ export function CrmTelecallerPortalPage() {
                               </span>
                             </div>
                           </th>
-                          <th className="px-3 py-3 font-bold min-w-[120px]">
+                          <th className="px-3 py-3 font-bold min-w-[120px] bg-[#1976d2]">
                             <div className="flex items-center gap-1.5">
                               <span>Delivered</span>
                               <span className="bg-white text-[#1976d2] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -4967,24 +4969,24 @@ export function CrmTelecallerPortalPage() {
                           </tr>
                         )}
                       </tbody>
-                      <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-slate-900">
-                        <tr>
-                          <td className="px-3 py-3 text-center border-r border-slate-200">Total</td>
-                          <td className="px-3 py-3 border-r border-slate-200"></td>
-                          <td className="px-3 py-3 border-r border-slate-200 font-mono"></td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                      <tfoot className="sticky bottom-0 z-10 bg-slate-50 border-t-2 border-slate-300 font-bold text-slate-900 shadow-xs">
+                        <tr className="bg-slate-50">
+                          <td className="px-3 py-3 text-center border-r border-slate-200 bg-slate-50">Total</td>
+                          <td className="px-3 py-3 border-r border-slate-200 bg-slate-50"></td>
+                          <td className="px-3 py-3 border-r border-slate-200 font-mono bg-slate-50"></td>
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono bg-slate-50">
                             {orderPlacedCount}
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono bg-slate-50">
                             {packedCount}
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono bg-slate-50">
                             {dispatchedCount}
                           </td>
-                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono">
+                          <td className="px-3 py-3 border-r border-slate-200 text-center font-mono bg-slate-50">
                             {outForDeliveryCount}
                           </td>
-                          <td className="px-3 py-3 text-center font-mono">
+                          <td className="px-3 py-3 text-center font-mono bg-slate-50">
                             {deliveredCount}
                           </td>
                         </tr>
