@@ -300,21 +300,40 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
 
 export function openPackingSlipWindow(order: PackingSlipOrderData): boolean {
   try {
-    const w = window.open("", "_blank");
-    if (!w) return false;
     const docHtml = generatePackingSlipHtml(order);
-    w.document.open();
-    w.document.write(docHtml);
-    w.document.close();
+    const docTitle = `packing_${order.orderNo}`;
+
+    // 1. Direct window.open with document.write
     try {
-      w.document.title = `packing_${order.orderNo}`;
-      w.focus();
-    } catch {
-      // ignore
+      const w = window.open("", "_blank");
+      if (w && w.document) {
+        w.document.open();
+        w.document.write(docHtml);
+        w.document.close();
+        w.document.title = docTitle;
+        try {
+          w.focus();
+        } catch {}
+        return true;
+      }
+    } catch (popupErr) {
+      console.warn("Direct window.open blocked for packing slip, using Blob anchor fallback:", popupErr);
     }
+
+    // 2. Reliable Blob URL anchor fallback
+    const blob = new Blob([docHtml], { type: "text/html;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     return true;
   } catch (e) {
-    console.error("Popup window error:", e);
+    console.error("Popup window error for packing slip:", e);
     return false;
   }
 }

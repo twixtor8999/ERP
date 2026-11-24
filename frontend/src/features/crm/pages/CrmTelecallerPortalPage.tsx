@@ -608,7 +608,7 @@ export function CrmTelecallerPortalPage() {
   const [orderCustomerSearch, setOrderCustomerSearch] = useState<string>("");
   const [orderBeatOnly] = useState<boolean>(false);
   const [orderItems, setOrderItems] = useState<{ [variantId: string]: number }>({});
-  const [orderPayMethod, setOrderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
+  const [orderPayMethod] = useState<"CASH" | "UPI" | "CREDIT">("CASH");
   const [orderPaidAmount, setOrderPaidAmount] = useState<string>("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
