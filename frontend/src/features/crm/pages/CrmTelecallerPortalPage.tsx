@@ -760,6 +760,40 @@ export function CrmTelecallerPortalPage() {
           }
         }
       }
+
+      // 3. Check crm_orders_master
+      const storedMaster = localStorage.getItem("crm_orders_master");
+      if (storedMaster) {
+        try {
+          const masterArr = JSON.parse(storedMaster);
+          if (Array.isArray(masterArr)) {
+            for (const mo of masterArr) {
+              const oNo = mo.order_number || mo.orderNo;
+              if (oNo && !seenNos.has(oNo)) {
+                seenNos.add(oNo);
+                list.push({
+                  id: mo.id || `ord-${oNo}`,
+                  order_number: oNo,
+                  order_date: mo.order_date || mo.orderDate || todayIso,
+                  customer_name: mo.customer_name || mo.customerName,
+                  customer_phone: mo.customer_phone || mo.phone || "",
+                  total_amount: mo.total_amount || mo.total || 0,
+                  status: (mo.status || "PLACED").toUpperCase(),
+                  telecaller_name: mo.telecaller_name || mo.createdBy || "Pushpa Patil",
+                  order_placed: mo.order_placed || `${mo.order_date || todayIso} 10:00 am`,
+                  packed_confirmed: mo.packed_confirmed || "—",
+                  dispatched: mo.dispatched || "—",
+                  out_for_delivery: mo.out_for_delivery || "—",
+                  delivered: mo.delivered || "—",
+                  payment_method: mo.payment_method || "CASH",
+                  payment_status: mo.payment_status || "UNPAID",
+                  items: mo.items || [],
+                });
+              }
+            }
+          }
+        } catch {}
+      }
     }
 
     // 3. Include INITIAL_CRM_ORDERS
@@ -1699,32 +1733,35 @@ export function CrmTelecallerPortalPage() {
 
   // Filter Order Status
   const filteredOrders = useMemo(() => {
-    const parseToIso = (dStr?: string) => {
+    const extractIsoDate = (dStr?: string): string => {
       if (!dStr) return "";
-      const trimmed = dStr.trim();
-      if (trimmed.includes("-")) {
-        const parts = trimmed.split("-");
-        const p0 = parts[0] || "";
-        const p1 = parts[1] || "";
-        const p2 = parts[2] || "";
-        if (p0.length === 4) return trimmed;
-        if (p2.length === 4) return `${p2}-${p1.padStart(2, "0")}-${p0.padStart(2, "0")}`;
+      const str = dStr.trim();
+      const isoMatch = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
+        return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
       }
-      return trimmed;
+      const inMatch = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (inMatch && inMatch[1] && inMatch[2] && inMatch[3]) {
+        return `${inMatch[3]}-${inMatch[2].padStart(2, "0")}-${inMatch[1].padStart(2, "0")}`;
+      }
+      return "";
     };
 
     return ordersList.filter((o) => {
-      const orderIso = parseToIso(o.order_date || o.order_placed);
-      const matchDate =
-        (!appliedStatusStartDate || orderIso >= appliedStatusStartDate) &&
-        (!appliedStatusEndDate || orderIso <= appliedStatusEndDate);
-
       const q = orderStatusSearch.toLowerCase().trim();
       const matchQ =
         !q ||
         o.order_number?.toLowerCase().includes(q) ||
         o.customer_name?.toLowerCase().includes(q) ||
         o.customer_phone?.toLowerCase().includes(q);
+
+      if (q && matchQ) return true;
+
+      const orderIso = extractIsoDate(o.order_date || o.order_placed);
+      const matchDate =
+        (!appliedStatusStartDate || !orderIso || orderIso >= appliedStatusStartDate) &&
+        (!appliedStatusEndDate || !orderIso || orderIso <= appliedStatusEndDate);
+
       return matchDate && matchQ;
     });
   }, [ordersList, appliedStatusStartDate, appliedStatusEndDate, orderStatusSearch]);
@@ -2161,6 +2198,15 @@ export function CrmTelecallerPortalPage() {
         };
         const updatedPipeline = [newPipelineOrder, ...pipelineArr.filter((p) => p.orderNo !== orderNum)];
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updatedPipeline));
+
+        // Also save to crm_orders_master
+        try {
+          const rawMaster = localStorage.getItem("crm_orders_master");
+          const masterArr = rawMaster ? JSON.parse(rawMaster) : [];
+          const updatedMaster = [newOrder, ...masterArr.filter((m: any) => m.order_number !== orderNum)];
+          localStorage.setItem("crm_orders_master", JSON.stringify(updatedMaster));
+        } catch {}
+
         window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
 

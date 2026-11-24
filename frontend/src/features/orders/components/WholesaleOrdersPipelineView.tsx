@@ -58,6 +58,36 @@ export interface PipelineOrder {
 
 export const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
   {
+    id: "ord-1672",
+    orderNo: "ORD-1672",
+    customerName: "Ambiger kirani store - Chandru ambiger",
+    shopName: "Ambiger kirani store",
+    village: "Muttagi",
+    route: "GOLASANGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "08:04 pm",
+    phone: "9986313410",
+    total: 1540,
+    balance: 1540,
+    stage: "packing",
+    status: "placed",
+    history: [
+      {
+        when: "2026-11-24 20:04",
+        from: "Placed",
+        to: "Packed",
+        by: "Pushpa Patil",
+        where: "CRM Place Order",
+      },
+    ],
+    items: [
+      { name: "Raag Gold Palm Oil 1Ltr 10Pcs Box", unit: "Box", qty: 1, price: 1380, rate: 1380, gst: "5%", amount: 1380 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 5, price: 32, rate: 32, gst: "0%", amount: 160 },
+    ],
+  },
+  {
     id: "ord-0493",
     orderNo: "ORD-0493",
     customerName: "Arunkumar Kirana Stores - Kallappa B prathamshetti",
@@ -705,9 +735,10 @@ export function WholesaleOrdersPipelineView() {
             if (sUpper === "DELIVERED") stage = "completed";
             else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
             else if (sUpper === "DISPATCHED") stage = "dispatch";
-            else if (sUpper === "PACKED") stage = "invoice";
+            else if (sUpper === "INVOICED" || sUpper === "INVOICE") stage = "invoice";
             else if (sUpper === "CANCELLED") stage = "cancelled";
             else if (existing) stage = existing.stage;
+            else stage = "packing";
 
             const mappedOrder: PipelineOrder = {
               id: bo.id || existing?.id || `ord-${orderNo}`,
@@ -770,49 +801,56 @@ export function WholesaleOrdersPipelineView() {
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
       const pipelineOrders: PipelineOrder[] = storedPipeline ? JSON.parse(storedPipeline) : [];
 
-      // 2. Read today's CRM reports
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const storedToday =
-        localStorage.getItem(`crm_reports_${todayIso}`) ||
-        localStorage.getItem("crm_reports_2026-11-24");
+      // 2. Read CRM reports across all stored dates in localStorage
       const reportOrders: PipelineOrder[] = [];
 
-      if (storedToday) {
-        try {
-          const parsedToday = JSON.parse(storedToday);
-          if (parsedToday.my_orders && Array.isArray(parsedToday.my_orders)) {
-            for (const mo of parsedToday.my_orders) {
-              reportOrders.push({
-                id: mo.id || `ord-${mo.order_number}`,
-                orderNo: mo.order_number,
-                customerName: mo.customer_name,
-                shopName: "Kirana Store",
-                village: "Bijapur",
-                route: "Bijapur Route",
-                createdBy: mo.telecaller_name || "Pushpa Patil",
-                source: "CRM",
-                orderDate: mo.order_date || "24-11-2026",
-                orderTime: "10:30 am",
-                vehicleNo: "KA28AA6256",
-                total: mo.total_amount || 0,
-                balance: 0,
-                stage: "packing",
-                items: (mo.items && mo.items.length > 0)
-                  ? mo.items.map((it: any) => ({
-                      name: it.product_name,
-                      unit: "Unit",
-                      qty: it.quantity,
-                      price: it.unit_price,
-                      rate: it.unit_price,
-                      gst: "5%",
-                      amount: it.total_amount,
-                    }))
-                  : [{ name: "FMCG Grocery Package", unit: "Pkg", qty: 1, price: mo.total_amount || 140, amount: mo.total_amount || 140 }],
-              });
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith("crm_reports_") || key === "crm_orders_master")) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const list = Array.isArray(parsed) ? parsed : (parsed.my_orders || []);
+              if (Array.isArray(list)) {
+                for (const mo of list) {
+                  const oNo = mo.order_number || mo.orderNo;
+                  if (!oNo) continue;
+                  reportOrders.push({
+                    id: mo.id || `ord-${oNo}`,
+                    orderNo: oNo,
+                    customerName: mo.customer_name || mo.customerName || "Customer",
+                    shopName: mo.shop_name || mo.shopName || "Kirana Store",
+                    village: mo.village || "Bijapur",
+                    route: mo.route || "Bijapur Route",
+                    createdBy: mo.telecaller_name || mo.createdBy || "Pushpa Patil",
+                    source: "CRM",
+                    orderDate: mo.order_date || mo.orderDate || "24-11-2026",
+                    orderTime: mo.order_placed ? (mo.order_placed.split(" ")[1] || "10:30 am") : (mo.orderTime || "10:30 am"),
+                    phone: mo.customer_phone || mo.phone || "",
+                    vehicleNo: "KA28AA6256",
+                    total: mo.total_amount || mo.total || 0,
+                    balance: 0,
+                    stage: "packing",
+                    status: mo.status || "placed",
+                    items: (mo.items && mo.items.length > 0)
+                      ? mo.items.map((it: any) => ({
+                          name: it.product_name || it.name,
+                          unit: it.unit || "Unit",
+                          qty: it.quantity || it.qty || 1,
+                          price: it.unit_price || it.price || 0,
+                          rate: it.unit_price || it.price || 0,
+                          gst: "5%",
+                          amount: it.total_amount || it.amount || 0,
+                        }))
+                      : [{ name: "FMCG Grocery Package", unit: "Pkg", qty: 1, price: mo.total_amount || 140, amount: mo.total_amount || 140 }],
+                  });
+                }
+              }
             }
           }
-        } catch {}
-      }
+        }
+      } catch {}
 
       setOrders((prev) => {
         const orderMap = new Map<string, PipelineOrder>();
@@ -824,7 +862,7 @@ export function WholesaleOrdersPipelineView() {
         for (const o of prev) {
           orderMap.set(o.orderNo, o);
         }
-        // 3. Today's report orders
+        // 3. CRM report & master orders
         for (const ro of reportOrders) {
           if (!orderMap.has(ro.orderNo)) {
             orderMap.set(ro.orderNo, ro);
@@ -944,41 +982,54 @@ export function WholesaleOrdersPipelineView() {
     else if (activeTab.includes("disp")) targetStage = "dispatch";
     else if (activeTab.includes("dlv") || activeTab.includes("deliv")) targetStage = "delivery";
 
-    const parseToIso = (dStr?: string) => {
+    const extractIsoDate = (dStr?: string): string => {
       if (!dStr) return "";
-      const trimmed = dStr.trim();
-      if (trimmed.includes("-")) {
-        const parts = trimmed.split("-");
-        const p0 = parts[0] || "";
-        const p1 = parts[1] || "";
-        const p2 = parts[2] || "";
-        if (p0.length === 4) return trimmed;
-        if (p2.length === 4) return `${p2}-${p1.padStart(2, "0")}-${p0.padStart(2, "0")}`;
+      const str = dStr.trim();
+      const isoMatch = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
+        return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
       }
-      return trimmed;
+      const inMatch = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (inMatch && inMatch[1] && inMatch[2] && inMatch[3]) {
+        return `${inMatch[3]}-${inMatch[2].padStart(2, "0")}-${inMatch[1].padStart(2, "0")}`;
+      }
+      return "";
     };
+
+    const q = pageSearch.toLowerCase().trim();
 
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
-      if (o.stage !== targetStage) return false;
 
-      // 1. Date Range Filter
-      const orderIso = parseToIso(o.orderDate);
-      const matchDate =
-        (!appliedFromDate || orderIso >= appliedFromDate) &&
-        (!appliedToDate || orderIso <= appliedToDate);
+      // 1. Stage Check: In wholesale distribution, newly placed orders from CRM (stage "placed" or "packing") are packed first
+      const matchesStage = targetStage === "packing"
+        ? (o.stage === "packing" || o.stage === "placed")
+        : (o.stage === targetStage);
 
       // 2. Search query filter
-      const q = pageSearch.toLowerCase().trim();
       const matchSearch =
         !q ||
         o.orderNo.toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
         o.village.toLowerCase().includes(q) ||
         o.createdBy.toLowerCase().includes(q) ||
+        (o.phone && o.phone.toLowerCase().includes(q)) ||
         (o.invoiceNo && o.invoiceNo.toLowerCase().includes(q));
 
-      // 3. Route & Village & Vehicle filters
+      // If user is searching explicitly for an order number or customer, prioritize search:
+      if (q && matchSearch) {
+        return true;
+      }
+
+      if (!matchesStage) return false;
+
+      // 3. Date Range Filter
+      const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+      const matchDate =
+        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
+        (!appliedToDate || !orderIso || orderIso <= appliedToDate);
+
+      // 4. Route & Village & Vehicle filters
       const matchRoute =
         !routeFilter ||
         routeFilter === "All routes" ||
