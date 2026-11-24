@@ -45,7 +45,6 @@ import { Input } from "@/components/ui/input";
 import { KARNATAKA_VILLAGES } from "../data/karnatakaVillages";
 import realProductsData from "@/data/realProducts.json";
 import realCustomersData from "@/data/realCustomers.json";
-import { INITIAL_CRM_ORDERS } from "../data/mockCrmReports";
 import { INITIAL_PIPELINE_ORDERS, type PipelineOrder } from "@/features/orders/components/WholesaleOrdersPipelineView";
 
 const TALUKAS = [
@@ -796,36 +795,8 @@ export function CrmTelecallerPortalPage() {
       }
     }
 
-    // 3. Include INITIAL_CRM_ORDERS
-    for (const ro of INITIAL_CRM_ORDERS) {
-      if (!seenNos.has(ro.orderNo)) {
-        seenNos.add(ro.orderNo);
-        list.push({
-          id: ro.id,
-          order_number: ro.orderNo,
-          order_date: ro.orderDate,
-          customer_name: ro.customerName,
-          customer_phone: ro.customerPhone || "",
-          total_amount: ro.total,
-          status: ro.status.toUpperCase(),
-          telecaller_name: ro.staffName,
-          order_placed: ro.placedTimestamp || `${ro.orderDate} ${ro.orderTime}`,
-          packed_confirmed: ro.packedTimestamp || "—",
-          dispatched: ro.dispatchedTimestamp || "—",
-          out_for_delivery: ro.outForDeliveryTimestamp || "—",
-          delivered: ro.deliveredTimestamp || "—",
-          payment_method: "CASH",
-          payment_status: "UNPAID",
-          items: ro.items?.map((it) => ({
-            id: it.name,
-            product_name: it.name,
-            quantity: it.qty,
-            unit_price: it.price,
-            total_amount: it.price * it.qty,
-          })) || [],
-        });
-      }
-    }
+    // Note: INITIAL_CRM_ORDERS mock data intentionally removed.
+    // Orders are loaded exclusively from live backend API or today's sessionStorage cache.
 
     return list;
   };
@@ -1329,58 +1300,6 @@ export function CrmTelecallerPortalPage() {
           incentive_today: prev.incentive_today ?? 0,
         }));
         setOrdersList([]);
-      } else if (sDate.includes("2026-11-23") || eDate.includes("2026-11-23")) {
-        // Historical query for yesterday
-        setReportData({
-          customer_created: 0,
-          customer_visited: 17,
-          total_orders: 17,
-          order_total: 51865,
-          unbilled_customers: 1960,
-          incentive_today: 0,
-          my_orders: [
-            {
-              id: "ord-1661",
-              customer_name: "Ananda kumbar",
-              order_number: "ORD-1661",
-              order_date: "23-11-2026",
-              total_amount: 140,
-              status: "PLACED",
-            },
-            {
-              id: "ord-1664",
-              customer_name: "Ramesh s kanakappagol",
-              order_number: "ORD-1664",
-              order_date: "23-11-2026",
-              total_amount: 1570,
-              status: "PACKED",
-            },
-            {
-              id: "ord-1663",
-              customer_name: "Shrikant Rathod",
-              order_number: "ORD-1663",
-              order_date: "23-11-2026",
-              total_amount: 6652,
-              status: "PLACED",
-            },
-            {
-              id: "ord-1662",
-              customer_name: "Suprit",
-              order_number: "ORD-1662",
-              order_date: "23-11-2026",
-              total_amount: 2090,
-              status: "COMPLETED",
-            },
-          ],
-          visited_customers: [
-            { id: "v-1", name: "Ananda kumbar", shop_name: "Kumbar Kirani", village: "Bijapur", phone: "9845012345", orders_count: 1 },
-            { id: "v-2", name: "Ramesh s kanakappagol", shop_name: "Kanakappagol Traders", village: "Bijapur", phone: "9900123456", orders_count: 1 },
-            { id: "v-3", name: "Shrikant Rathod", shop_name: "Rathod Provisions", village: "Tikota", phone: "9448123456", orders_count: 1 },
-            { id: "v-4", name: "Suprit", shop_name: "Suprit General Stores", village: "Bijapur", phone: "9844123456", orders_count: 1 },
-          ],
-          last_seen: "23/11/2026, 11:35 pm",
-          last_order: "23 Nov, 10:47 pm",
-        });
       }
     }
   };
