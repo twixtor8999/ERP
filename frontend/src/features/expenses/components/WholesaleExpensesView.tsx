@@ -6,8 +6,6 @@ import {
   Download,
   Plus,
   CheckCircle2,
-  Trash2,
-  Eye,
   X,
   CreditCard,
   Banknote,
@@ -16,26 +14,25 @@ import { toast } from "sonner";
 import {
   getStoredExpenses,
   saveStoredExpenses,
-  EXPENSE_CATEGORIES,
   type ExpenseRecord,
 } from "../data/mockExpenses";
 
 export function WholesaleExpensesView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  const [fromDate, setFromDate] = useState("2026-11-24");
+  const [toDate, setToDate] = useState("2026-11-24");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => getStoredExpenses());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewExpense, setViewExpense] = useState<ExpenseRecord | null>(null);
 
-  // Form State
+  // Form State matching client Cash Ledger form
   const [cat, setCat] = useState("Office Expenses");
-  const [sub, setSub] = useState("");
+  const [sub, setSub] = useState("Rent");
   const [amt, setAmt] = useState("");
-  const [paymentType, setPaymentType] = useState<"Cash" | "Credit" | "Bank">("Cash");
-  const [spentDate, setSpentDate] = useState("2026-11-22");
+  const [paymentType, setPaymentType] = useState<"Cash" | "Credit">("Cash");
+  const [spentDate, setSpentDate] = useState("2026-11-24");
   const [vehicleNo, setVehicleNo] = useState("");
   const [paidTo, setPaidTo] = useState("");
   const [accountNo, setAccountNo] = useState("");
@@ -46,6 +43,61 @@ export function WholesaleExpensesView() {
   const [remarks, setRemarks] = useState("");
 
   const vehicles = ["KA28AA6256", "KA28AC0349", "KA28B1092"];
+
+  // Client EXC444 Categories
+  const CATEGORIES: Record<string, string[]> = {
+    "Office Expenses": [
+      "Rent",
+      "Electricity",
+      "Water",
+      "Internet / Phone",
+      "Stationery & Printing",
+      "Tea & Snacks",
+      "Cleaning",
+      "Repairs & Maintenance",
+    ],
+    Transportation: [
+      "Vehicle Rent",
+      "Diesel / Fuel",
+      "Toll",
+      "Parking",
+      "Driver Bata",
+      "Vehicle Repair",
+      "Auto / Taxi",
+    ],
+    "Loading & Unloading": [
+      "Sales loading",
+      "Purchase Unloading",
+      "Inter DC loading",
+      "Inter DC Unloading",
+      "Hamali / Coolie",
+    ],
+    Warehouse: [
+      "Sales loading",
+      "Inter DC loading",
+      "Food expenses",
+      "Inter DC Unloading",
+      "Purchase Unloading",
+      "Market purchase",
+      "Security",
+      "Maintenance",
+    ],
+    HR: [
+      "Salary Advance",
+      "Staff Welfare",
+      "Food expenses",
+      "Recruitment",
+      "Incentive / Bonus",
+    ],
+    Purchase: ["Market purchase", "Local purchase", "Packing Material", "Consumables"],
+    "Other Expenses": [
+      "Miscellaneous",
+      "Bank Charges",
+      "Government Fees",
+      "Donation",
+      "Gifts",
+    ],
+  };
 
   // Filtered expenses based on date & search
   const filteredExpenses = useMemo(() => {
@@ -67,23 +119,32 @@ export function WholesaleExpensesView() {
     });
   }, [expenses, fromDate, toDate, searchQuery]);
 
-  // Calculations for Opening Balance, Today's Exp's, Total Exp's, Closing Balance
+  // Calculations matching client expSum3() in Screenshot 1
   const cashExpensesToday = useMemo(() => {
     return filteredExpenses
       .filter((e) => e.paymentType === "Cash")
       .reduce((sum, e) => sum + e.amt, 0);
   }, [filteredExpenses]);
 
-  const bankExpensesToday = useMemo(() => {
+  const creditExpensesToday = useMemo(() => {
     return filteredExpenses
-      .filter((e) => e.paymentType !== "Cash")
+      .filter((e) => e.paymentType === "Credit")
       .reduce((sum, e) => sum + e.amt, 0);
   }, [filteredExpenses]);
 
-  const openingCash = 50000;
-  const openingBank = 100000;
-  const totalOpening = openingCash + openingBank;
-  const totalToday = cashExpensesToday + bankExpensesToday;
+  // Exact client opening balance figures from reference screenshot 1
+  const openingCash = 19930;
+  const openingCredit = 53810;
+  const totalOpening = openingCash + openingCredit;
+  const totalToday = cashExpensesToday + creditExpensesToday;
+
+  const totalCashExp = openingCash + cashExpensesToday;
+  const totalCreditExp = openingCredit + creditExpensesToday;
+  const grandTotalExp = totalOpening + totalToday;
+
+  const closingCash = openingCash;
+  const closingCredit = openingCredit;
+  const grandClosing = totalOpening;
 
   const handleApprove = (id: number) => {
     const updated = expenses.map((e) => {
@@ -92,7 +153,7 @@ export function WholesaleExpensesView() {
           ...e,
           ap: {
             by: "Vijaykumar Shantagiri (Admin)",
-            date: new Date().toISOString().split("T")[0] || "2026-11-22",
+            date: new Date().toISOString().split("T")[0] || "2026-11-24",
             at: new Date().toISOString(),
           },
         };
@@ -102,15 +163,6 @@ export function WholesaleExpensesView() {
     setExpenses(updated);
     saveStoredExpenses(updated);
     toast.success("Expense approved successfully!");
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this expense record?")) {
-      const updated = expenses.filter((e) => e.id !== id);
-      setExpenses(updated);
-      saveStoredExpenses(updated);
-      toast.success("Expense record deleted.");
-    }
   };
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
@@ -133,7 +185,7 @@ export function WholesaleExpensesView() {
       billNo: billNo.trim() || undefined,
       remarks: remarks.trim() || undefined,
       ap: {
-        by: "Owner / Admin",
+        by: "Vijaykumar Shantagiri (Admin)",
         date: spentDate,
         at: new Date().toISOString(),
       },
@@ -146,7 +198,7 @@ export function WholesaleExpensesView() {
     toast.success(`Expense ₹${amountVal.toLocaleString()} logged and approved!`);
 
     // Reset Form
-    setSub("");
+    setSub(CATEGORIES[cat]?.[0] || "");
     setAmt("");
     setPaidTo("");
     setAccountNo("");
@@ -215,11 +267,14 @@ export function WholesaleExpensesView() {
         </button>
       </div>
 
-      {/* Page Title */}
+      {/* Page Title & Subtitle matching Screenshot 1 */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-[#0d1b4c]">
           Expenses
         </h1>
+        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+          Total Exp&apos;s = Opening Balance + Today&apos;s Exp&apos;s. Closing Balance = Total Exp&apos;s − approved expenses. Today&apos;s closing balance is tomorrow&apos;s opening balance.
+        </p>
       </div>
 
       {/* Search Input Filter */}
@@ -235,68 +290,68 @@ export function WholesaleExpensesView() {
       </div>
 
       {/* Top Balance Summary Table matching Screenshot 1 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
             <thead>
-              <tr className="bg-[#1e40af] text-white">
-                <th className="py-2.5 px-3.5 font-semibold">Type</th>
-                <th className="py-2.5 px-3.5 font-semibold text-right">Opening Balance</th>
-                <th className="py-2.5 px-3.5 font-semibold text-right">Today's Exp's</th>
-                <th className="py-2.5 px-3.5 font-semibold text-right">Total Exp's</th>
-                <th className="py-2.5 px-3.5 font-semibold text-right">Closing Balance</th>
+              <tr className="bg-[#2563eb] text-white">
+                <th className="py-2.5 px-4 font-bold">Type</th>
+                <th className="py-2.5 px-4 font-bold text-right">Opening Balance</th>
+                <th className="py-2.5 px-4 font-bold text-right">Today&apos;s Exp&apos;s</th>
+                <th className="py-2.5 px-4 font-bold text-right">Total Exp&apos;s</th>
+                <th className="py-2.5 px-4 font-bold text-right">Closing Balance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium">
               <tr className="hover:bg-gray-50/80">
-                <td className="py-2.5 px-3.5 flex items-center gap-2 font-bold text-gray-900">
+                <td className="py-2.5 px-4 flex items-center gap-2 font-bold text-gray-900">
                   <Banknote className="w-4 h-4 text-emerald-600" />
                   Cash
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-semibold text-gray-700">
-                  ₹{openingCash.toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {openingCash.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right text-rose-600 font-bold">
-                  ₹{cashExpensesToday.toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {cashExpensesToday.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right text-gray-800">
-                  ₹{(openingCash + cashExpensesToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {totalCashExp.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-bold text-[#0d1b4c]">
-                  ₹{(openingCash - cashExpensesToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-bold text-gray-900 font-mono">
+                  {closingCash.toLocaleString("en-IN")}
                 </td>
               </tr>
               <tr className="hover:bg-gray-50/80">
-                <td className="py-2.5 px-3.5 flex items-center gap-2 font-bold text-gray-900">
+                <td className="py-2.5 px-4 flex items-center gap-2 font-bold text-gray-900">
                   <CreditCard className="w-4 h-4 text-blue-600" />
-                  Bank / UPI / Online
+                  Credit
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-semibold text-gray-700">
-                  ₹{openingBank.toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {openingCredit.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right text-rose-600 font-bold">
-                  ₹{bankExpensesToday.toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {creditExpensesToday.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right text-gray-800">
-                  ₹{(openingBank + bankExpensesToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-semibold text-gray-800 font-mono">
+                  {totalCreditExp.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-bold text-[#0d1b4c]">
-                  ₹{(openingBank - bankExpensesToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-bold text-gray-900 font-mono">
+                  {closingCredit.toLocaleString("en-IN")}
                 </td>
               </tr>
-              <tr className="bg-gray-50/90 font-bold border-t border-gray-200">
-                <td className="py-2.5 px-3.5 text-gray-900 font-extrabold">Total</td>
-                <td className="py-2.5 px-3.5 text-right font-extrabold text-gray-900">
-                  ₹{totalOpening.toLocaleString()}
+              <tr className="bg-gray-50 font-bold border-t border-gray-200">
+                <td className="py-2.5 px-4 text-gray-900 font-extrabold">Total</td>
+                <td className="py-2.5 px-4 text-right font-extrabold text-gray-900 font-mono">
+                  {totalOpening.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right text-rose-600 font-extrabold">
-                  ₹{totalToday.toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-extrabold text-gray-900 font-mono">
+                  {totalToday.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-extrabold text-gray-900">
-                  ₹{(totalOpening + totalToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-extrabold text-gray-900 font-mono">
+                  {grandTotalExp.toLocaleString("en-IN")}
                 </td>
-                <td className="py-2.5 px-3.5 text-right font-extrabold text-[#0d1b4c]">
-                  ₹{(totalOpening - totalToday).toLocaleString()}
+                <td className="py-2.5 px-4 text-right font-extrabold text-gray-900 font-mono">
+                  {grandClosing.toLocaleString("en-IN")}
                 </td>
               </tr>
             </tbody>
@@ -309,7 +364,7 @@ export function WholesaleExpensesView() {
         <button
           type="button"
           onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-lg shadow-sm transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-lg shadow-sm transition-colors cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Add expense
@@ -317,37 +372,44 @@ export function WholesaleExpensesView() {
       </div>
 
       {/* Sub-section Title matching Screenshot 1 */}
-      <div className="flex items-center gap-2 pt-1">
-        <div className="w-1.5 h-4 bg-[#2563eb] rounded-full" />
+      <div className="flex items-center gap-2 pt-1 border-l-4 border-[#2563eb] pl-2.5">
         <h2 className="text-base font-bold text-gray-900">Expenses</h2>
       </div>
 
       {/* Expenses Table matching Screenshot 1 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
             <thead>
-              <tr className="bg-[#1e40af] text-white">
-                <th className="py-3 px-3.5 font-semibold">Date</th>
-                <th className="py-3 px-3.5 font-semibold min-w-[220px]">Category / Type</th>
-                <th className="py-3 px-3.5 font-semibold text-right">Amount</th>
-                <th className="py-3 px-3.5 font-semibold text-center">Approve</th>
-                <th className="py-3 px-3.5 font-semibold text-center">Payment</th>
-                <th className="py-3 px-3.5 font-semibold min-w-[160px]">Paid to</th>
-                <th className="py-3 px-3.5 font-semibold min-w-[200px]">Remarks</th>
-                <th className="py-3 px-3.5 font-semibold text-center w-20">Actions</th>
+              <tr className="bg-[#2563eb] text-white font-bold">
+                <th className="py-2.5 px-3.5">Date</th>
+                <th className="py-2.5 px-3.5 min-w-[200px]">Category / Type</th>
+                <th className="py-2.5 px-3.5 text-right">Amount</th>
+                <th className="py-2.5 px-3.5 text-center">Approve</th>
+                <th className="py-2.5 px-3.5 text-center">Payment</th>
+                <th className="py-2.5 px-3.5 min-w-[160px]">Paid to</th>
+                <th className="py-2.5 px-3.5 min-w-[200px]">Remarks</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 font-medium">
               {filteredExpenses.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
-                    No expenses logged in this date range.
-                  </td>
+                /* Matches Screenshot 1 zero row */
+                <tr className="hover:bg-gray-50/50 text-gray-500 font-mono text-center">
+                  <td className="py-3 px-3.5">0</td>
+                  <td className="py-3 px-3.5">0</td>
+                  <td className="py-3 px-3.5 text-right">0</td>
+                  <td className="py-3 px-3.5 text-center">0</td>
+                  <td className="py-3 px-3.5 text-center">0</td>
+                  <td className="py-3 px-3.5">0</td>
+                  <td className="py-3 px-3.5">0</td>
                 </tr>
               ) : (
                 filteredExpenses.map((e) => (
-                  <tr key={e.id} className="hover:bg-gray-50/80 transition-colors">
+                  <tr
+                    key={e.id}
+                    onClick={() => setViewExpense(e)}
+                    className="hover:bg-gray-50/80 transition-colors cursor-pointer"
+                  >
                     <td className="py-3 px-3.5 text-gray-700 font-medium whitespace-nowrap">
                       {e.date}
                     </td>
@@ -355,10 +417,10 @@ export function WholesaleExpensesView() {
                       {e.cat}
                       {e.sub && <span className="text-xs font-normal text-gray-500 block"> · {e.sub}</span>}
                     </td>
-                    <td className="py-3 px-3.5 text-right font-bold text-gray-900">
-                      ₹{e.amt.toLocaleString()}
+                    <td className="py-3 px-3.5 text-right font-bold text-gray-900 font-mono">
+                      ₹{e.amt.toLocaleString("en-IN")}
                     </td>
-                    <td className="py-3 px-3.5 text-center">
+                    <td className="py-3 px-3.5 text-center" onClick={(evt) => evt.stopPropagation()}>
                       {e.ap ? (
                         <div>
                           <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded border border-emerald-200">
@@ -372,7 +434,7 @@ export function WholesaleExpensesView() {
                         <button
                           type="button"
                           onClick={() => handleApprove(e.id)}
-                          className="px-2.5 py-1 text-xs font-bold text-white bg-[#10b981] hover:bg-[#059669] rounded transition-colors inline-flex items-center gap-1 shadow-xs"
+                          className="px-2.5 py-1 text-xs font-bold text-white bg-[#10b981] hover:bg-[#059669] rounded transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Approve
@@ -389,26 +451,6 @@ export function WholesaleExpensesView() {
                     </td>
                     <td className="py-3 px-3.5 text-gray-600 text-xs">
                       {e.remarks || "—"}
-                    </td>
-                    <td className="py-3 px-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setViewExpense(e)}
-                          className="p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-100"
-                          title="View expense details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(e.id)}
-                          className="p-1 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))
@@ -427,7 +469,7 @@ export function WholesaleExpensesView() {
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-gray-300 hover:text-white"
+                className="text-gray-300 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -441,10 +483,14 @@ export function WholesaleExpensesView() {
                   </label>
                   <select
                     value={cat}
-                    onChange={(e) => setCat(e.target.value)}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setCat(newCat);
+                      setSub(CATEGORIES[newCat]?.[0] || "");
+                    }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
                   >
-                    {EXPENSE_CATEGORIES.map((c) => (
+                    {Object.keys(CATEGORIES).map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -454,15 +500,19 @@ export function WholesaleExpensesView() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Type / Description
+                    {cat} Type *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={sub}
                     onChange={(e) => setSub(e.target.value)}
-                    placeholder="e.g. Diesel 45L or Unloading bags"
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                  />
+                  >
+                    {(CATEGORIES[cat] || []).map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -478,7 +528,6 @@ export function WholesaleExpensesView() {
                   >
                     <option value="Cash">Cash Payment</option>
                     <option value="Credit">Credit Payment</option>
-                    <option value="Bank">Bank / UPI Transfer</option>
                   </select>
                 </div>
 
@@ -512,23 +561,25 @@ export function WholesaleExpensesView() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Vehicle (Optional)
-                </label>
-                <select
-                  value={vehicleNo}
-                  onChange={(e) => setVehicleNo(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                >
-                  <option value="None">None</option>
-                  {vehicles.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {(cat === "Transportation" || cat === "Logistics") && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Vehicle
+                  </label>
+                  <select
+                    value={vehicleNo}
+                    onChange={(e) => setVehicleNo(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+                  >
+                    <option value="None">None</option>
+                    {vehicles.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="border-t border-gray-100 pt-3 space-y-3">
                 <span className="text-xs font-bold text-gray-500 uppercase">Paid To Details</span>
