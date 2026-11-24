@@ -49,9 +49,13 @@ export interface PipelineOrder {
   }>;
   cancelReason?: string;
   cancelledAt?: string;
+  packedConfirmedAt?: string;
+  dispatchedAt?: string;
+  outForDeliveryAt?: string;
+  deliveredAt?: string;
 }
 
-const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
+export const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
   {
     id: "ord-1690",
     orderNo: "ORD-1690",
@@ -833,6 +837,11 @@ export function WholesaleOrdersPipelineView() {
   // Workflow transitions: Packing -> Invoice -> Dispatch -> Delivery -> Completed
   const handleMoveToInvoice = (orderId: string) => {
     const invNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const nowD = new Date();
+    const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+    const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+    const timestampStr = `${dStr} ${timeStr}`;
+
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
@@ -850,8 +859,9 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "invoice" as const,
             invoiceNo: invNum,
-            vehicleNo: "KA28AA6256",
+            vehicleNo: o.vehicleNo || "KA28AA6256",
             status: "invoiced",
+            packedConfirmedAt: timestampStr,
             history: [...(o.history || []), historyEntry],
           };
         }
@@ -862,6 +872,28 @@ export function WholesaleOrdersPipelineView() {
       } catch {}
       return updated;
     });
+
+    // Also update in today's crm_reports if present so CRM Order Status updates instantly
+    try {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const stored = localStorage.getItem(`crm_reports_${todayIso}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.my_orders && Array.isArray(parsed.my_orders)) {
+          parsed.my_orders = parsed.my_orders.map((mo: any) => {
+            if (mo.id === orderId || mo.order_number === orderId) {
+              return {
+                ...mo,
+                status: "PACKED",
+                packed_confirmed: timestampStr,
+              };
+            }
+            return mo;
+          });
+          localStorage.setItem(`crm_reports_${todayIso}`, JSON.stringify(parsed));
+        }
+      }
+    } catch {}
 
     // Notify backend in background for real-time CRM Order Status sync
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", invoice_no: invNum }).catch(() => {});
@@ -931,6 +963,11 @@ export function WholesaleOrdersPipelineView() {
     if (orderToPrint) {
       printThermalSlip(orderToPrint);
     }
+    const nowD = new Date();
+    const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+    const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+    const timestampStr = `${dStr} ${timeStr}`;
+
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
@@ -940,6 +977,8 @@ export function WholesaleOrdersPipelineView() {
           return {
             ...o,
             stage: "delivery" as const,
+            dispatchedAt: timestampStr,
+            outForDeliveryAt: timestampStr,
           };
         }
         return o;
@@ -954,6 +993,11 @@ export function WholesaleOrdersPipelineView() {
   };
 
   const handleMoveToDelivery = (orderId: string) => {
+    const nowD = new Date();
+    const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+    const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+    const timestampStr = `${dStr} ${timeStr}`;
+
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
@@ -963,6 +1007,7 @@ export function WholesaleOrdersPipelineView() {
           return {
             ...o,
             stage: "delivery" as const,
+            outForDeliveryAt: timestampStr,
           };
         }
         return o;
@@ -976,6 +1021,11 @@ export function WholesaleOrdersPipelineView() {
   };
 
   const handleMarkDelivered = (orderId: string) => {
+    const nowD = new Date();
+    const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+    const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+    const timestampStr = `${dStr} ${timeStr}`;
+
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
@@ -986,6 +1036,7 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "completed" as const,
             balance: 0,
+            deliveredAt: timestampStr,
           };
         }
         return o;
