@@ -3365,46 +3365,6 @@ export function CrmTelecallerPortalPage() {
                           </div>
                         </div>
 
-                        {/* Payment Settlement Mode */}
-                        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
-                          <span className="text-xs font-bold text-slate-700 block">Payment Mode</span>
-                          <div className="grid grid-cols-3 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setOrderPayMethod("CASH")}
-                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                                orderPayMethod === "CASH"
-                                  ? "bg-emerald-600 text-white border-emerald-600"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }`}
-                            >
-                              Cash Delivery
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setOrderPayMethod("UPI")}
-                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                                orderPayMethod === "UPI"
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }`}
-                            >
-                              PhonePe / UPI
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setOrderPayMethod("CREDIT")}
-                              className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-colors ${
-                                orderPayMethod === "CREDIT"
-                                  ? "bg-amber-600 text-white border-amber-600"
-                                  : "bg-white text-slate-700 border-slate-200"
-                              }`}
-                            >
-                              Khata Udhaar
-                            </button>
-                          </div>
-                        </div>
-
                         {/* Sticky Bottom Bar matching Image 6 */}
                         <div className="sticky bottom-4 z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between">
                           <div>
