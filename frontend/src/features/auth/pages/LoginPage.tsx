@@ -314,12 +314,13 @@ export function LoginPage() {
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* Top Application Header matching Reference App */}
       <header className="h-[52px] px-6 sm:px-8 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 select-none">
+          {/* Exact Fast-Delivery Shopping Cart SVG */}
           <svg
             viewBox="0 0 40 40"
             fill="none"
             stroke="currentColor"
-            strokeWidth={3}
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -331,13 +332,14 @@ export function LoginPage() {
             <circle cx="29" cy="33" r="2" fill="currentColor" />
             <path d="M2 17h5M3 22h4" />
           </svg>
-          <div className="flex flex-col leading-none">
-            <span className="text-[19px] font-extrabold tracking-[-0.01em] text-[#0f3aa8]">
+          {/* Exact 2-Tone Brand Text & Subtitle */}
+          <div className="flex flex-col leading-tight">
+            <b className="font-extrabold text-[19px] tracking-[-0.01em] text-[#0f3aa8]">
               PK Ai <span className="text-[#d99a00] font-extrabold">Smart Bazar</span>
-            </span>
-            <span className="text-[10px] tracking-[0.2em] font-medium text-[#4a5270] uppercase mt-0.5">
+            </b>
+            <small className="text-[10px] tracking-[0.2em] text-[#4a5270] font-medium uppercase">
               BILLING SOFTWARE
-            </span>
+            </small>
           </div>
         </div>
       </header>
