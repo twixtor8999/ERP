@@ -7,15 +7,16 @@ import {
   Phone,
   ShoppingCart,
   X,
-  AlertTriangle,
   Clock,
   Trash2,
   Package,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FireworksOverlay } from "@/features/crm/components/FireworksOverlay";
 import realCustomersData from "@/data/realCustomers.json";
 import realProductsData from "@/data/realProducts.json";
+import realCustomerOrders from "@/data/realCustomerOrders.json";
 
 export interface CustomerOption {
   id: string;
@@ -25,6 +26,7 @@ export interface CustomerOption {
   phone: string;
   route: string;
   status?: string;
+  kn?: string;
 }
 
 export interface CatalogProduct {
@@ -36,9 +38,30 @@ export interface CatalogProduct {
   mrp: number;
   stock: number;
   packBadge?: string;
+  cat?: string;
+  hsn?: string;
 }
 
-// Extract clean pack unit badge from product name
+export interface CustomerOrderRecord {
+  id: string;
+  orderNo: string;
+  customerId: string;
+  date: string;
+  at?: string;
+  status: string;
+  createdBy: string;
+  remarks?: string;
+  items: {
+    skuId: string;
+    name: string;
+    qty: number;
+    price: number;
+    amount: number;
+  }[];
+  total: number;
+}
+
+// Extract clean pack unit badge from product name (matches reference app cUnit)
 function extractPackBadge(name: string, unit: string): string {
   const m = /(\d+(?:\.\d+)?)\s*(kgs?|gms?|g|ltrs?|l|ml|pcs?)\b\s*(bag|pkt|packet|box|tin|jar|bottle|pouch|can|bundle)?/i.exec(name);
   if (m && m[1] && m[2]) {
@@ -55,20 +78,21 @@ function extractPackBadge(name: string, unit: string): string {
 
 // Kannada translations dictionary matching client screenshots
 const KANNADA_TRANSLATIONS: Record<string, string> = {
-  "Aramane Detergent Powder 10Rs 120Pcs Bag": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್ 10 ರೂ 120 ಪೀಸ್‌ಸ್ ಬ್ಯಾಗ್",
-  "Aramane Detergent Soap 10Rs 60Pcs Box": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಸೋಪ್ 10 ರೂ 60ಪೀಸ್‌ಸ್ ಬಾಕ್ಸ್",
+  "A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box": "ಟ್ರೂಲವ್ ಗ್ಲೂಕೋಸ್ ಬಿಸ್ಕತ್ತು 5 ರೂ. 168 ಪೀಸಸ್ ಬಾಕ್ಸ್‌",
+  "Aramane Detergent Powder 10Rs 120Pcs Bag": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್ 10 ರೂ 120 ಪೀಸಸ್ ಬ್ಯಾಗ್",
+  "Aramane Detergent Soap 10Rs 60Pcs Box": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಸೋಪ್ 10 ರೂ 60ಪೀಸಸ್ ಬಾಕ್ಸ್",
   "Bullet Rice 26Kg Bag": "ಬುಲೆಟ್ ಅಕ್ಕಿ 26 ಕೆಜಿ ಚೀಲ",
   "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S1, 4-8 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
-  "BUMTUM BABY DIAPER 10 RS (S2 4-8KG 2PANS PKT)": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S2 4-8 ಕೆಜಿ, 2 ಪ್ಯಾಂಟ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
+  "BUMTUM BABY DIAPER 10 RS (S2 4-8KG 2PANS PKT)": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S2 4-8 ಕೆಜಿ, 2 ಡೈಪರ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
   "BUMTUM BABY DIAPER 12RS ( M1 7-12 KG 1PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 12 ರೂ. (M1, 7-12 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
   "BUMTUM BABY DIAPER 14 RS ( L1 9-14KG 1 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 14 ರೂ. (L1, 9-14 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
-  "BUMTUM BABY DIAPER 18RS ( NB2 2-5 KG 2 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 18 ರೂ. (NB2, 2-5 ಕೆಜಿ, 2 ಪ್ಯಾಂಟ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
-  "BUMTUM BABY DIAPER 46RS (S5 3-8 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 46RS (S5 3-8 KG 5 PANS PKT )",
-  "BUMTUM BABY DIAPER 56RS (M5 7-12 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 56RS (M5 7-12 KG 5 PANS PKT )",
-  "BUMTUM BABY DIAPER 66RS (L5 9-14 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 66RS (L5 9-14 KG 5 PANS PKT )",
-  "Crystal Salt 1Kg 25Pcs Bag": "ಕ್ರಿಸ್ಟಲ್ ಉಪ್ಪು 25ಪೀಸ್‌ಸ್ ಬ್ಯಾಗ್",
-  "Daawat Rice 26Kg Bag": "ದಾವತ್ ಅಕ್ಕಿ 26 ಕೆಜಿ ಚೀಲ",
-  "Dabur Vatika Health Shampoo 1Rs 64pcs (4 Sheet Pkt)": "ಡಾಬರ್ ವಾಟಿಕಾ ಹೆಲ್ತ್ ಶ್ಯಾಂಪೂ 1Rs 64pcs (4 Sheet Pkt)",
+  "BUMTUM BABY DIAPER 18RS ( NB2 2-5 KG 2 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 18 ರೂ. (NB2, 2-5 ಕೆಜಿ, 2 ಡೈಪರ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
+  "BUMTUM BABY DIAPER 46RS (S5 3-8 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 46RS (S5 3-8 ಕೆಜಿ, 5 ಡೈಪರ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
+  "BUMTUM BABY DIAPER 56RS (M5 7-12 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 56RS (M5, 7-12 ಕೆಜಿ, 5 ಡೈಪರ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
+  "BUMTUM BABY DIAPER 66RS (L5 9-14 KG 5 PANS PKT )": "BUMTUM ಬೇಬಿ ಡೈಪರ್ 66RS (L5 9-14 ಕೆಜಿ, 5 ಡೈಪರ್‌ಗಳ ಪ್ಯಾಕೆಟ್)",
+  "Crystal Salt 1Kg 25Pcs Bag": "ಕ್ರಿಸ್ಟಲ್ ಸಾಲ್ಟ್ 25ಪ್ಯಾಕೆಟ್ ಬ್ಯಾಗ್",
+  "Daawat Rice 26Kg Bag": "ದಾವತ್ ಅಕ್ಕಿ 26 ಕೆ.ಜಿ. ಚೀಲ",
+  "Dabur Vatika Health Shampoo 1Rs 64pcs (4 Sheet Pkt)": "ಡಾಬರ್ ವಾಟಿಕಾ ಹೆಲ್ತ್ ಶ್ಯಾಂಪೂ 1Rs 16pcs 4 ಶೀಟ್ Pkt",
   "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)": "ಡವ್ ಡೈಲಿ ಶೈನ್ ಶ್ಯಾಂಪೂ 2ರೂ 16ಪೀಸ್ 4 ಶೀಟ್ ಪ್ಯಾಕ್",
   "Fried Gram Fine 10Kg Bag": "ಪುಠಾಣಿ 10 ಕೆಜಿ ಬ್ಯಾಗ್",
   "Fried Gram Fine 30Kg Bag": "ಪುಠಾಣಿ 30 ಕೆಜಿ ಬ್ಯಾಗ್",
@@ -87,10 +111,11 @@ const KANNADA_TRANSLATIONS: Record<string, string> = {
   "Aramane Detergent Powder 500gm 30Pcs Bag": "ಅರಮನೆ ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್ 500ಗ್ರಾಂ 30ಪೀಸ್ ಬ್ಯಾಗ್",
 };
 
-function getKannadaName(name: string): string {
+function getKannadaName(name: string, knFromData?: string): string {
+  if (knFromData && knFromData.trim()) return knFromData.trim();
   if (KANNADA_TRANSLATIONS[name]) return KANNADA_TRANSLATIONS[name];
   // Common terms translation fallback
-  let kn = name
+  const kn = name
     .replace(/Detergent Powder/gi, "ಡಿಟರ್ಜೆಂಟ್ ಪೌಡರ್")
     .replace(/Detergent Soap/gi, "ಡಿಟರ್ಜೆಂಟ್ ಸೋಪ್")
     .replace(/Dishwash Soap/gi, "ಡಿಶ್‌ವಾಶ್ ಸೋಪ್")
@@ -121,17 +146,24 @@ export function PlaceOrderWholesaleView() {
   // Active Customer selected to place order for
   const [activeCustomerForOrder, setActiveCustomerForOrder] = useState<CustomerOption | null>(null);
 
+  // Real Customer Orders State (for ORDER HISTORY and OPEN ORDER)
+  const [allOrders, setAllOrders] = useState<CustomerOrderRecord[]>(
+    () => realCustomerOrders as CustomerOrderRecord[]
+  );
+
   // Product Catalog
   const allProducts = useMemo<CatalogProduct[]>(() => {
     return (realProductsData as any[]).map((p) => ({
       id: String(p.id),
       name: p.name,
-      kannadaName: getKannadaName(p.name),
+      kannadaName: getKannadaName(p.name, p.kn),
       unit: p.unit || "Pcs",
-      price: Number(p.price) || 100,
-      mrp: Number(p.mrp) || Number(p.price) || 100,
-      stock: Number(p.stock) || 20,
+      price: Number(p.price) || 0,
+      mrp: Number(p.mrp) || Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
       packBadge: extractPackBadge(p.name, p.unit),
+      cat: p.cat || "",
+      hsn: p.hsn || "",
     }));
   }, []);
 
@@ -161,26 +193,72 @@ export function PlaceOrderWholesaleView() {
     }
   }, [customerParam, customersList]);
 
+  // Orders for current active customer
+  const customerOrders = useMemo(() => {
+    if (!activeCustomerForOrder) return [];
+    const custId = String(activeCustomerForOrder.id);
+    return allOrders
+      .filter((o) => String(o.customerId) === custId && o.status !== "cancelled")
+      .sort((a, b) => (b.at || b.date).localeCompare(a.at || a.date));
+  }, [allOrders, activeCustomerForOrder]);
+
+  // Order history (all non-cancelled orders)
+  const historyOrders = useMemo(() => {
+    return customerOrders;
+  }, [customerOrders]);
+
+  // Open orders (orders in active stages)
+  const openOrders = useMemo(() => {
+    return customerOrders.filter((o) =>
+      ["placed", "packed", "invoiced", "dispatched"].includes(o.status)
+    );
+  }, [customerOrders]);
+
+  // Active warning banner orders (recent open orders)
+  const warningOrders = useMemo(() => {
+    return customerOrders.filter((o) =>
+      ["placed", "packed", "invoiced", "dispatched"].includes(o.status)
+    ).slice(0, 3);
+  }, [customerOrders]);
+
   // Filtered Customers (Only show when searchQuery is non-empty or beat selected!)
+  // Prioritizes name matching so "aru" or "arun" immediately shows Arun Devargudi & Arun Jagamsheeti at top!
   const isSearchActive = searchQuery.trim().length > 0 || selectedBeat !== null;
 
   const filteredCustomers = useMemo(() => {
     if (!isSearchActive) return [];
     const q = searchQuery.trim().toLowerCase();
-    return customersList.filter((c) => {
-      const matchesSearch = q
-        ? (c.name && c.name.toLowerCase().includes(q)) ||
-          (c.shop && c.shop.toLowerCase().includes(q)) ||
-          (c.village && c.village.toLowerCase().includes(q)) ||
-          (c.phone && c.phone.includes(q)) ||
-          (c.route && c.route.toLowerCase().includes(q))
+
+    const matches = customersList.filter((c) => {
+      const matchSearch = q
+        ? [c.name, c.shop, c.phone, c.village, c.route, c.kn]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(q)
         : true;
 
-      const matchesBeat = selectedBeat
+      const matchBeat = selectedBeat
         ? c.route.toLowerCase() === selectedBeat.toLowerCase()
         : true;
 
-      return matchesSearch && matchesBeat;
+      return matchSearch && matchBeat;
+    });
+
+    // Prioritize name matches first
+    return matches.sort((a, b) => {
+      if (q) {
+        const aNameStarts = a.name.toLowerCase().startsWith(q);
+        const bNameStarts = b.name.toLowerCase().startsWith(q);
+        if (aNameStarts && !bNameStarts) return -1;
+        if (!aNameStarts && bNameStarts) return 1;
+
+        const aNameHas = a.name.toLowerCase().includes(q);
+        const bNameHas = b.name.toLowerCase().includes(q);
+        if (aNameHas && !bNameHas) return -1;
+        if (!aNameHas && bNameHas) return 1;
+      }
+      return a.name.localeCompare(b.name);
     });
   }, [customersList, searchQuery, selectedBeat, isSearchActive]);
 
@@ -221,12 +299,65 @@ export function PlaceOrderWholesaleView() {
     setActiveCustomerForOrder(null);
   };
 
+  // Repeat past order handler matching reference app cRepeat(id)
+  const handleRepeatOrder = (ord: CustomerOrderRecord) => {
+    let addedCount = 0;
+    setCart((prev) => {
+      const nextCart = { ...prev };
+      ord.items.forEach((item) => {
+        const prod = allProducts.find(
+          (p) => p.id === item.skuId || p.name.toLowerCase() === item.name.toLowerCase()
+        );
+        if (prod && prod.price > 0 && prod.stock > 0) {
+          const avail = prod.stock;
+          const qtyToAdd = Math.min(item.qty, avail);
+          nextCart[prod.id] = (nextCart[prod.id] || 0) + qtyToAdd;
+          addedCount++;
+        }
+      });
+      return nextCart;
+    });
+
+    setActiveItemTab("items");
+    if (addedCount > 0) {
+      toast.success(`${addedCount} item(s) from ${ord.orderNo} added to cart`);
+    } else {
+      toast.error("Items of this order are currently out of stock");
+    }
+  };
+
   const handleConfirmOrder = () => {
     if (cartItemCount === 0) {
       toast.error("Cart is empty. Please add items to place an order.");
       return;
     }
-    const orderNo = "ORD-" + Math.floor(1600 + Math.random() * 200);
+    const orderNo = "ORD-" + Math.floor(1665 + Math.random() * 50);
+    const newItems = Object.entries(cart).map(([productId, qty]) => {
+      const prod = allProducts.find((p) => p.id === productId);
+      return {
+        skuId: productId,
+        name: prod ? prod.name : "Item",
+        qty: qty,
+        price: prod ? prod.price : 100,
+        amount: (prod ? prod.price : 100) * qty,
+      };
+    });
+
+    const newOrderRecord: CustomerOrderRecord = {
+      id: String(Date.now()),
+      orderNo: orderNo,
+      customerId: String(activeCustomerForOrder?.id || ""),
+      date: new Date().toISOString().split("T")[0] || "2026-11-24",
+      at: new Date().toISOString(),
+      status: "placed",
+      createdBy: "Vijaykumar Shantagiri (Admin)",
+      remarks: deliveryRemarks.trim(),
+      items: newItems,
+      total: cartTotal,
+    };
+
+    setAllOrders((prev) => [newOrderRecord, ...prev]);
+
     toast.success("Order Placed Successfully!", {
       description: `Order ${orderNo} created for ${activeCustomerForOrder?.name} (${activeCustomerForOrder?.village}) - ₹${cartTotal.toLocaleString("en-IN")}. Sent to Packing tab.`,
     });
@@ -264,20 +395,118 @@ export function PlaceOrderWholesaleView() {
   };
 
   // Filtered Products for All Items view
+  // When itemSearchQuery is empty: shows in-stock items (stock > 0 and price > 0) sorted alphabetically
+  // Exactly matches the 68 items in client's reference app!
+  const inStockProducts = useMemo(() => {
+    return allProducts
+      .filter((p) => p.stock > 0 && p.price > 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allProducts]);
+
   const filteredProducts = useMemo(() => {
-    if (!itemSearchQuery.trim()) return allProducts;
+    if (!itemSearchQuery.trim()) {
+      return inStockProducts;
+    }
     const q = itemSearchQuery.trim().toLowerCase();
-    return allProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.kannadaName && p.kannadaName.toLowerCase().includes(q)) ||
-        p.unit.toLowerCase().includes(q)
+    return allProducts
+      .filter((p) =>
+        [p.name, p.kannadaName, p.unit, p.packBadge, p.cat, p.hsn]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allProducts, inStockProducts, itemSearchQuery]);
+
+  // Cart items list for "In cart" section at top
+  const inCartProducts = useMemo(() => {
+    return Object.keys(cart)
+      .map((pid) => allProducts.find((p) => p.id === pid))
+      .filter(Boolean) as CatalogProduct[];
+  }, [cart, allProducts]);
+
+  // Render individual product card matching reference app citem
+  const renderProductCard = (prod: CatalogProduct) => {
+    const qtyInCart = cart[prod.id] || 0;
+    const displayQty = qtyInCart > 0 ? qtyInCart : 1;
+    const totalLineAmount = prod.price * displayQty;
+
+    return (
+      <div
+        key={prod.id}
+        className="bg-white rounded-xl border border-slate-200/90 p-3 sm:p-3.5 shadow-2xs hover:border-slate-300 transition flex items-center justify-between gap-3"
+      >
+        {/* Left Side: Name, Kannada name, ADD button or Stepper */}
+        <div className="flex-1 min-w-0 space-y-1.5 flex flex-col justify-between">
+          <div>
+            <b className="font-semibold text-sm sm:text-[15px] text-[#111827] leading-snug block line-clamp-2">
+              {prod.name}
+            </b>
+            {prod.kannadaName && (
+              <small className="text-xs text-[#6b7280] font-medium block mt-0.5 leading-tight">
+                {prod.kannadaName}
+              </small>
+            )}
+          </div>
+
+          <div className="pt-1">
+            {qtyInCart > 0 ? (
+              <div className="inline-flex items-center rounded-lg shadow-2xs overflow-hidden border border-slate-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQty(prod.id, -1)}
+                  className="w-9 h-8 bg-white hover:bg-slate-100 text-slate-800 font-black text-lg flex items-center justify-center cursor-pointer transition"
+                >
+                  −
+                </button>
+                <span className="w-8 text-center font-bold text-sm text-slate-900 font-mono">
+                  {qtyInCart}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQty(prod.id, 1)}
+                  className="w-9 h-8 bg-white hover:bg-slate-100 text-slate-800 font-black text-lg flex items-center justify-center cursor-pointer transition"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleUpdateQty(prod.id, 1)}
+                className="bg-[#e0a21b] hover:bg-[#d49714] text-black font-extrabold text-xs px-7 py-2 rounded-lg shadow-sm active:scale-95 transition cursor-pointer"
+              >
+                ADD
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side: Badges & Price Equation */}
+        <div className="flex flex-col items-end gap-1.5 shrink-0 self-stretch justify-between">
+          <div className="flex flex-col items-end gap-1">
+            <span className="border-[1.5px] border-[#0f3aa8] text-[#0f3aa8] rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-white">
+              STOCK: {prod.stock > 0 ? prod.stock : "N/A"}
+            </span>
+            {prod.packBadge && (
+              <span className="border-[1.5px] border-[#0f3aa8] text-[#0f3aa8] rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-white">
+                {prod.packBadge}
+              </span>
+            )}
+          </div>
+
+          <span className="text-[#b3261e] font-bold text-xs sm:text-sm whitespace-nowrap font-mono mt-1">
+            ₹{prod.price.toLocaleString("en-IN")} × {displayQty} = ₹{totalLineAmount.toLocaleString("en-IN")}
+          </span>
+        </div>
+      </div>
     );
-  }, [allProducts, itemSearchQuery]);
+  };
 
   // =========================================================================
   // VIEW 2: FULL-PAGE "ALL ITEMS" ORDER TAKING VIEW (When customer selected)
-  // Matching Client Images 2, 3, 4, 5 1:1 (NO MODAL)
+  // Matching Client Images 2, 3, 4, 6, 7 1:1
   // =========================================================================
   if (activeCustomerForOrder) {
     if (isViewingCart) {
@@ -349,7 +578,7 @@ export function PlaceOrderWholesaleView() {
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(productId, -qty)}
-                            className="text-rose-500 hover:text-rose-700 p-1.5 ml-1"
+                            className="text-rose-500 hover:text-rose-700 p-1.5 ml-1 cursor-pointer"
                             title="Remove"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -451,32 +680,39 @@ export function PlaceOrderWholesaleView() {
             </button>
           </div>
 
-          {/* Warning Banner matching Image 2 */}
-          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs text-amber-900 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-bold">⚠ Order already taken</p>
-              <p className="text-[11px] text-amber-800">
-                Order taken by <span className="font-bold">Pushpa Patil</span> · ORD-1630 · 23-11-2026 · ₹106 · placed{" "}
-                <button
-                  type="button"
-                  onClick={() => toast.info("Viewing details of ORD-1630")}
-                  className="underline font-bold text-blue-700 hover:text-blue-900 cursor-pointer ml-1"
-                >
-                  View
-                </button>
+          {/* Warning Banner matching Image 2 & 6: Order already taken */}
+          {warningOrders.length > 0 && (
+            <div className="bg-[#fff7e6] border-b border-[#f2c46b] px-4 py-2.5 text-xs text-[#7a4b00] space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <span>⚠</span>
+                <span>Order already taken</span>
               </p>
+              {warningOrders.map((o) => (
+                <div
+                  key={o.id}
+                  onClick={() => setActiveItemTab("open")}
+                  className="text-[12px] text-amber-900 cursor-pointer hover:underline"
+                >
+                  Order taken by <b>{o.createdBy || "Staff"}</b> · {o.orderNo} · {o.date} · ₹{o.total.toLocaleString("en-IN")} · {o.status}{" "}
+                  <u className="text-[#1d2b53] font-bold">View</u>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Search bar matching Image 2 */}
+          {/* Search bar matching Image 2 & 6 */}
           <div className="p-3.5 border-b border-slate-100 bg-white">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search by name, local name, HSN, category"
                 value={itemSearchQuery}
-                onChange={(e) => setItemSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setItemSearchQuery(e.target.value);
+                  if (activeItemTab !== "items") {
+                    setActiveItemTab("items");
+                  }
+                }}
                 className="w-full pl-4 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs font-medium"
               />
               {itemSearchQuery ? (
@@ -492,14 +728,14 @@ export function PlaceOrderWholesaleView() {
             </div>
           </div>
 
-          {/* 3 Tabs: ITEMS / ORDER HISTORY / OPEN ORDER */}
+          {/* 3 Tabs: ITEMS / ORDER HISTORY / OPEN ORDER matching Image 2 & 6 */}
           <div className="flex border-b border-slate-200 bg-white text-xs font-bold text-slate-600 px-4">
             <button
               type="button"
               onClick={() => setActiveItemTab("items")}
               className={`py-2.5 px-4 border-b-2 transition cursor-pointer ${
                 activeItemTab === "items"
-                  ? "border-[#0d1b4c] text-[#0d1b4c]"
+                  ? "border-[#0d1b4c] text-[#0d1b4c] font-black"
                   : "border-transparent hover:text-slate-900"
               }`}
             >
@@ -510,7 +746,7 @@ export function PlaceOrderWholesaleView() {
               onClick={() => setActiveItemTab("history")}
               className={`py-2.5 px-4 border-b-2 transition cursor-pointer ${
                 activeItemTab === "history"
-                  ? "border-[#0d1b4c] text-[#0d1b4c]"
+                  ? "border-[#0d1b4c] text-[#0d1b4c] font-black"
                   : "border-transparent hover:text-slate-900"
               }`}
             >
@@ -521,7 +757,7 @@ export function PlaceOrderWholesaleView() {
               onClick={() => setActiveItemTab("open")}
               className={`py-2.5 px-4 border-b-2 transition cursor-pointer ${
                 activeItemTab === "open"
-                  ? "border-[#0d1b4c] text-[#0d1b4c]"
+                  ? "border-[#0d1b4c] text-[#0d1b4c] font-black"
                   : "border-transparent hover:text-slate-900"
               }`}
             >
@@ -529,122 +765,157 @@ export function PlaceOrderWholesaleView() {
             </button>
           </div>
 
-          {/* Tab Content */}
+          {/* TAB 1: ITEMS */}
           {activeItemTab === "items" && (
+            <div className="flex-1 p-3 sm:p-4 overflow-y-auto max-h-[60vh] space-y-4">
+              {/* In Cart Section (when items in cart) */}
+              {inCartProducts.length > 0 && !itemSearchQuery.trim() && (
+                <div className="space-y-2.5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    In cart
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {inCartProducts.map((prod) => renderProductCard(prod))}
+                  </div>
+                </div>
+              )}
+
+              {/* All Items Count & Grid */}
+              <div className="space-y-2.5">
+                <p className="text-xs font-semibold text-slate-500">
+                  All items · {filteredProducts.length}
+                </p>
+
+                {filteredProducts.length === 0 ? (
+                  <p className="text-center text-slate-400 py-12 text-xs font-medium">
+                    No item found
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredProducts.map((prod) => renderProductCard(prod))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ORDER HISTORY matching reference app cord cards */}
+          {activeItemTab === "history" && (
             <div className="flex-1 p-3 sm:p-4 overflow-y-auto max-h-[60vh] space-y-3">
-              <p className="text-xs font-semibold text-slate-500">
-                All items · {filteredProducts.length}
-              </p>
-
-              {/* 2-Column Product Grid matching Image 2, 3, 4, 5 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredProducts.map((prod) => {
-                  const qtyInCart = cart[prod.id] || 0;
-                  const displayQty = qtyInCart > 0 ? qtyInCart : 1;
-                  const totalLineAmount = prod.price * displayQty;
-
-                  return (
+              {historyOrders.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 space-y-2">
+                  <Clock className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs font-bold text-slate-700">No orders yet</p>
+                  <p className="text-[11px] text-slate-400">
+                    Past orders for {activeCustomerForOrder.shop || activeCustomerForOrder.name} will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {historyOrders.map((ord) => (
                     <div
-                      key={prod.id}
-                      className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs hover:border-slate-300 transition flex flex-col justify-between gap-3"
+                      key={ord.id}
+                      className="bg-white rounded-xl border border-slate-200/90 p-3 sm:p-3.5 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
                     >
-                      {/* Top Row: Name and Badges */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-0.5 min-w-0 flex-1">
-                          <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 leading-snug">
-                            {prod.name}
-                          </h4>
-                          {prod.kannadaName && (
-                            <p className="text-[11px] text-slate-500 font-medium leading-tight">
-                              {prod.kannadaName}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Top-Right Badges matching Reference */}
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span className="px-2 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold">
-                            STOCK: {prod.stock}
-                          </span>
-                          {prod.packBadge && (
-                            <span className="px-2 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold">
-                              {prod.packBadge}
-                            </span>
-                          )}
-                        </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <b className="text-sm font-extrabold text-slate-900 block font-mono">
+                          {ord.orderNo}
+                        </b>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {ord.date} · {ord.items.length} item(s) · {ord.createdBy || "Staff"}
+                        </p>
+                        {ord.remarks && (
+                          <p className="text-[11px] text-slate-400 italic">“{ord.remarks}”</p>
+                        )}
                       </div>
 
-                      {/* Bottom Row: ADD button (or Stepper) and Price Equation */}
-                      <div className="flex items-center justify-between pt-1">
-                        {qtyInCart > 0 ? (
-                          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQty(prod.id, -1)}
-                              className="w-7 h-7 rounded-md bg-white border border-slate-300 text-slate-800 font-black hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-                            >
-                              −
-                            </button>
-                            <span className="w-8 text-center font-black font-mono text-sm text-slate-900">
-                              {qtyInCart}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQty(prod.id, 1)}
-                              className="w-7 h-7 rounded-md bg-white border border-slate-300 text-slate-800 font-black hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateQty(prod.id, 1)}
-                            className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-black text-xs px-6 py-1.5 rounded-md shadow-xs active:scale-95 transition cursor-pointer"
-                          >
-                            ADD
-                          </button>
-                        )}
-
-                        {/* Price calculation: e.g. ₹1,000 × 1 = ₹1,000 */}
-                        <div className="text-right font-mono font-bold text-xs text-slate-800">
-                          ₹{prod.price.toLocaleString("en-IN")} × {displayQty} ={" "}
-                          <span className="text-slate-950 font-black">
-                            ₹{totalLineAmount.toLocaleString("en-IN")}
-                          </span>
-                        </div>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <b className="text-sm font-black text-slate-900 font-mono">
+                          ₹{ord.total.toLocaleString("en-IN")}
+                        </b>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                            ord.status === "completed" || ord.status === "delivered"
+                              ? "bg-[#eafaf1] text-[#1e7e34]"
+                              : ord.status === "dispatched"
+                              ? "bg-[#eef2ff] text-[#4338ca]"
+                              : ord.status === "invoiced"
+                              ? "bg-[#e0f2fe] text-[#0284c7]"
+                              : ord.status === "packed"
+                              ? "bg-[#e0ecff] text-[#0f3aa8]"
+                              : "bg-[#fff4d6] text-[#8a5a00]"
+                          }`}
+                        >
+                          {ord.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRepeatOrder(ord)}
+                          className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs px-3 py-1 rounded-md shadow-2xs transition cursor-pointer flex items-center gap-1 mt-0.5"
+                        >
+                          <RotateCcw className="w-3 h-3 text-slate-500" />
+                          <span>Repeat</span>
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {activeItemTab === "history" && (
-            <div className="p-6 text-center text-slate-400 space-y-2">
-              <Clock className="w-8 h-8 mx-auto text-slate-300" />
-              <p className="text-xs font-bold text-slate-700">No past orders found</p>
-              <p className="text-[11px] text-slate-400">
-                Completed orders for {activeCustomerForOrder.shop} will appear here.
-              </p>
-            </div>
-          )}
-
+          {/* TAB 3: OPEN ORDER matching reference app */}
           {activeItemTab === "open" && (
-            <div className="p-4 space-y-3">
-              <div className="bg-white rounded-xl border border-slate-200 p-3 text-xs flex items-center justify-between">
-                <div>
-                  <span className="font-extrabold text-slate-900 font-mono">ORD-1630</span>
-                  <p className="text-[11px] text-slate-500">23-11-2026 · 1 item · Pushpa Patil</p>
+            <div className="flex-1 p-3 sm:p-4 overflow-y-auto max-h-[60vh] space-y-3">
+              {openOrders.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 space-y-2">
+                  <Package className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs font-bold text-slate-700">No open order</p>
+                  <p className="text-[11px] text-slate-400">
+                    Active placed, packed or dispatched orders will appear here.
+                  </p>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono font-bold text-slate-900 block">₹106</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                    placed
-                  </span>
+              ) : (
+                <div className="space-y-2.5">
+                  {openOrders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="bg-white rounded-xl border border-slate-200/90 p-3 sm:p-3.5 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <b className="text-sm font-extrabold text-slate-900 block font-mono">
+                          {ord.orderNo}
+                        </b>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {ord.date} · {ord.items.length} item(s) · {ord.createdBy || "Staff"}
+                        </p>
+                        {ord.remarks && (
+                          <p className="text-[11px] text-slate-400 italic">“{ord.remarks}”</p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <b className="text-sm font-black text-slate-900 font-mono">
+                          ₹{ord.total.toLocaleString("en-IN")}
+                        </b>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide ${
+                            ord.status === "dispatched"
+                              ? "bg-[#eef2ff] text-[#4338ca]"
+                              : ord.status === "invoiced"
+                              ? "bg-[#e0f2fe] text-[#0284c7]"
+                              : ord.status === "packed"
+                              ? "bg-[#e0ecff] text-[#0f3aa8]"
+                              : "bg-[#fff4d6] text-[#8a5a00]"
+                          }`}
+                        >
+                          {ord.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -766,7 +1037,7 @@ export function PlaceOrderWholesaleView() {
               </button>
             </div>
           ) : (
-            /* CASE C: Matches found -> Display 2-Column Grid matching Image 1 */
+            /* CASE C: Matches found -> Display 2-Column Grid matching Image 1 & 5 */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {filteredCustomers.slice(0, 80).map((c) => (
                 <div
@@ -931,6 +1202,7 @@ export function PlaceOrderWholesaleView() {
           </div>
         </div>
       )}
+
       {/* Order Placement Celebratory Firecrackers Animation */}
       {showCelebration && (
         <FireworksOverlay onComplete={() => setShowCelebration(false)} />
@@ -938,4 +1210,5 @@ export function PlaceOrderWholesaleView() {
     </div>
   );
 }
+
 export default PlaceOrderWholesaleView;
