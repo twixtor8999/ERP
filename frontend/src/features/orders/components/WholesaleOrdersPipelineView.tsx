@@ -637,7 +637,7 @@ export function WholesaleOrdersPipelineView() {
     const phone = packingSlipOrder.phone || "8748930231";
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
-        {/* Top Bar matching Image 2 */}
+        {/* Top Bar matching Image 3 */}
         <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
           <button
             onClick={() => setPackingSlipOrder(null)}
@@ -646,20 +646,21 @@ export function WholesaleOrdersPipelineView() {
           >
             ← Back
           </button>
-          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
+          <div className="absolute left-1/2 -translate-x-1/2 text-sm sm:text-base font-bold tracking-wide text-white whitespace-nowrap">
             packing_{packingSlipOrder.orderNo}
-          </b>
-          <div className="flex items-center gap-2">
+          </div>
+          <div className="ml-auto flex items-center gap-2.5">
             <button
               onClick={() => window.print()}
-              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90"
+              className="w-9 h-9 rounded-full bg-[#f5b400] text-[#0d1b4c] text-lg font-bold flex items-center justify-center cursor-pointer hover:opacity-90"
               title="Print"
+              aria-label="Print"
             >
               🖨
             </button>
             <button
               onClick={() => window.print()}
-              className="bg-white text-[#0d1b4c] text-xs font-bold px-3.5 py-1.5 rounded-full cursor-pointer hover:bg-slate-100"
+              className="bg-white text-[#0d1b4c] text-xs font-bold px-4 py-2 rounded-full cursor-pointer hover:bg-slate-100 flex items-center gap-1"
               title="Save as PDF"
             >
               ⬇ PDF

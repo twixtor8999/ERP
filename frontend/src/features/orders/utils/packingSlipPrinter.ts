@@ -58,47 +58,60 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
       height: 48px;
       z-index: 99;
       display: flex;
-      gap: 10px;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-end;
       background: #0d1b4c;
       color: #fff;
-      padding: 0 16px;
+      padding: 0 18px;
       font-family: Arial, sans-serif;
       box-shadow: 0 2px 8px rgba(0,0,0,0.18);
     }
-    .nxtb461 b {
-      flex: 1;
-      text-align: center;
+    .nxtb461 .title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
       font-size: 15px;
       font-weight: 700;
       letter-spacing: 0.3px;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+    .nxtb461 .btn-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
     }
     .nxtb461 button {
       font-size: 14px;
       font-weight: 700;
       border: 0;
-      border-radius: 999px;
-      padding: 7px 16px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
       transition: opacity 0.15s;
     }
     .nxtb461 button:hover {
       opacity: 0.92;
     }
     .nxtb461 .p {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
       background: #f5b400;
       color: #0d1b4c;
-      font-size: 19px;
-      padding: 5px 16px;
+      font-size: 20px;
       line-height: 1;
+      padding: 0;
     }
     .nxtb461 .k {
       background: #ffffff;
       color: #0d1b4c;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      gap: 4px;
     }
     #pr {
       display: block !important;
@@ -171,9 +184,11 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
       white-space: normal;
     }
     .inv th {
-      background: #cfe2f3;
+      background: #cfe2f3 !important;
       font-weight: 700;
       color: #000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .inv td.n, .inv th.n {
       text-align: right;
@@ -197,9 +212,11 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
 </head>
 <body>
   <div class="nxtb461">
-    <b>${title}</b>
-    <button class="p" onclick="window.print()" title="Print" aria-label="Print">🖨</button>
-    <button class="k" onclick="window.print()" title="Save as PDF">⬇ PDF</button>
+    <div class="title">${title}</div>
+    <div class="btn-group">
+      <button class="p" onclick="window.print()" title="Print" aria-label="Print">🖨</button>
+      <button class="k" onclick="nxPdf461()" title="Save as PDF">⬇ PDF</button>
+    </div>
   </div>
   <div id="pr">
     <div class="inv">
@@ -241,6 +258,42 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
       <p style="margin-top: 18px; font-size: 11px;">Packed by: ____________ &nbsp; Checked by: ____________</p>
     </div>
   </div>
+  <script>
+    async function nxL(u) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = u;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    async function nxPdf461() {
+      const b = document.querySelector('.nxtb461');
+      try {
+        if (b) b.style.display = 'none';
+        await nxL('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        await nxL('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        const el = document.getElementById('pr');
+        // @ts-ignore
+        const cv = await window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+        // @ts-ignore
+        const { jsPDF } = window.jspdf;
+        const w = cv.width / 2;
+        const h = cv.height / 2;
+        const pdf = new jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'l' : 'p' });
+        pdf.addImage(cv.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, w, h);
+        pdf.save('${title}.pdf');
+      } catch (e) {
+        window.print();
+      } finally {
+        if (b) b.style.display = 'flex';
+      }
+    }
+    setTimeout(function() {
+      try { window.focus(); } catch (e) {}
+    }, 150);
+  </script>
 </body>
 </html>`;
 }
@@ -254,6 +307,7 @@ export function openPackingSlipWindow(order: PackingSlipOrderData): boolean {
     w.document.write(docHtml);
     w.document.close();
     try {
+      w.document.title = `packing_${order.orderNo}`;
       w.focus();
     } catch {
       // ignore
