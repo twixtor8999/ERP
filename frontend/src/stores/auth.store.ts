@@ -7,7 +7,7 @@ const USER_STORAGE_KEY = "ai_smart_bazar_user";
 function getCachedUser(): User | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(USER_STORAGE_KEY);
+    const raw = sessionStorage.getItem(USER_STORAGE_KEY) || localStorage.getItem(USER_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as User;
   } catch {
@@ -36,8 +36,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (typeof window !== "undefined") {
       try {
         if (user) {
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+          sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+          // Remove legacy global key so each tab retains independent login identity
+          localStorage.removeItem(USER_STORAGE_KEY);
         } else {
+          sessionStorage.removeItem(USER_STORAGE_KEY);
           localStorage.removeItem(USER_STORAGE_KEY);
         }
       } catch {}
@@ -50,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     tokenStorage.clear();
     if (typeof window !== "undefined") {
       try {
+        sessionStorage.removeItem(USER_STORAGE_KEY);
         localStorage.removeItem(USER_STORAGE_KEY);
       } catch {}
     }
