@@ -498,7 +498,7 @@ export function CrmTelecallerPortalPage() {
           : "home"
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(true);
+  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // If URL explicitly requests Callings run-sheet, render 1:1 Callings view
@@ -506,9 +506,10 @@ export function CrmTelecallerPortalPage() {
     return <CallingsRunSheetView />;
   }
 
-  // Prevent background body scroll when mobile drawer is open
+  // Prevent background body scroll when mobile drawer is open, and keep submenus collapsed until clicked
   useEffect(() => {
     if (isMobileMenuOpen) {
+      setIsCustomerMenuOpen(false);
       const originalOverflow = document.body.style.overflow;
       const originalTouchAction = document.body.style.touchAction;
       document.body.style.overflow = "hidden";
