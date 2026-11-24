@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Printer,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
@@ -455,13 +456,155 @@ export function WholesaleOrdersPipelineView() {
   const rawTab = searchParams.get("tab") || "packing";
   const activeTab = rawTab.toLowerCase().replace(/[^a-z]/g, "");
 
-  const [orders, setOrders] = useState<PipelineOrder[]>(INITIAL_PIPELINE_ORDERS);
+  const [orders, setOrders] = useState<PipelineOrder[]>(() => {
+    // Check if any real-time orders stored in local cache from CRM
+    if (typeof window !== "undefined") {
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (storedPipeline) {
+        try {
+          const parsed = JSON.parse(storedPipeline);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+      }
+    }
+    return INITIAL_PIPELINE_ORDERS;
+  });
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
   // Date filters
   const [fromDate, setFromDate] = useState("2026-11-20");
   const [toDate, setToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
+
+  // Sync real-time orders from backend API
+  const fetchLiveOrders = useCallback(async () => {
+    try {
+      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=150");
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setOrders((prev) => {
+          const prevMap = new Map(prev.map((o) => [o.orderNo, o]));
+          const merged: PipelineOrder[] = [];
+
+          for (const bo of res.data) {
+            const orderNo = bo.order_number || `ORD-${bo.id}`;
+            const existing = prevMap.get(orderNo);
+
+            // Determine stage based on db status or previous stage
+            let stage: PipelineOrder["stage"] = "packing";
+            const sUpper = (bo.status || "").toUpperCase();
+            if (sUpper === "DELIVERED") stage = "completed";
+            else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
+            else if (sUpper === "DISPATCHED") stage = "dispatch";
+            else if (sUpper === "PACKED") stage = "invoice";
+            else if (sUpper === "CANCELLED") stage = "cancelled";
+            else if (existing) stage = existing.stage;
+
+            const mappedOrder: PipelineOrder = {
+              id: bo.id || existing?.id || `ord-${orderNo}`,
+              orderNo: orderNo,
+              invoiceNo: existing?.invoiceNo || (bo.invoice_number ? bo.invoice_number : undefined),
+              customerName: bo.customer_name || existing?.customerName || "Customer",
+              shopName: bo.shop_name || existing?.shopName || "Store",
+              village: bo.village || existing?.village || "Bijapur",
+              route: bo.route || existing?.route || "Bijapur Route",
+              createdBy: bo.created_by || existing?.createdBy || "Pushpa Patil",
+              source: bo.source || "CRM",
+              orderDate: bo.order_date || existing?.orderDate || "24-11-2026",
+              orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",
+              vehicleNo: existing?.vehicleNo || "KA28AA6256",
+              total: typeof bo.total_amount === "number" ? bo.total_amount : existing?.total || 0,
+              balance: bo.payment_status === "PAID" ? 0 : typeof bo.total_amount === "number" ? bo.total_amount : existing?.balance || 0,
+              stage: stage,
+              status: bo.status || existing?.status,
+              phone: bo.customer_phone || existing?.phone,
+              items: (bo.items && bo.items.length > 0)
+                ? bo.items.map((it: any) => ({
+                    name: it.product_name,
+                    unit: "Unit",
+                    qty: it.quantity,
+                    price: it.unit_price,
+                    rate: it.unit_price,
+                    gst: "5%",
+                    amount: it.total_amount,
+                  }))
+                : existing?.items || [
+                    { name: "General FMCG Items", unit: "Pkt", qty: 1, price: bo.total_amount || 100, amount: bo.total_amount || 100 },
+                  ],
+              history: existing?.history || [],
+            };
+
+            merged.push(mappedOrder);
+            prevMap.delete(orderNo);
+          }
+
+          // Retain any remaining initial demo/custom orders
+          const finalOrders = [...merged, ...Array.from(prevMap.values())];
+          try {
+            localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(finalOrders));
+          } catch {}
+          return finalOrders;
+        });
+      }
+    } catch {
+      // Fallback: check localStorage for new CRM orders
+      if (typeof window !== "undefined") {
+        const storedToday = localStorage.getItem(`crm_reports_2026-11-24`) || localStorage.getItem(`crm_reports_${new Date().toISOString().slice(0, 10)}`);
+        if (storedToday) {
+          try {
+            const parsedToday = JSON.parse(storedToday);
+            if (parsedToday.my_orders && Array.isArray(parsedToday.my_orders)) {
+              setOrders((prev) => {
+                const prevMap = new Map(prev.map((o) => [o.orderNo, o]));
+                for (const mo of parsedToday.my_orders) {
+                  if (!prevMap.has(mo.order_number)) {
+                    prevMap.set(mo.order_number, {
+                      id: mo.id || `ord-${mo.order_number}`,
+                      orderNo: mo.order_number,
+                      customerName: mo.customer_name,
+                      shopName: "Kirana Store",
+                      village: "Bijapur",
+                      route: "Bijapur Route",
+                      createdBy: mo.telecaller_name || "Pushpa Patil",
+                      source: "CRM",
+                      orderDate: mo.order_date || "24-11-2026",
+                      orderTime: "10:30 am",
+                      vehicleNo: "KA28AA6256",
+                      total: mo.total_amount || 0,
+                      balance: 0,
+                      stage: "packing",
+                      items: (mo.items && mo.items.length > 0)
+                        ? mo.items.map((it: any) => ({
+                            name: it.product_name,
+                            unit: "Unit",
+                            qty: it.quantity,
+                            price: it.unit_price,
+                            rate: it.unit_price,
+                            gst: "5%",
+                            amount: it.total_amount,
+                          }))
+                        : [{ name: "FMCG Grocery Package", unit: "Pkg", qty: 1, price: mo.total_amount || 140, amount: mo.total_amount || 140 }],
+                    });
+                  }
+                }
+                const updated = Array.from(prevMap.values());
+                try {
+                  localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+                } catch {}
+                return updated;
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+  }, []);
+
+  // Fetch on mount and interval
+  useEffect(() => {
+    fetchLiveOrders();
+    const interval = setInterval(fetchLiveOrders, 10000);
+    return () => clearInterval(interval);
+  }, [fetchLiveOrders]);
 
   // Stage filters
   const [routeFilter, setRouteFilter] = useState("");
@@ -544,10 +687,10 @@ export function WholesaleOrdersPipelineView() {
 
   // Workflow transitions: Packing -> Invoice -> Dispatch -> Delivery -> Completed
   const handleMoveToInvoice = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
+    const invNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
         if (o.id === orderId) {
-          const invNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
           toast.success(`Order ${o.orderNo} moved to Invoice!`, {
             description: `Generated Invoice: ${invNum}`,
           });
@@ -560,7 +703,7 @@ export function WholesaleOrdersPipelineView() {
           };
           return {
             ...o,
-            stage: "invoice",
+            stage: "invoice" as const,
             invoiceNo: invNum,
             vehicleNo: "KA28AA6256",
             status: "invoiced",
@@ -568,8 +711,15 @@ export function WholesaleOrdersPipelineView() {
           };
         }
         return o;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Notify backend in background for real-time CRM Order Status sync
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", invoice_no: invNum }).catch(() => {});
   };
 
   const handlePrintPackingSlip = (order: PipelineOrder) => {
@@ -636,75 +786,95 @@ export function WholesaleOrdersPipelineView() {
     if (orderToPrint) {
       printThermalSlip(orderToPrint);
     }
-    setOrders((prev) =>
-      prev.map((o) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched directly to Delivery!`, {
             description: `Printed thermal slip & assigned to vehicle ${o.vehicleNo || "KA28AA6256"}`,
           });
           return {
             ...o,
-            stage: "delivery",
+            stage: "delivery" as const,
           };
         }
         return o;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
     navigate("/orders?tab=delivery", { replace: true });
   };
 
   const handleMoveToDelivery = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Moved to Delivery!`, {
             description: `Ready for customer handover`,
           });
           return {
             ...o,
-            stage: "delivery",
+            stage: "delivery" as const,
           };
         }
         return o;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
   };
 
   const handleMarkDelivered = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Delivered & Settled!`, {
             description: `Payment of ₹${o.total.toLocaleString("en-IN")} collected`,
           });
           return {
             ...o,
-            stage: "completed",
+            stage: "completed" as const,
             balance: 0,
           };
         }
         return o;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "completed" }).catch(() => {});
   };
 
   const handleCancelOrder = (orderId: string, reason: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} cancelled`, {
             description: `Reason: ${reason}`,
           });
           return {
             ...o,
-            stage: "cancelled",
+            stage: "cancelled" as const,
             cancelReason: reason,
-            cancelledAt: "23-11-2026",
+            cancelledAt: "24-11-2026",
           };
         }
         return o;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "cancelled", cancel_reason: reason }).catch(() => {});
   };
 
   // Summary Matrix for "5) Orders Report"

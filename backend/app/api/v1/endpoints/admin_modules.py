@@ -4013,6 +4013,11 @@ def get_crm_orders_status(
             "order_date": o.order_date.isoformat() if o.order_date else o.created_at.date().isoformat(),
             "customer_name": contact_person,
             "customer_phone": o.shipping_phone or (c.phone if c else "-"),
+            "shop_name": (c.company_name or c.display_name or "Retail Store") if c else "Retail Store",
+            "village": (c.city or "Bijapur") if c else "Bijapur",
+            "route": (c.state or "Bijapur Route") if c else "Bijapur Route",
+            "created_by": o.notes.replace("Punched by Telecaller CRM (", "").replace(")", "").strip() if o.notes and "Punched by Telecaller CRM" in o.notes else "Pushpa Patil",
+            "source": "CRM" if o.order_type == "TELECALLER_CRM" else "STORE",
             "total_amount": float(o.total_amount),
             "status": o.status,
             "order_placed": placed_str,
@@ -4026,6 +4031,62 @@ def get_crm_orders_status(
             "items": items_by_order.get(o.id, []),
         })
     return results
+
+
+class UpdateCrmOrderStagePayload(BaseModel):
+    stage: str # "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "cancelled"
+    invoice_no: str | None = None
+    vehicle_no: str | None = None
+    cancel_reason: str | None = None
+
+
+@router.post("/crm/orders/{order_id}/stage")
+def update_crm_order_stage(
+    order_id: str,
+    payload: UpdateCrmOrderStagePayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    order = db.scalar(
+        select(Order).where(
+            (Order.id == order_id) | (Order.order_number == order_id) | (Order.order_number == f"{order_id}-B"),
+            Order.organization_id == org_id,
+        )
+    )
+    if not order:
+        # Fallback check by order_number without prefix
+        order = db.scalar(select(Order).where(Order.order_number.like(f"%{order_id}%"), Order.organization_id == org_id))
+    
+    now_utc = datetime.now(UTC)
+    stage = payload.stage.lower()
+
+    if order:
+        if stage in ("packing", "placed"):
+            order.status = "CONFIRMED"
+        elif stage == "invoice":
+            order.status = "PACKED"
+            order.packed_at = now_utc
+        elif stage == "dispatch":
+            order.status = "DISPATCHED"
+            order.dispatched_at = now_utc
+        elif stage == "delivery":
+            order.status = "OUT_FOR_DELIVERY"
+            order.dispatched_at = order.dispatched_at or now_utc
+            order.delivery_started_at = now_utc
+        elif stage == "completed":
+            order.status = "DELIVERED"
+            order.delivered_at = now_utc
+            order.payment_status = "PAID"
+        elif stage == "cancelled":
+            order.status = "CANCELLED"
+            order.cancelled_at = now_utc
+            order.cancellation_reason = payload.cancel_reason or "Cancelled by admin"
+        
+        db.commit()
+        return {"status": "success", "order_id": order.id, "stage": stage, "db_status": order.status}
+
+    return {"status": "cached", "order_id": order_id, "stage": stage}
 
 
 @router.post("/crm/punch-attendance")
