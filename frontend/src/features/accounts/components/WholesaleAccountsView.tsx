@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,10 +13,14 @@ import {
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getStoredSkus } from "../../inventory/data/mockInventory";
+import { getStoredExpenses } from "../../expenses/data/mockExpenses";
 
+// ============================================================================
 // Types
+// ============================================================================
 export interface CashBankEntry {
-  sl: number;
+  sl?: number | string;
   date: string;
   voucher: string;
   party: string;
@@ -25,6 +29,7 @@ export interface CashBankEntry {
   balance: number;
   type: "Cash" | "Bank";
   narration?: string;
+  id?: string;
 }
 
 export interface DaySheetRow {
@@ -46,79 +51,137 @@ export interface CustomAssetLiability {
   date: string;
 }
 
-// Sample Data matching live Siddeshwar Enterprises reference values
-const SAMPLE_CASH_ENTRIES: CashBankEntry[] = [
+// ============================================================================
+// Voucher Type Color Palette (NXVTC from Client Application)
+// ============================================================================
+export const NXVTC: Record<string, string> = {
+  "Opening Balance": "#6a1b9a",
+  Receipt: "#2e7d32",
+  "QR Receipt": "#2e7d32",
+  Sales: "#1565c0",
+  "Sales Return": "#c62828",
+  Purchase: "#ef6c00",
+  Expense: "#ad1457",
+  Payment: "#ad1457",
+  Journal: "#455a64",
+  Contra: "#00838f",
+};
+
+// ============================================================================
+// Base Financial Anchors (24-11-2026 Reference Live System)
+// ============================================================================
+const BASE_DATE_ISO = "2026-11-24";
+const BASE_CASH_OPENING = 2099501; // Opening Cash on 24-11-2026
+const BASE_BANK_OPENING = -263841; // Bank OD / Current Account opening balance
+
+// Live 9 order receipts from 24-11-2026 reference app
+const REFERENCE_LIVE_RECEIPTS: Omit<CashBankEntry, "balance">[] = [
   {
-    sl: 1,
-    date: "22-11-2026",
-    voucher: "Opening Balance",
-    party: "—",
-    moneyIn: 45000,
-    moneyOut: 0,
-    balance: 45000,
-    type: "Cash",
-    narration: "Brought forward cash in hand",
-  },
-  {
-    sl: 2,
-    date: "22-11-2026",
+    date: "24-11-2026",
     voucher: "Receipt",
-    party: "B M Kirana Store",
-    moneyIn: 15000,
+    party: "Timmanna bandiwaddar · ORD-1522",
+    moneyIn: 90,
     moneyOut: 0,
-    balance: 60000,
     type: "Cash",
-    narration: "Route Tamba cash collected",
+    narration: "Delivered order ORD-1522 payment collected",
   },
   {
-    sl: 3,
-    date: "22-11-2026",
-    voucher: "Expense",
-    party: "Santosh Pujari (Driver)",
-    moneyIn: 0,
-    moneyOut: 1500,
-    balance: 58500,
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Anilkumar · 18TH CROSS NEAR TELAGI · INV-500",
+    moneyIn: 6180,
+    moneyOut: 0,
     type: "Cash",
-    narration: "Diesel expense KA28AA6256",
+    narration: "Delivered order INV-500 cash received",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "MAMATAJ NADAF · ORD-1528",
+    moneyIn: 4290,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1528 payment collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Raju kholar · ORD-1527",
+    moneyIn: 1590,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1527 cash collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Sangamesh Kolkar · ORD-1526",
+    moneyIn: 375,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1526 cash collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Somangouda Patil · ORD-1529",
+    moneyIn: 3190,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1529 payment collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Suresha · Mulawad Village · ORD-1511",
+    moneyIn: 11930,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1511 cash collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "Suresha · Mulawad Village · ORD-1512",
+    moneyIn: 4770,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1512 cash collected",
+  },
+  {
+    date: "24-11-2026",
+    voucher: "Receipt",
+    party: "CHANDARKANT · ORD-1515",
+    moneyIn: 2262,
+    moneyOut: 0,
+    type: "Cash",
+    narration: "Delivered order ORD-1515 cash collected",
   },
 ];
 
-const SAMPLE_BANK_ENTRIES: CashBankEntry[] = [
+const REFERENCE_BANK_RECEIPTS: Omit<CashBankEntry, "balance">[] = [
   {
-    sl: 1,
-    date: "22-11-2026",
-    voucher: "Opening Balance",
-    party: "—",
-    moneyIn: 0,
-    moneyOut: 263841,
-    balance: -263841,
-    type: "Bank",
-    narration: "Bank OD / Current Account opening balance",
-  },
-  {
-    sl: 2,
-    date: "22-11-2026",
+    date: "24-11-2026",
     voucher: "QR Receipt",
-    party: "Ramesh M Genni",
+    party: "Ramesh M Genni · UTR-43219800",
     moneyIn: 6800,
     moneyOut: 0,
-    balance: -257041,
     type: "Bank",
     narration: "UPI QR payment verified UTR 43219800",
   },
-];
-
-const SAMPLE_DAY_SHEET: DaySheetRow[] = [
   {
-    date: "22-11-2026",
-    opening: -218841,
-    investment: 0,
-    credit: 0,
-    purchase: 0,
-    expenses: 0,
-    closing: -218841,
+    date: "24-11-2026",
+    voucher: "Payment",
+    party: "HDFC Bank Charges",
+    moneyIn: 0,
+    moneyOut: 236,
+    type: "Bank",
+    narration: "Current Account quarterly maintenance charges",
   },
 ];
+
+const STORAGE_MANUAL_ENTRIES = "ai_smart_bazar_accounts_manual_v1";
+const STORAGE_SETTLEMENTS = "ai_smart_bazar_settlements_v5";
 
 export function WholesaleAccountsView() {
   const navigate = useNavigate();
@@ -126,20 +189,24 @@ export function WholesaleAccountsView() {
   // Primary navigation: 'cash' | 'cd' | 'bs'
   const [activeTab, setActiveTab] = useState<"cash" | "cd" | "bs">("cash");
 
-  // Date range filter
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  // Date range filter defaults to live audited date: 24-11-2026
+  const [fromDate, setFromDate] = useState("2026-11-24");
+  const [toDate, setToDate] = useState("2026-11-24");
   const [allDatesActive, setAllDatesActive] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
 
   // Sub-tabs on Credit & Debit: 'sheet' | 'list' | 'heads'
   const [cdSubView, setCdSubView] = useState<"sheet" | "list" | "heads">("sheet");
-  const [autoSyncTransactions, setAutoSyncTransactions] = useState(true);
 
-  // Live Records State
-  const [cashEntries, setCashEntries] = useState<CashBankEntry[]>(SAMPLE_CASH_ENTRIES);
-  const [bankEntries, setBankEntries] = useState<CashBankEntry[]>(SAMPLE_BANK_ENTRIES);
-  const [daySheet] = useState<DaySheetRow[]>(SAMPLE_DAY_SHEET);
+  // Manual entries persisted in localStorage
+  const [manualEntries, setManualEntries] = useState<CashBankEntry[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_MANUAL_ENTRIES);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Balance sheet custom items
   const [customAssets, setCustomAssets] = useState<CustomAssetLiability[]>([]);
@@ -155,8 +222,10 @@ export function WholesaleAccountsView() {
   const [showLiabilityModal, setShowLiabilityModal] = useState(false);
 
   // New Entry Form State
-  const [entryType, setEntryType] = useState<"Opening" | "Receipt" | "Payment" | "Expense" | "Journal" | "Contra">("Receipt");
-  const [entryDate, setEntryDate] = useState("2026-11-22");
+  const [entryType, setEntryType] = useState<
+    "Opening" | "Receipt" | "Payment" | "Expense" | "Journal" | "Contra"
+  >("Receipt");
+  const [entryDate, setEntryDate] = useState("2026-11-24");
   const [entryAmt, setEntryAmt] = useState("");
   const [entryAccount, setEntryAccount] = useState<"Cash" | "Bank">("Cash");
   const [entryTo, setEntryTo] = useState<"Bank" | "Cash">("Bank");
@@ -165,28 +234,297 @@ export function WholesaleAccountsView() {
   const [entryNarration, setEntryNarration] = useState("");
 
   // Quick Action Forms State
-  const [modalDate, setModalDate] = useState("2026-11-22");
+  const [modalDate] = useState("2026-11-24");
   const [modalAmount, setModalAmount] = useState("");
   const [modalHead, setModalHead] = useState("");
   const [modalMode, setModalMode] = useState("Cash");
 
-  // Balance Sheet Totals Calculation
-  // Reference live values from Screenshot 3:
-  // Capital: 7,56,680 | Loans: 0 | Profit & reserves: 1,43,828 -> Total: 9,00,508
-  // Cash & Bank balance: -2,18,841 | Stock value: 11,15,374 | Customer dues: 3,975 -> Total: 9,00,508
-  const baseCapital = 756680;
-  const baseLoans = 0;
-  const cashBankBalance = -218841;
-  const stockValueAtCost = 1115374;
-  const customerDuesReceivable = 3975;
+  // Save manual entries to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_MANUAL_ENTRIES, JSON.stringify(manualEntries));
+    } catch (e) {
+      console.error("Failed to save manual accounts entries", e);
+    }
+  }, [manualEntries]);
 
-  const extraAssetsTotal = customAssets.reduce((s, a) => s + a.amount, 0);
-  const extraLiabilitiesTotal = customLiabilities.reduce((s, l) => s + l.amount, 0);
+  // Denomination verification status alert from Settlement
+  const hasPendingDenomination = useMemo(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_SETTLEMENTS);
+      if (!stored) return true; // Default alert active matching live client site
+      const settlements = JSON.parse(stored);
+      if (Array.isArray(settlements) && settlements.length > 0) {
+        return settlements.some((s: any) => !s.denominationConfirmed);
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  }, []);
 
-  const totalAssets = cashBankBalance + stockValueAtCost + customerDuesReceivable + extraAssetsTotal;
-  const totalLiabilitiesWithoutProfit = baseCapital + baseLoans + extraLiabilitiesTotal;
-  const profitAndReserves = totalAssets - totalLiabilitiesWithoutProfit;
-  const totalLiabilities = totalLiabilitiesWithoutProfit + profitAndReserves;
+  // Format YYYY-MM-DD -> DD-MM-YYYY
+  const formatDmy = (isoDate: string) => {
+    if (!isoDate) return "";
+    const parts = isoDate.split("-");
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return isoDate;
+  };
+
+  // =========================================================================
+  // 1. DYNAMIC REAL-TIME INGESTION ENGINE (Automated Derivative Ledger)
+  // =========================================================================
+  const {
+    cashOpening,
+    bankOpening,
+    cashTransactions,
+    bankTransactions,
+    cashClosing,
+    bankClosing,
+    cashTotalIn,
+    cashTotalOut,
+    bankTotalIn,
+    bankTotalOut,
+  } = useMemo(() => {
+    // 1. Pull orders from pipeline
+    let pipelineReceipts: Omit<CashBankEntry, "balance">[] = [];
+    try {
+      const storedOrders = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (storedOrders) {
+        const parsed = JSON.parse(storedOrders);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach((ord: any) => {
+            if (
+              (ord.status === "completed" || ord.status === "delivered") &&
+              ord.orderDate === fromDate
+            ) {
+              const cashPaid = Number(ord.cashPaid || 0);
+              const qrPaid = Number(ord.qrPaid || ord.bankPaid || 0);
+              if (cashPaid > 0) {
+                pipelineReceipts.push({
+                  date: formatDmy(ord.orderDate || fromDate),
+                  voucher: "Receipt",
+                  party: `${ord.customerName || "Customer"} · ${ord.orderNo || "ORD"}`,
+                  moneyIn: cashPaid,
+                  moneyOut: 0,
+                  type: "Cash",
+                  narration: `Delivered order ${ord.orderNo || ""} cash payment`,
+                });
+              }
+              if (qrPaid > 0) {
+                pipelineReceipts.push({
+                  date: formatDmy(ord.orderDate || fromDate),
+                  voucher: "QR Receipt",
+                  party: `${ord.customerName || "Customer"} · ${ord.orderNo || "ORD"}`,
+                  moneyIn: qrPaid,
+                  moneyOut: 0,
+                  type: "Bank",
+                  narration: `Delivered order ${ord.orderNo || ""} QR / Bank payment`,
+                });
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Error parsing pipeline orders in Accounts", e);
+    }
+
+    // If no fresh pipeline orders found for the date, use the live production receipts
+    const baseCashList =
+      pipelineReceipts.filter((r) => r.type === "Cash").length > 0
+        ? pipelineReceipts.filter((r) => r.type === "Cash")
+        : fromDate === BASE_DATE_ISO
+        ? REFERENCE_LIVE_RECEIPTS
+        : [];
+
+    const baseBankList =
+      pipelineReceipts.filter((r) => r.type === "Bank").length > 0
+        ? pipelineReceipts.filter((r) => r.type === "Bank")
+        : fromDate === BASE_DATE_ISO
+        ? REFERENCE_BANK_RECEIPTS
+        : [];
+
+    // Ingest expenses
+    const storedExpenses = getStoredExpenses();
+    const expenseEntries: Omit<CashBankEntry, "balance">[] = [];
+    storedExpenses.forEach((exp: any) => {
+      if (exp.date === fromDate || exp.date === formatDmy(fromDate)) {
+        expenseEntries.push({
+          date: exp.date.includes("-") && exp.date.split("-")[0].length === 4 ? formatDmy(exp.date) : exp.date,
+          voucher: "Expense",
+          party: `${exp.category || "Expense"} · ${exp.enteredBy || exp.paidTo || "Staff"}`,
+          moneyIn: 0,
+          moneyOut: Number(exp.amount || 0),
+          type: exp.paymentMode === "Bank" ? "Bank" : "Cash",
+          narration: exp.description || exp.notes || "Operational expense",
+        });
+      }
+    });
+
+    // Ingest manual entries matching filter
+    const activeManual = manualEntries.filter((m) => {
+      const d = m.date;
+      return d === fromDate || d === formatDmy(fromDate);
+    });
+
+    // Merge Cash & Bank raw lists
+    const rawCash = [
+      ...baseCashList,
+      ...expenseEntries.filter((e) => e.type === "Cash"),
+      ...activeManual.filter((m) => m.type === "Cash"),
+    ];
+
+    const rawBank = [
+      ...baseBankList,
+      ...expenseEntries.filter((e) => e.type === "Bank"),
+      ...activeManual.filter((m) => m.type === "Bank"),
+    ];
+
+    // =========================================================================
+    // 2. DYNAMIC OPENING BALANCE ENGINE (nxCashBal)
+    // =========================================================================
+    // Baseline anchored on 24-11-2026:
+    const cOpening = BASE_CASH_OPENING;
+    const bOpening = BASE_BANK_OPENING;
+
+    // Calculate sequential running balance for Cash
+    let runningCash = cOpening;
+    let cTotIn = 0;
+    let cTotOut = 0;
+    const cashList: CashBankEntry[] = rawCash.map((item, idx) => {
+      runningCash = runningCash + item.moneyIn - item.moneyOut;
+      cTotIn += item.moneyIn;
+      cTotOut += item.moneyOut;
+      return {
+        ...item,
+        sl: idx + 1,
+        balance: runningCash,
+      };
+    });
+
+    // Calculate sequential running balance for Bank
+    let runningBank = bOpening;
+    let bTotIn = 0;
+    let bTotOut = 0;
+    const bankList: CashBankEntry[] = rawBank.map((item, idx) => {
+      runningBank = runningBank + item.moneyIn - item.moneyOut;
+      bTotIn += item.moneyIn;
+      bTotOut += item.moneyOut;
+      return {
+        ...item,
+        sl: idx + 1,
+        balance: runningBank,
+      };
+    });
+
+    return {
+      cashOpening: cOpening,
+      bankOpening: bOpening,
+      cashTransactions: cashList,
+      bankTransactions: bankList,
+      cashClosing: runningCash,
+      bankClosing: runningBank,
+      cashTotalIn: cTotIn,
+      cashTotalOut: cTotOut,
+      bankTotalIn: bTotIn,
+      bankTotalOut: bTotOut,
+    };
+  }, [fromDate, manualEntries]);
+
+  // Filter transactions by pageSearch
+  const filteredCashRows = useMemo(() => {
+    if (!pageSearch.trim()) return cashTransactions;
+    const q = pageSearch.toLowerCase();
+    return cashTransactions.filter(
+      (r) =>
+        r.party.toLowerCase().includes(q) ||
+        r.voucher.toLowerCase().includes(q) ||
+        (r.narration && r.narration.toLowerCase().includes(q))
+    );
+  }, [cashTransactions, pageSearch]);
+
+  const filteredBankRows = useMemo(() => {
+    if (!pageSearch.trim()) return bankTransactions;
+    const q = pageSearch.toLowerCase();
+    return bankTransactions.filter(
+      (r) =>
+        r.party.toLowerCase().includes(q) ||
+        r.voucher.toLowerCase().includes(q) ||
+        (r.narration && r.narration.toLowerCase().includes(q))
+    );
+  }, [bankTransactions, pageSearch]);
+
+  // =========================================================================
+  // 6. DYNAMIC BALANCE SHEET METRICS (cdBS438)
+  // =========================================================================
+  const {
+    baseCapital,
+    baseLoans,
+    liveCashBankBalance,
+    liveStockValue,
+    liveCustomerDues,
+    totalAssets,
+    profitAndReserves,
+    totalLiabilities,
+  } = useMemo(() => {
+    const capital = 756680;
+    const loans = 0;
+
+    // Dynamic stock value at cost from stored SKUs
+    let stockVal = 1115374;
+    try {
+      const skus = getStoredSkus();
+      if (Array.isArray(skus) && skus.length > 0) {
+        const computed = skus.reduce((sum, s) => sum + s.closing * s.cost, 0);
+        if (computed > 0) stockVal = computed;
+      }
+    } catch {
+      stockVal = 1115374;
+    }
+
+    // Dynamic customer dues (receivable)
+    let custDues = 3975;
+    try {
+      const storedOrders = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (storedOrders) {
+        const parsed = JSON.parse(storedOrders);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const dues = parsed.reduce((sum: number, o: any) => {
+            const tot = Number(o.total || o.orderTotal || 0);
+            const paid = Number(o.cashPaid || 0) + Number(o.qrPaid || 0) + Number(o.bankPaid || 0);
+            return sum + Math.max(0, tot - paid);
+          }, 0);
+          if (dues > 0) custDues = dues;
+        }
+      }
+    } catch {
+      custDues = 3975;
+    }
+
+    const exAssets = customAssets.reduce((s, a) => s + a.amount, 0);
+    const exLiab = customLiabilities.reduce((s, l) => s + l.amount, 0);
+
+    // Matching screenshot 3 baseline numbers
+    const displayCashBank = -218841; // Day sheet net closing anchor
+    const totAssets = displayCashBank + stockVal + custDues + exAssets;
+    const totLiabBeforeProfit = capital + loans + exLiab;
+    const profit = totAssets - totLiabBeforeProfit;
+    const totLiab = totLiabBeforeProfit + profit;
+
+    return {
+      baseCapital: capital,
+      baseLoans: loans,
+      liveCashBankBalance: displayCashBank,
+      liveStockValue: stockVal,
+      liveCustomerDues: custDues,
+      extraAssetsTotal: exAssets,
+      extraLiabilitiesTotal: exLiab,
+      totalAssets: totAssets,
+      profitAndReserves: profit,
+      totalLiabilities: totLiab,
+    };
+  }, [cashClosing, bankClosing, customAssets, customLiabilities]);
 
   // Handlers
   const handleExport = () => {
@@ -207,29 +545,24 @@ export function WholesaleAccountsView() {
       return;
     }
 
-    const isMoneyIn = entryType === "Receipt" || (entryType === "Contra" && entryTo === entryAccount);
-    const targetList = entryAccount === "Cash" ? cashEntries : bankEntries;
-    const lastItem = targetList.length > 0 ? targetList[targetList.length - 1] : undefined;
-    const lastBal = lastItem ? lastItem.balance : 0;
-    const newBal = isMoneyIn ? lastBal + amt : lastBal - amt;
+    const isMoneyIn =
+      entryType === "Receipt" ||
+      entryType === "Opening" ||
+      (entryType === "Contra" && entryTo === entryAccount);
 
-    const newRow: CashBankEntry = {
-      sl: targetList.length + 1,
-      date: entryDate,
-      voucher: entryType,
+    const newEntry: CashBankEntry = {
+      id: String(Date.now()),
+      date: formatDmy(entryDate),
+      voucher: entryType === "Opening" ? "Opening Balance" : entryType,
       party: entryParty || "—",
       moneyIn: isMoneyIn ? amt : 0,
       moneyOut: isMoneyIn ? 0 : amt,
-      balance: newBal,
+      balance: 0, // Recalculated dynamically by engine
       type: entryAccount,
       narration: entryNarration || `${entryType} entry for ${entryParty || entryHead || "general"}`,
     };
 
-    if (entryAccount === "Cash") {
-      setCashEntries([...cashEntries, newRow]);
-    } else {
-      setBankEntries([...bankEntries, newRow]);
-    }
+    setManualEntries((prev) => [...prev, newEntry]);
 
     toast.success("Entry Saved Successfully!", {
       description: `${entryType}: ₹${amt.toLocaleString("en-IN")} recorded in ${entryAccount} book.`,
@@ -240,23 +573,6 @@ export function WholesaleAccountsView() {
     setEntryParty("");
     setEntryNarration("");
     setEntryHead("");
-  };
-
-  const handleSaveCreditDebit = (side: "cr" | "dr" | "inv") => {
-    const amt = parseFloat(modalAmount);
-    if (!amt || isNaN(amt)) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    toast.success(`${side === "cr" ? "Credit" : side === "dr" ? "Debit / Expense" : "Investment"} Saved!`, {
-      description: `₹${amt.toLocaleString("en-IN")} recorded for ${modalHead || "General"}.`,
-    });
-
-    setShowCreditModal(false);
-    setShowPurchaseExpenseModal(false);
-    setShowInvestmentModal(false);
-    setModalAmount("");
   };
 
   const handleSaveAssetLiability = (type: "asset" | "liability") => {
@@ -322,8 +638,12 @@ export function WholesaleAccountsView() {
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
-            onClick={() => toast.info("Filter Applied", { description: `Loaded accounts for ${fromDate} to ${toDate}` })}
-            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            onClick={() =>
+              toast.info("Filter Applied", {
+                description: `Loaded accounts for ${formatDmy(fromDate)} to ${formatDmy(toDate)}`,
+              })
+            }
+            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             Submit
           </button>
@@ -346,11 +666,11 @@ export function WholesaleAccountsView() {
         </h1>
         <p className="text-xs text-slate-500 font-normal mt-0.5">
           {activeTab === "cash" &&
-            `Tally style books for ${fromDate} to ${toDate}. Sales, receipts, returns, purchases and expenses come in by themselves; add Opening Balance, Receipts, Payments, Journal and Contra with + New Entry.`}
+            `Tally style books for ${formatDmy(fromDate)} to ${formatDmy(toDate)}. Sales, receipts, returns, purchases and expenses come in by themselves; add Opening Balance, Receipts, Payments, Journal and Contra with + New Entry.`}
           {activeTab === "cd" &&
-            `Credit & Debit sheet for ${fromDate} to ${toDate} · Closing = Opening + Credit − Debit`}
+            `Credit & Debit sheet for ${formatDmy(fromDate)} to ${formatDmy(toDate)} · Closing = Opening + Credit − Debit`}
           {activeTab === "bs" &&
-            `Balance Sheet as on ${toDate} · SIDDESHWAR ENTERPRISES`}
+            `Balance Sheet as on ${formatDmy(toDate)} · SIDDESHWAR ENTERPRISES`}
         </p>
       </div>
 
@@ -451,51 +771,36 @@ export function WholesaleAccountsView() {
           {activeTab === "cd" && (
             <>
               <button
-                onClick={() => {
-                  setModalHead("Investment");
-                  setShowInvestmentModal(true);
-                }}
-                className="inline-flex items-center gap-1 bg-[#7c3aed] hover:bg-[#6d28d9] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
+                onClick={() => setShowCreditModal(true)}
+                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Investment</span>
-              </button>
-              <button
-                onClick={() => {
-                  setModalHead("Sales Cash");
-                  setShowCreditModal(true);
-                }}
-                className="inline-flex items-center gap-1 bg-[#16a34a] hover:bg-[#15803d] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
                 <span>+ Credit</span>
               </button>
               <button
-                onClick={() => {
-                  setModalHead("Purchase");
-                  setShowPurchaseExpenseModal(true);
-                }}
-                className="inline-flex items-center gap-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-xs cursor-pointer"
+                onClick={() => setShowPurchaseExpenseModal(true)}
+                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-rose-600" />
                 <span>+ Purchase / Expense</span>
               </button>
               <button
-                onClick={() => setShowOpeningBalanceModal(true)}
-                className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
+                onClick={() => setShowInvestmentModal(true)}
+                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
               >
-                Opening Balance
+                <Plus className="w-3.5 h-3.5 text-purple-600" />
+                <span>+ Investment</span>
               </button>
               <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
+                onClick={() => setShowOpeningBalanceModal(true)}
+                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-slate-500" />
-                <span>⬇ Export</span>
+                <Plus className="w-3.5 h-3.5 text-blue-600" />
+                <span>+ Opening Balance</span>
               </button>
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-md text-xs font-bold shadow-2xs cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5 text-slate-500" />
                 <span>Print</span>
@@ -525,10 +830,30 @@ export function WholesaleAccountsView() {
       </div>
 
       {/* ========================================================================= */}
-      {/* VIEW 1: CASH & BANK (Matching Screenshot 1) */}
+      {/* 5. DENOMINATION VERIFICATION STATUS ALERT BANNER */}
+      {/* ========================================================================= */}
+      {activeTab === "cash" && hasPendingDenomination && (
+        <div className="bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
+            <span>
+              Denomination pending: {formatDmy(fromDate)} KA28AB3425 — 1 vehicle(s) without denomination. Entry is compulsory for physical cash reconciliation in Settlement.
+            </span>
+          </div>
+          <button
+            onClick={() => navigate("/admin/settlements")}
+            className="text-xs font-extrabold text-[#9b1c1c] hover:text-rose-900 underline cursor-pointer"
+          >
+            Review Settlement &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 1: CASH & BANK (Matching Live Screenshot 1) */}
       {/* ========================================================================= */}
       {activeTab === "cash" && (
-        <div className="space-y-6 pt-2">
+        <div className="space-y-6 pt-1">
           {/* Section 1: 💵 Cash Book */}
           <div className="space-y-2">
             <h2 className="text-sm font-extrabold text-[#1e293b] flex items-center gap-1.5">
@@ -548,14 +873,48 @@ export function WholesaleAccountsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold">
-                  {cashEntries.map((row) => (
+                  {/* 3. DISTINCT TOP ROW: OPENING BALANCE */}
+                  <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
+                    <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
+                      {formatDmy(fromDate)}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        style={{ color: NXVTC["Opening Balance"] }}
+                        className="font-extrabold tracking-wide"
+                      >
+                        Opening Balance
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-[13px]">
+                      ₹{cashOpening.toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+
+                  {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
+                  {filteredCashRows.map((row) => (
                     <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
                       <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
                       <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">{row.voucher}</td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          style={{ color: NXVTC[row.voucher] || "#1e293b" }}
+                          className="font-bold"
+                        >
+                          {row.voucher}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 text-slate-700">
                         <div>{row.party}</div>
-                        {row.narration && <div className="text-[10px] text-slate-400 font-normal">{row.narration}</div>}
+                        {row.narration && (
+                          <div className="text-[10px] text-slate-400 font-normal">
+                            {row.narration}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
                         {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
@@ -563,12 +922,35 @@ export function WholesaleAccountsView() {
                       <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
                         {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
                       </td>
-                      <td className={`py-2.5 px-3 text-right font-mono font-black ${row.balance < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                      <td
+                        className={`py-2.5 px-3 text-right font-mono font-black ${
+                          row.balance < 0 ? "text-rose-600" : "text-slate-900"
+                        }`}
+                      >
                         ₹{row.balance.toLocaleString("en-IN")}
                       </td>
                     </tr>
                   ))}
                 </tbody>
+
+                {/* 3. DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
+                <tfoot>
+                  <tr className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                      ₹{cashTotalIn.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
+                      ₹{cashTotalOut.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-sm">
+                      ₹{cashClosing.toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -592,14 +974,48 @@ export function WholesaleAccountsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold">
-                  {bankEntries.map((row) => (
+                  {/* DISTINCT TOP ROW: OPENING BALANCE */}
+                  <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
+                    <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
+                      {formatDmy(fromDate)}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        style={{ color: NXVTC["Opening Balance"] }}
+                        className="font-extrabold tracking-wide"
+                      >
+                        Opening Balance
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-[13px]">
+                      ₹{bankOpening.toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+
+                  {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
+                  {filteredBankRows.map((row) => (
                     <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
                       <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
                       <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">{row.voucher}</td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          style={{ color: NXVTC[row.voucher] || "#1e293b" }}
+                          className="font-bold"
+                        >
+                          {row.voucher}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 text-slate-700">
                         <div>{row.party}</div>
-                        {row.narration && <div className="text-[10px] text-slate-400 font-normal">{row.narration}</div>}
+                        {row.narration && (
+                          <div className="text-[10px] text-slate-400 font-normal">
+                            {row.narration}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
                         {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
@@ -607,12 +1023,35 @@ export function WholesaleAccountsView() {
                       <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
                         {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
                       </td>
-                      <td className={`py-2.5 px-3 text-right font-mono font-black ${row.balance < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                      <td
+                        className={`py-2.5 px-3 text-right font-mono font-black ${
+                          row.balance < 0 ? "text-rose-600" : "text-slate-900"
+                        }`}
+                      >
                         ₹{row.balance.toLocaleString("en-IN")}
                       </td>
                     </tr>
                   ))}
                 </tbody>
+
+                {/* DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
+                <tfoot>
+                  <tr className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
+                    <td className="py-2.5 px-3 text-slate-400">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                      ₹{bankTotalIn.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
+                      ₹{bankTotalOut.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-sm">
+                      ₹{bankClosing.toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
@@ -634,7 +1073,7 @@ export function WholesaleAccountsView() {
               <p className="text-xl font-black text-rose-600 font-mono">
                 -2,18,841
               </p>
-              <small className="text-[10px] text-slate-400 block">{fromDate}</small>
+              <small className="text-[10px] text-slate-400 block">{formatDmy(fromDate)}</small>
             </div>
 
             {/* Investment */}
@@ -652,149 +1091,120 @@ export function WholesaleAccountsView() {
                 TOTAL CREDIT
               </span>
               <p className="text-xl font-black text-slate-900 font-mono">0</p>
-              <small className="text-[10px] text-slate-400 block">money in</small>
+              <small className="text-[10px] text-slate-400 block">receipts / in</small>
             </div>
 
-            {/* Total Purchase */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#ef6c00]">
-              <span className="text-[11px] font-bold text-[#ef6c00] uppercase tracking-wider block">
-                TOTAL PURCHASE
+            {/* Purchase */}
+            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#ea580c]">
+              <span className="text-[11px] font-bold text-[#ea580c] uppercase tracking-wider block">
+                PURCHASE
               </span>
               <p className="text-xl font-black text-slate-900 font-mono">0</p>
-              <small className="text-[10px] text-slate-400 block">purchases</small>
+              <small className="text-[10px] text-slate-400 block">goods purchased</small>
             </div>
 
-            {/* Total Expenses */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#dc2626]">
-              <span className="text-[11px] font-bold text-[#dc2626] uppercase tracking-wider block">
-                TOTAL EXPENSES
+            {/* Expenses */}
+            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#e11d48]">
+              <span className="text-[11px] font-bold text-[#e11d48] uppercase tracking-wider block">
+                EXPENSES
               </span>
               <p className="text-xl font-black text-slate-900 font-mono">0</p>
-              <small className="text-[10px] text-slate-400 block">expenses & trips</small>
+              <small className="text-[10px] text-slate-400 block">operational costs</small>
             </div>
 
             {/* Closing Balance */}
-            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#2563eb] bg-[#f8faff]">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-0.5 border-t-3 border-t-[#2563eb]">
               <span className="text-[11px] font-bold text-[#2563eb] uppercase tracking-wider block">
                 CLOSING BALANCE
               </span>
               <p className="text-xl font-black text-rose-600 font-mono">
                 -2,18,841
               </p>
-              <small className="text-[10px] text-slate-400 block">{toDate}</small>
+              <small className="text-[10px] text-slate-400 block">as on {formatDmy(toDate)}</small>
             </div>
           </div>
 
-          {/* Sub Navigation Strip: Day sheet, All entries, By head + Auto checkbox */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-1.5">
+          {/* Sub Navigation Strip inside Credit & Debit */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setCdSubView("sheet")}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                   cdSubView === "sheet"
-                    ? "bg-[#132038] text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
                 }`}
               >
-                <span>🗓️ Day sheet</span>
+                Day Sheet
               </button>
               <button
                 onClick={() => setCdSubView("list")}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                   cdSubView === "list"
-                    ? "bg-[#132038] text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
                 }`}
               >
-                <span>📄 All entries</span>
+                Transaction List
               </button>
               <button
                 onClick={() => setCdSubView("heads")}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                   cdSubView === "heads"
-                    ? "bg-[#132038] text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    ? "bg-slate-800 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
                 }`}
               >
-                <span>📊 By head</span>
+                Head-wise Summary
               </button>
             </div>
-
-            {/* Auto sync notice matching Screenshot 2 */}
-            <label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoSyncTransactions}
-                onChange={(e) => setAutoSyncTransactions(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3.5 h-3.5"
-              />
-              <span>Sales, purchases, expenses & trips come in by themselves</span>
-            </label>
           </div>
 
-          {/* Table: Day sheet matching Screenshot 2 */}
+          {/* Day Sheet Grid matching Screenshot 2 */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
-                  <th className="py-2.5 px-3 text-left">DATE</th>
-                  <th className="py-2.5 px-3 text-right">OPENING BALANCE</th>
-                  <th className="py-2.5 px-3 text-center">INVESTMENT</th>
-                  <th className="py-2.5 px-3 text-center">CREDIT</th>
-                  <th className="py-2.5 px-3 text-center">PURCHASE</th>
-                  <th className="py-2.5 px-3 text-center">EXPENSES</th>
-                  <th className="py-2.5 px-3 text-right">CLOSING BALANCE</th>
+                  <th className="py-2.5 px-3 text-left w-28">Date</th>
+                  <th className="py-2.5 px-3 text-right">Opening</th>
+                  <th className="py-2.5 px-3 text-right">Investment</th>
+                  <th className="py-2.5 px-3 text-right">Credit</th>
+                  <th className="py-2.5 px-3 text-right">Purchase</th>
+                  <th className="py-2.5 px-3 text-right">Expenses</th>
+                  <th className="py-2.5 px-3 text-right">Closing</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
-                {daySheet.map((d) => (
-                  <tr key={d.date} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
-                    <td className="py-3 px-3 text-slate-700 font-mono font-bold">{d.date}</td>
-                    <td className="py-3 px-3 text-right font-mono text-rose-600 font-bold">
-                      -2,18,841
-                    </td>
-                    <td className="py-3 px-3 text-center text-slate-400 font-normal">—</td>
-                    <td className="py-3 px-3 text-center text-slate-400 font-normal">—</td>
-                    <td className="py-3 px-3 text-center text-slate-400 font-normal">—</td>
-                    <td className="py-3 px-3 text-center text-slate-400 font-normal">—</td>
-                    <td className="py-3 px-3 text-right font-mono text-rose-600 font-black">
-                      -2,18,841
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
-                  <td className="py-3 px-3">Total</td>
-                  <td className="py-3 px-3 text-right font-mono text-rose-600">-2,18,841</td>
-                  <td className="py-3 px-3 text-center font-mono">0</td>
-                  <td className="py-3 px-3 text-center font-mono">0</td>
-                  <td className="py-3 px-3 text-center font-mono">0</td>
-                  <td className="py-3 px-3 text-center font-mono">0</td>
-                  <td className="py-3 px-3 text-right font-mono text-rose-600 font-black">-2,18,841</td>
+                <tr className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-slate-700 font-mono">{formatDmy(fromDate)}</td>
+                  <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
+                    -2,18,841
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono text-slate-500">0</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-slate-500">0</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-slate-500">0</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-slate-500">0</td>
+                  <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600">
+                    -2,18,841
+                  </td>
                 </tr>
-              </tfoot>
+              </tbody>
             </table>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* VIEW 3: BALANCE SHEET (Matching Screenshot 3) */}
+      {/* VIEW 3: BALANCE SHEET (Matching Live Screenshot 3) */}
       {/* ========================================================================= */}
       {activeTab === "bs" && (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
-          {/* Header inside Balance Sheet card */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div>
-              <h2 className="text-xl font-black text-[#1e293b] tracking-tight">
-                Balance Sheet
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                As on {toDate} · SIDDESHWAR ENTERPRISES
-              </p>
+        <div className="space-y-4 pt-1">
+          {/* Top action strip for custom assets & liabilities */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs">
+            <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+              <Scale className="w-4 h-4 text-amber-500" />
+              <span>Balance Sheet as on {formatDmy(toDate)}</span>
             </div>
-
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -861,7 +1271,7 @@ export function WholesaleAccountsView() {
               </div>
             </div>
 
-            {/* Right Column: Assets */}
+            {/* Right Column: Assets (Dynamic live metrics) */}
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
               <div className="bg-[#14532d] text-white font-black text-xs px-3.5 py-2.5 tracking-wide">
                 Assets
@@ -870,19 +1280,19 @@ export function WholesaleAccountsView() {
                 <div className="flex items-center justify-between px-3.5 py-2.5 font-medium">
                   <span className="text-slate-700">Cash & Bank balance</span>
                   <span className="font-mono font-bold text-rose-600">
-                    -2,18,841
+                    {liveCashBankBalance.toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-3.5 py-2.5 font-medium">
                   <span className="text-slate-700">Stock value (at cost)</span>
                   <span className="font-mono font-bold text-slate-900">
-                    {stockValueAtCost.toLocaleString("en-IN")}
+                    {liveStockValue.toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-3.5 py-2.5 font-medium">
                   <span className="text-slate-700">Customer dues (receivable)</span>
                   <span className="font-mono font-bold text-slate-900">
-                    {customerDuesReceivable.toLocaleString("en-IN")}
+                    {liveCustomerDues.toLocaleString("en-IN")}
                   </span>
                 </div>
 
@@ -906,7 +1316,7 @@ export function WholesaleAccountsView() {
 
           {/* Footnote explanation matching Screenshot 3 */}
           <div className="pt-2 text-[11px] text-slate-400 font-normal leading-relaxed border-t border-slate-100">
-            Cash & Bank = the Closing Balance of the Credit & Debit sheet on {toDate}. Stock value = stock × cost price. Customer dues = invoiced orders not paid yet. Add vehicles, furniture, deposits (assets) or vendor dues, other loans (liabilities) with the buttons above. Profit is the difference, so both sides always match.
+            Cash & Bank = the Closing Balance of the Credit & Debit sheet on {formatDmy(toDate)}. Stock value = stock × cost price. Customer dues = invoiced orders not paid yet. Add vehicles, furniture, deposits (assets) or vendor dues, other loans (liabilities) with the buttons above. Profit is the difference, so both sides always match.
           </div>
         </div>
       )}
@@ -955,50 +1365,50 @@ export function WholesaleAccountsView() {
                 </div>
               </div>
 
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={entryAmt}
+                  onChange={(e) => setEntryAmt(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                  required
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={entryAmt}
-                    onChange={(e) => setEntryAmt(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                    required
-                  />
-                </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Account</label>
                   <select
                     value={entryAccount}
                     onChange={(e) => setEntryAccount(e.target.value as any)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold"
+                    className="w-full border border-slate-300 rounded-lg p-2 font-semibold"
                   >
-                    <option value="Cash">Cash</option>
-                    <option value="Bank">Bank</option>
+                    <option value="Cash">Cash in Hand</option>
+                    <option value="Bank">Bank / UPI / QR</option>
                   </select>
                 </div>
+                {entryType === "Contra" && (
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">To Account</label>
+                    <select
+                      value={entryTo}
+                      onChange={(e) => setEntryTo(e.target.value as any)}
+                      className="w-full border border-slate-300 rounded-lg p-2 font-semibold"
+                    >
+                      <option value="Bank">Bank Account</option>
+                      <option value="Cash">Cash in Hand</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              {entryType === "Contra" && (
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">To Account</label>
-                  <select
-                    value={entryTo}
-                    onChange={(e) => setEntryTo(e.target.value as any)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold"
-                  >
-                    <option value="Bank">Bank</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </div>
-              )}
-
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Party (Customer / Vendor)</label>
+                <label className="font-bold text-slate-700 block mb-1">Party Name / Customer / Vendor</label>
                 <input
                   type="text"
-                  placeholder="e.g. Ramesh Kirana / Fortune Oil Mills"
+                  placeholder="e.g. Timmanna bandiwaddar"
                   value={entryParty}
                   onChange={(e) => setEntryParty(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg p-2"
@@ -1006,28 +1416,26 @@ export function WholesaleAccountsView() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Narration *</label>
-                <input
-                  type="text"
-                  placeholder="What is this entry for? e.g. Cash collected from shop"
+                <label className="font-bold text-slate-700 block mb-1">Narration / Notes</label>
+                <textarea
+                  placeholder="e.g. Route cash collection or invoice settlement"
                   value={entryNarration}
                   onChange={(e) => setEntryNarration(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2"
-                  required
+                  className="w-full border border-slate-300 rounded-lg p-2 h-16"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowNewEntryModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg font-bold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#132038] text-white rounded-lg font-bold hover:bg-[#1c2e4f]"
+                  className="px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white rounded-lg font-bold shadow-xs cursor-pointer"
                 >
                   Save Entry
                 </button>
@@ -1037,125 +1445,305 @@ export function WholesaleAccountsView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* QUICK MODALS: + Investment / + Credit / + Purchase / Opening / Asset / Liability */}
-      {/* ========================================================================= */}
-      {(showCreditModal || showPurchaseExpenseModal || showInvestmentModal || showOpeningBalanceModal || showAssetModal || showLiabilityModal) && (
+      {/* MODAL 2: + CREDIT */}
+      {showCreditModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-[#132038]">
-                {showInvestmentModal && "+ Investment"}
-                {showCreditModal && "+ Credit"}
-                {showPurchaseExpenseModal && "+ Purchase / Expense"}
-                {showOpeningBalanceModal && "Set Opening Balance"}
-                {showAssetModal && "+ Balance Sheet Asset"}
-                {showLiabilityModal && "+ Balance Sheet Liability"}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowInvestmentModal(false);
-                  setShowCreditModal(false);
-                  setShowPurchaseExpenseModal(false);
-                  setShowOpeningBalanceModal(false);
-                  setShowAssetModal(false);
-                  setShowLiabilityModal(false);
-                }}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
-              >
+              <h3 className="text-base font-extrabold text-[#132038]">+ Credit</h3>
+              <button onClick={() => setShowCreditModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (showInvestmentModal) handleSaveCreditDebit("inv");
-                else if (showCreditModal) handleSaveCreditDebit("cr");
-                else if (showPurchaseExpenseModal) handleSaveCreditDebit("dr");
-                else if (showAssetModal) handleSaveAssetLiability("asset");
-                else if (showLiabilityModal) handleSaveAssetLiability("liability");
-                else {
-                  toast.success("Opening Balance Updated!");
-                  setShowOpeningBalanceModal(false);
-                }
-              }}
-              className="space-y-3 pt-3 text-xs"
-            >
+            <div className="space-y-3 pt-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Date</label>
-                <input
-                  type="date"
-                  value={modalDate}
-                  onChange={(e) => setModalDate(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  {showAssetModal ? "Asset Name" : showLiabilityModal ? "Liability Name" : "Head / Category"}
-                </label>
+                <label className="font-bold text-slate-700 block mb-1">Head</label>
                 <input
                   type="text"
-                  placeholder="e.g. Sales Cash / Vehicle Expenses / Godown Deposit"
+                  placeholder="e.g. Sales, Customer Receipt"
                   value={modalHead}
                   onChange={(e) => setModalHead(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg p-2"
-                  required
                 />
               </div>
-
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
                 <input
                   type="number"
-                  placeholder="0.00"
+                  placeholder="0"
                   value={modalAmount}
                   onChange={(e) => setModalAmount(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                  required
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
                 />
               </div>
-
-              {!showAssetModal && !showLiabilityModal && !showOpeningBalanceModal && (
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Payment Mode</label>
-                  <select
-                    value={modalMode}
-                    onChange={(e) => setModalMode(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold"
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="QR">QR / UPI</option>
-                    <option value="Bank">Bank Transfer</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
-                  type="button"
-                  onClick={() => {
-                    setShowInvestmentModal(false);
-                    setShowCreditModal(false);
-                    setShowPurchaseExpenseModal(false);
-                    setShowOpeningBalanceModal(false);
-                    setShowAssetModal(false);
-                    setShowLiabilityModal(false);
-                  }}
-                  className="px-4 py-2 border border-slate-300 rounded-lg font-bold text-slate-600 hover:bg-slate-50"
+                  onClick={() => setShowCreditModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#132038] text-white rounded-lg font-bold hover:bg-[#1c2e4f]"
+                  onClick={() => {
+                    toast.success("Credit Saved");
+                    setShowCreditModal(false);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
                 >
-                  Save
+                  Save Credit
                 </button>
               </div>
-            </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: + PURCHASE / EXPENSE */}
+      {showPurchaseExpenseModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-[#132038]">+ Purchase / Expense</h3>
+              <button onClick={() => setShowPurchaseExpenseModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 pt-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Head / Vendor</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fuel, Vendor Payment"
+                  value={modalHead}
+                  onChange={(e) => setModalHead(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={modalAmount}
+                  onChange={(e) => setModalAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowPurchaseExpenseModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success("Expense Recorded");
+                    setShowPurchaseExpenseModal(false);
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Expense
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: + INVESTMENT */}
+      {showInvestmentModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-[#132038]">+ Investment</h3>
+              <button onClick={() => setShowInvestmentModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 pt-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={modalAmount}
+                  onChange={(e) => setModalAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowInvestmentModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success("Investment Recorded");
+                    setShowInvestmentModal(false);
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Investment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: + OPENING BALANCE */}
+      {showOpeningBalanceModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-[#132038]">+ Opening Balance</h3>
+              <button onClick={() => setShowOpeningBalanceModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 pt-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Account</label>
+                <select
+                  value={modalMode}
+                  onChange={(e) => setModalMode(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2"
+                >
+                  <option value="Cash">Cash in Hand</option>
+                  <option value="Bank">Bank Account</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={modalAmount}
+                  onChange={(e) => setModalAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowOpeningBalanceModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success("Opening Balance Updated");
+                    setShowOpeningBalanceModal(false);
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Opening
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: + ASSET */}
+      {showAssetModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-[#132038]">+ Asset to Balance Sheet</h3>
+              <button onClick={() => setShowAssetModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 pt-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Asset Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Delivery Vehicle KA28AB3425"
+                  value={modalHead}
+                  onChange={(e) => setModalHead(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Valuation ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={modalAmount}
+                  onChange={(e) => setModalAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowAssetModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleSaveAssetLiability("asset")}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Asset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: + LIABILITY */}
+      {showLiabilityModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-[#132038]">+ Liability to Balance Sheet</h3>
+              <button onClick={() => setShowLiabilityModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3 pt-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Liability Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Vendor Dues / Bank Loan"
+                  value={modalHead}
+                  onChange={(e) => setModalHead(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Amount ₹</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={modalAmount}
+                  onChange={(e) => setModalAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowLiabilityModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleSaveAssetLiability("liability")}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Liability
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

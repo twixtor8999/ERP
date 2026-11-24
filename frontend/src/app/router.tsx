@@ -242,8 +242,16 @@ export const router = createBrowserRouter([
         element: <PaymentsManagementPage />,
       },
       {
+        path: "sales-vs-collection",
+        element: <Navigate to="/payments" replace />,
+      },
+      {
         path: "settlements",
         element: <SettlementsPage />,
+      },
+      {
+        path: "settlement",
+        element: <Navigate to="/settlements" replace />,
       },
       {
         path: "accounts",

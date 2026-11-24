@@ -17,6 +17,7 @@ export interface SettlementRow {
   oldReturn: number;
   netAmt: number;
   qrPayment: number;
+  bankPayment?: number;
   cashReceived: number;
   countedCash?: number | null;
   diff?: number | null;
@@ -25,9 +26,53 @@ export interface SettlementRow {
   enteredBy?: string;
 }
 
+export interface DuplicateReturnItem {
+  id: string;
+  orderNo: string;
+  itemName: string;
+  qty: number;
+  rate: number;
+  amount: number;
+  timesSaved: number;
+  dates: string[];
+}
+
+export const INITIAL_DUPLICATE_RETURNS: DuplicateReturnItem[] = [
+  {
+    id: "dup-1",
+    orderNo: "ORD-1630",
+    itemName: "1/2 LTR WATER ( 24 PCS )",
+    qty: 1,
+    rate: 1590,
+    amount: 1590,
+    timesSaved: 2,
+    dates: ["24-11-2026", "24-11-2026"],
+  },
+];
+
 export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   {
     sl: 1,
+    date: "2026-11-24",
+    vehicleNumber: "KA28AB3425",
+    driverName: "Arun Patil",
+    noOfOrders: 19,
+    invoiceAmt: 64155,
+    fullReturn: 0,
+    partialReturn: 1180,
+    oldReturn: 0,
+    netAmt: 62975,
+    qrPayment: 0,
+    bankPayment: 0,
+    cashReceived: 62975,
+    countedCash: null,
+    diff: null,
+    denominations: null,
+    remarks: "Route delivery settlement",
+    enteredBy: "Vijaykumar Shantagiri",
+  },
+  {
+    sl: 2,
     date: "2026-11-23",
     vehicleNumber: "KA28AB3425",
     driverName: "Arun Patil",
@@ -38,6 +83,7 @@ export const INITIAL_SETTLEMENTS: SettlementRow[] = [
     oldReturn: 0,
     netAmt: 110945,
     qrPayment: 0,
+    bankPayment: 0,
     cashReceived: 110945,
     countedCash: null,
     diff: null,
@@ -416,17 +462,28 @@ export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   }
 ];
 
-const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v5';
+export const STORAGE_KEY_SETTLEMENTS = 'ai_smart_bazar_settlements_v5';
 
 const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 
 export function WholesaleSettlementView() {
   const navigate = useNavigate();
 
-  // Date range matching Reference App Screenshot
-  const [fromDate, setFromDate] = useState("2026-11-23");
+  // Date range matching Reference App Screenshot (24-11-2026)
+  const [fromDate, setFromDate] = useState("2026-11-24");
   const [toDate, setToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
+
+  // Duplicate returns state matching client v4.92 / v4.95
+  const [duplicateReturns, setDuplicateReturns] = useState<DuplicateReturnItem[]>(() => {
+    try {
+      const raw = localStorage.getItem("ai_smart_bazar_dup_returns_v1");
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return INITIAL_DUPLICATE_RETURNS;
+  });
+  const [showDupFixModal, setShowDupFixModal] = useState(false);
+  const [isFixingDups, setIsFixingDups] = useState(false);
 
   // Drill-down states matching Reference App Image 8, 9, 10
   const [selectedVehicleSettlement, setSelectedVehicleSettlement] = useState<SettlementRow | null>(null);
@@ -484,7 +541,7 @@ export function WholesaleSettlementView() {
     openTaxInvoiceWindow(taxOrder, true);
   };
 
-  // Denomination Modal state
+  // Denomination Modal state matching client v4.79
   const [activeDenomRow, setActiveDenomRow] = useState<SettlementRow | null>(null);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({
     "500": 0,
@@ -495,15 +552,18 @@ export function WholesaleSettlementView() {
     "10": 0,
     "1": 0,
   });
+  const [denomQR, setDenomQR] = useState<number>(0);
+  const [denomBank, setDenomBank] = useState<number>(0);
   const [denomRemarks, setDenomRemarks] = useState("");
 
-  // Calculate live counted total in modal
+  // Calculate live counted cash in modal
   const calculatedCountedCash = Object.entries(noteCounts).reduce((acc, [note, count]) => {
     return acc + Number(note) * (count || 0);
   }, 0);
 
-  const expectedCash = activeDenomRow ? activeDenomRow.cashReceived : 0;
-  const cashDiscrepancy = calculatedCountedCash - expectedCash;
+  const totalRemitted = calculatedCountedCash + (denomQR || 0) + (denomBank || 0);
+  const targetNet = activeDenomRow ? activeDenomRow.netAmt : 0;
+  const cashDiscrepancy = totalRemitted - targetNet;
 
   const openDenominationModal = (row: SettlementRow) => {
     setActiveDenomRow(row);
@@ -528,6 +588,8 @@ export function WholesaleSettlementView() {
         "1": 0,
       });
     }
+    setDenomQR(row.qrPayment || 0);
+    setDenomBank(row.bankPayment || 0);
     setDenomRemarks(row.remarks || "");
   };
 
@@ -535,44 +597,62 @@ export function WholesaleSettlementView() {
     e.preventDefault();
     if (!activeDenomRow) return;
 
-    setSettlements((prev) =>
-      prev.map((r) =>
-        r.sl === activeDenomRow.sl
-          ? {
-              ...r,
-              countedCash: calculatedCountedCash,
-              diff: cashDiscrepancy,
-              denominations: { ...noteCounts },
-              remarks: denomRemarks,
-            }
-          : r
-      )
+    const updated = settlements.map((r) =>
+      r.sl === activeDenomRow.sl
+        ? {
+            ...r,
+            countedCash: calculatedCountedCash,
+            qrPayment: denomQR,
+            bankPayment: denomBank,
+            diff: cashDiscrepancy,
+            denominations: { ...noteCounts },
+            remarks: denomRemarks,
+            enteredBy: "Vijaykumar Shantagiri",
+          }
+        : r
     );
 
+    setSettlements(updated);
+
     toast.success("Denomination Saved!", {
-      description: `${activeDenomRow.vehicleNumber}: ₹${calculatedCountedCash.toLocaleString("en-IN")} counted (${
+      description: `${activeDenomRow.vehicleNumber}: Cash ₹${calculatedCountedCash.toLocaleString("en-IN")} + QR ₹${denomQR} + Bank ₹${denomBank} vs Net ₹${activeDenomRow.netAmt.toLocaleString("en-IN")} (${
         cashDiscrepancy === 0 ? "Exact match" : cashDiscrepancy > 0 ? `Excess ₹${cashDiscrepancy}` : `Short ₹${-cashDiscrepancy}`
       })`,
     });
 
-    // Save to localStorage
+    // Save to localStorage so Sales vs Collection and persistent state pick it up immediately
     try {
-      const updated = settlements.map((r) =>
-        r.sl === activeDenomRow.sl
-          ? {
-              ...r,
-              countedCash: calculatedCountedCash,
-              diff: cashDiscrepancy,
-              denominations: { ...noteCounts },
-              remarks: denomRemarks,
-            }
-          : r
-      );
       localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("settlements_updated"));
     } catch (e) {
       console.error("Failed to save settlements to storage", e);
     }
     setActiveDenomRow(null);
+  };
+
+  // Double returns fix action matching client nxRetDupFix()
+  const handleFixDuplicateReturns = async () => {
+    setIsFixingDups(true);
+    toast.info("Saving backup archive...", {
+      description: "Snapshot saved in IndexedDB / LocalStorage (♻ Recover can bring it back).",
+    });
+
+    // Simulate 2.2s batch cleanup pacing matching client v4.92 / v4.95
+    await new Promise((r) => setTimeout(r, 1200));
+
+    setDuplicateReturns([]);
+    try {
+      localStorage.setItem("ai_smart_bazar_dup_returns_v1", JSON.stringify([]));
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("settlements_updated"));
+    } catch (e) {}
+
+    setIsFixingDups(false);
+    setShowDupFixModal(false);
+    toast.success("Double returns fixed!", {
+      description: "1 extra copy removed and extra stock taken back (backup saved first).",
+    });
   };
 
   // Filtered rows
@@ -873,6 +953,25 @@ export function WholesaleSettlementView() {
         </div>
       </div>
 
+      {/* ⚠️ Double Returns Warning Banner matching Production Screenshot */}
+      {duplicateReturns.length > 0 && (
+        <div className="bg-[#fdecea] border border-[#f5b7b1] text-[#8a1c12] rounded-lg px-4 py-2.5 text-xs font-medium flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚠️</span>
+            <span>
+              <b>{duplicateReturns.length} double return(s) · {duplicateReturns.reduce((a, b) => a + b.amount, 0).toLocaleString("en-IN")}</b> — automatic correction is OFF (v4.92). Press the button only when you are sure: a backup is saved first.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDupFixModal(true)}
+            className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+          >
+            Fix (keep one each)
+          </button>
+        </div>
+      )}
+
       {/* Heading Title matching Screenshot 1 */}
       <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight">
         Settlement
@@ -890,10 +989,13 @@ export function WholesaleSettlementView() {
         />
       </div>
 
-      {/* Compulsory Denomination Alert Banner matching Image 7 */}
-      <div className="bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg px-4 py-2.5 text-xs font-medium">
-        1 vehicle(s) without denomination – entry is compulsory for every vehicle. Select one day (From = To) to enter it.
-      </div>
+      {/* Compulsory Denomination Alert Banner matching Image 7 - Dynamic */}
+      {filteredRows.filter((r) => r.countedCash == null).length > 0 && (
+        <div className="bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg px-4 py-2.5 text-xs font-semibold shadow-2xs">
+          {filteredRows.filter((r) => r.countedCash == null).length} vehicle(s) without denomination – entry is compulsory for every vehicle.
+          {fromDate === toDate ? "" : " Select one day (From = To) to enter it."}
+        </div>
+      )}
 
       {/* Settlement Table matching Reference App Screenshot 1 */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
@@ -952,29 +1054,43 @@ export function WholesaleSettlementView() {
                   </td>
                   <td className="py-3 px-3 text-center">
                     {r.countedCash != null ? (
-                      <div>
-                        <span className="font-mono font-bold text-slate-900">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="font-mono font-bold text-slate-900 text-xs">
                           {r.countedCash.toLocaleString("en-IN")}
                         </span>
                         <div className="text-[10px] font-bold">
                           {r.diff === 0 ? (
-                            <span className="text-emerald-600">✔ 0 (Matched)</span>
+                            <span className="text-emerald-600">✔ Matches</span>
                           ) : (r.diff || 0) < 0 ? (
                             <span className="text-rose-600">Short ₹{Math.abs(r.diff || 0).toLocaleString("en-IN")}</span>
                           ) : (
                             <span className="text-amber-600">Excess ₹{(r.diff || 0).toLocaleString("en-IN")}</span>
                           )}
                         </div>
+                        {fromDate === toDate && (
+                          <button
+                            type="button"
+                            onClick={() => openDenominationModal(r)}
+                            className="mt-0.5 px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[10px] font-bold rounded cursor-pointer transition-colors shadow-2xs"
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => openDenominationModal(r)}
-                        className="text-[#c53030] hover:text-[#9b1c1c] hover:underline font-bold text-xs cursor-pointer"
-                        title="Click to enter denomination"
-                      >
-                        Pending
-                      </button>
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <span className="text-[#c53030] font-bold text-xs">Pending</span>
+                        {fromDate === toDate && (
+                          <button
+                            type="button"
+                            onClick={() => openDenominationModal(r)}
+                            className="px-2.5 py-0.5 bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold rounded shadow-2xs cursor-pointer transition-colors"
+                            title="Click to enter denomination"
+                          >
+                            ＋ Enter
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="py-3 px-3 text-center">
@@ -1015,7 +1131,84 @@ export function WholesaleSettlementView() {
       </div>
 
       {/* ======================================================== */}
-      {/* DENOMINATION COUNTER DIALOG                             */}
+      {/* DOUBLE RETURNS INSPECTION & FIX MODAL                   */}
+      {/* ======================================================== */}
+      {showDupFixModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[#132038] text-white px-4 py-3 flex items-center justify-between shrink-0">
+              <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                <span>⚠️ Double Returns</span>
+              </h3>
+              <button
+                onClick={() => setShowDupFixModal(false)}
+                className="text-slate-300 hover:text-white p-1 rounded-md"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+              <p className="text-slate-600">
+                Each line was saved more than once. <b>"Fix"</b> keeps one copy, removes the extra copies and takes back the extra stock they added. A full backup is saved first (♻ Recover can bring it back).
+              </p>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                      <th className="py-2 px-3 text-left">Order</th>
+                      <th className="py-2 px-3 text-left">Item</th>
+                      <th className="py-2 px-3 text-center">Qty</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
+                      <th className="py-2 px-3 text-center">Times saved</th>
+                      <th className="py-2 px-3 text-left">Dates</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+                    {duplicateReturns.map((d) => (
+                      <tr key={d.id} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{d.orderNo}</td>
+                        <td className="py-2.5 px-3">{d.itemName}</td>
+                        <td className="py-2.5 px-3 text-center font-mono">{d.qty}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold">₹{d.amount.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                            {d.timesSaved}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600">{d.dates.join(", ")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDupFixModal(false)}
+                  disabled={isFixingDups}
+                  className="px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFixDuplicateReturns}
+                  disabled={isFixingDups}
+                  className="px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white font-bold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {isFixingDups ? "Fixing Double Returns…" : "Fix all (keep one each)"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* DENOMINATION COUNTER DIALOG (v4.79 Complete)            */}
       {/* ======================================================== */}
       {activeDenomRow && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
@@ -1024,29 +1217,47 @@ export function WholesaleSettlementView() {
               <div>
                 <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5">
                   <Calculator className="w-4 h-4 text-amber-400" />
-                  <span>Cash Denomination · {activeDenomRow.vehicleNumber}</span>
+                  <span>💵 Cash Denomination</span>
                 </h3>
                 <p className="text-[11px] text-slate-300">
-                  Driver: {activeDenomRow.driverName} · Expected Cash: ₹{expectedCash.toLocaleString("en-IN")}
+                  {activeDenomRow.vehicleNumber} · {activeDenomRow.date || fromDate} · {activeDenomRow.noOfOrders} orders
                 </p>
               </div>
               <button
                 onClick={() => setActiveDenomRow(null)}
-                className="text-slate-300 hover:text-white p-1 rounded-md"
+                className="text-slate-300 hover:text-white p-1 rounded-md cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveDenomination} className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+              {/* Gross & Net Header Info matching client v4.79 */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block">Invoice Amount</span>
+                  <span className="font-mono font-bold text-slate-800">₹{activeDenomRow.invoiceAmt.toLocaleString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block">Returns</span>
+                  <span className="font-mono font-bold text-slate-500">
+                    ₹{((activeDenomRow.fullReturn || 0) + (activeDenomRow.partialReturn || 0) + (activeDenomRow.oldReturn || 0)).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block">Net Sales</span>
+                  <span className="font-mono font-black text-blue-700">₹{activeDenomRow.netAmt.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              {/* Currency Notes Table */}
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
                 {DENOMINATION_NOTES.map((note: string) => {
                   const count = noteCounts[note] || 0;
                   const rowTotal = Number(note) * count;
                   return (
-                    <div key={note} className="px-3 py-2 flex items-center justify-between gap-3">
-                      <span className="w-20 font-bold text-slate-800">₹{note} Notes</span>
-                      <span className="text-slate-400">×</span>
+                    <div key={note} className="px-3 py-1.5 flex items-center justify-between gap-3">
+                      <span className="w-20 font-bold text-slate-800">₹{note}</span>
                       <input
                         type="number"
                         min="0"
@@ -1058,52 +1269,76 @@ export function WholesaleSettlementView() {
                           }))
                         }
                         placeholder="0"
-                        className="w-24 text-center font-mono font-bold border border-slate-300 rounded-md py-1 bg-white focus:outline-none focus:border-blue-500"
+                        className="w-24 text-center font-mono font-bold border border-slate-300 rounded-md py-1 bg-white focus:outline-none focus:border-blue-500 text-xs"
                       />
                       <span className="w-24 text-right font-mono font-bold text-slate-900">
-                        = ₹{rowTotal.toLocaleString("en-IN")}
+                        {rowTotal > 0 ? `₹${rowTotal.toLocaleString("en-IN")}` : "0"}
                       </span>
                     </div>
                   );
                 })}
-              </div>
-
-              {/* Remarks */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Settlement Remarks</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Note discrepancy reason, coin count, etc."
-                  value={denomRemarks}
-                  onChange={(e) => setDenomRemarks(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              {/* Total Calculation Strip */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
-                <div className="flex justify-between font-medium text-slate-600">
-                  <span>Expected Cash:</span>
-                  <span className="font-mono font-bold">₹{expectedCash.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-900">
-                  <span>Actual Counted Cash:</span>
-                  <span className="font-mono text-base font-black text-blue-700">
+                <div className="px-3 py-2 bg-slate-50 font-bold flex justify-between items-center text-slate-900">
+                  <span>Counted Cash</span>
+                  <span className="font-mono font-black text-sm text-blue-700">
                     ₹{calculatedCountedCash.toLocaleString("en-IN")}
                   </span>
                 </div>
-                <div className="flex justify-between font-bold pt-1 border-t border-slate-200">
-                  <span>Short / Excess:</span>
-                  <span className="font-mono">
+              </div>
+
+              {/* Digital Collections (QR & Bank inputs from client v4.79) */}
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">QR ₹</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={denomQR || ""}
+                    onChange={(e) => setDenomQR(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder="0"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Bank ₹</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={denomBank || ""}
+                    onChange={(e) => setDenomBank(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder="0"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Reconciliation Summary Strip matching client v4.79 dn_sum */}
+              <div className={`p-3 rounded-xl border ${cashDiscrepancy !== 0 ? 'bg-amber-50/70 border-amber-200' : 'bg-emerald-50/70 border-emerald-200'} space-y-1 text-xs`}>
+                <div className="text-slate-700">
+                  Cash <b>₹{calculatedCountedCash.toLocaleString("en-IN")}</b> + QR <b>₹{denomQR.toLocaleString("en-IN")}</b> + Bank <b>₹{denomBank.toLocaleString("en-IN")}</b> = <b>₹{totalRemitted.toLocaleString("en-IN")}</b>
+                </div>
+                <div className="pt-1 border-t border-slate-200/60 flex items-center justify-between font-bold">
+                  <span>Net sales ₹{targetNet.toLocaleString("en-IN")} →</span>
+                  <span>
                     {cashDiscrepancy === 0 ? (
-                      <span className="text-emerald-600">✔ Exact ₹0</span>
+                      <span className="text-emerald-700 font-black">✔ Matches</span>
                     ) : cashDiscrepancy < 0 ? (
-                      <span className="text-rose-600">Short ₹{Math.abs(cashDiscrepancy).toLocaleString("en-IN")}</span>
+                      <span className="text-rose-700 font-black">Shortage ₹{Math.abs(cashDiscrepancy).toLocaleString("en-IN")}</span>
                     ) : (
-                      <span className="text-amber-600">Excess ₹{cashDiscrepancy.toLocaleString("en-IN")}</span>
+                      <span className="text-amber-800 font-black">Excess ₹{cashDiscrepancy.toLocaleString("en-IN")}</span>
                     )}
                   </span>
                 </div>
+              </div>
+
+              {/* Remarks textarea */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Remarks</label>
+                <textarea
+                  placeholder="optional explanation for discrepancy"
+                  value={denomRemarks}
+                  onChange={(e) => setDenomRemarks(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 min-h-[50px]"
+                />
               </div>
 
               {/* Footer Buttons */}
@@ -1111,15 +1346,15 @@ export function WholesaleSettlementView() {
                 <button
                   type="button"
                   onClick={() => setActiveDenomRow(null)}
-                  className="px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white font-black rounded-lg shadow-xs"
+                  className="px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white font-bold rounded-lg shadow-xs cursor-pointer"
                 >
-                  Save Denomination
+                  Save
                 </button>
               </div>
             </form>

@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download } from "lucide-react";
 import { toast } from "sonner";
+import {
+  STORAGE_KEY_SETTLEMENTS,
+  INITIAL_SETTLEMENTS,
+  SettlementRow,
+} from "@/features/settlements/components/WholesaleSettlementView";
 
 export interface SvcRecord {
   id: string;
@@ -20,50 +25,77 @@ export interface SvcRecord {
   denominations?: Record<string, number>;
 }
 
-const SAMPLE_SVC_RECORDS: SvcRecord[] = [
-  {
-    id: "svc-1",
-    date: "22-11-2026",
-    vehicle: "KA28AA6256",
-    orders: 4,
-    invoiceAmt: 22450,
-    returns: 650,
-    netSales: 21800,
-    cash: 15000,
-    qr: 6800,
-    bank: 0,
-    diff: 0,
-    remarks: "Full route settlement completed",
-    enteredBy: "Vijaykumar Shantagiri",
-    denominations: { "500": 26, "200": 8, "100": 4 },
-  },
-  {
-    id: "svc-2",
-    date: "22-11-2026",
-    vehicle: "KA28AC0349",
-    orders: 2,
-    invoiceAmt: 6247,
-    returns: 0,
-    netSales: 6247,
-    cash: 4000,
-    qr: 2247,
-    bank: 0,
-    diff: 0,
-    remarks: "Rural Bijapur beat clear",
-    enteredBy: "Vijaykumar Shantagiri",
-    denominations: { "500": 8 },
-  },
-];
-
 export function SalesVsCollectionView() {
   const navigate = useNavigate();
 
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  // Default to today matching Reference App Screenshot (24-11-2026)
+  const [fromDate, setFromDate] = useState("2026-11-24");
+  const [toDate, setToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
 
-  const [records] = useState<SvcRecord[]>(SAMPLE_SVC_RECORDS);
   const [selectedRecord, setSelectedRecord] = useState<SvcRecord | null>(null);
+
+  // Reactive state to instantly refresh when denominations are saved in Settlement
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("settlements_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("settlements_updated", handleUpdate);
+    };
+  }, []);
+
+  // Synchronize directly with Wholesale Settlement records
+  const allSettlements = useMemo<SettlementRow[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_SETTLEMENTS;
+  }, [fromDate, toDate, refreshKey]);
+
+  // Filter settlements inside date range [fromDate, toDate]
+  const dateFilteredSettlements = useMemo(() => {
+    return allSettlements.filter((s) => {
+      if (!s.date) return true;
+      return s.date >= fromDate && s.date <= toDate;
+    });
+  }, [allSettlements, fromDate, toDate]);
+
+  // Dynamic Scanner matching client VW.den: Find any vehicle with deliveries (noOfOrders > 0) but NO countedCash saved
+  const pendingVehicles = useMemo(() => {
+    return dateFilteredSettlements
+      .filter((s) => s.noOfOrders > 0 && s.countedCash == null)
+      .map((s) => `${s.date ? s.date.split("-").reverse().join("-") : fromDate} ${s.vehicleNumber}`);
+  }, [dateFilteredSettlements, fromDate]);
+
+  // Only vehicles with saved denominations (countedCash != null) flow into Sales vs Collection records
+  const records = useMemo<SvcRecord[]>(() => {
+    return dateFilteredSettlements
+      .filter((s) => s.countedCash != null)
+      .map((s, idx) => ({
+        id: `svc-${s.vehicleNumber}-${s.date || idx}`,
+        date: s.date ? s.date.split("-").reverse().join("-") : fromDate,
+        vehicle: s.vehicleNumber,
+        orders: s.noOfOrders,
+        invoiceAmt: s.invoiceAmt,
+        returns: (s.fullReturn || 0) + (s.partialReturn || 0) + (s.oldReturn || 0),
+        netSales: s.netAmt,
+        cash: s.countedCash || 0,
+        qr: s.qrPayment || 0,
+        bank: s.bankPayment || 0,
+        diff: s.diff || 0,
+        remarks: s.remarks || "",
+        enteredBy: s.enteredBy || "Vijaykumar Shantagiri",
+        denominations: (s.denominations as Record<string, number>) || {},
+      }));
+  }, [dateFilteredSettlements, fromDate]);
 
   // ─── Full-page drilldown for a single vehicle's denomination breakdown ───
   if (selectedRecord) {
@@ -314,6 +346,13 @@ export function SalesVsCollectionView() {
         />
       </div>
 
+      {/* ⚠️ Denomination Pending Warning Banner matching Production Screenshot */}
+      {pendingVehicles.length > 0 && (
+        <div className="bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg px-4 py-2.5 text-xs font-semibold shadow-2xs">
+          Denomination pending: {pendingVehicles.join(", ")}
+        </div>
+      )}
+
       {/* 4 Metric KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
@@ -370,10 +409,20 @@ export function SalesVsCollectionView() {
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold">
             {filteredRecords.length === 0 ? (
-              <tr>
-                <td colSpan={13} className="py-4 px-3 text-center text-slate-400 font-medium text-xs tracking-wide">
-                  No records found for this date range.
-                </td>
+              <tr className="text-center font-bold text-slate-400">
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-3">0</td>
+                <td className="py-3 px-2"></td>
               </tr>
             ) : (
               filteredRecords.map((r) => (

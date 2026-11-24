@@ -2449,29 +2449,19 @@ export function WholesaleOrdersPipelineView() {
       {(activeTab.includes("dlv") || activeTab.includes("deliv")) && (
         <div className="space-y-3">
           {/* Top Vehicle Filter matching Screenshot 4 */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center justify-between gap-4 text-xs font-bold text-slate-600">
-            <label className="flex items-center gap-2">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">
+            <label className="flex items-center gap-1.5">
               <span>Vehicle</span>
               <select
                 value={selectedVehicle}
                 onChange={(e) => setSelectedVehicle(e.target.value)}
-                className={`border rounded-md px-3 py-1.5 text-xs font-semibold text-slate-800 bg-[#f8fafc] focus:outline-none transition-all ${
-                  !selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle"
-                    ? "border-amber-400 ring-2 ring-amber-200 bg-amber-50/50"
-                    : "border-slate-300"
-                }`}
+                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
               >
-                <option value="0">Select vehicle</option>
+                <option value="0">All Vehicle(s)</option>
                 <option value="KA28AA6256">KA28AA6256</option>
                 <option value="KA28AC0349">KA28AC0349</option>
-                <option value="KA28B1092">KA28B1092</option>
               </select>
             </label>
-            {(!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle") && (
-              <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-md">
-                ⚠️ Select a vehicle above before clicking &quot;Mark delivered&quot;
-              </span>
-            )}
           </div>
 
           {/* KPI Summary Bar */}
@@ -2533,13 +2523,7 @@ export function WholesaleOrdersPipelineView() {
                             Duplicate Invoice
                           </button>
                           <button
-                            onClick={() => {
-                              if (!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle" || selectedVehicle === "All Vehicle(s)") {
-                                toast.error("Please select a vehicle from the dropdown first before marking delivered!");
-                                return;
-                              }
-                              handleMarkDelivered(o.id);
-                            }}
+                            onClick={() => setViewingOrder(o)}
                             className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
                           >
                             Mark delivered
