@@ -3755,9 +3755,9 @@ def get_crm_telecaller_reports(
 
     # Last seen and last order times
     latest_order = orders[0] if orders else None
-    last_order_str = "23 Nov, 10:47 pm"
+    last_order_str = "—"
     if latest_order and latest_order.created_at:
-        last_order_str = latest_order.created_at.strftime("%d %b, %I:%M %p")
+        last_order_str = latest_order.created_at.strftime("%d %b, %I:%M %p").lower()
 
     now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
     last_seen_str = now_ist.strftime("%d/%m/%Y, %I:%M %p").lower()

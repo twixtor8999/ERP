@@ -673,7 +673,7 @@ export function CrmTelecallerPortalPage() {
 
     if (typeof window !== "undefined") {
       // 1. Check today's CRM reports
-      const stored = localStorage.getItem(`crm_reports_${todayIso}`);
+      const stored = sessionStorage.getItem(`crm_reports_${todayIso}`);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -812,7 +812,7 @@ export function CrmTelecallerPortalPage() {
   const [showVisitedModal, setShowVisitedModal] = useState<boolean>(false);
   const [reportData, setReportData] = useState<CrmReportData>(() => {
     const todayIso = getTodayIsoDate();
-    const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
+    const stored = typeof window !== "undefined" ? sessionStorage.getItem(`crm_reports_${todayIso}`) : null;
     if (stored) {
       try {
         return JSON.parse(stored);
@@ -1278,8 +1278,8 @@ export function CrmTelecallerPortalPage() {
       // Offline / fallback handling:
       const todayIso = getTodayIsoDate();
       if (sDate === todayIso && eDate === todayIso) {
-        // Today's fresh report check from local cache
-        const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
+        // Today's fresh report check from session cache
+        const stored = typeof window !== "undefined" ? sessionStorage.getItem(`crm_reports_${todayIso}`) : null;
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
@@ -2194,7 +2194,7 @@ export function CrmTelecallerPortalPage() {
         };
 
         try {
-          localStorage.setItem(`crm_reports_${getTodayIsoDate()}`, JSON.stringify(updatedReport));
+          sessionStorage.setItem(`crm_reports_${getTodayIsoDate()}`, JSON.stringify(updatedReport));
         } catch {}
 
         return updatedReport;
