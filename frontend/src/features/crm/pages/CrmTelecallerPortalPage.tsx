@@ -1112,10 +1112,22 @@ export function CrmTelecallerPortalPage() {
         setRoutes(mergedRoutes);
       }
 
-      const custList = callRes.data && callRes.data.customers && callRes.data.customers.length > 0
-        ? callRes.data.customers
-        : getInitialCallingCustomers();
-      setCallingCustomers(custList);
+      // Preload all 2,169 real authoritative customers and merge with any backend customers
+      const apiCusts = (callRes.data && callRes.data.customers) || [];
+      const initialCusts = getInitialCallingCustomers();
+      const custMap = new Map<string, CallingCustomer>();
+      for (const ic of initialCusts) {
+        custMap.set(ic.id, ic);
+      }
+      for (const ac of apiCusts) {
+        if (custMap.has(ac.id)) {
+          const old = custMap.get(ac.id)!;
+          custMap.set(ac.id, { ...old, ...ac });
+        } else {
+          custMap.set(ac.id, ac);
+        }
+      }
+      setCallingCustomers(Array.from(custMap.values()));
 
       // Normalize live SKU products & variants from Super Admin (using Selling Price)
       const flattenedProducts: ProductItem[] = [];

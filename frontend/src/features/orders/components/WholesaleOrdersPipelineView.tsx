@@ -1133,6 +1133,8 @@ export function WholesaleOrdersPipelineView() {
 
     // Notify backend in background for real-time CRM Order Status sync
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", invoice_no: invNum }).catch(() => {});
+    setViewingOrder(null);
+    switchTab("invoice");
   };
 
   const handlePrintPackingSlip = (order: PipelineOrder) => {
@@ -1222,14 +1224,13 @@ export function WholesaleOrdersPipelineView() {
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
-          toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched directly to Delivery!`, {
-            description: `Printed thermal slip & assigned to vehicle ${o.vehicleNo || "KA28AA6256"}`,
+          toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched!`, {
+            description: `Printed thermal slip & moved to 3) Dispatch tab`,
           });
           return {
             ...o,
-            stage: "delivery" as const,
+            stage: "dispatch" as const,
             dispatchedAt: timestampStr,
-            outForDeliveryAt: timestampStr,
           };
         }
         return o;
@@ -1239,8 +1240,9 @@ export function WholesaleOrdersPipelineView() {
       } catch {}
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
-    navigate("/orders?tab=delivery", { replace: true });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
+    setViewingOrder(null);
+    switchTab("dispatch");
   };
 
   const handleMoveToDelivery = (orderId: string) => {
@@ -1253,7 +1255,7 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Moved to Delivery!`, {
-            description: `Ready for customer handover`,
+            description: `Ready in 4) Delivery tab. Select vehicle before marking delivered.`,
           });
           return {
             ...o,
@@ -1269,9 +1271,17 @@ export function WholesaleOrdersPipelineView() {
       return updated;
     });
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
+    setViewingOrder(null);
+    switchTab("delivery");
   };
 
   const handleMarkDelivered = (orderId: string) => {
+    // Check if vehicle is selected in dropdown
+    if (!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle" || selectedVehicle === "All Vehicle(s)") {
+      toast.error("Please select a vehicle from the dropdown first before marking delivered!");
+      return;
+    }
+
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
     const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
@@ -1281,11 +1291,12 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Delivered & Settled!`, {
-            description: `Payment of ₹${o.total.toLocaleString("en-IN")} collected`,
+            description: `Assigned vehicle ${selectedVehicle}. Moved to 5) Orders Report.`,
           });
           return {
             ...o,
             stage: "completed" as const,
+            vehicleNo: selectedVehicle,
             balance: 0,
             deliveredAt: timestampStr,
           };
@@ -1297,7 +1308,9 @@ export function WholesaleOrdersPipelineView() {
       } catch {}
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "completed" }).catch(() => {});
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "completed", vehicle_no: selectedVehicle }).catch(() => {});
+    setViewingOrder(null);
+    switchTab("report");
   };
 
   const handleCancelOrder = (orderId: string, reason: string) => {
@@ -1412,6 +1425,11 @@ export function WholesaleOrdersPipelineView() {
     };
 
     const handleCompleteDelivery = () => {
+      if (!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle" || selectedVehicle === "All Vehicle(s)") {
+        toast.error("Please select a vehicle from the dropdown first before marking delivered!");
+        return;
+      }
+
       const hasMissingReason = viewingOrder.items.some((_, idx) => {
         const r = itemReturns[idx];
         return r && r.qty > 0 && !r.reason;
@@ -1421,18 +1439,23 @@ export function WholesaleOrdersPipelineView() {
         return;
       }
 
+      const nowD = new Date();
+      const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
+      const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+      const timestampStr = `${dStr} ${timeStr}`;
+
       setOrders(prev =>
         prev.map(o =>
           o.id === viewingOrder.id
-            ? { ...o, stage: "completed", balance: 0 }
+            ? { ...o, stage: "completed", vehicleNo: selectedVehicle, balance: 0, deliveredAt: timestampStr }
             : o
         )
       );
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
-        description: `Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType})`,
+        description: `Assigned vehicle ${selectedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType})`,
       });
       setViewingOrder(null);
-      switchTab("completed");
+      switchTab("report");
     };
 
     return (
@@ -2418,19 +2441,29 @@ export function WholesaleOrdersPipelineView() {
       {(activeTab.includes("dlv") || activeTab.includes("deliv")) && (
         <div className="space-y-3">
           {/* Top Vehicle Filter matching Screenshot 4 */}
-          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">
-            <label className="flex items-center gap-1.5">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center justify-between gap-4 text-xs font-bold text-slate-600">
+            <label className="flex items-center gap-2">
               <span>Vehicle</span>
               <select
                 value={selectedVehicle}
                 onChange={(e) => setSelectedVehicle(e.target.value)}
-                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
+                className={`border rounded-md px-3 py-1.5 text-xs font-semibold text-slate-800 bg-[#f8fafc] focus:outline-none transition-all ${
+                  !selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle"
+                    ? "border-amber-400 ring-2 ring-amber-200 bg-amber-50/50"
+                    : "border-slate-300"
+                }`}
               >
-                <option value="0">All Vehicle(s)</option>
+                <option value="0">Select vehicle</option>
                 <option value="KA28AA6256">KA28AA6256</option>
                 <option value="KA28AC0349">KA28AC0349</option>
+                <option value="KA28B1092">KA28B1092</option>
               </select>
             </label>
+            {(!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle") && (
+              <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-md">
+                ⚠️ Select a vehicle above before clicking &quot;Mark delivered&quot;
+              </span>
+            )}
           </div>
 
           {/* KPI Summary Bar */}
@@ -2492,7 +2525,13 @@ export function WholesaleOrdersPipelineView() {
                             Duplicate Invoice
                           </button>
                           <button
-                            onClick={() => setViewingOrder(o)}
+                            onClick={() => {
+                              if (!selectedVehicle || selectedVehicle === "0" || selectedVehicle === "Select vehicle" || selectedVehicle === "All Vehicle(s)") {
+                                toast.error("Please select a vehicle from the dropdown first before marking delivered!");
+                                return;
+                              }
+                              handleMarkDelivered(o.id);
+                            }}
                             className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
                           >
                             Mark delivered
