@@ -854,23 +854,29 @@ export function WholesaleOrdersPipelineView() {
 
       setOrders((prev) => {
         const orderMap = new Map<string, PipelineOrder>();
-        // 1. Base initial authoritative orders
-        for (const initO of INITIAL_PIPELINE_ORDERS) {
-          orderMap.set(initO.orderNo, initO);
-        }
-        // 2. Prior state orders
-        for (const o of prev) {
-          orderMap.set(o.orderNo, o);
-        }
-        // 3. CRM report & master orders
+
+        // 1. CRM real-time orders (highest priority so newly placed orders like ORD-0494 appear at ROW 1)
         for (const ro of reportOrders) {
-          if (!orderMap.has(ro.orderNo)) {
-            orderMap.set(ro.orderNo, ro);
-          }
+          orderMap.set(ro.orderNo, ro);
         }
-        // 4. Authoritative pipeline orders (contains updated stages)
+
+        // 2. Authoritative pipeline orders from local storage
         for (const po of pipelineOrders) {
           orderMap.set(po.orderNo, po);
+        }
+
+        // 3. Prior state orders
+        for (const o of prev) {
+          if (!orderMap.has(o.orderNo)) {
+            orderMap.set(o.orderNo, o);
+          }
+        }
+
+        // 4. Base demo orders (only add if not present, never override real CRM orders)
+        for (const initO of INITIAL_PIPELINE_ORDERS) {
+          if (!orderMap.has(initO.orderNo)) {
+            orderMap.set(initO.orderNo, initO);
+          }
         }
 
         const merged = Array.from(orderMap.values());
@@ -2132,91 +2138,93 @@ export function WholesaleOrdersPipelineView() {
               <span>Order total <b className="text-slate-900 font-black font-mono">₹{totalAmount.toLocaleString("en-IN")}</b></span>
             </div>
 
-            {/* Packing Orders Table */}
+            {/* Packing Orders Table - Viewport limited to ~10 rows, internal vertical scroll, sticky header */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
-                    <th className="py-2.5 px-3 text-left w-10">Sl</th>
-                    <th className="py-2.5 px-2 text-center w-8">
-                      <input
-                        type="checkbox"
-                        checked={selectedOrderIds.size === currentStageOrders.length && currentStageOrders.length > 0}
-                        onChange={handleToggleSelectAll}
-                        className="rounded"
-                      />
-                    </th>
-                    <th className="py-2.5 px-3 text-left">Order</th>
-                    <th className="py-2.5 px-3 text-left">Customer</th>
-                    <th className="py-2.5 px-3 text-left">Village</th>
-                    <th className="py-2.5 px-3 text-left">Created By</th>
-                    <th className="py-2.5 px-3 text-left">Source</th>
-                    <th className="py-2.5 px-3 text-left">Order Date</th>
-                    <th className="py-2.5 px-3 text-right">Total</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold">
-                  {currentStageOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="py-8 text-center text-slate-400 font-bold">
-                        No orders in Packing stage.
-                      </td>
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10 shadow-xs">
+                    <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                      <th className="py-2.5 px-3 text-left w-10 bg-[#2563eb]">Sl</th>
+                      <th className="py-2.5 px-2 text-center w-8 bg-[#2563eb]">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.size === currentStageOrders.length && currentStageOrders.length > 0}
+                          onChange={handleToggleSelectAll}
+                          className="rounded"
+                        />
+                      </th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Order</th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Customer</th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Village</th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Created By</th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Source</th>
+                      <th className="py-2.5 px-3 text-left bg-[#2563eb]">Order Date</th>
+                      <th className="py-2.5 px-3 text-right bg-[#2563eb]">Total</th>
+                      <th className="py-2.5 px-3 text-right bg-[#2563eb]">Action</th>
                     </tr>
-                  ) : (
-                    currentStageOrders.map((o, idx) => (
-                      <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
-                        <td className="py-3 px-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedOrderIds.has(o.id)}
-                            onChange={() => handleToggleSelectOne(o.id)}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="py-3 px-3 font-mono font-bold text-slate-900">{o.orderNo}</td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-slate-900">{o.customerName}</div>
-                          <div className="text-[10px] text-slate-400">{o.shopName}</div>
-                        </td>
-                        <td className="py-3 px-3 text-slate-700">{o.village}</td>
-                        <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
-                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{o.source}</td>
-                        <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
-                          <div>{o.orderDate}</div>
-                          <div className="text-slate-400 text-[10px]">{o.orderTime}</div>
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
-                          ₹{o.total.toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="inline-flex items-center gap-1.5 justify-end">
-                            <button
-                              onClick={() => setViewingOrder(o)}
-                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={() => handlePrintPackingSlip(o)}
-                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                            >
-                              Print
-                            </button>
-                            <button
-                              onClick={() => handleMoveToInvoice(o.id)}
-                              className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                            >
-                              Move to invoice
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold bg-white">
+                    {currentStageOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-8 text-center text-slate-400 font-bold">
+                          No orders in Packing stage.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      currentStageOrders.map((o, idx) => (
+                        <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
+                          <td className="py-3 px-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.has(o.id)}
+                              onChange={() => handleToggleSelectOne(o.id)}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="py-3 px-3 font-mono font-bold text-slate-900">{o.orderNo}</td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-900">{o.customerName}</div>
+                            <div className="text-[10px] text-slate-400">{o.shopName}</div>
+                          </td>
+                          <td className="py-3 px-3 text-slate-700">{o.village}</td>
+                          <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
+                          <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{o.source}</td>
+                          <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
+                            <div>{o.orderDate}</div>
+                            <div className="text-slate-400 text-[10px]">{o.orderTime}</div>
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
+                            ₹{o.total.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              <button
+                                onClick={() => setViewingOrder(o)}
+                                className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handlePrintPackingSlip(o)}
+                                className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                              >
+                                Print
+                              </button>
+                              <button
+                                onClick={() => handleMoveToInvoice(o.id)}
+                                className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                              >
+                                Move to invoice
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
