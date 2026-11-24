@@ -10,6 +10,7 @@ import { apiClient } from "@/lib/api/client";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
   when: string;
@@ -681,6 +682,8 @@ export function WholesaleOrdersPipelineView() {
   // Date filters
   const [fromDate, setFromDate] = useState("2026-11-20");
   const [toDate, setToDate] = useState("2026-11-24");
+  const [appliedFromDate, setAppliedFromDate] = useState("2026-11-20");
+  const [appliedToDate, setAppliedToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
 
   // Sync real-time orders from backend API
@@ -878,6 +881,35 @@ export function WholesaleOrdersPipelineView() {
   const [villageFilter, setVillageFilter] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState("0");
 
+  // Dynamically extract all unique routes from orders and real customers
+  const availableRoutes = useMemo(() => {
+    const rSet = new Set<string>();
+    orders.forEach((o) => {
+      if (o.route) rSet.add(o.route.trim());
+    });
+    (realCustomersData as any[]).forEach((c) => {
+      if (c.route) rSet.add(c.route.trim());
+    });
+    return ["All routes", ...Array.from(rSet).filter(Boolean).sort()];
+  }, [orders]);
+
+  // Dynamically extract all unique villages, optionally filtered by selected route
+  const availableVillages = useMemo(() => {
+    const vSet = new Set<string>();
+    const isAllRoutes = !routeFilter || routeFilter === "All routes" || routeFilter === "All";
+    orders.forEach((o) => {
+      if (isAllRoutes || (o.route || "").toLowerCase() === routeFilter.toLowerCase()) {
+        if (o.village) vSet.add(o.village.trim());
+      }
+    });
+    (realCustomersData as any[]).forEach((c) => {
+      if (isAllRoutes || (c.route || "").toLowerCase() === routeFilter.toLowerCase()) {
+        if (c.village) vSet.add(c.village.trim());
+      }
+    });
+    return ["All villages", ...Array.from(vSet).filter(Boolean).sort()];
+  }, [orders, routeFilter]);
+
   // Kannada Connection Alert Modal state (Exact 1:1 to Image 5 from client website)
   const [offlineAlertOpen, setOfflineAlertOpen] = useState(false);
 
@@ -912,10 +944,31 @@ export function WholesaleOrdersPipelineView() {
     else if (activeTab.includes("disp")) targetStage = "dispatch";
     else if (activeTab.includes("dlv") || activeTab.includes("deliv")) targetStage = "delivery";
 
+    const parseToIso = (dStr?: string) => {
+      if (!dStr) return "";
+      const trimmed = dStr.trim();
+      if (trimmed.includes("-")) {
+        const parts = trimmed.split("-");
+        const p0 = parts[0] || "";
+        const p1 = parts[1] || "";
+        const p2 = parts[2] || "";
+        if (p0.length === 4) return trimmed;
+        if (p2.length === 4) return `${p2}-${p1.padStart(2, "0")}-${p0.padStart(2, "0")}`;
+      }
+      return trimmed;
+    };
+
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
       if (o.stage !== targetStage) return false;
 
+      // 1. Date Range Filter
+      const orderIso = parseToIso(o.orderDate);
+      const matchDate =
+        (!appliedFromDate || orderIso >= appliedFromDate) &&
+        (!appliedToDate || orderIso <= appliedToDate);
+
+      // 2. Search query filter
       const q = pageSearch.toLowerCase().trim();
       const matchSearch =
         !q ||
@@ -925,14 +978,25 @@ export function WholesaleOrdersPipelineView() {
         o.createdBy.toLowerCase().includes(q) ||
         (o.invoiceNo && o.invoiceNo.toLowerCase().includes(q));
 
-      const matchRoute = !routeFilter || o.route === routeFilter;
-      const matchVillage = !villageFilter || o.village === villageFilter;
+      // 3. Route & Village & Vehicle filters
+      const matchRoute =
+        !routeFilter ||
+        routeFilter === "All routes" ||
+        routeFilter === "All" ||
+        (o.route || "").toLowerCase() === routeFilter.toLowerCase();
+
+      const matchVillage =
+        !villageFilter ||
+        villageFilter === "All villages" ||
+        villageFilter === "All" ||
+        (o.village || "").toLowerCase() === villageFilter.toLowerCase();
+
       const matchVehicle =
         selectedVehicle === "0" || selectedVehicle === "Select vehicle" || o.vehicleNo === selectedVehicle;
 
-      return matchSearch && matchRoute && matchVillage && matchVehicle;
+      return matchDate && matchSearch && matchRoute && matchVillage && matchVehicle;
     });
-  }, [orders, activeTab, pageSearch, routeFilter, villageFilter, selectedVehicle]);
+  }, [orders, activeTab, appliedFromDate, appliedToDate, pageSearch, routeFilter, villageFilter, selectedVehicle]);
 
   // Stage Totals
   const totalAmount = currentStageOrders.reduce((acc, o) => acc + o.total, 0);
@@ -1854,6 +1918,8 @@ export function WholesaleOrdersPipelineView() {
           />
           <button
             onClick={() => {
+              setAppliedFromDate(fromDate);
+              setAppliedToDate(toDate);
               syncOrdersFromStorage();
               fetchLiveOrders();
               toast.info("Filter Applied", { description: `Loaded orders for ${fromDate} to ${toDate}` });
@@ -1956,13 +2022,17 @@ export function WholesaleOrdersPipelineView() {
                 <span>Route</span>
                 <select
                   value={routeFilter}
-                  onChange={(e) => setRouteFilter(e.target.value)}
-                  className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
+                  onChange={(e) => {
+                    setRouteFilter(e.target.value);
+                    setVillageFilter("");
+                  }}
+                  className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none max-w-[200px]"
                 >
-                  <option value="">All routes</option>
-                  <option value="DEVARHIPARAGI">DEVARHIPARAGI</option>
-                  <option value="Tadavalaga">Tadavalaga</option>
-                  <option value="Tamba">Tamba</option>
+                  {availableRoutes.map((r) => (
+                    <option key={r} value={r === "All routes" ? "" : r}>
+                      {r}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -1971,12 +2041,13 @@ export function WholesaleOrdersPipelineView() {
                 <select
                   value={villageFilter}
                   onChange={(e) => setVillageFilter(e.target.value)}
-                  className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
+                  className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none max-w-[200px]"
                 >
-                  <option value="">All villages</option>
-                  <option value="Devara Hippargi">Devara Hippargi</option>
-                  <option value="Rugi">Rugi</option>
-                  <option value="Tadavalga">Tadavalga</option>
+                  {availableVillages.map((v) => (
+                    <option key={v} value={v === "All villages" ? "" : v}>
+                      {v}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -2088,12 +2159,13 @@ export function WholesaleOrdersPipelineView() {
               <select
                 value={routeFilter}
                 onChange={(e) => setRouteFilter(e.target.value)}
-                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
+                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none max-w-[200px]"
               >
-                <option value="">All routes</option>
-                <option value="DEVARHIPARAGI">DEVARHIPARAGI</option>
-                <option value="Tadavalaga">Tadavalaga</option>
-                <option value="Tamba">Tamba</option>
+                {availableRoutes.map((r) => (
+                  <option key={r} value={r === "All routes" ? "" : r}>
+                    {r}
+                  </option>
+                ))}
               </select>
             </label>
 

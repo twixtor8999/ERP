@@ -664,6 +664,8 @@ export function CrmTelecallerPortalPage() {
   // Orders Status list
   const [orderStatusStartDate, setOrderStatusStartDate] = useState<string>(getTodayIsoDate);
   const [orderStatusEndDate, setOrderStatusEndDate] = useState<string>(getTodayIsoDate);
+  const [appliedStatusStartDate, setAppliedStatusStartDate] = useState<string>(getTodayIsoDate);
+  const [appliedStatusEndDate, setAppliedStatusEndDate] = useState<string>(getTodayIsoDate);
 
   const getInitialCrmOrdersList = (): CrmOrder[] => {
     const list: CrmOrder[] = [];
@@ -1697,16 +1699,35 @@ export function CrmTelecallerPortalPage() {
 
   // Filter Order Status
   const filteredOrders = useMemo(() => {
+    const parseToIso = (dStr?: string) => {
+      if (!dStr) return "";
+      const trimmed = dStr.trim();
+      if (trimmed.includes("-")) {
+        const parts = trimmed.split("-");
+        const p0 = parts[0] || "";
+        const p1 = parts[1] || "";
+        const p2 = parts[2] || "";
+        if (p0.length === 4) return trimmed;
+        if (p2.length === 4) return `${p2}-${p1.padStart(2, "0")}-${p0.padStart(2, "0")}`;
+      }
+      return trimmed;
+    };
+
     return ordersList.filter((o) => {
+      const orderIso = parseToIso(o.order_date || o.order_placed);
+      const matchDate =
+        (!appliedStatusStartDate || orderIso >= appliedStatusStartDate) &&
+        (!appliedStatusEndDate || orderIso <= appliedStatusEndDate);
+
       const q = orderStatusSearch.toLowerCase().trim();
       const matchQ =
         !q ||
         o.order_number?.toLowerCase().includes(q) ||
         o.customer_name?.toLowerCase().includes(q) ||
         o.customer_phone?.toLowerCase().includes(q);
-      return matchQ;
+      return matchDate && matchQ;
     });
-  }, [ordersList, orderStatusSearch]);
+  }, [ordersList, appliedStatusStartDate, appliedStatusEndDate, orderStatusSearch]);
 
   const orderPlacedCount = useMemo(() => {
     return filteredOrders.filter((o) => o.order_placed && o.order_placed !== "—").length;
@@ -5088,7 +5109,11 @@ export function CrmTelecallerPortalPage() {
                     />
                   </div>
                   <button
-                    onClick={() => loadOrderStatus(orderStatusStartDate, orderStatusEndDate, true)}
+                    onClick={() => {
+                      setAppliedStatusStartDate(orderStatusStartDate);
+                      setAppliedStatusEndDate(orderStatusEndDate);
+                      loadOrderStatus(orderStatusStartDate, orderStatusEndDate, true);
+                    }}
                     className="px-5 py-1.5 rounded-full bg-[#1a2d42] text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs cursor-pointer active:scale-95"
                   >
                     Submit
