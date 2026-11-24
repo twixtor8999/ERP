@@ -31,6 +31,7 @@ export const navigationItems: NavItem[] = [
       { title: "3) Dispatch", href: "/orders?tab=dispatch" },
       { title: "4) Delivery", href: "/orders?tab=delivery" },
       { title: "5) Orders Report", href: "/orders?tab=report" },
+      { title: "6) Item Wise View", href: "/orders?tab=itemw" },
     ],
   },
   { title: "Settlement", href: "/settlements" },
@@ -108,7 +109,7 @@ export const navigationItems: NavItem[] = [
       { title: "7) Live Inventory V/S Sales", href: "/inventory?tab=livesales" },
     ],
   },
-  { title: "Stock Split", href: "/inventory?tab=split" },
+  { title: "Stock Split", href: "/stock-split" },
   {
     title: "SKU's",
     href: "/products",
@@ -189,6 +190,8 @@ export const navigationItems: NavItem[] = [
   },
   { title: "Plans & Billing", href: "/plans-billing" },
   { title: "Duplicate Check", href: "/duplicate-check" },
+  { title: "ಫೋಟೋಗಳು → Storage", href: "/photos-storage" },
+  { title: "Custom Invoice", href: "/custom-invoice" },
 ];
 
 // Retain navigationConfig for backwards compatibility where needed

@@ -61,6 +61,8 @@ export interface TaxInvoiceOrder {
   cgst?: number;
   sgst?: number;
   paid?: number;
+  paidAmount?: number;
+  balance?: number;
   paymentMode?: string;
 }
 
@@ -491,15 +493,52 @@ export function generateTaxInvoiceDocument(order: TaxInvoiceOrder, isDuplicate =
 </html>`;
 }
 
+import type {
+  InvoiceFormat,
+} from "./invoiceTemplateConfig";
+import {
+  getInvoiceTemplateConfig,
+  generateThermalReceiptHtml,
+} from "./invoiceTemplateConfig";
+
+export type {
+  InvoiceFormat,
+};
+export {
+  getInvoiceTemplateConfig,
+  generateThermalReceiptHtml,
+};
+
 /**
  * Opens a dedicated popup tab or window with the Tax Invoice
  * (matching the client's reference application `INV-469_duplicate`).
  * Returns true if opened successfully.
  */
-export function openTaxInvoiceWindow(order: TaxInvoiceOrder, isDuplicate = true): boolean {
+export function openTaxInvoiceWindow(
+  order: TaxInvoiceOrder,
+  isDuplicate = true,
+  formatOverride?: InvoiceFormat
+): boolean {
   try {
-    const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}`;
-    const doc = generateTaxInvoiceDocument(order, isDuplicate);
+    const config = getInvoiceTemplateConfig();
+    const effectiveFormat: InvoiceFormat = formatOverride || config.paperSize || "a4";
+
+    let doc = "";
+    const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}_${effectiveFormat}`;
+
+    if (effectiveFormat === "thermal_80") {
+      doc = generateThermalReceiptHtml(order, 80);
+    } else if (effectiveFormat === "thermal_58") {
+      doc = generateThermalReceiptHtml(order, 58);
+    } else if (effectiveFormat === "a5") {
+      // Generate A5 style by modifying page style in the standard invoice document
+      doc = generateTaxInvoiceDocument(order, isDuplicate).replace(
+        "@page { size: A4 portrait;",
+        "@page { size: A5 landscape;"
+      );
+    } else {
+      doc = generateTaxInvoiceDocument(order, isDuplicate);
+    }
 
     // 1. First attempt: Direct window.open with document.write
     let win: Window | null = null;

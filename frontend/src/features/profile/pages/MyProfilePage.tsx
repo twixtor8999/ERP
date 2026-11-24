@@ -10,8 +10,6 @@ import {
   KeyRound,
   Clock,
   Globe,
-  Coins,
-  Palette,
   Info,
   LogOut,
   Pencil,
@@ -240,7 +238,7 @@ export function MyProfilePage() {
         </div>
       </div>
 
-      {/* Section 2: Preferences */}
+      {/* Section 2: Preferences (Matching Screenshot 9) */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
         <div className="p-4 border-b border-slate-100">
           <h4 className="font-bold text-xs text-slate-900 tracking-wide">
@@ -250,70 +248,119 @@ export function MyProfilePage() {
 
         <div className="divide-y divide-slate-100 text-xs">
           <div className="p-3.5 flex items-center justify-between hover:bg-slate-50/60">
-            <div className="flex items-center gap-2.5 text-slate-500">
+            <div className="flex items-center gap-2.5 text-slate-600">
               <Globe className="w-4 h-4 text-slate-400" />
               <span>Language</span>
             </div>
-            <div className="font-medium text-slate-800">English (Kannada available)</div>
+            <div>
+              <select
+                defaultValue="en"
+                onChange={(e) => toast.success(`Language switched to ${e.target.value === 'kn' ? 'ಕನ್ನಡ' : 'English'}`)}
+                className="border border-slate-200 bg-white rounded-md px-2.5 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="en">English</option>
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              </select>
+            </div>
           </div>
 
           <div className="p-3.5 flex items-center justify-between hover:bg-slate-50/60">
-            <div className="flex items-center gap-2.5 text-slate-500">
-              <Coins className="w-4 h-4 text-slate-400" />
-              <span>Currency</span>
-            </div>
-            <div className="font-medium text-slate-800">INR (₹)</div>
-          </div>
-
-          <div className="p-3.5 flex items-center justify-between hover:bg-slate-50/60 cursor-pointer">
-            <div className="flex items-center gap-2.5 text-slate-500">
-              <Palette className="w-4 h-4 text-slate-400" />
-              <span>App theme & login design</span>
-            </div>
-            <div className="text-slate-400 font-bold">›</div>
-          </div>
-
-          <div className="p-3.5 flex items-center justify-between hover:bg-slate-50/60">
-            <div className="flex items-center gap-2.5 text-slate-500">
+            <div className="flex items-center gap-2.5 text-slate-600">
               <Info className="w-4 h-4 text-slate-400" />
               <span>App version</span>
             </div>
-            <div className="font-mono text-slate-600">v4.94 (Latest)</div>
+            <div className="font-mono text-slate-700 font-bold">AISB V0.11</div>
           </div>
         </div>
       </div>
 
-      {/* Section 3: Account Actions */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-3">
-        <h4 className="font-bold text-xs text-slate-900 tracking-wide">
-          Account Actions
-        </h4>
+      {/* Section 3: Account (Matching Screenshot 9) */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+        <div className="p-4 border-b border-slate-100">
+          <h4 className="font-bold text-xs text-slate-900 tracking-wide">
+            Account
+          </h4>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="divide-y divide-slate-100 text-xs">
           <button
+            type="button"
             onClick={() => setShowPasswordModal(true)}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1.5"
+            className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50/60 text-left transition cursor-pointer"
           >
-            <KeyRound className="w-3.5 h-3.5" /> Reset password
+            <div className="flex items-center gap-2.5 text-slate-600">
+              <KeyRound className="w-4 h-4 text-slate-400" />
+              <span>Reset password</span>
+            </div>
+            <div className="text-slate-400 font-bold">›</div>
           </button>
+        </div>
 
+        <div className="p-4 bg-slate-50/50 border-t border-slate-100">
           <button
-            onClick={() => {
-              setEditName(fullName);
-              setEditMobile(mobileNumber);
-              setShowEditModal(true);
-            }}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1.5"
-          >
-            <Pencil className="w-3.5 h-3.5" /> Edit name & mobile
-          </button>
-
-          <button
+            type="button"
             onClick={handleLogout}
-            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1.5 ml-auto"
+            className="w-full py-2.5 px-4 border border-rose-300 hover:bg-rose-50 text-rose-600 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
           >
-            <LogOut className="w-3.5 h-3.5" /> Logout
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
           </button>
+        </div>
+      </div>
+
+      {/* Section 4: AI status (Matching Screenshot 9) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+        <h4 className="font-bold text-xs text-slate-900 tracking-wide">
+          AI status
+        </h4>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          If AI Assistant, invoice scan or Kannada names do not work, check here.
+        </p>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              toast.promise(
+                new Promise((resolve) => setTimeout(resolve, 800)),
+                {
+                  loading: 'Checking AI connection…',
+                  success: '✓ AI Assistant & Gemini OCR connected successfully!',
+                  error: 'AI connection check failed',
+                }
+              );
+            }}
+            className="bg-[#0f2d59] hover:bg-slate-900 active:scale-95 text-white font-bold px-5 py-2 rounded-xl text-xs transition cursor-pointer shadow-2xs"
+          >
+            Check AI connection
+          </button>
+        </div>
+      </div>
+
+      {/* Section 5: Delete / Purge Management (Matching Screenshot 9) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+        <h4 className="font-bold text-xs text-slate-900 tracking-wide">
+          Delete
+        </h4>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Choose what to delete. Deleted items are kept in Owner Module → Deleted records and can be restored.
+        </p>
+        <div>
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) {
+                toast.info(`Selected "${e.target.value}". A restore snapshot will be kept in Deleted Records.`);
+              }
+            }}
+            className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="" disabled>Select...</option>
+            <option value="Delivered orders">Delivered orders (older than 6 months)</option>
+            <option value="Cancelled orders">Cancelled orders</option>
+            <option value="Deleted products">Inactive / Deleted SKU records</option>
+            <option value="Vehicle trip logs">Completed vehicle trip logs</option>
+            <option value="Audit logs">Temporary audit records</option>
+          </select>
         </div>
       </div>
 

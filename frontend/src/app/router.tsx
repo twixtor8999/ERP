@@ -20,6 +20,8 @@ import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaf
 import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
 import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheetView";
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
+import { StockSplitPage } from "@/features/stock-split";
+import { PhotoStoragePage } from "@/features/storage/pages/PhotoStoragePage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 import { PaymentsManagementPage } from "@/features/payments/pages/PaymentsManagementPage";
@@ -40,6 +42,7 @@ import { PnlPage } from "@/features/pnl";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
 import { MyProfilePage } from "@/features/profile/pages/MyProfilePage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
+import { CustomInvoiceTemplatePage } from "@/features/settings";
 import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
 import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
 import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
@@ -227,7 +230,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "stock-split",
-        element: <Navigate to="/inventory?tab=split" replace />,
+        element: <StockSplitPage />,
       },
       {
         path: "purchases",
@@ -332,6 +335,18 @@ export const router = createBrowserRouter([
       {
         path: "settings",
         element: <SystemSettingsPage />,
+      },
+      {
+        path: "custom-invoice",
+        element: <CustomInvoiceTemplatePage />,
+      },
+      {
+        path: "photos-storage",
+        element: <PhotoStoragePage />,
+      },
+      {
+        path: "storage",
+        element: <Navigate to="/photos-storage" replace />,
       },
     ],
   },

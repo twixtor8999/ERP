@@ -10,6 +10,7 @@ import { apiClient } from "@/lib/api/client";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
 import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
@@ -2057,7 +2058,9 @@ export function WholesaleOrdersPipelineView() {
 
       {/* Heading Title matching Reference Screenshot */}
       <h1 className="text-xl sm:text-2xl font-black text-[#1e293b] tracking-tight capitalize">
-        {activeTab.includes("inv")
+        {activeTab.includes("itemw")
+          ? "Item Wise View"
+          : activeTab.includes("inv")
           ? "Invoice"
           : activeTab.includes("disp")
           ? "Dispatch"
@@ -2075,17 +2078,26 @@ export function WholesaleOrdersPipelineView() {
         </p>
       )}
 
-      {/* Page Search Input */}
-      <div className="relative max-w-lg">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-        <input
-          type="text"
-          placeholder="🔍 Search in this page…"
-          value={pageSearch}
-          onChange={(e) => setPageSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
-        />
-      </div>
+      {/* Page Search Input (hidden in Item Wise View which has its own controls) */}
+      {!activeTab.includes("itemw") && (
+        <div className="relative max-w-lg">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="🔍 Search in this page…"
+            value={pageSearch}
+            onChange={(e) => setPageSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
+          />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 0. ITEM-WISE CONSOLIDATED PICKING VIEW (Client feature)   */}
+      {/* ======================================================== */}
+      {activeTab.includes("itemw") && (
+        <WholesaleItemWisePickingView orders={orders} />
+      )}
 
       {/* ======================================================== */}
       {/* 1. PACKING STAGE VIEW (Screenshot 1)                     */}
@@ -2094,7 +2106,8 @@ export function WholesaleOrdersPipelineView() {
         !activeTab.includes("disp") &&
         !activeTab.includes("dlv") &&
         !activeTab.includes("deliv") &&
-        !activeTab.includes("rep") && (
+        !activeTab.includes("rep") &&
+        !activeTab.includes("itemw") && (
           <div className="space-y-3">
             {/* Filter Bar: Route & Village */}
             <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">

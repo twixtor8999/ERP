@@ -31,6 +31,10 @@ export interface PnlSku {
   gst: number;
   cost: number;
   stock?: number;
+  cat?: string;
+  sellingPrice?: number;
+  hsn?: string;
+  uom?: string;
 }
 
 export interface PnlVehicle {
