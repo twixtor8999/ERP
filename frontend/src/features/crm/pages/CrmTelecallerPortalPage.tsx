@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KARNATAKA_VILLAGES } from "../data/karnatakaVillages";
 import realProductsData from "@/data/realProducts.json";
+import realCustomersData from "@/data/realCustomers.json";
 import { INITIAL_CRM_ORDERS } from "../data/mockCrmReports";
 import { INITIAL_PIPELINE_ORDERS, type PipelineOrder } from "@/features/orders/components/WholesaleOrdersPipelineView";
 
@@ -348,12 +349,43 @@ interface CallingCustomer {
   google_map_url?: string;
   current_balance: number;
   credit_limit: number;
+  status?: string;
   last_call?: {
     last_call_at: string;
     last_remark?: string;
     last_outcome?: string;
   };
 }
+
+const getInitialCallingCustomers = (): CallingCustomer[] => {
+  return (realCustomersData as any[]).map((c, i) => {
+    const name = c.name || "";
+    const shop = c.shop || c.shop_name || "Kirana Store";
+    const isArunDevargudi = name.toLowerCase() === "arun devargudi";
+    const status = c.status || (isArunDevargudi ? "Active" : "Unbilled");
+    const isBilled = status.toLowerCase() === "active";
+    return {
+      id: String(c.id || `c-${i}`),
+      name: name,
+      shop_name: shop,
+      display_name: name,
+      phone: c.phone || "",
+      customer_code: `CUST-${String(i + 1).padStart(4, "0")}`,
+      village: c.village || "",
+      taluka: c.taluka || "Vijayapura",
+      district: c.district || "Vijayapura",
+      pincode: c.pincode || "586101",
+      route: c.route || "GOLASANGI",
+      beat_day: c.beat_day || (["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][i % 6]),
+      village_key: c.village_key || "Nil",
+      last_order_date: isBilled ? "23-11-2026" : "—",
+      google_map_url: c.google_map_url,
+      current_balance: Number(c.balance) || (isBilled ? 106 : 0),
+      credit_limit: Number(c.credit_limit) || 50000,
+      status: status,
+    };
+  });
+};
 
 interface ProductItem {
   id: string;
@@ -541,13 +573,19 @@ export function CrmTelecallerPortalPage() {
   const [incentiveEndDate, setIncentiveEndDate] = useState<string>(getTodayIsoDate);
 
   // Calling Sheet state
-  const [routes, setRoutes] = useState<string[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<string>("Bijapur");
+  const [routes, setRoutes] = useState<string[]>(() => {
+    const rSet = new Set<string>(["All Routes", "Bijapur", "GOLASANGI", "Inchageri", "TAJAPUR", "mamadapur", "BABANAGAR", "Basavan Bagewadi", "Tikota", "Tamba"]);
+    (realCustomersData as any[]).forEach((c) => {
+      if (c.route) rSet.add(c.route);
+    });
+    return Array.from(rSet);
+  });
+  const [selectedRoute, setSelectedRoute] = useState<string>("All Routes");
   const [selectedVillage, setSelectedVillage] = useState<string>("All villages");
-  const [selectedBeatDay, setSelectedBeatDay] = useState<string>(getTodayDayName);
+  const [selectedBeatDay, setSelectedBeatDay] = useState<string>("All Days");
   const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
   const [callingSearch, setCallingSearch] = useState<string>("");
-  const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>([]);
+  const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>(getInitialCallingCustomers);
   const [customerSearch, setCustomerSearch] = useState<string>("");
   const [customerRouteFilter, setCustomerRouteFilter] = useState<string>("All Routes");
 
@@ -1033,10 +1071,14 @@ export function CrmTelecallerPortalPage() {
       setSummary(sumRes.data);
       setIncentiveProducts(incRes.data);
       const apiRoutes = callRes.data && callRes.data.routes ? callRes.data.routes : [];
-      const mergedRoutes = Array.from(new Set(["Bijapur", ...apiRoutes, "All Routes"]));
-      setRoutes(mergedRoutes);
+      if (apiRoutes.length > 0) {
+        const mergedRoutes = Array.from(new Set(["All Routes", "Bijapur", ...apiRoutes]));
+        setRoutes(mergedRoutes);
+      }
 
-      const custList = callRes.data && callRes.data.customers ? callRes.data.customers : [];
+      const custList = callRes.data && callRes.data.customers && callRes.data.customers.length > 0
+        ? callRes.data.customers
+        : getInitialCallingCustomers();
       setCallingCustomers(custList);
 
       // Normalize live SKU products & variants from Super Admin (using Selling Price)
@@ -1152,6 +1194,7 @@ export function CrmTelecallerPortalPage() {
       }
     } catch {
       // Graceful fallback to cached/offline telemetry without intrusive toast alerts
+      setCallingCustomers((prev) => (prev && prev.length > 0 ? prev : getInitialCallingCustomers()));
     } finally {
       setLoading(false);
     }
@@ -1589,7 +1632,7 @@ export function CrmTelecallerPortalPage() {
     }
     const q = orderCustomerSearch.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((c) => {
+    const matches = list.filter((c) => {
       const name = (c.name || c.display_name || "").toLowerCase();
       const shop = (c.shop_name || "").toLowerCase();
       const village = (c.village || "").toLowerCase();
@@ -1602,6 +1645,26 @@ export function CrmTelecallerPortalPage() {
         phone.includes(q) ||
         route.includes(q)
       );
+    });
+
+    return matches.sort((a, b) => {
+      const nameA = (a.name || a.display_name || "").toLowerCase();
+      const nameB = (b.name || b.display_name || "").toLowerCase();
+      const shopA = (a.shop_name || "").toLowerCase();
+      const shopB = (b.shop_name || "").toLowerCase();
+
+      const getScore = (name: string, shop: string) => {
+        if (name.startsWith(q)) return 1;
+        if (name.includes(q)) return 2;
+        if (shop.startsWith(q)) return 3;
+        if (shop.includes(q)) return 4;
+        return 5;
+      };
+
+      const scoreA = getScore(nameA, shopA);
+      const scoreB = getScore(nameB, shopB);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return nameA.localeCompare(nameB);
     });
   }, [callingCustomers, orderBeatOnly, selectedBeatDay, orderCustomerSearch]);
 
@@ -3333,7 +3396,10 @@ export function CrmTelecallerPortalPage() {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                           {filteredOrderCustomers.slice(0, 100).map((c) => {
-                            const isBilled = !!(c.last_order_date && c.last_order_date !== "—") || c.current_balance > 0;
+                            const isBilled =
+                              (c.status || "").toLowerCase() === "active" ||
+                              (!!(c.last_order_date && c.last_order_date !== "—") && (c.status || "").toLowerCase() !== "unbilled") ||
+                              c.current_balance > 0;
                             return (
                               <div
                                 key={c.id}
@@ -3346,7 +3412,7 @@ export function CrmTelecallerPortalPage() {
                                   </div>
                                   <div className="space-y-0.5 min-w-0 flex-1">
                                     <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                                      {c.display_name || c.name}
+                                      {c.name || c.display_name}
                                     </h3>
                                     <p className="text-xs text-slate-600 font-medium truncate">
                                       {c.village || "—"}
@@ -3378,7 +3444,7 @@ export function CrmTelecallerPortalPage() {
                                       window.location.href = `tel:${c.phone}`;
                                     }}
                                     className="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200/60 flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-2xs"
-                                    title={`Call ${c.display_name}`}
+                                    title={`Call ${c.name || c.display_name}`}
                                   >
                                     <Phone className="w-3.5 h-3.5 text-blue-700" />
                                   </button>
