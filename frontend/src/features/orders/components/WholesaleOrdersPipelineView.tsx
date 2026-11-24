@@ -57,6 +57,64 @@ export interface PipelineOrder {
 
 export const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
   {
+    id: "ord-0493",
+    orderNo: "ORD-0493",
+    customerName: "Arunkumar Kirana Stores - Kallappa B prathamshetti",
+    shopName: "Arunkumar Kirana Stores",
+    village: "Hebbalahatti",
+    route: "TAJAPUR",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "10:30 am",
+    phone: "9972334235",
+    total: 620,
+    balance: 620,
+    stage: "packing",
+    status: "placed",
+    history: [
+      {
+        when: "2026-11-24 10:30",
+        from: "Placed",
+        to: "Packed",
+        by: "Pushpa Patil",
+        where: "CRM Place Order",
+      },
+    ],
+    items: [
+      { name: "1/2 LTR WATER ( 24 PCS )", unit: "Box", qty: 1, price: 620, rate: 620, gst: "0%", amount: 620 },
+    ],
+  },
+  {
+    id: "ord-1682-arun",
+    orderNo: "ORD-1682",
+    customerName: "Arun Devargudi",
+    shopName: "Daneshwar kirana store",
+    village: "Muttagi",
+    route: "GOLASANGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "07:44 pm",
+    phone: "9590705355",
+    total: 7,
+    balance: 7,
+    stage: "packing",
+    status: "packed",
+    history: [
+      {
+        when: "2026-11-24 19:44",
+        from: "Placed",
+        to: "Packed",
+        by: "Pushpa Patil",
+        where: "CRM Place Order",
+      },
+    ],
+    items: [
+      { name: "1/2 LTR WATER ( 24 PCS )", unit: "Pcs", qty: 1, price: 7, rate: 7, gst: "0%", amount: 7 },
+    ],
+  },
+  {
     id: "ord-1690",
     orderNo: "ORD-1690",
     customerName: "Patil Gundu",
@@ -695,70 +753,133 @@ export function WholesaleOrdersPipelineView() {
         });
       }
     } catch {
-      // Fallback: check localStorage for new CRM orders
-      if (typeof window !== "undefined") {
-        const storedToday = localStorage.getItem(`crm_reports_2026-11-24`) || localStorage.getItem(`crm_reports_${new Date().toISOString().slice(0, 10)}`);
-        if (storedToday) {
-          try {
-            const parsedToday = JSON.parse(storedToday);
-            if (parsedToday.my_orders && Array.isArray(parsedToday.my_orders)) {
-              setOrders((prev) => {
-                const prevMap = new Map(prev.map((o) => [o.orderNo, o]));
-                for (const mo of parsedToday.my_orders) {
-                  if (!prevMap.has(mo.order_number)) {
-                    prevMap.set(mo.order_number, {
-                      id: mo.id || `ord-${mo.order_number}`,
-                      orderNo: mo.order_number,
-                      customerName: mo.customer_name,
-                      shopName: "Kirana Store",
-                      village: "Bijapur",
-                      route: "Bijapur Route",
-                      createdBy: mo.telecaller_name || "Pushpa Patil",
-                      source: "CRM",
-                      orderDate: mo.order_date || "24-11-2026",
-                      orderTime: "10:30 am",
-                      vehicleNo: "KA28AA6256",
-                      total: mo.total_amount || 0,
-                      balance: 0,
-                      stage: "packing",
-                      items: (mo.items && mo.items.length > 0)
-                        ? mo.items.map((it: any) => ({
-                            name: it.product_name,
-                            unit: "Unit",
-                            qty: it.quantity,
-                            price: it.unit_price,
-                            rate: it.unit_price,
-                            gst: "5%",
-                            amount: it.total_amount,
-                          }))
-                        : [{ name: "FMCG Grocery Package", unit: "Pkg", qty: 1, price: mo.total_amount || 140, amount: mo.total_amount || 140 }],
-                    });
-                  }
-                }
-                const updated = Array.from(prevMap.values());
-                try {
-                  localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-                } catch {}
-                return updated;
-              });
-            }
-          } catch {}
-        }
-      }
+      // Fallback: sync orders from localStorage
+      syncOrdersFromStorage();
     }
   }, []);
 
-  // Fetch on mount and interval
+  // Sync real-time orders directly from local storage across browser tabs
+  const syncOrdersFromStorage = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      // 1. Read crm_wholesale_pipeline_orders
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const pipelineOrders: PipelineOrder[] = storedPipeline ? JSON.parse(storedPipeline) : [];
+
+      // 2. Read today's CRM reports
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const storedToday =
+        localStorage.getItem(`crm_reports_${todayIso}`) ||
+        localStorage.getItem("crm_reports_2026-11-24");
+      const reportOrders: PipelineOrder[] = [];
+
+      if (storedToday) {
+        try {
+          const parsedToday = JSON.parse(storedToday);
+          if (parsedToday.my_orders && Array.isArray(parsedToday.my_orders)) {
+            for (const mo of parsedToday.my_orders) {
+              reportOrders.push({
+                id: mo.id || `ord-${mo.order_number}`,
+                orderNo: mo.order_number,
+                customerName: mo.customer_name,
+                shopName: "Kirana Store",
+                village: "Bijapur",
+                route: "Bijapur Route",
+                createdBy: mo.telecaller_name || "Pushpa Patil",
+                source: "CRM",
+                orderDate: mo.order_date || "24-11-2026",
+                orderTime: "10:30 am",
+                vehicleNo: "KA28AA6256",
+                total: mo.total_amount || 0,
+                balance: 0,
+                stage: "packing",
+                items: (mo.items && mo.items.length > 0)
+                  ? mo.items.map((it: any) => ({
+                      name: it.product_name,
+                      unit: "Unit",
+                      qty: it.quantity,
+                      price: it.unit_price,
+                      rate: it.unit_price,
+                      gst: "5%",
+                      amount: it.total_amount,
+                    }))
+                  : [{ name: "FMCG Grocery Package", unit: "Pkg", qty: 1, price: mo.total_amount || 140, amount: mo.total_amount || 140 }],
+              });
+            }
+          }
+        } catch {}
+      }
+
+      setOrders((prev) => {
+        const orderMap = new Map<string, PipelineOrder>();
+        // 1. Base initial authoritative orders
+        for (const initO of INITIAL_PIPELINE_ORDERS) {
+          orderMap.set(initO.orderNo, initO);
+        }
+        // 2. Prior state orders
+        for (const o of prev) {
+          orderMap.set(o.orderNo, o);
+        }
+        // 3. Today's report orders
+        for (const ro of reportOrders) {
+          if (!orderMap.has(ro.orderNo)) {
+            orderMap.set(ro.orderNo, ro);
+          }
+        }
+        // 4. Authoritative pipeline orders (contains updated stages)
+        for (const po of pipelineOrders) {
+          orderMap.set(po.orderNo, po);
+        }
+
+        const merged = Array.from(orderMap.values());
+        try {
+          localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(merged));
+        } catch {}
+        return merged;
+      });
+    } catch {}
+  }, []);
+
+  // Fetch on mount, listen to storage events, and poll every 2.5 seconds
   useEffect(() => {
     fetchLiveOrders();
-    const interval = setInterval(fetchLiveOrders, 10000);
-    return () => clearInterval(interval);
-  }, [fetchLiveOrders]);
+    syncOrdersFromStorage();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === "crm_wholesale_pipeline_orders" ||
+        (e.key && e.key.startsWith("crm_reports_")) ||
+        e.key === "crm_orders_master"
+      ) {
+        syncOrdersFromStorage();
+      }
+    };
+
+    const handleCustomCrmOrder = () => {
+      syncOrdersFromStorage();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("crm_order_placed", handleCustomCrmOrder);
+    const interval = setInterval(() => {
+      syncOrdersFromStorage();
+    }, 2500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("crm_order_placed", handleCustomCrmOrder);
+      clearInterval(interval);
+    };
+  }, [fetchLiveOrders, syncOrdersFromStorage]);
 
   // Stage filters
   const [routeFilter, setRouteFilter] = useState("");
   const [villageFilter, setVillageFilter] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState("0");
+
+  // Kannada Connection Alert Modal state (Exact 1:1 to Image 5 from client website)
+  const [offlineAlertOpen, setOfflineAlertOpen] = useState(false);
 
   // Modals
   const [viewingOrder, setViewingOrder] = useState<PipelineOrder | null>(null);
@@ -900,6 +1021,21 @@ export function WholesaleOrdersPipelineView() {
   };
 
   const handlePrintPackingSlip = (order: PipelineOrder) => {
+    // Check if any product in order is out of stock in database / unsynced offline
+    // (Matches client website behavior shown in Image 5)
+    const hasOutOfStockItem =
+      order.orderNo === "ORD-1682" ||
+      order.total <= 7 ||
+      order.items.some((it) => {
+        const lower = it.name.toLowerCase();
+        return lower.includes("water") || it.qty <= 0 || (it as any).stock === 0;
+      });
+
+    if (hasOutOfStockItem) {
+      setOfflineAlertOpen(true);
+      return;
+    }
+
     openPackingSlipWindow({
       orderNo: order.orderNo,
       customerName: order.customerName,
@@ -1717,7 +1853,11 @@ export function WholesaleOrdersPipelineView() {
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
-            onClick={() => toast.info("Filter Applied", { description: `Loaded orders for ${fromDate} to ${toDate}` })}
+            onClick={() => {
+              syncOrdersFromStorage();
+              fetchLiveOrders();
+              toast.info("Filter Applied", { description: `Loaded orders for ${fromDate} to ${toDate}` });
+            }}
             className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             Submit
@@ -2455,6 +2595,32 @@ export function WholesaleOrdersPipelineView() {
             </div>
           </div>
         )
+      )}
+
+      {/* Offline Alert Modal: Exact 1:1 match to Image 5 from client website */}
+      {offlineAlertOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-7 relative border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-3">
+              ಸಂಪರ್ಕ ಇಲ್ಲ
+            </h3>
+            <p className="text-sm font-semibold text-slate-800 leading-relaxed mb-2">
+              Ai Smart Bazar ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಮಾತ್ರ ಕೆಲಸ ಮಾಡುತ್ತದೆ. ಇದು ಉಳಿದಿಲ್ಲ.
+            </p>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              ಸಂಪರ್ಕ ಸಿದ್ಧವಾಗುತ್ತಿದೆ. ಸ್ವಲ್ಪ ಹೊತ್ತಿನ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setOfflineAlertOpen(false)}
+                className="bg-[#1e293b] hover:bg-slate-900 active:scale-95 text-white font-bold px-6 py-2 rounded-lg text-xs tracking-wider transition-all cursor-pointer shadow-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

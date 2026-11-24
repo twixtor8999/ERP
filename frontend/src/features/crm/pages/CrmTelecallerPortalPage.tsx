@@ -2140,6 +2140,7 @@ export function CrmTelecallerPortalPage() {
         };
         const updatedPipeline = [newPipelineOrder, ...pipelineArr.filter((p) => p.orderNo !== orderNum)];
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updatedPipeline));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
 
       // Immediately add to ordersList in state so if they view Order Status, it's right at the top
