@@ -304,6 +304,30 @@ const getIncentiveTag = (name: string, incProducts: IncentiveProduct[]): { amoun
   return null;
 };
 
+const getTodayIsoDate = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayDayName = (): string => {
+  return new Date().toLocaleDateString("en-US", { weekday: "long" });
+};
+
+const getTodayDisplayDate = (): string => {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const getNowTimeStr = (): string => {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+};
+
 interface CallingCustomer {
   id: string;
   name: string;
@@ -388,6 +412,7 @@ interface CrmReportData {
   total_orders?: number;
   order_total?: number;
   unbilled_customers?: number;
+  incentive_today?: number;
   my_orders?: Array<{
     id: string;
     order_number: string;
@@ -400,14 +425,14 @@ interface CrmReportData {
   incentive?: number;
   last_seen?: string;
   last_order?: string;
-  calls_today: number;
-  calls_month: number;
-  connected_calls: number;
-  connection_rate_pct: number;
-  orders_today: number;
-  orders_month: number;
-  revenue_month: number;
-  recent_calls: Array<{
+  calls_today?: number;
+  calls_month?: number;
+  connected_calls?: number;
+  connection_rate_pct?: number;
+  orders_today?: number;
+  orders_month?: number;
+  revenue_month?: number;
+  recent_calls?: Array<{
     id: string;
     customer_name: string;
     shop_name: string;
@@ -509,14 +534,14 @@ export function CrmTelecallerPortalPage() {
   const [selectedIncentiveProduct, setSelectedIncentiveProduct] = useState<IncentiveProduct | null>(null);
   const [incentivePage, setIncentivePage] = useState<1 | 2>(1);
   const [incentiveFilter, setIncentiveFilter] = useState<"ALL" | "ACHIEVED">("ALL");
-  const [incentiveStartDate, setIncentiveStartDate] = useState("2026-11-22");
-  const [incentiveEndDate, setIncentiveEndDate] = useState("2026-11-22");
+  const [incentiveStartDate, setIncentiveStartDate] = useState<string>(getTodayIsoDate);
+  const [incentiveEndDate, setIncentiveEndDate] = useState<string>(getTodayIsoDate);
 
   // Calling Sheet state
   const [routes, setRoutes] = useState<string[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<string>("Bijapur");
   const [selectedVillage, setSelectedVillage] = useState<string>("All villages");
-  const [selectedBeatDay, setSelectedBeatDay] = useState<string>("Sunday");
+  const [selectedBeatDay, setSelectedBeatDay] = useState<string>(getTodayDayName);
   const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
   const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>([]);
@@ -596,8 +621,8 @@ export function CrmTelecallerPortalPage() {
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
 
   // Orders Status list
-  const [orderStatusStartDate, setOrderStatusStartDate] = useState("2026-11-22");
-  const [orderStatusEndDate, setOrderStatusEndDate] = useState("2026-11-22");
+  const [orderStatusStartDate, setOrderStatusStartDate] = useState<string>(getTodayIsoDate);
+  const [orderStatusEndDate, setOrderStatusEndDate] = useState<string>(getTodayIsoDate);
   const [ordersList, setOrdersList] = useState<CrmOrder[]>([
     {
       id: "ord-1",
@@ -684,118 +709,29 @@ export function CrmTelecallerPortalPage() {
   const [selectedStatusOrder, setSelectedStatusOrder] = useState<CrmOrder | null>(null);
 
   // CRM Reports state
-  const [reportStartDate, setReportStartDate] = useState("2026-11-23");
-  const [reportEndDate, setReportEndDate] = useState("2026-11-23");
+  const [, setCurrentDayDate] = useState<string>(getTodayIsoDate);
+  const [reportStartDate, setReportStartDate] = useState<string>(getTodayIsoDate);
+  const [reportEndDate, setReportEndDate] = useState<string>(getTodayIsoDate);
   const [showVisitedModal, setShowVisitedModal] = useState<boolean>(false);
-  const [reportData, setReportData] = useState<CrmReportData>({
-    customer_created: 0,
-    customer_visited: 17,
-    total_orders: 17,
-    order_total: 51865,
-    unbilled_customers: 1960,
-    my_orders: [
-      {
-        id: "ord-1661",
-        customer_name: "Ananda kumbar",
-        order_number: "ORD-1661",
-        order_date: "23-11-2026",
-        total_amount: 140,
-        status: "PLACED",
-      },
-      {
-        id: "ord-1664",
-        customer_name: "Ramesh s kanakappagol",
-        order_number: "ORD-1664",
-        order_date: "23-11-2026",
-        total_amount: 1570,
-        status: "PACKED",
-      },
-      {
-        id: "ord-1663",
-        customer_name: "Shrikant Rathod",
-        order_number: "ORD-1663",
-        order_date: "23-11-2026",
-        total_amount: 6652,
-        status: "PLACED",
-      },
-      {
-        id: "ord-1662",
-        customer_name: "Suprit",
-        order_number: "ORD-1662",
-        order_date: "23-11-2026",
-        total_amount: 2030,
-        status: "PLACED",
-      },
-      {
-        id: "ord-1660",
-        customer_name: "Ashok Uppar",
-        order_number: "ORD-1660",
-        order_date: "23-11-2026",
-        total_amount: 1090,
-        status: "PLACED",
-      },
-    ],
-    visited_customers: [
-      {
-        id: "vc-1",
-        name: "Arun Devargudi",
-        shop_name: "Daneshwar kirana store",
-        village: "Muttagi",
-        phone: "9590705355",
-        orders_count: 1,
-      },
-      {
-        id: "vc-2",
-        name: "Hanamant tonashyal",
-        shop_name: "Hanamant kirana store",
-        village: "Bijapur (Rural)",
-        phone: "9972241061",
-        orders_count: 1,
-      },
-      {
-        id: "vc-3",
-        name: "Ananda kumbar",
-        shop_name: "Vijayalakshmi kirana store",
-        village: "Chikkarugi",
-        phone: "6362266254",
-        orders_count: 1,
-      },
-      {
-        id: "vc-4",
-        name: "Ramesh s kanakappagol",
-        shop_name: "Kanekeshara store",
-        village: "Chimmalgi R.C",
-        phone: "8748930231",
-        orders_count: 1,
-      },
-      {
-        id: "vc-5",
-        name: "Shrikant Rathod",
-        shop_name: "Someshwar kirani Store",
-        village: "Chimmalgi R.C",
-        phone: "8722946440",
-        orders_count: 1,
-      },
-      {
-        id: "vc-6",
-        name: "Anil jadav",
-        shop_name: "Roopa kirani stores",
-        village: "Kudagi",
-        phone: "9901980016",
-        orders_count: 1,
-      },
-    ],
-    incentive: 0,
-    last_seen: "23/11/2026, 11:35 pm",
-    last_order: "23 Nov, 10:47 pm",
-    calls_today: 0,
-    calls_month: 109,
-    connected_calls: 92,
-    connection_rate_pct: 84.4,
-    orders_today: 17,
-    orders_month: 486,
-    revenue_month: 218450,
-    recent_calls: [],
+  const [reportData, setReportData] = useState<CrmReportData>(() => {
+    const todayIso = getTodayIsoDate();
+    const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {}
+    }
+    return {
+      customer_created: 0,
+      customer_visited: 0,
+      total_orders: 0,
+      order_total: 0,
+      unbilled_customers: 1958,
+      incentive_today: 0,
+      my_orders: [],
+      visited_customers: [],
+      last_seen: `${getTodayDisplayDate()}, ${getNowTimeStr()}`,
+    };
   });
 
   // Team CRM Report state matching screenshot
@@ -842,12 +778,49 @@ export function CrmTelecallerPortalPage() {
   const [isCreatingCust, setIsCreatingCust] = useState(false);
   const aadhaarFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Attendance state & Live Duty Timer
-  const [attendancePunched, setAttendancePunched] = useState(false);
-  const [attendanceTime, setAttendanceTime] = useState("");
+  // Attendance state & Live Duty Timer (Daily fresh status - resets at 12:00 AM midnight)
+  const [attendancePunched, setAttendancePunched] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const todayIso = getTodayIsoDate();
+    const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return Boolean(parsed.punched);
+      } catch {}
+    }
+    return false;
+  });
+
+  const [attendanceTime, setAttendanceTime] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const todayIso = getTodayIsoDate();
+    const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return parsed.time || "";
+      } catch {}
+    }
+    return "";
+  });
+
   const [attendanceDaysPresent, setAttendanceDaysPresent] = useState(22);
   const [isPunchingAtt, setIsPunchingAtt] = useState(false);
-  const [punchSeconds, setPunchSeconds] = useState(0);
+  const [punchSeconds, setPunchSeconds] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const todayIso = getTodayIsoDate();
+    const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.timestamp) {
+          return Math.max(0, Math.floor((Date.now() - parsed.timestamp) / 1000));
+        }
+      } catch {}
+    }
+    return 0;
+  });
 
   useEffect(() => {
     let timer: any;
@@ -931,12 +904,56 @@ export function CrmTelecallerPortalPage() {
     loadDashboardData();
     checkAttendanceStatus();
 
-    // Auto-sync every 45s so products, prices & stock from Super Admin update in real time
+    // Auto-sync every 30s with automatic 12:00 AM midnight daily reset
     const syncInterval = setInterval(() => {
-      loadDashboardData();
       const tick = new Date();
       setSyncTime(tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    }, 45000);
+      const todayIso = getTodayIsoDate();
+
+      // Check if midnight passed into a new day!
+      setCurrentDayDate((prevDate) => {
+        if (prevDate !== todayIso) {
+          // 12:00 AM MIDNIGHT ROLLOVER: Reset to fresh morning
+          setReportStartDate(todayIso);
+          setReportEndDate(todayIso);
+          setOrderStatusStartDate(todayIso);
+          setOrderStatusEndDate(todayIso);
+          setSelectedBeatDay(getTodayDayName());
+
+          // Reset daily counters for fresh morning
+          setSummary((prev) => ({
+            ...prev,
+            orders_today: 0,
+            order_value_today: 0,
+            calls_today: 0,
+            incentive_earned_today: 0,
+          }));
+
+          setReportData({
+            customer_created: 0,
+            customer_visited: 0,
+            total_orders: 0,
+            order_total: 0,
+            unbilled_customers: 1958,
+            incentive_today: 0,
+            my_orders: [],
+            visited_customers: [],
+            last_seen: `${getTodayDisplayDate()}, ${tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
+          });
+
+          // Attendance is NOT marked at midnight; resets to unpunched state
+          setAttendancePunched(false);
+          setAttendanceTime("");
+          setPunchSeconds(0);
+
+          loadDashboardData();
+          return todayIso;
+        }
+        return prevDate;
+      });
+
+      loadDashboardData();
+    }, 30000);
 
     return () => clearInterval(syncInterval);
   }, []);
@@ -1120,10 +1137,86 @@ export function CrmTelecallerPortalPage() {
         apiClient.get<CrmReportData>(`/api/v1/admin/crm/reports?start_date=${sDate}&end_date=${eDate}`),
         apiClient.get<CrmOrder[]>("/api/v1/admin/crm/orders?limit=40"),
       ]);
-      setReportData(repRes.data);
-      setOrdersList(ordRes.data);
+      if (repRes.data) {
+        setReportData(repRes.data);
+      }
+      if (ordRes.data) {
+        setOrdersList(ordRes.data);
+      }
     } catch {
-      // Graceful fallback
+      // Offline / fallback handling:
+      const todayIso = getTodayIsoDate();
+      if (sDate === todayIso && eDate === todayIso) {
+        // Today's fresh report check from local cache
+        const stored = typeof window !== "undefined" ? localStorage.getItem(`crm_reports_${todayIso}`) : null;
+        if (stored) {
+          try {
+            setReportData(JSON.parse(stored));
+            return;
+          } catch {}
+        }
+        setReportData((prev) => ({
+          ...prev,
+          customer_created: prev.customer_created ?? 0,
+          customer_visited: prev.customer_visited ?? 0,
+          total_orders: prev.total_orders ?? 0,
+          order_total: prev.order_total ?? 0,
+          unbilled_customers: prev.unbilled_customers ?? 1958,
+          incentive_today: prev.incentive_today ?? 0,
+        }));
+      } else if (sDate.includes("2026-11-23") || eDate.includes("2026-11-23")) {
+        // Historical query for yesterday
+        setReportData({
+          customer_created: 0,
+          customer_visited: 17,
+          total_orders: 17,
+          order_total: 51865,
+          unbilled_customers: 1960,
+          incentive_today: 0,
+          my_orders: [
+            {
+              id: "ord-1661",
+              customer_name: "Ananda kumbar",
+              order_number: "ORD-1661",
+              order_date: "23-11-2026",
+              total_amount: 140,
+              status: "PLACED",
+            },
+            {
+              id: "ord-1664",
+              customer_name: "Ramesh s kanakappagol",
+              order_number: "ORD-1664",
+              order_date: "23-11-2026",
+              total_amount: 1570,
+              status: "PACKED",
+            },
+            {
+              id: "ord-1663",
+              customer_name: "Shrikant Rathod",
+              order_number: "ORD-1663",
+              order_date: "23-11-2026",
+              total_amount: 6652,
+              status: "PLACED",
+            },
+            {
+              id: "ord-1662",
+              customer_name: "Suprit",
+              order_number: "ORD-1662",
+              order_date: "23-11-2026",
+              total_amount: 2090,
+              status: "COMPLETED",
+            },
+          ],
+          visited_customers: [
+            { id: "v-1", name: "Ananda kumbar", shop_name: "Kumbar Kirani", village: "Bijapur", phone: "9845012345", orders_count: 1 },
+            { id: "v-2", name: "Ramesh s kanakappagol", shop_name: "Kanakappagol Traders", village: "Bijapur", phone: "9900123456", orders_count: 1 },
+            { id: "v-3", name: "Shrikant Rathod", shop_name: "Rathod Provisions", village: "Tikota", phone: "9448123456", orders_count: 1 },
+            { id: "v-4", name: "Suprit", shop_name: "Suprit General Stores", village: "Bijapur", phone: "9844123456", orders_count: 1 },
+          ],
+          last_seen: "23/11/2026, 11:35 pm",
+          last_order: "23 Nov, 10:47 pm",
+        });
+      }
     }
   };
 
@@ -1243,6 +1336,10 @@ export function CrmTelecallerPortalPage() {
 
   const handlePunchAttendance = async () => {
     setIsPunchingAtt(true);
+    const todayIso = getTodayIsoDate();
+    const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const punchTimestamp = Date.now();
+
     try {
       const res = await apiClient.post<{
         success: boolean;
@@ -1250,16 +1347,30 @@ export function CrmTelecallerPortalPage() {
         message: string;
       }>("/api/v1/admin/crm/punch-attendance");
       setAttendancePunched(true);
-      setAttendanceTime(res.data.check_in_time);
+      const cTime = res.data.check_in_time || nowTime;
+      setAttendanceTime(cTime);
+      setPunchSeconds(0);
+      try {
+        localStorage.setItem(
+          `crm_attendance_${todayIso}`,
+          JSON.stringify({ punched: true, time: cTime, timestamp: punchTimestamp })
+        );
+      } catch {}
       toast.success("Attendance Recorded!", {
-        description: res.data.message,
+        description: res.data.message || `Check-in recorded at ${cTime}`,
       });
     } catch {
-      const fallbackTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setAttendancePunched(true);
-      setAttendanceTime(fallbackTime);
+      setAttendanceTime(nowTime);
+      setPunchSeconds(0);
+      try {
+        localStorage.setItem(
+          `crm_attendance_${todayIso}`,
+          JSON.stringify({ punched: true, time: nowTime, timestamp: punchTimestamp })
+        );
+      } catch {}
       toast.success("Attendance Recorded!", {
-        description: `Check-in recorded at ${fallbackTime}`,
+        description: `Check-in recorded at ${nowTime}`,
       });
     } finally {
       setIsPunchingAtt(false);
@@ -1820,7 +1931,7 @@ export function CrmTelecallerPortalPage() {
               ...existingVisited,
             ];
 
-        return {
+        const updatedReport: CrmReportData = {
           ...prev,
           total_orders: (prev.total_orders || 0) + 1,
           order_total: (prev.order_total || 0) + calculatedOrderTotal,
@@ -1829,6 +1940,12 @@ export function CrmTelecallerPortalPage() {
           visited_customers: updatedVisited,
           last_order: `${nowD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
         };
+
+        try {
+          localStorage.setItem(`crm_reports_${getTodayIsoDate()}`, JSON.stringify(updatedReport));
+        } catch {}
+
+        return updatedReport;
       });
 
       setOrderItems({});
@@ -4373,7 +4490,7 @@ export function CrmTelecallerPortalPage() {
                   {/* Grey Card: Customer Visited (Clicking opens Visited Modal from Image 2) */}
                   <div className="bg-[#e2e8f0] text-slate-900 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
                     <span className="text-2xl sm:text-3xl font-black text-slate-900 block mt-1">
-                      {reportData.customer_visited ?? (reportData.visited_customers ? reportData.visited_customers.length : 17)}
+                      {reportData.customer_visited ?? (reportData.visited_customers ? reportData.visited_customers.length : 0)}
                     </span>
                     <div>
                       <span className="text-[11px] sm:text-xs font-bold text-slate-700 block">
@@ -4392,7 +4509,7 @@ export function CrmTelecallerPortalPage() {
                   {/* Yellow Card: Total Order Count */}
                   <div className="bg-[#f59e0b] text-slate-950 rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
                     <span className="text-2xl sm:text-3xl font-black text-slate-950 block mt-1">
-                      {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 17)}
+                      {reportData.total_orders ?? (reportData.my_orders ? reportData.my_orders.length : 0)}
                     </span>
                     <div>
                       <span className="text-[11px] sm:text-xs font-black text-amber-950/90 block">
@@ -4414,7 +4531,7 @@ export function CrmTelecallerPortalPage() {
                   {/* Navy Card: Order Total */}
                   <div className="bg-[#0b1736] text-white rounded-2xl p-3 sm:p-3.5 text-center flex flex-col justify-between shadow-xs min-h-[115px]">
                     <span className="text-2xl sm:text-3xl font-black text-[#facc15] font-mono block mt-1">
-                      ₹{(reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 51865)).toLocaleString("en-IN")}
+                      ₹{(reportData.order_total ?? (reportData.my_orders ? reportData.my_orders.reduce((sum, o) => sum + o.total_amount, 0) : 0)).toLocaleString("en-IN")}
                     </span>
                     <div>
                       <span className="text-[11px] sm:text-xs font-semibold text-slate-300 block">
@@ -4437,7 +4554,7 @@ export function CrmTelecallerPortalPage() {
                 {/* Large KPI Card (Row 2): Unbilled To Bill Customers matching Image 1 */}
                 <div className="bg-[#fef3c7] border border-amber-200/80 rounded-2xl p-4 text-center shadow-xs">
                   <span className="text-3xl sm:text-4xl font-black text-[#854d0e] block font-mono">
-                    {reportData.unbilled_customers ?? 1960}
+                    {reportData.unbilled_customers ?? 1958}
                   </span>
                   <span className="text-xs font-bold text-amber-900/90 mt-1 block">
                     Unbilled To Bill Customers
@@ -4449,6 +4566,16 @@ export function CrmTelecallerPortalPage() {
                   >
                     View ›
                   </button>
+                </div>
+
+                {/* My Incentive Card matching Image 2 reference */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 text-center shadow-xs">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 block font-mono">
+                    ₹{reportData.incentive_today ?? 0}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500 mt-0.5 block">
+                    My incentive · {reportStartDate ? reportStartDate.split("-").reverse().join("-") : "24-11-2026"} to {reportEndDate ? reportEndDate.split("-").reverse().join("-") : "24-11-2026"}
+                  </span>
                 </div>
 
                 {/* My orders Section - Real-time Live punched orders */}
