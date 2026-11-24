@@ -1882,7 +1882,7 @@ export function CrmTelecallerPortalPage() {
         };
       });
 
-      const staffName = user?.fullName || user?.name || "Pushpa Patil";
+      const staffName = user?.fullName || (user as any)?.name || "Pushpa Patil";
       const deliveryNotes = orderRemarks.trim() || `Punched via Telecaller CRM by ${staffName}`;
 
       const res = await apiClient.post("/api/v1/admin/crm/quick-order", {
@@ -1914,12 +1914,12 @@ export function CrmTelecallerPortalPage() {
         const savedItems: CrmOrderItem[] = Object.entries(orderItems)
           .filter(([, qty]) => qty > 0)
           .map(([prodId, qty]) => {
-            const prod = products.find((p) => p.id === prodId);
+            const prod = catalog.find((p) => p.id === prodId);
             const unitPrice = prod?.selling_price || 0;
             return {
               id: `item-${prodId}-${Date.now()}`,
               product_name: prod?.name || "FMCG Item",
-              sku: prod?.sku || `SKU-${Math.floor(10000000 + Math.random() * 90000000)}`,
+              sku: prod?.code || (prod as any)?.sku || `SKU-${Math.floor(10000000 + Math.random() * 90000000)}`,
               quantity: qty,
               unit_price: unitPrice,
               total_amount: unitPrice * qty,
@@ -5153,7 +5153,7 @@ export function CrmTelecallerPortalPage() {
                           <span className="font-bold text-[10px] uppercase block text-amber-800 tracking-wider">DELIVERY NOTES</span>
                           <p className="mt-1 text-slate-700 text-xs">
                             {selectedStatusOrder.delivery_notes ||
-                              `Punched via Telecaller CRM by ${selectedStatusOrder.telecaller_name || user?.fullName || user?.name || "Pushpa Patil"}`}
+                              `Punched via Telecaller CRM by ${selectedStatusOrder.telecaller_name || user?.fullName || (user as any)?.name || "Pushpa Patil"}`}
                           </p>
                         </div>
                       </div>

@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Search,
   Download,
-  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
@@ -53,6 +52,143 @@ export interface PipelineOrder {
 }
 
 const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
+  {
+    id: "ord-1690",
+    orderNo: "ORD-1690",
+    customerName: "Patil Gundu",
+    shopName: "Patil Kirana Store",
+    village: "Uppaladinni",
+    route: "Basavan Bagewadi",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "01:13 pm",
+    phone: "9611161548",
+    total: 22326,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    history: [
+      {
+        when: "2026-11-24 09:50",
+        from: "Placed",
+        to: "Packed",
+        by: "Vijaykumar Shantagiri",
+        where: "pack",
+      },
+    ],
+    items: [
+      { name: "Raag Gold Palm Oil 1Ltr 10Pcs Box", unit: "Box", qty: 5, price: 1380, rate: 1380, gst: "5%", amount: 6900 },
+      { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 3, price: 1560, rate: 1560, gst: "5%", amount: 4680 },
+      { name: "Zeeba Jeera Rice 26 Kg Bag", unit: "Bag", qty: 1, price: 2236, rate: 2236, gst: "0%", amount: 2236 },
+      { name: "Namasthe Gram Flour 10Kg Bag", unit: "Bag", qty: 5, price: 740, rate: 740, gst: "5%", amount: 3700 },
+      { name: "Sugar S-30 50Kg Bag", unit: "Bag", qty: 1, price: 2760, rate: 2760, gst: "5%", amount: 2760 },
+      { name: "Poha 30kg Bag", unit: "Bag", qty: 1, price: 1530, rate: 1530, gst: "0%", amount: 1530 },
+      { name: "Trulove Orange Kreme 5Rs 144Pcs Box", unit: "Box", qty: 1, price: 520, rate: 520, gst: "5%", amount: 520 },
+    ],
+  },
+  {
+    id: "ord-1682",
+    orderNo: "ORD-1682",
+    customerName: "Babulal",
+    shopName: "Babulal General Stores",
+    village: "Babanagar",
+    route: "BABANAGAR",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "12:58 pm",
+    phone: "9845112233",
+    total: 26000,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    items: [
+      { name: "Zeeba Premium Rice 26kg", unit: "Bag", qty: 10, price: 2600, rate: 2600, gst: "0%", amount: 26000 },
+    ],
+  },
+  {
+    id: "ord-1685",
+    orderNo: "ORD-1685",
+    customerName: "S A Mulla",
+    shopName: "Mulla Provision Stores",
+    village: "Babanagar",
+    route: "BABANAGAR",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "12:59 pm",
+    phone: "9880123456",
+    total: 5520,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    items: [
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 40, price: 138, rate: 138, gst: "5%", amount: 5520 },
+    ],
+  },
+  {
+    id: "ord-1695",
+    orderNo: "ORD-1695",
+    customerName: "Jagadev",
+    shopName: "Jagadev Kirani Store",
+    village: "Dhanyal",
+    route: "DHANYAL",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "01:13 pm",
+    phone: "9741234567",
+    total: 7440,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    items: [
+      { name: "Madhur Pure & Hygienic Sugar 5kg", unit: "Bag", qty: 32, price: 232.5, rate: 232.5, gst: "5%", amount: 7440 },
+    ],
+  },
+  {
+    id: "ord-1684",
+    orderNo: "ORD-1684",
+    customerName: "Anand H P",
+    shopName: "Anand Trading Co",
+    village: "Tikota",
+    route: "TIKOTA",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "12:58 pm",
+    phone: "9900112233",
+    total: 3940,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    items: [
+      { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 2, price: 1560, rate: 1560, gst: "5%", amount: 3120 },
+      { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Sheet", qty: 8, price: 102.5, rate: 102.5, gst: "5%", amount: 820 },
+    ],
+  },
+  {
+    id: "ord-1683",
+    orderNo: "ORD-1683",
+    customerName: "S A Hubbali",
+    shopName: "Hubbali Stores",
+    village: "Tikota",
+    route: "TIKOTA",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "24-11-2026",
+    orderTime: "12:58 pm",
+    phone: "9844001122",
+    total: 5066,
+    balance: 0,
+    stage: "packing",
+    status: "packed",
+    items: [
+      { name: "Namasthe Gram Flour 10Kg Bag", unit: "Bag", qty: 6, price: 740, rate: 740, gst: "5%", amount: 4440 },
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 1, price: 626, rate: 626, gst: "5%", amount: 626 },
+    ],
+  },
   {
     id: "ord-1664",
     orderNo: "ORD-1664",
@@ -463,7 +599,16 @@ export function WholesaleOrdersPipelineView() {
       if (storedPipeline) {
         try {
           const parsed = JSON.parse(storedPipeline);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Ensure newly added authoritative orders (like ORD-1690) are always merged in
+            const map = new Map(parsed.map((o: PipelineOrder) => [o.orderNo, o]));
+            for (const initO of INITIAL_PIPELINE_ORDERS) {
+              if (!map.has(initO.orderNo)) {
+                map.set(initO.orderNo, initO);
+              }
+            }
+            return Array.from(map.values());
+          }
         } catch {}
       }
     }
@@ -1323,10 +1468,9 @@ export function WholesaleOrdersPipelineView() {
                 handleDuplicatePrint(viewingOrder);
               }
             }}
-            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors inline-flex items-center gap-1.5"
+            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
           >
-            <Printer className="w-3.5 h-3.5" />
-            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print Slip' : 'Print'}</span>
+            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print packed items' : 'Print'}</span>
           </button>
 
           {['placed', 'packing'].includes(viewingOrder.stage) && (
