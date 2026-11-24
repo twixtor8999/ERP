@@ -1252,10 +1252,27 @@ export function CrmTelecallerPortalPage() {
         apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`),
       ]);
       if (repRes.data) {
-        setReportData(repRes.data);
+        // Sort my_orders newest-first by order_number (descending) so latest order always appears at top
+        const reportWithSortedOrders: CrmReportData = {
+          ...repRes.data,
+          my_orders: repRes.data.my_orders
+            ? [...repRes.data.my_orders].sort((a, b) => {
+                const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
+                const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
+                return numB - numA;
+              })
+            : [],
+        };
+        setReportData(reportWithSortedOrders);
       }
       if (ordRes.data) {
-        setOrdersList(ordRes.data);
+        // Sort ordersList newest-first too
+        const sortedOrders = [...ordRes.data].sort((a, b) => {
+          const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
+          const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
+          return numB - numA;
+        });
+        setOrdersList(sortedOrders);
       }
     } catch {
       // Offline / fallback handling:
@@ -4780,7 +4797,8 @@ export function CrmTelecallerPortalPage() {
                 <div id="crm-my-orders-list" className="space-y-2 pt-1">
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">My orders</h4>
 
-                  <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div className="max-h-[520px] overflow-y-auto divide-y divide-slate-100">
                     {(reportData.my_orders && reportData.my_orders.length > 0
                       ? reportData.my_orders
                       : []
@@ -4836,8 +4854,9 @@ export function CrmTelecallerPortalPage() {
                         </div>
                       );
                     })}
-                  </div>
-                </div>
+                    </div>{/* end inner scroll wrapper */}
+                  </div>{/* end outer card */}
+                </div>{/* end crm-my-orders-list */}
               </div>
             )}
 
