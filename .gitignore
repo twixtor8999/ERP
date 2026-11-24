@@ -66,4 +66,28 @@ postgres_data/
 # Data backups & customer dumps
 *backup*.json
 
+# Scratch & temporary investigation artifacts
+audit/
+scratch/
+reference_app/
+reference_screenshots/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+scripts/*.png
+scripts/*.jpg
+scripts/test_*.js
+scripts/crawl_*.js
+scripts/crop_*.js
+scripts/inspect_*.js
+scripts/inspect_*.py
+scripts/extract_*.py
+scripts/dump_*.py
+scripts/find_*.py
+scripts/verify_*.js
+scripts/analyze_*.js
+scripts/analyze_*.py
+
+
 
