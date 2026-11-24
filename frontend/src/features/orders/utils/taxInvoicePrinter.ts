@@ -68,11 +68,15 @@ export interface TaxInvoiceOrder {
  * Generates the inner Tax Invoice HTML matching the reference app (.inv container).
  */
 export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate = true): string {
+  const logoUrl = typeof window !== "undefined" && window.location?.origin
+    ? `${window.location.origin}/siddeshwar-logo.png`
+    : "/siddeshwar-logo.png";
+
   const custName = order.customerName || order.customer?.name || "B M";
-  const custNameKn = order.customerNameKn || order.customer?.nameKn || "ಬಿ ಎಮ್";
+  const custNameKn = order.customerNameKn || order.customer?.nameKn || (custName === "B M" ? "ಬಿ ಎಮ್" : "");
   const custShop = order.customerShop || order.customer?.shop || (custName ? `${custName} kirana store` : "B M kirana store");
   const custVillage = order.customerVillage || order.customer?.village || "Bijapur (Rural)";
-  const custVillageKn = order.customerVillageKn || order.customer?.villageKn || "ಬಿಜಾಪುರ";
+  const custVillageKn = order.customerVillageKn || order.customer?.villageKn || (custVillage.includes("Bijapur") ? "ಬಿಜಾಪುರ" : "");
   const custPhone = order.customerPhone || order.customer?.phone || "8105690356";
   const custLandmark = order.customerLandmark || order.customer?.landmark || "Madina Nagar";
   const custTaluka = order.customerTaluka || order.customer?.taluka || "Vijayapura";
@@ -160,16 +164,18 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
   return `
     <div class="inv">
       <div class="wm">
-        <img src="/siddeshwar-logo.png" alt="" style="width:78%;opacity:0.12;transform:rotate(-30deg);" />
+        <img src="${logoUrl}" alt="" style="width:78%;opacity:0.12;transform:rotate(-30deg);" />
       </div>
 
       ${isDuplicate ? `<div class="dup">DUPLICATE COPY</div>` : ""}
 
-      <img src="/siddeshwar-logo.png" class="logo" alt="SIDDESHWAR ENTERPRISES" />
+      <img src="${logoUrl}" class="logo" alt="SIDDESHWAR ENTERPRISES" />
       <div class="co">SIDDESHWAR ENTERPRISES</div>
+      <div class="c" style="font-size:10px;font-weight:700;letter-spacing:0.4px;margin-bottom:2px">WHOLESALE FMCG & PROVISION STORE</div>
       <div class="c">GSTIN : 29FMEPK5524A1Z8</div>
       <div class="ad">
         <div>Address: 648/1 Flat No 28 , Akashvani road , Vijayapura,Karnataka ,586101</div>
+        <div>Mobile : 9739396236</div>
       </div>
 
       <h4>TAX INVOICE</h4>
@@ -463,14 +469,15 @@ export function generateTaxInvoiceDocument(order: TaxInvoiceOrder, isDuplicate =
         await nxL('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
         await nxL('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
         var el = document.getElementById('pr');
-        var cv = await window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
-        var jsPDF = window.jspdf.jsPDF;
+        var cv = await window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true });
+        var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         var w = cv.width / 2;
         var h = cv.height / 2;
         var pdf = new jsPDF({ unit: 'px', format: [w, h], orientation: w > h ? 'l' : 'p' });
         pdf.addImage(cv.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, w, h);
         pdf.save(${JSON.stringify(docTitle)} + '.pdf');
       } catch (err) {
+        console.warn('nxPdf461 fallback to window.print():', err);
         window.print();
       } finally {
         if (bar) bar.style.display = 'flex';
@@ -487,27 +494,42 @@ export function generateTaxInvoiceDocument(order: TaxInvoiceOrder, isDuplicate =
 /**
  * Opens a dedicated popup tab or window with the Tax Invoice
  * (matching the client's reference application `INV-469_duplicate`).
- * Returns true if opened successfully, false if popup was blocked.
+ * Returns true if opened successfully.
  */
 export function openTaxInvoiceWindow(order: TaxInvoiceOrder, isDuplicate = true): boolean {
   try {
     const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}`;
-    const win = window.open("", "_blank");
-    if (!win) {
-      console.warn("Tax Invoice popup window blocked by browser.");
-      return false;
+    const doc = generateTaxInvoiceDocument(order, isDuplicate);
+
+    // 1. First attempt: Direct window.open with document.write
+    let win: Window | null = null;
+    try {
+      win = window.open("", "_blank");
+      if (win && win.document) {
+        win.document.open();
+        win.document.write(doc);
+        win.document.close();
+        win.document.title = docTitle;
+        try {
+          win.focus();
+        } catch {}
+        return true;
+      }
+    } catch (popupErr) {
+      console.warn("Direct window.open document.write blocked or restricted, using blob link:", popupErr);
     }
 
-    const doc = generateTaxInvoiceDocument(order, isDuplicate);
-    win.document.open();
-    win.document.write(doc);
-    win.document.close();
-    win.document.title = docTitle;
-    try {
-      win.focus();
-    } catch {
-      // ignore
-    }
+    // 2. Reliable fallback: Blob URL opened via an anchor with target="_blank"
+    const blob = new Blob([doc], { type: "text/html;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     return true;
   } catch (err) {
     console.error("Failed to open tax invoice window:", err);

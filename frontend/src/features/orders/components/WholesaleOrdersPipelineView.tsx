@@ -8,7 +8,7 @@ import {
 import { toast } from "sonner";
 import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
-import { openTaxInvoiceWindow, generateTaxInvoiceInnerHtml, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
 export interface OrderHistoryItem {
   when: string;
@@ -308,6 +308,135 @@ const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
       { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 8, price: 165 },
     ],
   },
+  {
+    id: "ord-1531",
+    orderNo: "ORD-1531",
+    invoiceNo: "INV-475",
+    customerName: "Ashok Hadagali",
+    shopName: "Hadagali Traders",
+    village: "Devara Hippargi",
+    route: "DEVARHIPARAGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "23-11-2026",
+    orderTime: "11:45 am",
+    vehicleNo: "KA28AA6256",
+    total: 4250,
+    balance: 0,
+    stage: "invoice",
+    items: [
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 5, price: 440, rate: 440, gst: "5%", amount: 2200 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 16, price: 128, rate: 128, gst: "5%", amount: 2050 },
+    ],
+  },
+  {
+    id: "ord-1524",
+    orderNo: "ORD-1524",
+    invoiceNo: "INV-474",
+    customerName: "Kallappa B prathamshetti",
+    shopName: "Arunkumar Kirana Stores",
+    village: "Hebbalahatti",
+    route: "TAJAPUR",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "22-11-2026",
+    orderTime: "03:20 pm",
+    vehicleNo: "KA28AC0349",
+    total: 3180,
+    balance: 0,
+    stage: "invoice",
+    items: [
+      { name: "Madhur Pure & Hygienic Sugar 5kg", unit: "Bag", qty: 8, price: 235, rate: 235, gst: "5%", amount: 1880 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 8, price: 162.5, rate: 162.5, gst: "5%", amount: 1300 },
+    ],
+  },
+  {
+    id: "ord-1506-disp",
+    orderNo: "ORD-1506",
+    invoiceNo: "INV-473",
+    customerName: "Santosh Pujari",
+    shopName: "Pujari Kirana Store",
+    village: "Devara Hippargi",
+    route: "DEVARHIPARAGI",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "22-11-2026",
+    orderTime: "10:56 am",
+    vehicleNo: "KA28AA6256",
+    total: 6247,
+    balance: 0,
+    stage: "dispatch",
+    items: [
+      { name: "Aashirvaad Shudh Chakki Atta 10kg", unit: "Bag", qty: 5, price: 440, rate: 440, gst: "5%", amount: 2200 },
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 25, price: 128, rate: 128, gst: "5%", amount: 3200 },
+      { name: "Tata Salt Vacuum Evaporated 1kg", unit: "Packet", qty: 32, price: 26.47, rate: 26.47, gst: "5%", amount: 847 },
+    ],
+  },
+  {
+    id: "ord-1510-disp",
+    orderNo: "ORD-1510",
+    invoiceNo: "INV-476",
+    customerName: "Ramesh s kanakappagol",
+    shopName: "Kanekeshara store",
+    village: "Chimmalgi R.C",
+    route: "Chimmalagi RC",
+    createdBy: "Pushpa Patil",
+    source: "CRM",
+    orderDate: "23-11-2026",
+    orderTime: "04:15 pm",
+    vehicleNo: "KA28AB3425",
+    total: 8920,
+    balance: 0,
+    stage: "dispatch",
+    items: [
+      { name: "VST Vegetable Oil 1Kg 10Pcs Box", unit: "Box", qty: 4, price: 1570, rate: 1570, gst: "5%", amount: 6280 },
+      { name: "Zeeba Steam Rice 26kg Bag", unit: "Bag", qty: 1, price: 2050, rate: 2050, gst: "0%", amount: 2050 },
+      { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Sheet", qty: 5, price: 105, rate: 105, gst: "5%", amount: 525 },
+    ],
+  },
+  {
+    id: "ord-1468-comp",
+    orderNo: "ORD-1468",
+    invoiceNo: "INV-465",
+    customerName: "Arun Devargudi",
+    shopName: "Daneshwar kirana store",
+    village: "Muttagi",
+    route: "GOLASANGI",
+    createdBy: "Arun Patil",
+    source: "CRM",
+    orderDate: "20-11-2026",
+    orderTime: "09:30 am",
+    vehicleNo: "KA28AB3425",
+    total: 10450,
+    balance: 0,
+    stage: "completed",
+    items: [
+      { name: "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )", unit: "Packet", qty: 500, price: 7, rate: 7, gst: "5%", amount: 3500 },
+      { name: "Zeeba Steam Rice 26kg Bag", unit: "Bag", qty: 3, price: 2050, rate: 2050, gst: "0%", amount: 6150 },
+      { name: "Dove Daily Shine Shampoo 2Rs 64pcs (4 Sheet Pkt)", unit: "Sheet", qty: 8, price: 105, rate: 105, gst: "5%", amount: 840 },
+    ],
+  },
+  {
+    id: "ord-1422-comp",
+    orderNo: "ORD-1422",
+    invoiceNo: "INV-452",
+    customerName: "SANJU HUGAR",
+    shopName: "ARUN KIRANA STORE",
+    village: "Kakhandaki",
+    route: "MAMADAPUR",
+    createdBy: "Dhruthi A S",
+    source: "CRM",
+    orderDate: "18-11-2026",
+    orderTime: "11:15 am",
+    vehicleNo: "KA28AC0349",
+    total: 5680,
+    balance: 0,
+    stage: "completed",
+    items: [
+      { name: "Fortune Sunlite Refined Sunflower Oil 1L", unit: "Pouch", qty: 30, price: 128, rate: 128, gst: "5%", amount: 3840 },
+      { name: "Tur Dal Premium Desi 1kg", unit: "Packet", qty: 11, price: 165, rate: 165, gst: "5%", amount: 1815 },
+    ],
+  },
 ];
 
 const VEHICLES_LIST = [
@@ -329,8 +458,8 @@ export function WholesaleOrdersPipelineView() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
   // Date filters
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  const [fromDate, setFromDate] = useState("2026-11-20");
+  const [toDate, setToDate] = useState("2026-11-24");
   const [pageSearch, setPageSearch] = useState("");
 
   // Stage filters
@@ -341,7 +470,6 @@ export function WholesaleOrdersPipelineView() {
   // Modals
   const [viewingOrder, setViewingOrder] = useState<PipelineOrder | null>(null);
   const [packingSlipOrder, setPackingSlipOrder] = useState<PipelineOrder | null>(null);
-  const [duplicateInvoiceOrder, setDuplicateInvoiceOrder] = useState<TaxInvoiceOrder | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<PipelineOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -503,10 +631,7 @@ export function WholesaleOrdersPipelineView() {
       total: order.total,
     };
 
-    const opened = openTaxInvoiceWindow(taxOrder, true);
-    if (!opened) {
-      setDuplicateInvoiceOrder(taxOrder);
-    }
+    openTaxInvoiceWindow(taxOrder, true);
   };
 
   const handlePrintAndDispatch = (orderId: string) => {
@@ -742,54 +867,6 @@ export function WholesaleOrdersPipelineView() {
               Packed by: ____________ &nbsp; Checked by: ____________
             </p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (duplicateInvoiceOrder) {
-    const docTitle = `${duplicateInvoiceOrder.invoiceNo || duplicateInvoiceOrder.orderNo}_duplicate`;
-    const innerHtml = generateTaxInvoiceInnerHtml(duplicateInvoiceOrder, true);
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
-        {/* Top Header Bar matching Image 10 */}
-        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
-          <button
-            onClick={() => setDuplicateInvoiceOrder(null)}
-            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 transition-colors cursor-pointer"
-            title="Back to the app"
-          >
-            ← Back
-          </button>
-          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
-            {docTitle}
-          </b>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90 flex items-center justify-center"
-              title="Print"
-              aria-label="Print"
-            >
-              🖨
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="bg-white text-[#0d1b4c] text-xs px-3.5 py-1.5 rounded-full font-bold cursor-pointer hover:opacity-90"
-              title="Save as PDF"
-            >
-              ⬇ PDF
-            </button>
-          </div>
-        </div>
-
-        {/* Invoice Body matching Image 10 */}
-        <div className="pt-16 pb-12 px-4 flex justify-center">
-          <div
-            id="pr"
-            className="bg-white text-black p-2 shadow-xl rounded-sm max-w-full overflow-x-auto"
-            dangerouslySetInnerHTML={{ __html: innerHtml }}
-          />
         </div>
       </div>
     );
@@ -1178,7 +1255,7 @@ export function WholesaleOrdersPipelineView() {
             Close
           </button>
 
-          {viewingOrder.invoiceNo && (
+          {(viewingOrder.invoiceNo || ['invoice', 'dispatch', 'delivery', 'completed'].includes(viewingOrder.stage)) && (
             <button
               onClick={() => handleDuplicatePrint(viewingOrder)}
               className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
@@ -1672,13 +1749,14 @@ export function WholesaleOrdersPipelineView() {
                   <th className="py-2.5 px-3 text-left">Vehicle No</th>
                   <th className="py-2.5 px-3 text-right">Total</th>
                   <th className="py-2.5 px-2 text-center">View</th>
+                  <th className="py-2.5 px-2 text-center">Duplicate Print</th>
                   <th className="py-2.5 px-3 text-right">Print & Dispatch</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {currentStageOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="py-8 text-center text-slate-400 font-bold">
+                    <td colSpan={14} className="py-8 text-center text-slate-400 font-bold">
                       No invoiced orders ready. Move orders from Packing to create invoices.
                     </td>
                   </tr>
@@ -1708,15 +1786,23 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-2 text-center">
                         <button
                           onClick={() => setViewingOrder(o)}
-                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs"
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           View
+                        </button>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <button
+                          onClick={() => handleDuplicatePrint(o)}
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
+                        >
+                          Duplicate Print
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handlePrintAndDispatch(o.id)}
-                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs"
+                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           Print & Dispatch
                         </button>
@@ -1756,13 +1842,14 @@ export function WholesaleOrdersPipelineView() {
                   <th className="py-2.5 px-3 text-right">Total</th>
                   <th className="py-2.5 px-3 text-right">Balance</th>
                   <th className="py-2.5 px-2 text-center">View</th>
+                  <th className="py-2.5 px-2 text-center">Duplicate Invoice</th>
                   <th className="py-2.5 px-3 text-right">Move to Delivery</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {currentStageOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-slate-400 font-bold">
+                    <td colSpan={12} className="py-8 text-center text-slate-400 font-bold">
                       No dispatched orders ready to go out.
                     </td>
                   </tr>
@@ -1785,15 +1872,23 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-2 text-center">
                         <button
                           onClick={() => setViewingOrder(o)}
-                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs"
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           View
+                        </button>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <button
+                          onClick={() => handleDuplicatePrint(o)}
+                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
+                        >
+                          Duplicate Invoice
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handleMoveToDelivery(o.id)}
-                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs"
+                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           Move to Delivery
                         </button>
@@ -1879,6 +1974,12 @@ export function WholesaleOrdersPipelineView() {
                             className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
                           >
                             View
+                          </button>
+                          <button
+                            onClick={() => handleDuplicatePrint(o)}
+                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                          >
+                            Duplicate Invoice
                           </button>
                           <button
                             onClick={() => setViewingOrder(o)}
@@ -1986,13 +2087,22 @@ export function WholesaleOrdersPipelineView() {
                             ₹{o.total.toLocaleString("en-IN")}
                           </td>
                           <td className="py-3 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setViewingOrder(o)}
-                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer transition-colors"
-                            >
-                              View
-                            </button>
+                            <div className="inline-flex items-center gap-1.5 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setViewingOrder(o)}
+                                className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer transition-colors"
+                              >
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicatePrint(o)}
+                                className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded shadow-2xs cursor-pointer transition-colors"
+                              >
+                                Duplicate Print
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

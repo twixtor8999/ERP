@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
-import { openTaxInvoiceWindow, generateTaxInvoiceInnerHtml, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
 export interface SettlementRow {
   sl: number;
@@ -431,7 +431,6 @@ export function WholesaleSettlementView() {
   // Drill-down states matching Reference App Image 8, 9, 10
   const [selectedVehicleSettlement, setSelectedVehicleSettlement] = useState<SettlementRow | null>(null);
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<SettlementInvoiceOrder | null>(null);
-  const [duplicateInvoiceOrder, setDuplicateInvoiceOrder] = useState<TaxInvoiceOrder | null>(null);
 
   const [settlements, setSettlements] = useState<SettlementRow[]>(() => {
     try {
@@ -482,10 +481,7 @@ export function WholesaleSettlementView() {
       total: order.invoiceAmount,
     };
 
-    const opened = openTaxInvoiceWindow(taxOrder, true);
-    if (!opened) {
-      setDuplicateInvoiceOrder(taxOrder);
-    }
+    openTaxInvoiceWindow(taxOrder, true);
   };
 
   // Denomination Modal state
@@ -609,52 +605,6 @@ export function WholesaleSettlementView() {
       description: `Downloaded Settlement_${fromDate}_to_${toDate}.xlsx`,
     });
   };
-
-  if (duplicateInvoiceOrder) {
-    const docTitle = `${duplicateInvoiceOrder.invoiceNo || duplicateInvoiceOrder.orderNo}_duplicate`;
-    const innerHtml = generateTaxInvoiceInnerHtml(duplicateInvoiceOrder, true);
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#e9edf3] font-sans">
-        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0d1b4c] text-white flex items-center justify-between px-4 z-50 shadow-md">
-          <button
-            onClick={() => setDuplicateInvoiceOrder(null)}
-            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 transition-colors cursor-pointer"
-            title="Back to the app"
-          >
-            ← Back
-          </button>
-          <b className="flex-1 text-center text-sm sm:text-base font-bold tracking-wide">
-            {docTitle}
-          </b>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.print()}
-              className="bg-[#f5b400] text-[#0d1b4c] text-lg px-3.5 py-1 rounded-full font-bold leading-none cursor-pointer hover:opacity-90 flex items-center justify-center"
-              title="Print"
-              aria-label="Print"
-            >
-              🖨
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="bg-white text-[#0d1b4c] text-xs px-3.5 py-1.5 rounded-full font-bold cursor-pointer hover:opacity-90"
-              title="Save as PDF"
-            >
-              ⬇ PDF
-            </button>
-          </div>
-        </div>
-
-        <div className="pt-16 pb-12 px-4 flex justify-center">
-          <div
-            id="pr"
-            className="bg-white text-black p-2 shadow-xl rounded-sm max-w-full overflow-x-auto"
-            dangerouslySetInnerHTML={{ __html: innerHtml }}
-          />
-        </div>
-      </div>
-    );
-  }
 
   if (selectedInvoiceOrder) {
     return (
