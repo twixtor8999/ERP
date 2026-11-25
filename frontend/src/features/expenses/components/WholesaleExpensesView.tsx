@@ -16,6 +16,7 @@ import {
   saveStoredExpenses,
   type ExpenseRecord,
 } from "../data/mockExpenses";
+import { WholesaleExpenseDetailView } from "./WholesaleExpenseDetailView";
 
 export function WholesaleExpensesView() {
   const navigate = useNavigate();
@@ -218,6 +219,23 @@ export function WholesaleExpensesView() {
     e.preventDefault();
     toast.success(`Expenses loaded for ${fromDate} to ${toDate}`);
   };
+
+  // Dedicated 2nd Page: When an expense voucher is clicked for View
+  if (viewExpense) {
+    return (
+      <WholesaleExpenseDetailView
+        expense={viewExpense}
+        onBack={() => setViewExpense(null)}
+        onDelete={(id) => {
+          const next = expenses.filter((e) => e.id !== id);
+          setExpenses(next);
+          saveStoredExpenses(next);
+          setViewExpense(null);
+          toast.success("Expense voucher deleted");
+        }}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -693,108 +711,6 @@ export function WholesaleExpensesView() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Expense Modal */}
-      {viewExpense && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <h3 className="font-bold text-base">Expense Details</h3>
-              <button
-                type="button"
-                onClick={() => setViewExpense(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3 text-xs md:text-sm">
-              <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div>
-                  <span className="text-gray-500 text-xs">Amount:</span>
-                  <div className="text-lg font-bold text-gray-900">₹{viewExpense.amt.toLocaleString()}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs">Payment:</span>
-                  <div className="font-semibold text-blue-700">{viewExpense.paymentType}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <span className="text-gray-500 text-xs">Category:</span>
-                  <div className="font-bold text-gray-800">{viewExpense.cat}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs">Date:</span>
-                  <div className="font-semibold text-gray-800">{viewExpense.date}</div>
-                </div>
-              </div>
-
-              {viewExpense.sub && (
-                <div>
-                  <span className="text-gray-500 text-xs">Type / Description:</span>
-                  <div className="font-medium text-gray-800">{viewExpense.sub}</div>
-                </div>
-              )}
-
-              {viewExpense.paidTo && (
-                <div>
-                  <span className="text-gray-500 text-xs">Paid To:</span>
-                  <div className="font-medium text-gray-800">{viewExpense.paidTo}</div>
-                </div>
-              )}
-
-              {viewExpense.veh && (
-                <div>
-                  <span className="text-gray-500 text-xs">Vehicle:</span>
-                  <div className="font-semibold text-blue-800">{viewExpense.veh}</div>
-                </div>
-              )}
-
-              {viewExpense.billNo && (
-                <div>
-                  <span className="text-gray-500 text-xs">Bill / Receipt No:</span>
-                  <div className="font-mono text-gray-800">{viewExpense.billNo}</div>
-                </div>
-              )}
-
-              {viewExpense.remarks && (
-                <div>
-                  <span className="text-gray-500 text-xs">Remarks:</span>
-                  <div className="text-gray-700 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs">
-                    {viewExpense.remarks}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <span className="text-gray-500 text-xs">Approval Status:</span>
-                <div className="pt-0.5">
-                  {viewExpense.ap ? (
-                    <span className="text-emerald-700 font-bold">
-                      Approved by {viewExpense.ap.by} on {viewExpense.ap.date}
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 font-bold">Pending Approval</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewExpense(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}

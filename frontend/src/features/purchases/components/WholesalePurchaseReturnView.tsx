@@ -6,7 +6,6 @@ import {
   Eye,
   CheckCircle2,
   Printer,
-  X,
   AlertTriangle,
   RotateCcw,
 } from "lucide-react";
@@ -18,6 +17,7 @@ import {
   type PurchaseRecord,
   type DebitNoteRecord,
 } from "../data/mockPurchases";
+import { WholesaleDebitNoteDetailView } from "./WholesaleDebitNoteDetailView";
 
 export function WholesalePurchaseReturnView() {
   const navigate = useNavigate();
@@ -200,6 +200,17 @@ export function WholesalePurchaseReturnView() {
   const pendingCount = useMemo(() => {
     return debitNotes.filter((d) => d.status === "pending").length;
   }, [debitNotes]);
+
+  // Dedicated 2nd Page: When a debit note is clicked for View
+  if (selectedNote) {
+    return (
+      <WholesaleDebitNoteDetailView
+        note={selectedNote}
+        onBack={() => setSelectedNote(null)}
+        onApprove={handleApproveDebitNote}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -497,122 +508,6 @@ export function WholesalePurchaseReturnView() {
           </div>
         </div>
       </div>
-
-      {/* View Debit Note Modal */}
-      {selectedNote && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <div>
-                <h3 className="font-bold text-gray-900 text-base">
-                  Debit Note: {selectedNote.debitNoteNo}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {selectedNote.vendorName} · Invoice: {selectedNote.invoiceNo} · Date: {selectedNote.date}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedNote(null)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs">
-                <div>
-                  <span className="text-gray-500">Debit Note No:</span>
-                  <div className="font-bold text-gray-800">{selectedNote.debitNoteNo}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Invoice Ref:</span>
-                  <div className="font-bold text-gray-800">{selectedNote.invoiceNo}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Status:</span>
-                  <div>
-                    {selectedNote.status === "approved" ? (
-                      <span className="text-emerald-700 font-bold">Approved</span>
-                    ) : (
-                      <span className="text-amber-700 font-bold">Waiting for approval</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Total Debit Amount:</span>
-                  <div className="font-bold text-blue-700 text-sm">
-                    ₹{selectedNote.amount.toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">
-                  Returned Items
-                </h4>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
-                      <tr>
-                        <th className="p-2.5">SKU Name</th>
-                        <th className="p-2.5 text-center">Return Qty</th>
-                        <th className="p-2.5 text-right">GRN Rate</th>
-                        <th className="p-2.5">Reason</th>
-                        <th className="p-2.5 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedNote.lines.map((l, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="p-2.5 font-medium text-gray-900">{l.skuName}</td>
-                          <td className="p-2.5 text-center font-bold text-gray-800">{l.returnQty}</td>
-                          <td className="p-2.5 text-right">₹{l.grnPrice.toLocaleString()}</td>
-                          <td className="p-2.5 text-gray-600">{l.reason}</td>
-                          <td className="p-2.5 text-right font-bold text-gray-900">
-                            ₹{l.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => handlePrint(selectedNote)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300 transition-colors flex items-center gap-1.5"
-              >
-                <Printer className="w-4 h-4" />
-                Print Debit Note
-              </button>
-              <div className="flex gap-2">
-                {selectedNote.status === "pending" && (
-                  <button
-                    type="button"
-                    onClick={() => handleApproveDebitNote(selectedNote.id)}
-                    className="px-4 py-1.5 text-xs font-bold text-white bg-[#10b981] hover:bg-[#059669] rounded transition-colors flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Approve Debit Note
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedNote(null)}
-                  className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Plus, Search, Eye, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, Search, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getStoredStockSplits,
@@ -11,6 +11,7 @@ import {
   type ShrinkageItem,
 } from "../data/mockStockSplit";
 import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
+import { WholesaleInventoryStockSplitDetailView } from "./WholesaleInventoryStockSplitDetailView";
 
 export function WholesaleStockSplitView() {
   const navigate = useNavigate();
@@ -329,6 +330,16 @@ export function WholesaleStockSplitView() {
     toast.success("Stock split saved");
     setIsAdding(false);
   };
+
+  // Dedicated 2nd Page: If viewing split voucher, render full page
+  if (viewingSplit) {
+    return (
+      <WholesaleInventoryStockSplitDetailView
+        split={viewingSplit}
+        onBack={() => setViewingSplit(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 pb-12">
@@ -825,141 +836,6 @@ export function WholesaleStockSplitView() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stock Split View Modal */}
-      {viewingSplit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="bg-[#0f2d59] px-4 py-3 text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">Stock split · {viewingSplit.id}</h3>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  {new Date(viewingSplit.at).toLocaleString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  · {viewingSplit.dc} · by {viewingSplit.by}
-                </p>
-              </div>
-              <button
-                onClick={() => setViewingSplit(null)}
-                className="text-slate-300 hover:text-white transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#1e40af] text-white uppercase text-[10px] tracking-wider font-semibold">
-                  <tr>
-                    <th className="py-2 px-3 border-r border-blue-700/50">Type</th>
-                    <th className="py-2 px-3 border-r border-blue-700/50">SKU No</th>
-                    <th className="py-2 px-3 border-r border-blue-700/50 min-w-[180px]">
-                      Item Name
-                    </th>
-                    <th className="py-2 px-3 border-r border-blue-700/50 text-right">Qty</th>
-                    <th className="py-2 px-3 border-r border-blue-700/50 text-right">Price</th>
-                    <th className="py-2 px-3 text-right">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {/* Split Out */}
-                  <tr className="bg-rose-50/40">
-                    <td className="py-2 px-3 border-r border-slate-100 font-bold text-rose-600">
-                      Split Out
-                    </td>
-                    <td className="py-2 px-3 border-r border-slate-100 font-mono">
-                      {viewingSplit.s}
-                    </td>
-                    <td className="py-2 px-3 border-r border-slate-100 font-medium">
-                      {viewingSplit.name}
-                    </td>
-                    <td className="py-2 px-3 border-r border-slate-100 text-right font-bold text-slate-900">
-                      {viewingSplit.out}
-                    </td>
-                    <td className="py-2 px-3 border-r border-slate-100 text-right whitespace-nowrap">
-                      ₹{viewingSplit.grn.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-2 px-3 text-right font-bold whitespace-nowrap text-rose-700">
-                      ₹
-                      {(viewingSplit.out * viewingSplit.grn).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                  </tr>
-
-                  {/* Split In Items */}
-                  {viewingSplit.conv.map((c, i) => (
-                    <tr key={i} className="bg-emerald-50/40">
-                      <td className="py-2 px-3 border-r border-slate-100 font-bold text-emerald-700">
-                        Split In
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 font-mono">{c.s}</td>
-                      <td className="py-2 px-3 border-r border-slate-100 font-medium">{c.name}</td>
-                      <td className="py-2 px-3 border-r border-slate-100 text-right font-bold text-emerald-700">
-                        {c.q}
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 text-right whitespace-nowrap">
-                        ₹{c.p.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 px-3 text-right font-bold whitespace-nowrap text-emerald-800">
-                        ₹{(c.q * c.p).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {/* Shrinkage Item */}
-                  {viewingSplit.shr && (
-                    <tr className="bg-amber-50/40">
-                      <td className="py-2 px-3 border-r border-slate-100 font-bold text-amber-700">
-                        Shrinkage
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 font-mono">
-                        {viewingSplit.shr.s}
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 font-medium">
-                        {viewingSplit.shr.name}
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 text-right font-bold text-amber-700">
-                        {viewingSplit.shr.q}
-                      </td>
-                      <td className="py-2 px-3 border-r border-slate-100 text-right whitespace-nowrap">
-                        ₹{viewingSplit.shr.p.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 px-3 text-right font-bold whitespace-nowrap text-amber-800">
-                        ₹
-                        {(viewingSplit.shr.q * viewingSplit.shr.p).toLocaleString("en-IN", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <p className="text-xs text-slate-700 pt-1">
-                Difference in stock:{" "}
-                <b className="text-slate-900">
-                  {viewingSplit.diffKg != null ? `${viewingSplit.diffKg} kg` : "—"}
-                </b>
-              </p>
-            </div>
-
-            <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-end">
-              <button
-                onClick={() => setViewingSplit(null)}
-                className="px-4 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded text-xs font-semibold transition"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

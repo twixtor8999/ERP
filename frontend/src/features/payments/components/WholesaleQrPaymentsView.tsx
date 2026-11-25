@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Download, Camera, X } from "lucide-react";
+import { ArrowLeft, Search, Download, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { WholesaleQrPaymentDetailView } from "./WholesaleQrPaymentDetailView";
 
 export interface QrPaymentRow {
   sl: number;
@@ -238,6 +239,16 @@ export function WholesaleQrPaymentsView() {
       description: `Showing ${filterType === "all" ? "all payments" : "QR payments only"} from ${fromDate} to ${toDate}`,
     });
   };
+
+  // Dedicated 2nd Page: If viewing payment screenshot details, render full page
+  if (selectedScreenshotRow) {
+    return (
+      <WholesaleQrPaymentDetailView
+        payment={selectedScreenshotRow}
+        onBack={() => setSelectedScreenshotRow(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-12">
@@ -523,66 +534,6 @@ export function WholesaleQrPaymentsView() {
           The QR always opens with the full bill amount. With this on, the customer can type a smaller amount in GPay / PhonePe / Paytm. Some UPI apps may still keep the amount fixed; then use &quot;📱 Show QR for this amount&quot; on the Delivery screen.
         </p>
       </div>
-
-      {/* Screenshot Preview Modal */}
-      {selectedScreenshotRow && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-[#132038]">
-                  QR Payment Screenshot
-                </h3>
-                <p className="text-xs text-slate-500 font-mono">
-                  {selectedScreenshotRow.invoiceNumber} · UTR {selectedScreenshotRow.utrNumber}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedScreenshotRow(null)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <div className="bg-slate-50 p-3 rounded-xl text-xs space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Customer:</span>
-                  <span className="font-bold text-slate-900">{selectedScreenshotRow.customerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">QR Amount:</span>
-                  <span className="font-mono font-bold text-blue-700">
-                    ₹{selectedScreenshotRow.qrReceived.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-
-              {selectedScreenshotRow.screenshotUrl ? (
-                <div className="border border-slate-200 rounded-xl overflow-hidden p-2 bg-slate-100 flex items-center justify-center">
-                  <img
-                    src={selectedScreenshotRow.screenshotUrl}
-                    alt="Payment Confirmation"
-                    className="max-h-[300px] object-contain rounded-lg"
-                  />
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 text-center py-6">No image file attached</p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedScreenshotRow(null)}
-                className="px-4 py-1.5 bg-[#132038] text-white rounded-lg text-xs font-bold hover:bg-[#1c2e4f]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

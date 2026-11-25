@@ -9,7 +9,6 @@ import {
   Edit2,
   Trash2,
   X,
-  FileText,
 } from 'lucide-react';
 import {
   Employee,
@@ -17,6 +16,7 @@ import {
   saveStoredEmployees,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
+import { WholesaleEmployeeDocumentsView } from './WholesaleEmployeeDocumentsView';
 
 interface Props {
   onBack?: () => void;
@@ -271,6 +271,16 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
     if (!docs) return 0;
     return REQUIRED_DOCS.filter((d) => docs[d.key]).length;
   };
+
+  // Dedicated 2nd Page: If viewing documents, render full employee documents page
+  if (viewDocsEmp) {
+    return (
+      <WholesaleEmployeeDocumentsView
+        employee={viewDocsEmp}
+        onBack={() => setViewDocsEmp(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -701,74 +711,6 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Documents Modal */}
-      {viewDocsEmp && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-navy-950">
-                  Documents · {viewDocsEmp.name}
-                </h2>
-                <p className="text-xs text-gray-500 font-mono">{viewDocsEmp.code}</p>
-              </div>
-              <button
-                onClick={() => setViewDocsEmp(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                {REQUIRED_DOCS.map((doc) => {
-                  const isAttached = !!viewDocsEmp.docs?.[doc.key];
-                  return (
-                    <div
-                      key={doc.key}
-                      className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-gray-500" />
-                        <div>
-                          <div className="text-sm font-semibold text-gray-800">
-                            {doc.label}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {isAttached ? 'Verified & On File' : 'Not attached yet'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`text-xs px-2.5 py-1 rounded font-semibold ${
-                          isAttached
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {isAttached ? '✔ Attached' : 'Missing'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setViewDocsEmp(null)}
-                  className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm font-semibold hover:bg-navy-800 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

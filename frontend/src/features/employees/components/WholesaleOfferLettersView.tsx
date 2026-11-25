@@ -2,11 +2,9 @@ import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
   Search,
-  Printer,
   Eye,
   Edit2,
   Trash2,
-  X,
 } from 'lucide-react';
 import {
   OfferLetterRecord,
@@ -14,9 +12,9 @@ import {
   getStoredOffers,
   saveStoredOffers,
   getStoredEmployees,
-  numberToIndianWords,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
+import { WholesaleOfferLetterDetailView } from './WholesaleOfferLetterDetailView';
 
 interface Props {
   onBack?: () => void;
@@ -228,6 +226,16 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
         l.type.toLowerCase().includes(q)
     );
   }, [letters, searchTerm]);
+
+  // Dedicated 2nd Page: Return full offer letter view when one is viewed
+  if (viewLetter) {
+    return (
+      <WholesaleOfferLetterDetailView
+        letter={viewLetter}
+        onBack={() => setViewLetter(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -645,150 +653,6 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
           </table>
         </div>
       </div>
-
-      {/* View / Print Offer Letter Modal */}
-      {viewLetter && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex items-center justify-between z-10 print:hidden">
-              <h2 className="text-base font-bold text-navy-950">
-                {viewLetter.ref} · {viewLetter.name}
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-navy-900 text-white rounded-lg text-xs font-semibold hover:bg-navy-800 shadow-sm"
-                >
-                  <Printer className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Print / PDF</span>
-                </button>
-                <button
-                  onClick={() => setViewLetter(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Official Letterhead Document */}
-            <div className="p-8 space-y-6 text-gray-900 leading-relaxed font-serif text-sm">
-              {/* Header Letterhead */}
-              <div className="border-b-2 border-navy-950 pb-4 text-center font-sans">
-                <h1 className="text-2xl font-black text-navy-950 tracking-wider">
-                  SIDDESHWAR ENTERPRISES
-                </h1>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Authorized FMCG Wholesale Distributors &amp; General Merchants
-                </p>
-                <p className="text-xs text-gray-500">
-                  APMC Yard, Near Market Gate, Vijayapura, Karnataka - 586101
-                </p>
-                <p className="text-xs text-gray-500 font-mono">
-                  Ph: +91 9739396236 · GSTIN: 29ABCDE1234F1Z5
-                </p>
-              </div>
-
-              {/* Reference & Date */}
-              <div className="flex justify-between items-center text-xs font-sans">
-                <div>
-                  <strong>Ref:</strong> <span className="font-mono">{viewLetter.ref}</span>
-                </div>
-                <div>
-                  <strong>Date:</strong> {viewLetter.date}
-                </div>
-              </div>
-
-              {/* Recipient Block */}
-              <div className="text-xs font-sans space-y-0.5">
-                <div className="font-bold text-navy-950 text-sm">{viewLetter.name}</div>
-                {viewLetter.ph && <div>Mobile: {viewLetter.ph}</div>}
-                {viewLetter.addr && <div>{viewLetter.addr}</div>}
-              </div>
-
-              {/* Subject */}
-              <div className="text-center font-bold text-base border-y py-2 font-sans text-navy-950">
-                SUBJECT: APPOINTMENT / OFFER LETTER FOR THE POST OF{' '}
-                <span className="uppercase underline">{viewLetter.des}</span>
-              </div>
-
-              {/* Body */}
-              <div className="space-y-3 text-xs leading-5">
-                <p>
-                  Dear <strong>{viewLetter.name}</strong>,
-                </p>
-                <p>
-                  With reference to your application and subsequent discussions, we are pleased to
-                  offer you the position of <strong>{viewLetter.des}</strong> at Siddeshwar
-                  Enterprises on the following terms and conditions:
-                </p>
-
-                <ol className="list-decimal pl-5 space-y-2">
-                  <li>
-                    <strong>Date of Joining:</strong> Your employment will commence on or before{' '}
-                    <strong>{viewLetter.jd}</strong> at our <strong>{viewLetter.place}</strong>{' '}
-                    facility.
-                  </li>
-                  <li>
-                    <strong>Remuneration:</strong> You will be paid a monthly gross compensation of{' '}
-                    <strong>₹{viewLetter.sal.toLocaleString('en-IN')}</strong> (Rupees{' '}
-                    {numberToIndianWords(viewLetter.sal)} Only).
-                  </li>
-                  <li>
-                    <strong>Probation Period:</strong> You will be on probation for a period of{' '}
-                    <strong>{viewLetter.prob} months</strong> from the date of joining.
-                  </li>
-                  <li>
-                    <strong>Working Hours &amp; Weekly Off:</strong> Your regular business hours will
-                    be <strong>{viewLetter.hrs}</strong> with weekly off on{' '}
-                    <strong>{viewLetter.off}</strong>.
-                  </li>
-                  <li>
-                    <strong>Reporting:</strong> You will report to the{' '}
-                    <strong>{viewLetter.rep}</strong> or any designated officer.
-                  </li>
-                  <li>
-                    <strong>Notice Period:</strong> Either party may terminate this employment by
-                    giving <strong>{viewLetter.notice} days</strong> prior written notice or gross
-                    salary in lieu thereof.
-                  </li>
-                  {viewLetter.terms && (
-                    <li>
-                      <strong>Special Conditions:</strong> {viewLetter.terms}
-                    </li>
-                  )}
-                </ol>
-
-                {viewLetter.acc && (
-                  <p>
-                    Please confirm your acceptance of this offer by signing the duplicate copy and
-                    returning it to us on or before <strong>{viewLetter.acc}</strong>.
-                  </p>
-                )}
-
-                <p>We welcome you to our organization and wish you a fruitful and rewarding career.</p>
-              </div>
-
-              {/* Signature Block */}
-              <div className="pt-12 flex justify-between items-end font-sans text-xs">
-                <div>
-                  <p className="font-bold text-navy-950">For Siddeshwar Enterprises</p>
-                  <div className="h-12" />
-                  <p className="font-bold">{viewLetter.sign}</p>
-                  <p className="text-gray-500">Authorized Signatory</p>
-                </div>
-
-                <div className="text-right">
-                  <p className="font-bold text-navy-950">Acceptance of Employee</p>
-                  <div className="h-12" />
-                  <p className="font-bold">{viewLetter.name}</p>
-                  <p className="text-gray-500">Signature &amp; Date</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

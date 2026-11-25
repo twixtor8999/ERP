@@ -7,7 +7,6 @@ import {
   Edit2,
   Trash2,
   X,
-  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -17,6 +16,7 @@ import {
   STATE_CODE_MAP,
   type VendorRecord,
 } from "../data/mockPurchases";
+import { WholesaleVendorDetailView } from "./WholesaleVendorDetailView";
 
 export function WholesaleVendorsView() {
   const navigate = useNavigate();
@@ -190,6 +190,21 @@ export function WholesaleVendorsView() {
         v.state.toLowerCase().includes(q)
     );
   }, [vendors, searchQuery]);
+
+  // Dedicated 2nd Page: If viewing vendor details, render full page
+  if (viewVendor) {
+    return (
+      <WholesaleVendorDetailView
+        vendor={viewVendor}
+        purchases={purchases}
+        onBack={() => setViewVendor(null)}
+        onEdit={(v) => {
+          setViewVendor(null);
+          setEditVendor(v);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -416,73 +431,6 @@ export function WholesaleVendorsView() {
           </table>
         </div>
       </div>
-
-      {/* View Vendor Modal */}
-      {viewVendor && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-blue-300" />
-                Vendor Details
-              </h3>
-              <button
-                type="button"
-                onClick={() => setViewVendor(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3 text-sm">
-              <div>
-                <span className="text-xs font-bold text-gray-500 uppercase">Vendor Name</span>
-                <div className="font-bold text-gray-900 text-base">{viewVendor.name}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase">GSTIN</span>
-                  <div className="font-mono font-semibold text-gray-800">{viewVendor.gstin}</div>
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase">Contact No</span>
-                  <div className="font-semibold text-gray-800">{viewVendor.ph}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase">State</span>
-                  <div className="font-semibold text-gray-800">{viewVendor.state}</div>
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase">PAN</span>
-                  <div className="font-mono font-semibold text-gray-800">{viewVendor.pan}</div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <span className="text-xs font-bold text-gray-500 uppercase">Address</span>
-                <div className="text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-xs">
-                  {viewVendor.addr}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewVendor(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Edit Vendor Modal */}
       {editVendor && (

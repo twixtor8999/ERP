@@ -5,7 +5,6 @@ import {
   Search,
   Download,
   CheckCircle2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,6 +13,7 @@ import {
   type InwardExpenseRecord,
 } from "../data/mockExpenses";
 import { getStoredPurchases, saveStoredPurchases } from "@/features/purchases/data/mockPurchases";
+import { WholesaleInwardExpenseDetailView } from "./WholesaleInwardExpenseDetailView";
 
 export function WholesaleInwardExpensesView() {
   const navigate = useNavigate();
@@ -95,6 +95,20 @@ export function WholesaleInwardExpensesView() {
     e.preventDefault();
     toast.success(`Inward expenses loaded for ${fromDate} to ${toDate}`);
   };
+
+  // Dedicated 2nd Page: If viewing inward expense, render full page
+  if (viewExpense) {
+    return (
+      <WholesaleInwardExpenseDetailView
+        expense={viewExpense}
+        onBack={() => setViewExpense(null)}
+        onApprove={(id) => {
+          handleApprove(id);
+          setViewExpense(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -272,87 +286,6 @@ export function WholesaleInwardExpensesView() {
           </table>
         </div>
       </div>
-
-      {/* View Inward Expense Modal */}
-      {viewExpense && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <h3 className="font-bold text-base">Inward Purchase Expense</h3>
-              <button
-                type="button"
-                onClick={() => setViewExpense(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3 text-xs md:text-sm">
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                <span className="text-gray-500 text-xs">Invoice Total:</span>
-                <div className="text-xl font-bold text-blue-900">₹{viewExpense.invoiceTotal.toLocaleString()}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <span className="text-gray-500 text-xs">Invoice No:</span>
-                  <div className="font-mono font-bold text-gray-800">{viewExpense.invoiceNo}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs">Invoice Date:</span>
-                  <div className="font-semibold text-gray-800">{viewExpense.date}</div>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-gray-500 text-xs">Supplier / Vendor:</span>
-                <div className="font-bold text-gray-900 text-sm">{viewExpense.vendorName}</div>
-              </div>
-
-              <div>
-                <span className="text-gray-500 text-xs">Expense Type:</span>
-                <div className="font-medium text-gray-700">{viewExpense.expenseType}</div>
-              </div>
-
-              <div>
-                <span className="text-gray-500 text-xs">Approval Status:</span>
-                <div className="pt-0.5">
-                  {viewExpense.ap ? (
-                    <span className="text-emerald-700 font-bold">
-                      Approved on {viewExpense.ap.date}
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 font-bold">Waiting for Owner / Admin approval</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-              {!viewExpense.ap && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleApprove(viewExpense.id);
-                    setViewExpense(null);
-                  }}
-                  className="px-3 py-1.5 text-xs font-bold text-white bg-[#10b981] hover:bg-[#059669] rounded transition-colors"
-                >
-                  Approve Inward Expense
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setViewExpense(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300 ml-auto"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

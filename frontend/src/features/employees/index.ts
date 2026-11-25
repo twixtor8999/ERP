@@ -6,4 +6,6 @@ export * from "./components/WholesaleAttendanceView";
 export * from "./components/WholesaleAttendanceListView";
 export * from "./components/WholesaleSalarySlipView";
 export * from "./components/WholesaleOfferLettersView";
+export * from "./components/WholesaleEmployeeDocumentsView";
+export * from "./components/WholesaleOfferLetterDetailView";
 export * from "./data/mockEmployees";

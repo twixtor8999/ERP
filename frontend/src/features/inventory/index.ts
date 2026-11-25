@@ -12,6 +12,7 @@ export * from "./components/WholesaleDailyAuditReportView";
 export * from "./components/WholesalePhysicalStocksView";
 export * from "./components/WholesaleLiveInventoryVsSalesView";
 export * from "./components/WholesaleStockSplitView";
+export * from "./components/WholesaleInventoryStockSplitDetailView";
 export * from "./components/SuperStockAuditLiveView";
 export * from "./components/SuperStockAuditReportView";
 export * from "./pages/InventoryManagementPage";
