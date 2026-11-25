@@ -3,34 +3,48 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
-  INITIAL_CRM_STAFF,
-  type CrmStaffMember,
+  getStaffMetricsInDateRange,
 } from "../data/mockCrmReports";
 
 export function CrmDashboardView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  const [fromDate, setFromDate] = useState("2026-11-20");
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFrom, setAppliedFrom] = useState("2026-11-20");
+  const [appliedTo, setAppliedTo] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [staff] = useState<CrmStaffMember[]>(INITIAL_CRM_STAFF);
-  const activeStaff = useMemo(() => staff.filter((s) => s.ordersCount > 0), [staff]);
+  const staff = useMemo(() => {
+    return getStaffMetricsInDateRange(appliedFrom, appliedTo);
+  }, [appliedFrom, appliedTo]);
+
+  // Telecallers who either placed orders or are active team telecallers
+  const activeStaff = useMemo(() => {
+    const withOrders = staff.filter((s) => s.ordersCount > 0);
+    return withOrders.length > 0 ? withOrders : staff.slice(0, 3);
+  }, [staff]);
 
   const totalSales = useMemo(() => {
-    return activeStaff.reduce((sum, s) => sum + s.totalSales, 0);
-  }, [activeStaff]);
+    return staff.reduce((sum, s) => sum + s.totalSales, 0);
+  }, [staff]);
 
   const totalOrders = useMemo(() => {
-    return activeStaff.reduce((sum, s) => sum + s.ordersCount, 0);
-  }, [activeStaff]);
+    return staff.reduce((sum, s) => sum + s.ordersCount, 0);
+  }, [staff]);
 
   const totalCustomers = useMemo(() => {
-    return activeStaff.reduce((sum, s) => sum + s.customersCount, 0);
-  }, [activeStaff]);
+    return staff.reduce((sum, s) => sum + s.customersCount, 0);
+  }, [staff]);
 
   const totalIncentive = useMemo(() => {
-    return activeStaff.reduce((sum, s) => sum + s.incentive, 0);
-  }, [activeStaff]);
+    return staff.reduce((sum, s) => sum + s.incentive, 0);
+  }, [staff]);
 
   const filteredStaff = useMemo(() => {
     if (!searchQuery.trim()) return activeStaff;
@@ -45,6 +59,8 @@ export function CrmDashboardView() {
 
   const handleSubmitDate = (e: React.FormEvent) => {
     e.preventDefault();
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
     toast.success(`Data loaded for ${fromDate} to ${toDate}`);
   };
 
@@ -66,6 +82,7 @@ export function CrmDashboardView() {
             <span className="text-gray-600 font-medium">From</span>
             <input
               type="date"
+              max={todayIso}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
@@ -73,6 +90,7 @@ export function CrmDashboardView() {
             <span className="text-gray-600 font-medium">To</span>
             <input
               type="date"
+              max={todayIso}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"

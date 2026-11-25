@@ -3,21 +3,34 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
-  INITIAL_CRM_STAFF,
-  INITIAL_CRM_ORDERS,
+  getStaffMetricsInDateRange,
+  getOrdersInDateRange,
   type CrmStaffMember,
-  type CrmOrderRecord,
 } from "../data/mockCrmReports";
 import { CrmTeamMemberDetailView } from "./CrmTeamMemberDetailView";
 
 export function CrmTeamReportView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  const [fromDate, setFromDate] = useState("2026-11-20");
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFrom, setAppliedFrom] = useState("2026-11-20");
+  const [appliedTo, setAppliedTo] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [staff] = useState<CrmStaffMember[]>(INITIAL_CRM_STAFF);
-  const [orders] = useState<CrmOrderRecord[]>(INITIAL_CRM_ORDERS);
+  const staff = useMemo(() => {
+    return getStaffMetricsInDateRange(appliedFrom, appliedTo);
+  }, [appliedFrom, appliedTo]);
+
+  const orders = useMemo(() => {
+    return getOrdersInDateRange(appliedFrom, appliedTo);
+  }, [appliedFrom, appliedTo]);
+
   const [viewStaff, setViewStaff] = useState<CrmStaffMember | null>(null);
 
   const filteredStaff = useMemo(() => {
@@ -45,11 +58,13 @@ export function CrmTeamReportView() {
   const totalSalesAmount = useMemo(() => staff.reduce((a, s) => a + s.totalSales, 0), [staff]);
 
   const handleExport = () => {
-    toast.success(`Exporting Team CRM Report (${fromDate} to ${toDate}) to Excel...`);
+    toast.success(`Exporting Team CRM Report (${appliedFrom} to ${appliedTo}) to Excel...`);
   };
 
   const handleSubmitDate = (e: React.FormEvent) => {
     e.preventDefault();
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
     toast.success(`Team CRM Report loaded for ${fromDate} to ${toDate}`);
   };
 
@@ -89,6 +104,7 @@ export function CrmTeamReportView() {
             <span className="text-gray-600 font-medium">From</span>
             <input
               type="date"
+              max={todayIso}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
@@ -96,6 +112,7 @@ export function CrmTeamReportView() {
             <span className="text-gray-600 font-medium">To</span>
             <input
               type="date"
+              max={todayIso}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
@@ -141,15 +158,15 @@ export function CrmTeamReportView() {
         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
       </div>
 
-      {/* Section 1: Telecaller Report (Green Header) matching Screenshot 6 */}
+      {/* Section 1: Telecaller Report with 5-row internal scroll (Green Header) */}
       <div className="bg-white border border-[#3aa35c] rounded-xl overflow-hidden shadow-sm">
         <div className="bg-[#3aa35c] text-white py-2 px-4 text-center font-bold text-sm">
           Telecaller Report
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
-              <tr className="bg-[#3aa35c] text-white border-t border-green-600">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#3aa35c] text-white border-t border-green-600 whitespace-nowrap">
                 <th className="py-2.5 px-3 font-semibold text-center w-12">Sl</th>
                 <th className="py-2.5 px-3 font-semibold min-w-[160px]">Name</th>
                 <th className="py-2.5 px-3 font-semibold text-center">Number not reachable / wrong</th>
@@ -208,15 +225,15 @@ export function CrmTeamReportView() {
         </div>
       </div>
 
-      {/* Section 2: Sale Report (Green Header) matching Screenshot 6 */}
+      {/* Section 2: Sale Report with 5-row internal scroll (Green Header) */}
       <div className="bg-white border border-[#3aa35c] rounded-xl overflow-hidden shadow-sm">
         <div className="bg-[#3aa35c] text-white py-2 px-4 text-center font-bold text-sm">
           Sale Report
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
-              <tr className="bg-[#3aa35c] text-white border-t border-green-600">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#3aa35c] text-white border-t border-green-600 whitespace-nowrap">
                 <th className="py-2.5 px-3 font-semibold text-center w-12">Sl</th>
                 <th className="py-2.5 px-3 font-semibold min-w-[200px]">Name</th>
                 <th className="py-2.5 px-3 font-semibold text-center">Order Count</th>

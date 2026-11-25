@@ -238,3 +238,196 @@ export const INITIAL_CRM_ORDERS: CrmOrderRecord[] = [
 ];
 
 export const INITIAL_CANCELLED_ORDERS: CancelledOrderRecord[] = [];
+
+// Helper: Normalize any date string (YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY) to YYYY-MM-DD
+export function normalizeDateToIso(dStr?: string): string {
+  if (!dStr) return "";
+  const s = dStr.trim().split(" ")[0] || "";
+  if (s.includes("-")) {
+    const parts = s.split("-");
+    if (parts.length === 3) {
+      if (parts[0] && parts[0].length === 4) {
+        return `${parts[0]}-${parts[1]?.padStart(2, "0")}-${parts[2]?.padStart(2, "0")}`;
+      } else if (parts[2] && parts[2].length === 4) {
+        return `${parts[2]}-${parts[1]?.padStart(2, "0")}-${parts[0]?.padStart(2, "0")}`;
+      }
+    }
+  } else if (s.includes("/")) {
+    const parts = s.split("/");
+    if (parts.length === 3) {
+      if (parts[0] && parts[0].length === 4) {
+        return `${parts[0]}-${parts[1]?.padStart(2, "0")}-${parts[2]?.padStart(2, "0")}`;
+      } else if (parts[2] && parts[2].length === 4) {
+        return `${parts[2]}-${parts[1]?.padStart(2, "0")}-${parts[0]?.padStart(2, "0")}`;
+      }
+    }
+  }
+  return s;
+}
+
+// All recognized CRM telecallers in Siddeshwar Enterprises
+export const ALL_CRM_STAFF_BASE = [
+  { id: "staff-pushpa", name: "Pushpa Patil", phone: "9663447859", role: "CRM Staff / Telecaller" },
+  { id: "staff-dhruthi", name: "Dhruthi A S", phone: "8861629653", role: "CRM Staff / Telecaller" },
+  { id: "staff-mahalaxmi", name: "Mahalaxmi Hiremath", phone: "8197353836", role: "CRM Staff / Telecaller" },
+  { id: "staff-vijay", name: "Vijaykumar Shantagiri", phone: "9739396236", role: "Super Admin / Calling In-Charge" },
+];
+
+// Helper: Get all orders across local storage (pipeline, CRM reports, master orders, and initial)
+export function getAllCrmOrders(): CrmOrderRecord[] {
+  const map = new Map<string, CrmOrderRecord>();
+
+  // 1. Initial CRM Demo Orders
+  for (const o of INITIAL_CRM_ORDERS) {
+    map.set(o.orderNo, o);
+  }
+
+  // 2. Read from crm_orders_master and crm_reports_*
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("crm_reports_") || key === "crm_orders_master")) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const list = Array.isArray(parsed) ? parsed : parsed.my_orders || [];
+          if (Array.isArray(list)) {
+            for (const mo of list) {
+              const oNo = mo.order_number || mo.orderNo;
+              if (!oNo) continue;
+              map.set(oNo, {
+                id: mo.id || `ord-${oNo}`,
+                orderNo: oNo,
+                customerName: mo.customer_name || mo.customerName || "Customer",
+                customerPhone: mo.customer_phone || mo.phone || "",
+                shopName: mo.shop_name || mo.shopName || "",
+                village: mo.village || "Bijapur",
+                route: mo.route || "Bijapur Route",
+                staffName: mo.telecaller_name || mo.createdBy || "Pushpa Patil",
+                source: "CRM",
+                orderDate: mo.order_date || mo.orderDate || "24-11-2026",
+                orderTime: mo.order_placed ? mo.order_placed.split(" ")[1] || "10:30 am" : mo.orderTime || "10:30 am",
+                placedTimestamp: mo.order_placed || `${mo.order_date || "24-11-2026"} ${mo.orderTime || "10:30 am"}`,
+                status: mo.status || "placed",
+                statusDisplay: mo.status === "cancelled" ? "Cancelled" : "Order Placed",
+                total: Number(mo.total_amount || mo.total) || 0,
+                items: Array.isArray(mo.items)
+                  ? mo.items.map((it: any) => ({
+                      name: it.product_name || it.name,
+                      unit: it.unit || "Unit",
+                      qty: Number(it.quantity || it.qty) || 1,
+                      price: Number(it.unit_price || it.price) || 0,
+                    }))
+                  : [{ name: "Grocery Package", unit: "Pkg", qty: 1, price: Number(mo.total_amount) || 140 }],
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Read from authoritative pipeline orders (has up-to-date stages & tracking)
+  try {
+    const rawPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+    if (rawPipeline) {
+      const pOrders = JSON.parse(rawPipeline);
+      if (Array.isArray(pOrders)) {
+        for (const po of pOrders) {
+          const existing = map.get(po.orderNo);
+          map.set(po.orderNo, {
+            id: po.id || `ord-${po.orderNo}`,
+            orderNo: po.orderNo,
+            customerName: po.customerName,
+            customerPhone: po.phone || existing?.customerPhone || "",
+            shopName: po.shopName,
+            village: po.village,
+            route: po.route,
+            staffName: po.createdBy || existing?.staffName || "Pushpa Patil",
+            source: po.source === "APP" || po.source === "B2B" ? "APP" : "CRM",
+            orderDate: po.orderDate,
+            orderTime: po.orderTime,
+            placedTimestamp: existing?.placedTimestamp || `${po.orderDate} ${po.orderTime}`,
+            packedTimestamp: po.packedConfirmedAt,
+            dispatchedTimestamp: po.dispatchedAt,
+            outForDeliveryTimestamp: po.outForDeliveryAt,
+            deliveredTimestamp: po.deliveredAt,
+            completedTimestamp: po.stage === "completed" ? (po.deliveredAt || po.orderDate) : undefined,
+            status: po.stage === "cancelled" ? "cancelled" : (po.stage as any),
+            statusDisplay:
+              po.stage === "cancelled"
+                ? "Cancelled"
+                : po.stage === "invoice"
+                ? "Invoiced"
+                : po.stage === "dispatch"
+                ? "Dispatched"
+                : po.stage === "delivery"
+                ? "Out For Delivery"
+                : po.stage === "completed"
+                ? "Delivered"
+                : "Order Placed",
+            total: Number(po.total) || 0,
+            items: Array.isArray(po.items)
+              ? po.items.map((it: any) => ({
+                  name: it.name,
+                  unit: it.unit || "Unit",
+                  qty: Number(it.qty) || 1,
+                  price: Number(it.price || it.rate) || 0,
+                }))
+              : existing?.items || [],
+          });
+        }
+      }
+    }
+  } catch {}
+
+  return Array.from(map.values());
+}
+
+// Helper: Filter orders by date range
+export function getOrdersInDateRange(fromDate: string, toDate: string): CrmOrderRecord[] {
+  const all = getAllCrmOrders();
+  const fIso = normalizeDateToIso(fromDate);
+  const tIso = normalizeDateToIso(toDate);
+
+  return all.filter((o) => {
+    const oIso = normalizeDateToIso(o.orderDate);
+    if (fIso && oIso < fIso) return false;
+    if (tIso && oIso > tIso) return false;
+    return true;
+  });
+}
+
+// Helper: Aggregate staff performance for a given date range
+export function getStaffMetricsInDateRange(fromDate: string, toDate: string): CrmStaffMember[] {
+  const rangeOrders = getOrdersInDateRange(fromDate, toDate);
+
+  return ALL_CRM_STAFF_BASE.map((base) => {
+    const staffOrders = rangeOrders.filter(
+      (o) => o.staffName.toLowerCase() === base.name.toLowerCase() && o.status !== "cancelled"
+    );
+    const uniqueCusts = new Set(staffOrders.map((o) => o.customerPhone || o.customerName)).size;
+    const totalSales = staffOrders.reduce((sum, o) => sum + o.total, 0);
+
+    return {
+      id: base.id,
+      name: base.name,
+      phone: base.phone,
+      role: base.role,
+      targetMonthly: 400000,
+      ordersCount: staffOrders.length,
+      customersCount: uniqueCusts,
+      totalSales,
+      incentive: 0,
+      lastOrderTime: staffOrders[0]?.orderTime || "—",
+      callResults: {
+        notReachable: 0,
+        shopClosed: 0,
+        callLater: 0,
+        stockAvailable: 0,
+        notInterested: 0,
+        orderPlaced: staffOrders.length,
+      },
+    };
+  });
+}

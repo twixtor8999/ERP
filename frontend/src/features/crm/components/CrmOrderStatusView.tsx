@@ -3,19 +3,29 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
-  INITIAL_CRM_ORDERS,
+  getOrdersInDateRange,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
 import { CrmOrderStatusDetailView } from "./CrmOrderStatusDetailView";
 
 export function CrmOrderStatusView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  const [fromDate, setFromDate] = useState("2026-11-20");
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFrom, setAppliedFrom] = useState("2026-11-20");
+  const [appliedTo, setAppliedTo] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<CrmOrderRecord | null>(null);
 
-  const [orders] = useState<CrmOrderRecord[]>(INITIAL_CRM_ORDERS);
+  const orders = useMemo(() => {
+    return getOrdersInDateRange(appliedFrom, appliedTo);
+  }, [appliedFrom, appliedTo]);
 
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders;
@@ -38,11 +48,13 @@ export function CrmOrderStatusView() {
   const countCompleted = useMemo(() => orders.filter((o) => o.completedTimestamp).length, [orders]);
 
   const handleExport = () => {
-    toast.success(`Exporting Order Status (${fromDate} to ${toDate}) to Excel...`);
+    toast.success(`Exporting Order Status (${appliedFrom} to ${appliedTo}) to Excel...`);
   };
 
   const handleSubmitDate = (e: React.FormEvent) => {
     e.preventDefault();
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
     toast.success(`Order status loaded for ${fromDate} to ${toDate}`);
   };
 
@@ -74,6 +86,7 @@ export function CrmOrderStatusView() {
             <span className="text-gray-600 font-medium">From</span>
             <input
               type="date"
+              max={todayIso}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
@@ -81,6 +94,7 @@ export function CrmOrderStatusView() {
             <span className="text-gray-600 font-medium">To</span>
             <input
               type="date"
+              max={todayIso}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
@@ -131,12 +145,12 @@ export function CrmOrderStatusView() {
         </div>
       </div>
 
-      {/* Order Status Multi-Stage Table matching Screenshot 4 */}
+      {/* Order Status Multi-Stage Table with 5-row internal scroll (Image 5) */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
-              <tr className="bg-[#1e40af] text-white">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#1e40af] text-white whitespace-nowrap">
                 <th className="py-3 px-3 font-semibold text-center w-12">Sl</th>
                 <th className="py-3 px-3 font-semibold min-w-[170px]">Customer Name</th>
                 <th className="py-3 px-3 font-semibold">Order No</th>
