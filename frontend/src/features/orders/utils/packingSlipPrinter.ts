@@ -1,3 +1,6 @@
+import type { InvoiceTemplateConfig } from "./invoiceTemplateConfig";
+import { getInvoiceTemplateConfig } from "./invoiceTemplateConfig";
+
 export interface PackingSlipOrderData {
   orderNo: string;
   customerName: string;
@@ -31,17 +34,24 @@ export const SAMPLE_PREVIEW_PACKING_ORDER: PackingSlipOrderData = {
   ],
 };
 
-export function generatePackingSlipHtml(order: PackingSlipOrderData, format: "slip" | "sheet" = "slip"): string {
+export function generatePackingSlipHtml(
+  order: PackingSlipOrderData,
+  format: "slip" | "sheet" = "slip",
+  config?: InvoiceTemplateConfig
+): string {
+  const cfg = config || getInvoiceTemplateConfig();
   const isSheet = format === "sheet";
   const containerWidth = isSheet ? "750px" : "380px";
   const customerName = order.customerName || "";
   const village = order.village || "";
-  const phone = order.phone || "8748930231";
+  const phone = order.phone || cfg.phone || "";
   const route = order.route ? (order.route.toLowerCase().includes("route") ? order.route : `${order.route} Route`) : "—";
-  const orderDate = order.orderDate || "23-11-2026";
+  const orderDate = order.orderDate || new Date().toLocaleDateString("en-GB");
   const packedDate = orderDate;
   const title = `packing_${order.orderNo}`;
   const totalQty = order.items.reduce((sum, it) => sum + (it.qty || 0), 0);
+  const companyName = cfg.companyName || "SIDDESHWAR ENTERPRISES";
+  const headerTitle = cfg.title ? (cfg.title.toUpperCase().includes("PACKING") ? cfg.title : `${cfg.title} / PACKING LIST`) : "PACKING LIST";
 
   const itemsRows = order.items
     .map(
@@ -240,23 +250,32 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData, format: "sl
   </div>
   <div id="pr">
     <div class="inv">
-      <div class="co">SIDDESHWAR ENTERPRISES</div>
-      <h4>PACKING LIST</h4>
+      <div class="co">${companyName}</div>
+      <h4>${headerTitle}</h4>
       <div class="bx">
         <div>Order No:<br><b>${order.orderNo}</b></div>
         <div>Packed on:<br><b>${packedDate}</b></div>
       </div>
-      <div class="kv">
-        <div>
-          M/s: ${customerName}
-          ${village ? `<br>Village: ${village}` : ''}
-          ${phone ? `<br>Mob: ${phone}` : ''}
+      ${cfg.showCustomer ? `
+        <div class="kv">
+          <div>
+            M/s: ${customerName}
+            ${village ? `<br>Village: ${village}` : ''}
+            ${phone ? `<br>Mob: ${phone}` : ''}
+          </div>
+          <div>
+            ${cfg.showVehicle ? `Route: ${route}<br>` : ''}
+            Order date: ${orderDate}
+          </div>
         </div>
-        <div>
-          Route: ${route}<br>
-          Order date: ${orderDate}
+      ` : `
+        <div class="kv" style="grid-template-columns: 1fr;">
+          <div>
+            ${cfg.showVehicle ? `Route: ${route}<br>` : ''}
+            Order date: ${orderDate}
+          </div>
         </div>
-      </div>
+      `}
       <table>
         <thead>
           <tr>
@@ -279,6 +298,8 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData, format: "sl
         <span>Packed by: ____________________</span>
         <span>Checked by: ____________________</span>
       </div>
+      ${cfg.footerLine ? `<div style="text-align: center; font-size: 10px; margin-top: 12px; color: #555;">${cfg.footerLine}</div>` : ""}
+      ${cfg.termsAndConditions ? `<div style="text-align: center; font-size: 9px; margin-top: 4px; color: #777; font-style: italic;">${cfg.termsAndConditions}</div>` : ""}
     </div>
   </div>
   <script>
@@ -321,9 +342,13 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData, format: "sl
 </html>`;
 }
 
-export function openPackingSlipWindow(order: PackingSlipOrderData, format: "slip" | "sheet" = "slip"): boolean {
+export function openPackingSlipWindow(
+  order: PackingSlipOrderData,
+  format: "slip" | "sheet" = "slip",
+  config?: InvoiceTemplateConfig
+): boolean {
   try {
-    const docHtml = generatePackingSlipHtml(order, format);
+    const docHtml = generatePackingSlipHtml(order, format, config);
     const docTitle = `packing_${order.orderNo}`;
 
     // 1. Direct window.open with document.write

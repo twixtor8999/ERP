@@ -4,6 +4,9 @@
  * matching the client reference application (INV-469_duplicate layout).
  */
 
+import type { InvoiceFormat, InvoiceTemplateConfig } from "./invoiceTemplateConfig";
+import { getInvoiceTemplateConfig, generateThermalReceiptHtml } from "./invoiceTemplateConfig";
+
 export interface TaxInvoiceItem {
   name: string;
   nameKn?: string;
@@ -69,10 +72,21 @@ export interface TaxInvoiceOrder {
 /**
  * Generates the inner Tax Invoice HTML matching the reference app (.inv container).
  */
-export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate = true): string {
+export function generateTaxInvoiceInnerHtml(
+  order: TaxInvoiceOrder,
+  isDuplicate = true,
+  config?: InvoiceTemplateConfig
+): string {
+  const cfg = config || getInvoiceTemplateConfig();
   const logoUrl = typeof window !== "undefined" && window.location?.origin
     ? `${window.location.origin}/siddeshwar-logo.png`
     : "/siddeshwar-logo.png";
+
+  const companyName = cfg.companyName || "SIDDESHWAR ENTERPRISES";
+  const companyGstin = cfg.gstin || "29FMEPK5524A1Z8";
+  const companyAddress = cfg.address || "648/1 Flat No 28, Akashvani road, Vijayapura, Karnataka, 586101";
+  const companyPhone = cfg.phone || "9880801735";
+  const invoiceTitle = cfg.title || "TAX INVOICE";
 
   const custName = order.customerName || order.customer?.name || "B M";
   const custNameKn = order.customerNameKn || order.customer?.nameKn || (custName === "B M" ? "ಬಿ ಎಮ್" : "");
@@ -171,41 +185,52 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
 
       ${isDuplicate ? `<div class="dup">DUPLICATE COPY</div>` : ""}
 
-      <img src="${logoUrl}" class="logo" alt="SIDDESHWAR ENTERPRISES" />
-      <div class="co">SIDDESHWAR ENTERPRISES</div>
+      <img src="${logoUrl}" class="logo" alt="${companyName}" />
+      <div class="co">${companyName}</div>
       <div class="c" style="font-size:10px;font-weight:700;letter-spacing:0.4px;margin-bottom:2px">WHOLESALE FMCG & PROVISION STORE</div>
-      <div class="c">GSTIN : 29FMEPK5524A1Z8</div>
+      ${companyGstin ? `<div class="c">GSTIN : ${companyGstin}</div>` : ""}
       <div class="ad">
-        <div>Address: 648/1 Flat No 28 , Akashvani road , Vijayapura,Karnataka ,586101</div>
-        <div>Mobile : 9739396236</div>
+        ${companyAddress ? `<div>Address: ${companyAddress}</div>` : ""}
+        ${companyPhone ? `<div>Mobile : ${companyPhone}</div>` : ""}
       </div>
 
-      <h4>TAX INVOICE</h4>
+      <h4>${invoiceTitle}</h4>
 
       <div class="bx">
         <div>Order No:<br /><b>${orderNo}</b></div>
         <div>Invoice No:<br /><b>${invoiceNo}</b></div>
       </div>
 
-      <div class="kv">
-        <div>
-          <div>M/s: ${custName}<br /><span class="knl">Name: ${custNameKn}</span></div>
-          <div>Shop: ${custShop}</div>
-          <div>Village: ${custVillage}<br /><span class="knl">Village: ${custVillageKn}</span></div>
-          <div>Mob: ${custPhone}</div>
-          <div>Vehicle No: ${vehicleNo}</div>
-          <div>Order Taken By: ${orderTakenBy}</div>
-          <div>Mobile: ${takenByPhone}</div>
-          <div>GST No: ${custGst}</div>
+      ${cfg.showCustomer ? `
+        <div class="kv">
+          <div>
+            <div>M/s: ${custName}<br /><span class="knl">Name: ${custNameKn}</span></div>
+            <div>Shop: ${custShop}</div>
+            <div>Village: ${custVillage}<br /><span class="knl">Village: ${custVillageKn}</span></div>
+            <div>Mob: ${custPhone}</div>
+            ${cfg.showVehicle ? `
+              <div>Vehicle No: ${vehicleNo}</div>
+              <div>Order Taken By: ${orderTakenBy}</div>
+              <div>Mobile: ${takenByPhone}</div>
+            ` : ""}
+            <div>GST No: ${custGst}</div>
+          </div>
+          <div>
+            <div>Date: ${dateStr} ${timeStr}</div>
+            <div>Landmark: ${custLandmark}</div>
+            <div>Taluka: ${custTaluka}</div>
+            <div>District: ${custDistrict}</div>
+            <div>Route: ${custRoute}</div>
+          </div>
         </div>
-        <div>
-          <div>Date: ${dateStr} ${timeStr}</div>
-          <div>Landmark: ${custLandmark}</div>
-          <div>Taluka: ${custTaluka}</div>
-          <div>District: ${custDistrict}</div>
-          <div>Route: ${custRoute}</div>
+      ` : `
+        <div class="kv" style="grid-template-columns: 1fr;">
+          <div>
+            <div>Date: ${dateStr} ${timeStr}</div>
+            <div>Route: ${custRoute}</div>
+          </div>
         </div>
-      </div>
+      `}
 
       <table>
         <thead>
@@ -224,7 +249,7 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
               <td>
                 ${l.name}
                 ${l.nameKn ? `<br /><span class="knl">${l.nameKn}</span>` : ""}
-                ${l.hsn ? `<br /><small>HSN Code: ${l.hsn}</small>` : ""}
+                ${cfg.showHsn && l.hsn ? `<br /><small>HSN Code: ${l.hsn}</small>` : ""}
               </td>
               <td class="n">${l.qty}</td>
               <td class="n">${l.price.toFixed(2)}</td>
@@ -243,57 +268,69 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
       </table>
 
       <div class="sum">
-        <div><span>Taxable Amount</span><span>${totalTaxable.toFixed(2)}</span></div>
-        <div><span>CGST</span><span>${cgst.toFixed(2)}</span></div>
-        <div><span>SGST</span><span>${sgst.toFixed(2)}</span></div>
+        ${cfg.showGstSplit ? `
+          <div><span>Taxable Amount</span><span>${totalTaxable.toFixed(2)}</span></div>
+          <div><span>CGST</span><span>${cgst.toFixed(2)}</span></div>
+          <div><span>SGST</span><span>${sgst.toFixed(2)}</span></div>
+        ` : ""}
         <div class="big font-bold"><span>Total Payable</span><span>${totalPayable.toFixed(2)}</span></div>
       </div>
 
-      <div class="c" style="margin-top:8px"><b>TAX SUMMARY</b></div>
-      <table class="ts">
-        <thead>
-          <tr>
-            <th>Taxable</th>
-            <th>Tax Rate (%)</th>
-            <th>CGST</th>
-            <th>SGST</th>
-            <th>IGST</th>
-            <th>CESS</th>
-            <th>Net</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Object.entries(taxSummary)
-            .sort(([a], [b]) => Number(a) - Number(b))
-            .map(
-              ([rate, s]) => `
+      ${cfg.showGstSplit ? `
+        <div class="c" style="margin-top:8px"><b>TAX SUMMARY</b></div>
+        <table class="ts">
+          <thead>
             <tr>
-              <td class="n">${s.taxable.toFixed(2)}</td>
-              <td class="n">${rate}</td>
-              <td class="n">${(s.tax / 2).toFixed(2)}</td>
-              <td class="n">${(s.tax / 2).toFixed(2)}</td>
-              <td class="n">0.00</td>
-              <td class="n">0</td>
-              <td class="n">${s.net.toFixed(2)}</td>
+              <th>Taxable</th>
+              <th>Tax Rate (%)</th>
+              <th>CGST</th>
+              <th>SGST</th>
+              <th>IGST</th>
+              <th>CESS</th>
+              <th>Net</th>
             </tr>
-          `
-            )
-            .join("")}
-          <tr>
-            <th>TOTAL</th>
-            <th>-</th>
-            <th class="n">${cgst.toFixed(2)}</th>
-            <th class="n">${sgst.toFixed(2)}</th>
-            <th class="n">0.00</th>
-            <th class="n">0</th>
-            <th class="n">${totalAmt.toFixed(2)}</th>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${Object.entries(taxSummary)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(
+                ([rate, s]) => `
+              <tr>
+                <td class="n">${s.taxable.toFixed(2)}</td>
+                <td class="n">${rate}</td>
+                <td class="n">${(s.tax / 2).toFixed(2)}</td>
+                <td class="n">${(s.tax / 2).toFixed(2)}</td>
+                <td class="n">0.00</td>
+                <td class="n">0</td>
+                <td class="n">${s.net.toFixed(2)}</td>
+              </tr>
+            `
+              )
+              .join("")}
+            <tr>
+              <th>TOTAL</th>
+              <th>-</th>
+              <th class="n">${cgst.toFixed(2)}</th>
+              <th class="n">${sgst.toFixed(2)}</th>
+              <th class="n">0.00</th>
+              <th class="n">0</th>
+              <th class="n">${totalAmt.toFixed(2)}</th>
+            </tr>
+          </tbody>
+        </table>
+      ` : ""}
 
-      <p style="margin:8px 0 0;font-size:10px;line-height:1.45;border:1px dashed #aaa;padding:6px;border-radius:4px;text-align:justify">
-        ಹ್ಯಾಂಡಲಿಂಗ್ ಹಾಗು ಸಪೋರ್ಟ್ ಚಾರ್ಜಸ್, ಇದು ಶುಲ್ಕವಲ್ಲ, ನಿಮಗೆ ಬೇಕಾದ ವಸ್ತುಗಳನ್ನು ದೂರದ ಊರಿಂದ ಸುರಕ್ಷವಾಗಿ ಅಷ್ಟೂ ಅತ್ಯಂತ ಸುರಕ್ಷಿತವಾಗಿ ಪ್ಯಾಕ್ ಮಾಡಿ, ತುಂಬಾ ಮುತುವರ್ಜಿಯಿಂದ ನಿಮ್ಮ ಅಂಗಡಿಗೆ ತಲುಪಿಸಲು ಹಾಗು ನಿಮ್ಮ ಅಂಗಡಿಯ ಅಗತ್ಯತೆಗಳನ್ನು ಸಂಪೂರ್ಣವಾಗಿ ಪೂರೈಸುವ ನಿಟ್ಟಿನಲ್ಲಿ ಸೇವೆ ಸಲ್ಲಿಸಲು ಉಪಯೋಗವಾಗುತ್ತದೆ. ಇನ್ನಷ್ಟು ಶಕ್ತಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಸೇವೆಗೆ ಸದಾ ಸಿದ್ಧರಿದ್ದೇವೆ.
-      </p>
+      ${cfg.footerLine ? `
+        <p style="margin:8px 0 0;font-size:10px;line-height:1.45;border:1px dashed #aaa;padding:6px;border-radius:4px;text-align:justify">
+          ${cfg.footerLine}
+        </p>
+      ` : ""}
+
+      ${cfg.termsAndConditions ? `
+        <div style="margin:6px 0 2px;font-size:9.5px;color:#444;text-align:center;font-style:italic;">
+          ${cfg.termsAndConditions}
+        </div>
+      ` : ""}
 
       <div style="border-top:2px double #000;border-bottom:2px double #000;margin:10px 0 6px;padding:3px 0;text-align:center;font-size:10px;font-weight:bold;letter-spacing:1.5px">OFFERS</div>
       <div class="c" style="margin-top:6px;font-weight:bold;letter-spacing:1px">* THANK YOU *</div>
@@ -305,9 +342,13 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
  * Generates the full standalone HTML page for the print preview window
  * with the fixed dark navy header bar and print/pdf buttons.
  */
-export function generateTaxInvoiceDocument(order: TaxInvoiceOrder, isDuplicate = true): string {
+export function generateTaxInvoiceDocument(
+  order: TaxInvoiceOrder,
+  isDuplicate = true,
+  config?: InvoiceTemplateConfig
+): string {
   const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}`;
-  const innerHtml = generateTaxInvoiceInnerHtml(order, isDuplicate);
+  const innerHtml = generateTaxInvoiceInnerHtml(order, isDuplicate, config);
 
   return `<!doctype html>
 <html lang="en">
@@ -494,17 +535,6 @@ export function generateTaxInvoiceDocument(order: TaxInvoiceOrder, isDuplicate =
 </html>`;
 }
 
-import type {
-  InvoiceFormat,
-} from "./invoiceTemplateConfig";
-import {
-  getInvoiceTemplateConfig,
-  generateThermalReceiptHtml,
-} from "./invoiceTemplateConfig";
-
-export type {
-  InvoiceFormat,
-};
 export {
   getInvoiceTemplateConfig,
   generateThermalReceiptHtml,
@@ -518,30 +548,31 @@ export {
 export function openTaxInvoiceWindow(
   order: TaxInvoiceOrder,
   isDuplicate = true,
-  formatOverride?: InvoiceFormat
+  formatOverride?: InvoiceFormat,
+  config?: InvoiceTemplateConfig
 ): boolean {
   try {
-    const config = getInvoiceTemplateConfig();
-    const effectiveFormat: InvoiceFormat = formatOverride || config.paperSize || "slip_80";
+    const effectiveConfig = config || getInvoiceTemplateConfig();
+    const effectiveFormat: InvoiceFormat = formatOverride || effectiveConfig.paperSize || "slip_80";
 
     let doc = "";
     const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}_${effectiveFormat}`;
 
     if (effectiveFormat === "slip_80") {
       // PDF Format 1: Exact Bilingual 80mm Slip Tax Invoice
-      doc = generateTaxInvoiceDocument(order, isDuplicate);
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig);
     } else if (effectiveFormat === "thermal_80") {
-      doc = generateThermalReceiptHtml(order, 80);
+      doc = generateThermalReceiptHtml(order, 80, effectiveConfig);
     } else if (effectiveFormat === "thermal_58") {
-      doc = generateThermalReceiptHtml(order, 58);
+      doc = generateThermalReceiptHtml(order, 58, effectiveConfig);
     } else if (effectiveFormat === "a5") {
       // Generate A5 style by modifying page style in the standard invoice document
-      doc = generateTaxInvoiceDocument(order, isDuplicate).replace(
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig).replace(
         "@page { size: A4 portrait;",
         "@page { size: A5 landscape;"
       );
     } else {
-      doc = generateTaxInvoiceDocument(order, isDuplicate);
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig);
     }
 
     // 1. First attempt: Direct window.open with document.write

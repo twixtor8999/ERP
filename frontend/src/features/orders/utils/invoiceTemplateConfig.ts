@@ -67,8 +67,12 @@ export function saveInvoiceTemplateConfig(config: Partial<InvoiceTemplateConfig>
 /**
  * Generates compact Thermal POS / Delivery receipt (80mm or 58mm width)
  */
-export function generateThermalReceiptHtml(order: TaxInvoiceOrder, widthMm: 80 | 58 = 80): string {
-  const cfg = getInvoiceTemplateConfig();
+export function generateThermalReceiptHtml(
+  order: TaxInvoiceOrder,
+  widthMm: 80 | 58 = 80,
+  config?: InvoiceTemplateConfig
+): string {
+  const cfg = config || getInvoiceTemplateConfig();
   const widthPx = widthMm === 80 ? 302 : 219;
   const fontSize = widthMm === 80 ? "11px" : "9.5px";
 

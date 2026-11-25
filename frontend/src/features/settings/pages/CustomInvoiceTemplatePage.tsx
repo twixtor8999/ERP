@@ -16,7 +16,11 @@ import {
   saveInvoiceTemplateConfig,
 } from '@/features/orders/utils/invoiceTemplateConfig';
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from '@/features/orders/utils/taxInvoicePrinter';
-import { openPackingSlipWindow, SAMPLE_PREVIEW_PACKING_ORDER } from '@/features/orders/utils/packingSlipPrinter';
+import {
+  openPackingSlipWindow,
+  SAMPLE_PREVIEW_PACKING_ORDER,
+  PackingSlipOrderData,
+} from '@/features/orders/utils/packingSlipPrinter';
 import { toast } from 'sonner';
 
 // Sample order matching PDF 1 (INV-469 / ORD-1489)
@@ -81,6 +85,86 @@ export function CustomInvoiceTemplatePage() {
   const [config, setConfig] = useState<InvoiceTemplateConfig>(() => getInvoiceTemplateConfig());
   const [activeTab, setActiveTab] = useState<'invoice' | 'packing'>('invoice');
 
+  // Load real wholesale orders from localStorage if present
+  const [pipelineOrders] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('crm_wholesale_pipeline_orders');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const [selectedOrderId, setSelectedOrderId] = useState<string>('sample');
+
+  const selectedRealOrder = pipelineOrders.find(
+    (o) => String(o.orderNo || o.id) === String(selectedOrderId)
+  );
+
+  const previewTaxOrder: TaxInvoiceOrder = selectedRealOrder
+    ? {
+        orderNo: selectedRealOrder.orderNo || 'ORD-PREV',
+        invoiceNo: selectedRealOrder.invoiceNo || selectedRealOrder.orderNo || 'INV-PREV',
+        orderDate: selectedRealOrder.date || selectedRealOrder.orderDate || '20-11-2026',
+        orderTime: selectedRealOrder.time || selectedRealOrder.orderTime || '10:00 AM',
+        customerName: selectedRealOrder.customerName || selectedRealOrder.customer?.name || 'Customer',
+        customerNameKn: selectedRealOrder.customerNameKn || selectedRealOrder.customer?.nameKn || '',
+        customerShop: selectedRealOrder.customerShop || selectedRealOrder.shopName || selectedRealOrder.customerName,
+        customerVillage: selectedRealOrder.customerVillage || selectedRealOrder.village || 'Village',
+        customerVillageKn: selectedRealOrder.customerVillageKn || selectedRealOrder.villageKn || '',
+        customerPhone: selectedRealOrder.customerPhone || selectedRealOrder.phone || '',
+        customerLandmark: selectedRealOrder.customerLandmark || selectedRealOrder.landmark || '',
+        customerTaluka: selectedRealOrder.customerTaluka || selectedRealOrder.taluka || '',
+        customerDistrict: selectedRealOrder.customerDistrict || selectedRealOrder.district || '',
+        customerRoute: selectedRealOrder.customerRoute || selectedRealOrder.route || '',
+        vehicleNo: selectedRealOrder.vehicleNo || 'KA28AB3425',
+        createdBy: selectedRealOrder.createdBy || 'Admin',
+        creatorPhone: selectedRealOrder.creatorPhone || '',
+        customerGstin: selectedRealOrder.customerGstin || selectedRealOrder.gstin || 'N/A',
+        items: (selectedRealOrder.items && selectedRealOrder.items.length > 0
+          ? selectedRealOrder.items
+          : SAMPLE_PREVIEW_ORDER_PDF1.items
+        ).map((it: any) => ({
+          name: it.name || it.productName || 'Item',
+          nameKn: it.nameKn || '',
+          hsn: it.hsn || '96190030',
+          qty: Number(it.qty || it.quantity || 1),
+          price: Number(it.price || it.rate || 10),
+          gst: it.gst !== undefined ? Number(it.gst) : 5,
+          total: Number(it.total || (it.qty || 1) * (it.price || 10)),
+        })),
+        total: Number(selectedRealOrder.total || selectedRealOrder.totalAmount || 2580),
+        taxableAmount: Number(
+          selectedRealOrder.taxableAmount ||
+            (selectedRealOrder.total ? selectedRealOrder.total * 0.95 : 2457.14)
+        ),
+        cgst: Number(selectedRealOrder.cgst || 61.43),
+        sgst: Number(selectedRealOrder.sgst || 61.43),
+      }
+    : SAMPLE_PREVIEW_ORDER_PDF1;
+
+  const previewPackingOrder: PackingSlipOrderData = selectedRealOrder
+    ? {
+        orderNo: selectedRealOrder.orderNo || 'ORD-PREV',
+        customerName: selectedRealOrder.customerName || 'Customer',
+        shopName: selectedRealOrder.customerShop || selectedRealOrder.shopName || '',
+        village: selectedRealOrder.customerVillage || selectedRealOrder.village || '',
+        route: selectedRealOrder.customerRoute || selectedRealOrder.route || '',
+        phone: selectedRealOrder.customerPhone || selectedRealOrder.phone || '',
+        orderDate: selectedRealOrder.date || selectedRealOrder.orderDate || '24-11-2026',
+        items: (selectedRealOrder.items && selectedRealOrder.items.length > 0
+          ? selectedRealOrder.items
+          : SAMPLE_PREVIEW_PACKING_ORDER.items
+        ).map((it: any) => ({
+          name: it.name || it.productName || 'Item',
+          qty: Number(it.qty || it.quantity || 1),
+          unit: it.unit || 'Box',
+        })),
+      }
+    : SAMPLE_PREVIEW_PACKING_ORDER;
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     saveInvoiceTemplateConfig(config);
@@ -90,8 +174,9 @@ export function CustomInvoiceTemplatePage() {
   const handleTestPrint = () => {
     if (activeTab === 'packing' || config.paperSize === 'packing_slip' || config.paperSize === 'packing_sheet') {
       const ok = openPackingSlipWindow(
-        SAMPLE_PREVIEW_PACKING_ORDER,
-        config.paperSize === 'packing_sheet' ? 'sheet' : 'slip'
+        previewPackingOrder,
+        config.paperSize === 'packing_sheet' ? 'sheet' : 'slip',
+        config
       );
       if (ok) {
         toast.success('Launched test print preview for Packing List (PDF 2 Format)');
@@ -101,7 +186,7 @@ export function CustomInvoiceTemplatePage() {
       return;
     }
 
-    const ok = openTaxInvoiceWindow(SAMPLE_PREVIEW_ORDER_PDF1, true, config.paperSize);
+    const ok = openTaxInvoiceWindow(previewTaxOrder, true, config.paperSize, config);
     if (ok) {
       toast.success(`Launched test print preview for ${config.paperSize.toUpperCase()}`);
     } else {
@@ -434,46 +519,95 @@ export function CustomInvoiceTemplatePage() {
 
         {/* Live Preview (Right 6 Cols) */}
         <div className="lg:col-span-6 bg-slate-100/90 p-5 rounded-xl border border-slate-300/80 shadow-inner space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-black uppercase text-slate-700 tracking-wide flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-blue-600" />
               LIVE RENDER PREVIEW ({config.paperSize.toUpperCase()})
             </span>
-            <span className="text-[11px] font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
-              {config.paperSize.startsWith('packing') ? 'ORD-1690' : 'INV-469'}
-            </span>
+
+            <div className="flex items-center gap-2">
+              {pipelineOrders.length > 0 && (
+                <select
+                  value={selectedOrderId}
+                  onChange={(e) => setSelectedOrderId(e.target.value)}
+                  className="text-[11px] font-bold bg-white border border-slate-300 rounded px-2 py-0.5 text-slate-700 focus:outline-none"
+                  title="Select order to preview"
+                >
+                  <option value="sample">
+                    Sample Order ({config.paperSize.startsWith('packing') ? 'ORD-1690' : 'INV-469'})
+                  </option>
+                  {pipelineOrders.map((o) => (
+                    <option key={o.orderNo || o.id} value={o.orderNo || o.id}>
+                      {o.invoiceNo || o.orderNo} · {o.customerName || 'Customer'}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span className="text-[11px] font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                {config.paperSize.startsWith('packing')
+                  ? previewPackingOrder.orderNo
+                  : previewTaxOrder.invoiceNo || previewTaxOrder.orderNo}
+              </span>
+            </div>
           </div>
 
           {/* Rendered Preview Container */}
           <div className="flex justify-center overflow-x-auto py-2">
             {config.paperSize === 'packing_slip' || config.paperSize === 'packing_sheet' ? (
               /* PDF FORMAT 2: PACKING LIST PREVIEW */
-              <div className="bg-white shadow-xl border border-slate-300 p-4 font-sans text-slate-900 rounded-sm w-[340px] text-[11px]">
+              <div
+                className={`bg-white shadow-xl border border-slate-300 p-4 font-sans text-slate-900 rounded-sm text-[11px] ${
+                  config.paperSize === 'packing_sheet' ? 'w-[440px]' : 'w-[340px]'
+                }`}
+              >
                 <div className="text-center">
-                  <div className="font-bold text-[14.5px] tracking-wide">SIDDESHWAR ENTERPRISES</div>
-                  <h4 className="font-bold text-[13.5px] tracking-wide my-1">PACKING LIST</h4>
+                  <div className="font-bold text-[14.5px] tracking-wide">
+                    {config.companyName || 'SIDDESHWAR ENTERPRISES'}
+                  </div>
+                  <h4 className="font-bold text-[13.5px] tracking-wide my-1">
+                    {config.title
+                      ? config.title.toUpperCase().includes('PACKING')
+                        ? config.title
+                        : `${config.title} / PACKING LIST`
+                      : 'PACKING LIST'}
+                  </h4>
                 </div>
 
                 <div className="grid grid-cols-2 border border-black rounded-[7px] text-center my-2 text-[11px]">
                   <div className="p-1 border-r border-black">
-                    Order No:<br /><b>ORD-1690</b>
+                    Order No:<br />
+                    <b>{previewPackingOrder.orderNo}</b>
                   </div>
                   <div className="p-1">
-                    Packed on:<br /><b>24-11-2026</b>
+                    Packed on:<br />
+                    <b>{previewPackingOrder.orderDate}</b>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 my-2 text-[11px] leading-tight">
-                  <div>
-                    M/s: Patil Gundu<br />
-                    Village: Uppaladinni<br />
-                    Mob: 9611161548
+                {config.showCustomer ? (
+                  <div className="grid grid-cols-2 gap-2 my-2 text-[11px] leading-tight">
+                    <div>
+                      M/s: {previewPackingOrder.customerName}<br />
+                      {previewPackingOrder.village && (
+                        <>Village: {previewPackingOrder.village}<br /></>
+                      )}
+                      {previewPackingOrder.phone && <>Mob: {previewPackingOrder.phone}</>}
+                    </div>
+                    <div>
+                      {config.showVehicle && previewPackingOrder.route && (
+                        <>Route: {previewPackingOrder.route}<br /></>
+                      )}
+                      Order date: {previewPackingOrder.orderDate}
+                    </div>
                   </div>
-                  <div>
-                    Route: Basavan Bagewadi<br />
-                    Order date: 24-11-2026
+                ) : (
+                  <div className="my-2 text-[11px] leading-tight flex justify-between">
+                    {config.showVehicle && previewPackingOrder.route && (
+                      <div>Route: {previewPackingOrder.route}</div>
+                    )}
+                    <div>Order date: {previewPackingOrder.orderDate}</div>
                   </div>
-                </div>
+                )}
 
                 <table className="w-full border-collapse border border-black text-[11px] my-2">
                   <thead className="bg-[#cfe2f3]">
@@ -485,19 +619,11 @@ export function CustomInvoiceTemplatePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { si: 1, name: 'Raag Gold Palm Oil 1Ltr 10Pcs Box', qty: 5 },
-                      { si: 2, name: 'VST Vegetable Oil 1Kg 10Pcs Box', qty: 3 },
-                      { si: 3, name: 'Zeeba Jeera Rice 26 Kg Bag', qty: 1 },
-                      { si: 4, name: 'Namasthe Gram Flour 10Kg Bag', qty: 5 },
-                      { si: 5, name: 'Sugar S-30 50Kg Bag', qty: 1 },
-                      { si: 6, name: 'Poha 30kg Bag', qty: 1 },
-                      { si: 7, name: 'Trulove Orange Kreme 5Rs 144Pcs Box', qty: 1 },
-                    ].map((it) => (
-                      <tr key={it.si}>
-                        <td className="border border-black p-1 text-center">{it.si}</td>
+                    {previewPackingOrder.items.map((it: { name: string; qty: number; unit?: string }, idx: number) => (
+                      <tr key={idx}>
+                        <td className="border border-black p-1 text-center">{idx + 1}</td>
                         <td className="border border-black p-1 text-left">{it.name}</td>
-                        <td className="border border-black p-1 text-right">{it.qty}</td>
+                        <td className="border border-black p-1 text-right font-medium">{it.qty}</td>
                         <td className="border border-black p-1 text-center"></td>
                       </tr>
                     ))}
@@ -505,7 +631,9 @@ export function CustomInvoiceTemplatePage() {
                       <td colSpan={2} className="border border-black p-1 font-bold">
                         Total Items
                       </td>
-                      <td className="border border-black p-1 text-right font-bold">17</td>
+                      <td className="border border-black p-1 text-right font-bold">
+                        {previewPackingOrder.items.reduce((s: number, it: { name: string; qty: number; unit?: string }) => s + (it.qty || 0), 0)}
+                      </td>
                       <td className="border border-black p-1"></td>
                     </tr>
                   </tbody>
@@ -515,6 +643,17 @@ export function CustomInvoiceTemplatePage() {
                   <span>Packed by: ____________</span>
                   <span>Checked by: ____________</span>
                 </div>
+
+                {config.footerLine && (
+                  <div className="mt-2.5 text-center text-[10px] text-slate-600 font-medium border-t border-slate-200 pt-1.5">
+                    {config.footerLine}
+                  </div>
+                )}
+                {config.termsAndConditions && (
+                  <div className="mt-1 text-center text-[9px] text-slate-500 italic">
+                    {config.termsAndConditions}
+                  </div>
+                )}
               </div>
             ) : config.paperSize === 'slip_80' ? (
               /* PDF FORMAT 1: EXACT 80MM BILINGUAL SLIP TAX INVOICE */
@@ -529,51 +668,117 @@ export function CustomInvoiceTemplatePage() {
                   DUPLICATE COPY
                 </div>
 
-                {/* Circular Temple Logo */}
+                {/* Circular Temple Logo & Company Header */}
                 <div className="text-center mb-1">
-                  <img src="/siddeshwar-logo.png" alt="Siddeshwar Enterprises" className="h-14 mx-auto object-contain" />
-                  <div className="font-extrabold text-[15px] tracking-tight mt-1">{config.companyName}</div>
-                  <div className="text-[10px] font-bold">GSTIN : {config.gstin}</div>
-                  <div className="text-[9.5px] text-slate-600 leading-tight">
-                    Address: {config.address}
+                  <img
+                    src="/siddeshwar-logo.png"
+                    alt="Logo"
+                    className="h-14 mx-auto object-contain"
+                  />
+                  <div className="font-extrabold text-[15px] tracking-tight mt-1">
+                    {config.companyName || 'SIDDESHWAR ENTERPRISES'}
                   </div>
+                  <div className="text-[10px] font-bold text-slate-700">
+                    WHOLESALE FMCG & PROVISION STORE
+                  </div>
+                  {config.gstin && (
+                    <div className="text-[10px] font-bold">GSTIN : {config.gstin}</div>
+                  )}
+                  {config.address && (
+                    <div className="text-[9.5px] text-slate-600 leading-tight">
+                      Address: {config.address}
+                    </div>
+                  )}
+                  {config.phone && (
+                    <div className="text-[9.5px] text-slate-600 leading-tight">
+                      Mobile : {config.phone}
+                    </div>
+                  )}
                   <h4 className="font-black text-sm tracking-wide uppercase mt-1 mb-1.5">
-                    {config.title}
+                    {config.title || 'TAX INVOICE'}
                   </h4>
                 </div>
 
                 {/* Order & Invoice box */}
                 <div className="grid grid-cols-2 border border-black rounded-[6px] text-center my-1.5 text-[10.5px]">
                   <div className="p-1 border-r border-black">
-                    Order No:<br /><b>ORD-1489</b>
+                    Order No:<br />
+                    <b>{previewTaxOrder.orderNo}</b>
                   </div>
                   <div className="p-1">
-                    Invoice No:<br /><b>INV-469</b>
+                    Invoice No:<br />
+                    <b>{previewTaxOrder.invoiceNo || 'INV-469'}</b>
                   </div>
                 </div>
 
                 {/* Customer KV details */}
-                <div className="grid grid-cols-2 gap-2 text-[10px] leading-tight my-2">
-                  <div>
-                    <b>M/s:</b> B M<br />
-                    <span>Name : ಕ</span><br />
-                    <span>Shop : B M kirana store</span><br />
-                    <span>Village : Bijapur ( Rural )</span><br />
-                    <span>Village : ಬಿಜಾಪುರ</span><br />
-                    <span>Mob : 8105690366</span><br />
-                    <span>Vehicle No: KA28AB3425</span><br />
-                    <span>Order Taken By: Arun Patil</span><br />
-                    <span>Mobile: 9916801495</span><br />
-                    <span>GSTNo N/A</span>
+                {config.showCustomer ? (
+                  <div className="grid grid-cols-2 gap-2 text-[10px] leading-tight my-2">
+                    <div>
+                      <b>M/s:</b> {previewTaxOrder.customerName}<br />
+                      {previewTaxOrder.customerNameKn && (
+                        <span>Name : {previewTaxOrder.customerNameKn}<br /></span>
+                      )}
+                      {previewTaxOrder.customerShop && (
+                        <span>Shop : {previewTaxOrder.customerShop}<br /></span>
+                      )}
+                      {previewTaxOrder.customerVillage && (
+                        <span>Village : {previewTaxOrder.customerVillage}<br /></span>
+                      )}
+                      {previewTaxOrder.customerVillageKn && (
+                        <span>Village : {previewTaxOrder.customerVillageKn}<br /></span>
+                      )}
+                      {previewTaxOrder.customerPhone && (
+                        <span>Mob : {previewTaxOrder.customerPhone}<br /></span>
+                      )}
+                      {config.showVehicle && (
+                        <>
+                          {previewTaxOrder.vehicleNo && (
+                            <span>Vehicle No: {previewTaxOrder.vehicleNo}<br /></span>
+                          )}
+                          {previewTaxOrder.createdBy && (
+                            <span>Order Taken By: {previewTaxOrder.createdBy}<br /></span>
+                          )}
+                          {previewTaxOrder.creatorPhone && (
+                            <span>Mobile: {previewTaxOrder.creatorPhone}<br /></span>
+                          )}
+                        </>
+                      )}
+                      <span>GST No: {previewTaxOrder.customerGstin || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span>
+                        Date: {previewTaxOrder.orderDate} {previewTaxOrder.orderTime || ''}
+                      </span>
+                      <br />
+                      {previewTaxOrder.customerLandmark && (
+                        <span>Landmark: {previewTaxOrder.customerLandmark}<br /></span>
+                      )}
+                      {previewTaxOrder.customerTaluka && (
+                        <span>Taluka: {previewTaxOrder.customerTaluka}<br /></span>
+                      )}
+                      {previewTaxOrder.customerDistrict && (
+                        <span>District: {previewTaxOrder.customerDistrict}<br /></span>
+                      )}
+                      {previewTaxOrder.customerRoute && (
+                        <span>Route: {previewTaxOrder.customerRoute}</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span>Date: 20-11-2026 10:00 AM</span><br />
-                    <span>Landmark: Madina Nagar</span><br />
-                    <span>Taluka: Vijayapura</span><br />
-                    <span>District: Vijayapura</span><br />
-                    <span>Route: Bijapur</span>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 text-[10px] leading-tight my-2">
+                    <div>
+                      <span>
+                        Date: {previewTaxOrder.orderDate} {previewTaxOrder.orderTime || ''}
+                      </span>
+                    </div>
+                    <div>
+                      {previewTaxOrder.customerRoute && (
+                        <span>Route: {previewTaxOrder.customerRoute}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Items Table */}
                 <table className="w-full border-collapse border border-black text-[10.5px] my-1.5">
@@ -586,114 +791,146 @@ export function CustomInvoiceTemplatePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-black p-1">
-                        <b>BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )</b>
-                        <div className="text-[9.5px]">BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S1, 4-8 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್ )</div>
-                        <div className="text-[9px] text-slate-500">HSN Code : 96190030</div>
-                      </td>
-                      <td className="border border-black p-1 text-center font-bold">140</td>
-                      <td className="border border-black p-1 text-right">7</td>
-                      <td className="border border-black p-1 text-right font-bold">980</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black p-1">
-                        <b>BUMTUM BABY DIAPER 12RS ( M1 7-12 KG 1PANS PKT )</b>
-                        <div className="text-[9.5px]">BUMTUM ಬೇಬಿ ಡೈಪರ್ 12 ರೂ. (M1, 7-12 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್ )</div>
-                        <div className="text-[9px] text-slate-500">HSN Code : 96190030</div>
-                      </td>
-                      <td className="border border-black p-1 text-center font-bold">100</td>
-                      <td className="border border-black p-1 text-right">8</td>
-                      <td className="border border-black p-1 text-right font-bold">800</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black p-1">
-                        <b>BUMTUM BABY DIAPER 14 RS ( L1 9-14KG 1 PANS PKT )</b>
-                        <div className="text-[9.5px]">BUMTUM ಬೇಬಿ ಡೈಪರ್ 14 ರೂ. (L1, 9-14 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್ )</div>
-                        <div className="text-[9px] text-slate-500">HSN Code : 96190030</div>
-                      </td>
-                      <td className="border border-black p-1 text-center font-bold">80</td>
-                      <td className="border border-black p-1 text-right">10</td>
-                      <td className="border border-black p-1 text-right font-bold">800</td>
-                    </tr>
+                    {previewTaxOrder.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="border border-black p-1">
+                          <b>{it.name}</b>
+                          {it.nameKn && <div className="text-[9.5px]">{it.nameKn}</div>}
+                          {config.showHsn && it.hsn && (
+                            <div className="text-[9px] text-slate-500">HSN Code : {it.hsn}</div>
+                          )}
+                        </td>
+                        <td className="border border-black p-1 text-center font-bold">{it.qty}</td>
+                        <td className="border border-black p-1 text-right">{it.price.toFixed(2)}</td>
+                        <td className="border border-black p-1 text-right font-bold">
+                          {(it.total || it.qty * it.price).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
                     <tr className="font-bold">
                       <td className="border border-black p-1">Total Items</td>
-                      <td className="border border-black p-1 text-center">320</td>
+                      <td className="border border-black p-1 text-center">
+                        {previewTaxOrder.items.reduce((s, i) => s + (i.qty || 0), 0)}
+                      </td>
                       <td className="border border-black p-1">Total</td>
-                      <td className="border border-black p-1 text-right">2,580</td>
+                      <td className="border border-black p-1 text-right">
+                        {(
+                          previewTaxOrder.total ||
+                          previewTaxOrder.items.reduce((s, i) => s + (i.total || i.qty * i.price), 0)
+                        ).toFixed(2)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
 
                 {/* Subtotals & Payables */}
                 <div className="border-t border-black pt-1 space-y-0.5 text-[10.5px]">
-                  <div className="flex justify-between">
-                    <span>Taxable Amount</span>
-                    <span className="font-mono">2,457.14</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>CGST</span>
-                    <span className="font-mono">61.43</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>SGST</span>
-                    <span className="font-mono">61.43</span>
-                  </div>
+                  {config.showGstSplit && (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Taxable Amount</span>
+                        <span className="font-mono">
+                          {(
+                            previewTaxOrder.taxableAmount ||
+                            (previewTaxOrder.total ? previewTaxOrder.total * 0.95 : 2457.14)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>CGST</span>
+                        <span className="font-mono">
+                          {(previewTaxOrder.cgst || 61.43).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST</span>
+                        <span className="font-mono">
+                          {(previewTaxOrder.sgst || 61.43).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between font-black text-sm pt-1 border-t border-black">
                     <span>Total Payable</span>
-                    <span className="font-mono">2,580</span>
+                    <span className="font-mono">
+                      {Math.round(
+                        previewTaxOrder.total ||
+                          previewTaxOrder.items.reduce(
+                            (s, i) => s + (i.total || i.qty * i.price),
+                            0
+                          )
+                      ).toFixed(2)}
+                    </span>
                   </div>
                 </div>
 
                 {/* Tax Summary Table */}
-                <div className="text-center font-bold text-[10px] mt-2 mb-1">TAX SUMMARY</div>
-                <table className="w-full border-collapse border border-black text-[9px] text-center">
-                  <thead className="bg-[#cfe2f3]">
-                    <tr>
-                      <th className="border border-black p-0.5">TAXABLE</th>
-                      <th className="border border-black p-0.5">Tax Rate (%)</th>
-                      <th className="border border-black p-0.5">CGST</th>
-                      <th className="border border-black p-0.5">SGST</th>
-                      <th className="border border-black p-0.5">IGST</th>
-                      <th className="border border-black p-0.5">CESS</th>
-                      <th className="border border-black p-0.5">NET</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5">0</td>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5">0</td>
-                      <td className="border border-black p-0.5 font-mono">0</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black p-0.5 font-mono">2457.14</td>
-                      <td className="border border-black p-0.5">5</td>
-                      <td className="border border-black p-0.5 font-mono">61.43</td>
-                      <td className="border border-black p-0.5 font-mono">61.43</td>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5">0</td>
-                      <td className="border border-black p-0.5 font-mono">2580</td>
-                    </tr>
-                    <tr className="font-bold">
-                      <td className="border border-black p-0.5">TOTAL</td>
-                      <td className="border border-black p-0.5">-</td>
-                      <td className="border border-black p-0.5 font-mono">61.43</td>
-                      <td className="border border-black p-0.5 font-mono">61.43</td>
-                      <td className="border border-black p-0.5 font-mono">0.00</td>
-                      <td className="border border-black p-0.5">0</td>
-                      <td className="border border-black p-0.5 font-mono">2580</td>
-                    </tr>
-                  </tbody>
-                </table>
+                {config.showGstSplit && (
+                  <>
+                    <div className="text-center font-bold text-[10px] mt-2 mb-1">TAX SUMMARY</div>
+                    <table className="w-full border-collapse border border-black text-[9px] text-center">
+                      <thead className="bg-[#cfe2f3]">
+                        <tr>
+                          <th className="border border-black p-0.5">TAXABLE</th>
+                          <th className="border border-black p-0.5">Tax Rate (%)</th>
+                          <th className="border border-black p-0.5">CGST</th>
+                          <th className="border border-black p-0.5">SGST</th>
+                          <th className="border border-black p-0.5">IGST</th>
+                          <th className="border border-black p-0.5">CESS</th>
+                          <th className="border border-black p-0.5">NET</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.taxableAmount || 2457.14).toFixed(2)}
+                          </td>
+                          <td className="border border-black p-0.5">5</td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.cgst || 61.43).toFixed(2)}
+                          </td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.sgst || 61.43).toFixed(2)}
+                          </td>
+                          <td className="border border-black p-0.5 font-mono">0.00</td>
+                          <td className="border border-black p-0.5">0</td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.total || 2580).toFixed(2)}
+                          </td>
+                        </tr>
+                        <tr className="font-bold">
+                          <td className="border border-black p-0.5">TOTAL</td>
+                          <td className="border border-black p-0.5">-</td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.cgst || 61.43).toFixed(2)}
+                          </td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.sgst || 61.43).toFixed(2)}
+                          </td>
+                          <td className="border border-black p-0.5 font-mono">0.00</td>
+                          <td className="border border-black p-0.5">0</td>
+                          <td className="border border-black p-0.5 font-mono">
+                            {(previewTaxOrder.total || 2580).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </>
+                )}
 
-                {/* Kannada Handling Notice */}
-                <div className="border border-dashed border-slate-600 p-2 rounded text-[9px] text-justify leading-relaxed mt-2">
-                  ಹ್ಯಾಂಡ್ಲಿಂಗ್ ಹಾಗು ಸಪೋರ್ಟ್ ಚಾರ್ಜಸ್, ಇದು ಶುಲ್ಕವಲ್ಲ, ನಿಮಗೆ ಬೇಕಾದ ವಸ್ತುಗಳನ್ನು ದೂರದ ಊರಿಂದ ಸುರಕ್ಷವಾಗಿ ಅಷ್ಟೂ ಅತ್ಯಂತ ಸುರಕ್ಷಿತವಾಗಿ ಪ್ಯಾಕ್ ಮಾಡಿ, ತುಂಬಾ ಮುತುವರ್ಜಿಯಿಂದ ನಿಮ್ಮ ಅಂಗಡಿಗೆ ತಲುಪಿಸಲು ಹಾಗು ನಿಮ್ಮ ಅಂಗಡಿಯ ಅಗತ್ಯತೆಗಳನ್ನು ಸಂಪೂರ್ಣವಾಗಿ ಪೂರೈಸುವ ನಿಟ್ಟಿನಲ್ಲಿ ಸೇವೆ ಸಲ್ಲಿಸಲು ಉಪಯೋಗವಾಗುತ್ತದೆ. ಇನ್ನಷ್ಟು ಶಕ್ತಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಸೇವೆಗೆ ಸದಾ ಸಿದ್ಧರಿದ್ದೇವೆ.
-                </div>
+                {/* Footer Note / Notice */}
+                {config.footerLine && (
+                  <div className="border border-dashed border-slate-600 p-2 rounded text-[9px] text-justify leading-relaxed mt-2">
+                    {config.footerLine}
+                  </div>
+                )}
+
+                {/* Terms and conditions */}
+                {config.termsAndConditions && (
+                  <div className="text-center text-[8.5px] text-slate-500 italic mt-1.5">
+                    {config.termsAndConditions}
+                  </div>
+                )}
 
                 {/* Offers Cut Line & Thank you */}
                 <div className="border-t-2 border-b-2 border-black text-center font-bold text-[10px] tracking-widest my-2 py-0.5">
@@ -711,22 +948,32 @@ export function CustomInvoiceTemplatePage() {
                 }`}
               >
                 <div className="text-center space-y-0.5">
-                  <div className="font-black text-sm tracking-tight">{config.title}</div>
-                  <div className="font-bold text-xs">{config.companyName}</div>
-                  <div className="text-[10px] text-slate-600 leading-tight">{config.address}</div>
+                  <div className="font-black text-sm tracking-tight">{config.title || 'RECEIPT'}</div>
+                  <div className="font-bold text-xs">{config.companyName || 'SIDDESHWAR ENTERPRISES'}</div>
+                  {config.address && (
+                    <div className="text-[10px] text-slate-600 leading-tight">{config.address}</div>
+                  )}
                   {config.phone && <div className="text-[10px]">Ph: {config.phone}</div>}
-                  <div className="font-bold text-[10px]">GSTIN: {config.gstin}</div>
+                  {config.gstin && (
+                    <div className="font-bold text-[10px]">GSTIN: {config.gstin}</div>
+                  )}
                 </div>
 
                 <div className="border-b-2 border-dashed border-slate-800 my-2.5" />
 
                 <div className="space-y-0.5 text-[10px]">
-                  <div><b>Invoice:</b> INV-469</div>
-                  <div><b>Order:</b> ORD-1489</div>
-                  <div><b>Date:</b> 20-11-2026 10:00 AM</div>
-                  {config.showCustomer && <div><b>Cust:</b> B M (B M kirana store)</div>}
-                  {config.showCustomer && <div><b>Route:</b> Bijapur</div>}
-                  {config.showVehicle && <div><b>Vehicle:</b> KA28AB3425</div>}
+                  <div><b>Invoice:</b> {previewTaxOrder.invoiceNo || 'INV-469'}</div>
+                  <div><b>Order:</b> {previewTaxOrder.orderNo}</div>
+                  <div><b>Date:</b> {previewTaxOrder.orderDate} {previewTaxOrder.orderTime || ''}</div>
+                  {config.showCustomer && (
+                    <div><b>Cust:</b> {previewTaxOrder.customerName} ({previewTaxOrder.customerShop || ''})</div>
+                  )}
+                  {config.showCustomer && previewTaxOrder.customerRoute && (
+                    <div><b>Route:</b> {previewTaxOrder.customerRoute}</div>
+                  )}
+                  {config.showVehicle && previewTaxOrder.vehicleNo && (
+                    <div><b>Vehicle:</b> {previewTaxOrder.vehicleNo}</div>
+                  )}
                 </div>
 
                 <div className="border-b border-dashed border-slate-800 my-2" />
@@ -741,33 +988,23 @@ export function CustomInvoiceTemplatePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="py-1">
-                        <div className="font-bold">BUMTUM BABY DIAPER 10 RS</div>
-                        {config.showHsn && <div className="text-[9px] text-slate-500">HSN: 96190030 · 5%</div>}
-                      </td>
-                      <td className="text-center py-1">140</td>
-                      <td className="text-right py-1">7</td>
-                      <td className="text-right py-1 font-bold">980</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1">
-                        <div className="font-bold">BUMTUM BABY DIAPER 12 RS</div>
-                        {config.showHsn && <div className="text-[9px] text-slate-500">HSN: 96190030 · 5%</div>}
-                      </td>
-                      <td className="text-center py-1">100</td>
-                      <td className="text-right py-1">8</td>
-                      <td className="text-right py-1 font-bold">800</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1">
-                        <div className="font-bold">BUMTUM BABY DIAPER 14 RS</div>
-                        {config.showHsn && <div className="text-[9px] text-slate-500">HSN: 96190030 · 5%</div>}
-                      </td>
-                      <td className="text-center py-1">80</td>
-                      <td className="text-right py-1">10</td>
-                      <td className="text-right py-1 font-bold">800</td>
-                    </tr>
+                    {previewTaxOrder.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="py-1">
+                          <div className="font-bold">{it.name}</div>
+                          {config.showHsn && it.hsn && (
+                            <div className="text-[9px] text-slate-500">
+                              HSN: {it.hsn} · {it.gst || 5}%
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-center py-1">{it.qty}</td>
+                        <td className="text-right py-1">{it.price}</td>
+                        <td className="text-right py-1 font-bold">
+                          {(it.total || it.qty * it.price).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
 
@@ -776,32 +1013,47 @@ export function CustomInvoiceTemplatePage() {
                 <div className="space-y-0.5 text-[10px]">
                   <div className="flex justify-between">
                     <span>Items / Qty:</span>
-                    <span className="font-bold">3 items / 320 units</span>
+                    <span className="font-bold">
+                      {previewTaxOrder.items.length} items /{' '}
+                      {previewTaxOrder.items.reduce((s, it) => s + (it.qty || 0), 0)} units
+                    </span>
                   </div>
                   {config.showGstSplit && (
                     <>
                       <div className="flex justify-between">
                         <span>Taxable Amt:</span>
-                        <span>₹2,457.14</span>
+                        <span>₹{(previewTaxOrder.taxableAmount || 2457.14).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>CGST + SGST:</span>
-                        <span>₹122.86</span>
+                        <span>
+                          ₹{((previewTaxOrder.cgst || 61.43) + (previewTaxOrder.sgst || 61.43)).toFixed(2)}
+                        </span>
                       </div>
                     </>
                   )}
                   <div className="border-b-2 border-dashed border-slate-800 my-1" />
                   <div className="flex justify-between font-black text-xs">
                     <span>TOTAL:</span>
-                    <span>₹2,580.00</span>
+                    <span>
+                      ₹
+                      {(
+                        previewTaxOrder.total ||
+                        previewTaxOrder.items.reduce((s, i) => s + (i.total || i.qty * i.price), 0)
+                      ).toFixed(2)}
+                    </span>
                   </div>
                 </div>
 
                 <div className="border-b border-dashed border-slate-800 my-2.5" />
 
                 <div className="text-center text-[9px] text-slate-600 space-y-1">
-                  <div>{config.footerLine}</div>
-                  <div className="italic text-[8px] text-slate-400">{config.termsAndConditions}</div>
+                  {config.footerLine && <div>{config.footerLine}</div>}
+                  {config.termsAndConditions && (
+                    <div className="italic text-[8px] text-slate-400">
+                      {config.termsAndConditions}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -813,24 +1065,45 @@ export function CustomInvoiceTemplatePage() {
               >
                 <div className="border-b-2 border-slate-800 pb-2 flex items-start justify-between">
                   <div>
-                    <h3 className="font-black text-sm tracking-tight text-slate-900">{config.companyName}</h3>
-                    <p className="text-[10px] text-slate-600">{config.address}</p>
-                    <p className="text-[10px] font-mono font-bold">GSTIN: {config.gstin}</p>
+                    <h3 className="font-black text-sm tracking-tight text-slate-900">
+                      {config.companyName || 'SIDDESHWAR ENTERPRISES'}
+                    </h3>
+                    {config.address && (
+                      <p className="text-[10px] text-slate-600">{config.address}</p>
+                    )}
+                    {config.gstin && (
+                      <p className="text-[10px] font-mono font-bold">GSTIN: {config.gstin}</p>
+                    )}
+                    {config.phone && (
+                      <p className="text-[10px] text-slate-600">Ph: {config.phone}</p>
+                    )}
                   </div>
                   <div className="text-right">
                     <span className="px-2 py-0.5 bg-slate-900 text-white font-bold text-[10px] rounded uppercase">
-                      {config.title}
+                      {config.title || 'TAX INVOICE'}
                     </span>
-                    <p className="text-[10px] text-slate-500 mt-1">Invoice: <b>INV-469</b></p>
-                    <p className="text-[10px] text-slate-500">Date: 20-11-2026</p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Invoice: <b>{previewTaxOrder.invoiceNo || 'INV-469'}</b>
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Date: {previewTaxOrder.orderDate}
+                    </p>
                   </div>
                 </div>
 
                 {config.showCustomer && (
                   <div className="bg-slate-50 p-2 rounded border border-slate-200 text-[10px] space-y-0.5">
-                    <p className="font-bold text-slate-800">Billed To: B M - B M kirana store</p>
-                    <p className="text-slate-600">Village: Bijapur (Rural) · Route: Bijapur · Ph: 8105690366</p>
-                    {config.showVehicle && <p className="text-slate-600">Vehicle: KA28AB3425</p>}
+                    <p className="font-bold text-slate-800">
+                      Billed To: {previewTaxOrder.customerName} - {previewTaxOrder.customerShop || ''}
+                    </p>
+                    <p className="text-slate-600">
+                      Village: {previewTaxOrder.customerVillage || ''}
+                      {previewTaxOrder.customerRoute && ` · Route: ${previewTaxOrder.customerRoute}`}
+                      {previewTaxOrder.customerPhone && ` · Ph: ${previewTaxOrder.customerPhone}`}
+                    </p>
+                    {config.showVehicle && previewTaxOrder.vehicleNo && (
+                      <p className="text-slate-600">Vehicle: {previewTaxOrder.vehicleNo}</p>
+                    )}
                   </div>
                 )}
 
@@ -838,56 +1111,62 @@ export function CustomInvoiceTemplatePage() {
                   <thead className="bg-[#cfe2f3] font-bold text-[10px]">
                     <tr>
                       <th className="p-1 border border-slate-300">Item</th>
-                      {config.showHsn && <th className="p-1 border border-slate-300 text-center">HSN</th>}
+                      {config.showHsn && (
+                        <th className="p-1 border border-slate-300 text-center">HSN</th>
+                      )}
                       <th className="p-1 border border-slate-300 text-center">Qty</th>
                       <th className="p-1 border border-slate-300 text-right">Price</th>
-                      {config.showGstSplit && <th className="p-1 border border-slate-300 text-center">GST</th>}
+                      {config.showGstSplit && (
+                        <th className="p-1 border border-slate-300 text-center">GST</th>
+                      )}
                       <th className="p-1 border border-slate-300 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="p-1 border border-slate-300 font-semibold">BUMTUM BABY DIAPER 10 RS ( S1 4-8KG )</td>
-                      {config.showHsn && <td className="p-1 border border-slate-300 text-center font-mono">96190030</td>}
-                      <td className="p-1 border border-slate-300 text-center">140</td>
-                      <td className="p-1 border border-slate-300 text-right">7.00</td>
-                      {config.showGstSplit && <td className="p-1 border border-slate-300 text-center">5%</td>}
-                      <td className="p-1 border border-slate-300 text-right font-bold">980.00</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border border-slate-300 font-semibold">BUMTUM BABY DIAPER 12RS ( M1 7-12 KG )</td>
-                      {config.showHsn && <td className="p-1 border border-slate-300 text-center font-mono">96190030</td>}
-                      <td className="p-1 border border-slate-300 text-center">100</td>
-                      <td className="p-1 border border-slate-300 text-right">8.00</td>
-                      {config.showGstSplit && <td className="p-1 border border-slate-300 text-center">5%</td>}
-                      <td className="p-1 border border-slate-300 text-right font-bold">800.00</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border border-slate-300 font-semibold">BUMTUM BABY DIAPER 14 RS ( L1 9-14KG )</td>
-                      {config.showHsn && <td className="p-1 border border-slate-300 text-center font-mono">96190030</td>}
-                      <td className="p-1 border border-slate-300 text-center">80</td>
-                      <td className="p-1 border border-slate-300 text-right">10.00</td>
-                      {config.showGstSplit && <td className="p-1 border border-slate-300 text-center">5%</td>}
-                      <td className="p-1 border border-slate-300 text-right font-bold">800.00</td>
-                    </tr>
+                    {previewTaxOrder.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="p-1 border border-slate-300 font-semibold">{it.name}</td>
+                        {config.showHsn && (
+                          <td className="p-1 border border-slate-300 text-center font-mono">
+                            {it.hsn || '-'}
+                          </td>
+                        )}
+                        <td className="p-1 border border-slate-300 text-center">{it.qty}</td>
+                        <td className="p-1 border border-slate-300 text-right">{it.price.toFixed(2)}</td>
+                        {config.showGstSplit && (
+                          <td className="p-1 border border-slate-300 text-center">{it.gst || 5}%</td>
+                        )}
+                        <td className="p-1 border border-slate-300 text-right font-bold">
+                          {(it.total || it.qty * it.price).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
 
                 <div className="flex justify-between items-end pt-2 text-[10px]">
                   <div className="text-[9px] text-slate-500 max-w-[220px]">
-                    <p className="font-bold">{config.footerLine}</p>
-                    <p className="italic">{config.termsAndConditions}</p>
+                    {config.footerLine && <p className="font-bold">{config.footerLine}</p>}
+                    {config.termsAndConditions && (
+                      <p className="italic">{config.termsAndConditions}</p>
+                    )}
                   </div>
                   <div className="text-right space-y-0.5 min-w-[140px]">
                     {config.showGstSplit && (
                       <div className="flex justify-between">
                         <span>Taxable:</span>
-                        <span>₹2,457.14</span>
+                        <span>₹{(previewTaxOrder.taxableAmount || 2457.14).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-xs pt-1 border-t border-slate-300">
                       <span>Grand Total:</span>
-                      <span>₹2,580.00</span>
+                      <span>
+                        ₹
+                        {(
+                          previewTaxOrder.total ||
+                          previewTaxOrder.items.reduce((s, i) => s + (i.total || i.qty * i.price), 0)
+                        ).toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>
