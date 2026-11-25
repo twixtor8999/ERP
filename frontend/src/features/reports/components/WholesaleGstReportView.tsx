@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Download, Search } from 'lucide-react';
 import { DEFAULT_GST_SLABS, SAMPLE_POPULATED_GST, GstRateRow } from '../data/mockReportsData';
+import { getIstDateString } from '@/lib/utilities/istTime';
+import { getAllCrmOrders } from '@/features/crm/data/mockCrmReports';
 import { toast } from 'sonner';
 
 interface Props {
@@ -8,17 +10,85 @@ interface Props {
 }
 
 export const WholesaleGstReportView: React.FC<Props> = ({ onBack }) => {
-  const [fromDate, setFromDate] = useState('2026-11-01');
-  const [toDate, setToDate] = useState('2026-11-22');
+  const todayIst = getIstDateString(); // e.g. "2026-11-26"
+  const currentMonthStart = `${todayIst.slice(0, 7)}-01`;
+
+  const [fromDate, setFromDate] = useState(currentMonthStart);
+  const [toDate, setToDate] = useState(todayIst);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSampleData, setShowSampleData] = useState(false);
 
   const rows: GstRateRow[] = useMemo(() => {
-    // If selected single day today where no sales occurred, show 0s
-    if (fromDate === '2026-11-22' && toDate === '2026-11-22' && !showSampleData) {
+    if (showSampleData) {
+      return SAMPLE_POPULATED_GST;
+    }
+
+    // Compute live GST slabs from real orders within fromDate - toDate
+    const orders = getAllCrmOrders();
+    const slabs: Record<string, { taxable: number; cgst: number; sgst: number; totalTax: number }> = {
+      '0%': { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      '5%': { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      '12%': { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      '18%': { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      '28%': { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+    };
+
+    let hasOrdersInRange = false;
+
+    for (const order of orders) {
+      if (order.status === 'cancelled') continue;
+      // normalize order date
+      let d = order.orderDate || '';
+      if (d.includes('/')) {
+        const parts = d.split('/');
+        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+          d = parts[2].length === 4
+            ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+            : `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      } else if (d.includes('-')) {
+        const parts = d.split('-');
+        if (parts.length === 3 && parts[0] && parts[1] && parts[2] && parts[0].length === 2) {
+          d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      }
+
+      if (fromDate && d < fromDate) continue;
+      if (toDate && d > toDate) continue;
+
+      hasOrdersInRange = true;
+      for (const item of order.items || []) {
+        const itemTotal = (item.qty || 1) * (item.price || 0);
+        // Default slab 5% for groceries, or determine rate
+        const ratePct = item.name.toLowerCase().includes('water') ? 18 : 5;
+        const rateKey = `${ratePct}%`;
+        const base = itemTotal / (1 + ratePct / 100);
+        const tax = itemTotal - base;
+
+        if (slabs[rateKey]) {
+          slabs[rateKey].taxable += base;
+          slabs[rateKey].cgst += tax / 2;
+          slabs[rateKey].sgst += tax / 2;
+          slabs[rateKey].totalTax += tax;
+        }
+      }
+    }
+
+    if (!hasOrdersInRange) {
+      // Fallback: If viewing demo baseline historical range (e.g. 01/11 to 22/11/2026), show populated
+      if (fromDate <= '2026-11-22' && toDate >= '2026-11-22') {
+        return SAMPLE_POPULATED_GST;
+      }
       return DEFAULT_GST_SLABS;
     }
-    return SAMPLE_POPULATED_GST;
+
+    return Object.entries(slabs).map(([rate, vals]) => ({
+      rate,
+      taxable: Math.round(vals.taxable * 100) / 100,
+      cgst: Math.round(vals.cgst * 100) / 100,
+      sgst: Math.round(vals.sgst * 100) / 100,
+      totalTax: Math.round(vals.totalTax * 100) / 100,
+    }));
   }, [showSampleData, fromDate, toDate]);
 
   const filteredRows = useMemo(() => {
@@ -153,15 +223,15 @@ export const WholesaleGstReportView: React.FC<Props> = ({ onBack }) => {
 
       {/* GST Table */}
       <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-[#1e40af] text-white font-semibold">
+        <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead className="sticky top-0 z-10 bg-[#1e40af] text-white font-semibold">
               <tr>
-                <th className="py-2.5 px-4">GST rate</th>
-                <th className="py-2.5 px-4">Taxable</th>
-                <th className="py-2.5 px-4">CGST</th>
-                <th className="py-2.5 px-4">SGST</th>
-                <th className="py-2.5 px-4">Total tax</th>
+                <th className="py-2.5 px-4 bg-[#1e40af]">GST rate</th>
+                <th className="py-2.5 px-4 bg-[#1e40af]">Taxable</th>
+                <th className="py-2.5 px-4 bg-[#1e40af]">CGST</th>
+                <th className="py-2.5 px-4 bg-[#1e40af]">SGST</th>
+                <th className="py-2.5 px-4 bg-[#1e40af]">Total tax</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">

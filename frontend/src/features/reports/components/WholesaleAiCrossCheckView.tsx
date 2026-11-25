@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AUDIT_DISCREPANCIES } from '../data/mockReportsData';
+import { getIstDateString } from '@/lib/utilities/istTime';
 import { toast } from 'sonner';
 
 interface Props {
@@ -8,8 +9,9 @@ interface Props {
 }
 
 export const WholesaleAiCrossCheckView: React.FC<Props> = ({ onBack }) => {
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  const todayIst = getIstDateString();
+  const [fromDate, setFromDate] = useState(todayIst);
+  const [toDate, setToDate] = useState(todayIst);
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'Error' | 'Warning'>('all');
   const [currentPage, setCurrentPage] = useState(1);

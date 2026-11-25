@@ -8,6 +8,7 @@ import {
 import { WholesaleGstReportView } from '../components/WholesaleGstReportView';
 import { WholesaleAiAssistantView } from '../components/WholesaleAiAssistantView';
 import { WholesaleAiCrossCheckView } from '../components/WholesaleAiCrossCheckView';
+import { getIstDateString } from '@/lib/utilities/istTime';
 import { toast } from 'sonner';
 
 type ReportTab = 'gst' | 'ai' | 'audit' | 'ca' | 'pnl';
@@ -15,6 +16,7 @@ type ReportTab = 'gst' | 'ai' | 'audit' | 'ca' | 'pnl';
 export function ReportsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const todayIst = getIstDateString();
 
   const typeParam = searchParams.get('type') || searchParams.get('tab');
   const initialTab: ReportTab =
@@ -67,13 +69,13 @@ export function ReportsPage() {
               <span className="text-slate-600 font-medium">From</span>
               <input
                 type="date"
-                defaultValue="2026-11-22"
+                defaultValue={todayIst}
                 className="border border-slate-300 rounded px-2.5 py-1 text-xs bg-white text-slate-700"
               />
               <span className="text-slate-600 font-medium">To</span>
               <input
                 type="date"
-                defaultValue="2026-11-22"
+                defaultValue={todayIst}
                 className="border border-slate-300 rounded px-2.5 py-1 text-xs bg-white text-slate-700"
               />
               <button
@@ -150,13 +152,13 @@ export function ReportsPage() {
                 <span className="text-slate-600 font-medium">From</span>
                 <input
                   type="date"
-                  defaultValue="2026-11-22"
+                  defaultValue={todayIst}
                   className="border border-slate-300 rounded px-2.5 py-1 text-xs bg-white text-slate-700"
                 />
                 <span className="text-slate-600 font-medium">To</span>
                 <input
                   type="date"
-                  defaultValue="2026-11-22"
+                  defaultValue={todayIst}
                   className="border border-slate-300 rounded px-2.5 py-1 text-xs bg-white text-slate-700"
                 />
                 <button
