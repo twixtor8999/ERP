@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -11,7 +11,6 @@ import { VehicleDenominationRecord } from '../types/denomination';
 import {
   getStoredDenominations,
   saveStoredDenominations,
-  PENDING_DENOMINATIONS,
 } from '../data/mockDenominations';
 import { DenominationCountModal } from './DenominationCountModal';
 import { CashDenominationVoucherDetailView } from './CashDenominationVoucherDetailView';
@@ -23,10 +22,87 @@ export const WholesaleDenominationReportView: React.FC = () => {
   const voucherParam = searchParams.get('voucher') || searchParams.get('id');
 
   const [records, setRecords] = useState<VehicleDenominationRecord[]>(() => getStoredDenominations());
-  const [pendingList, setPendingList] = useState<VehicleDenominationRecord[]>(PENDING_DENOMINATIONS);
+  const [pendingList, setPendingList] = useState<VehicleDenominationRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<VehicleDenominationRecord | null>(null);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
+
+  // Sync real-time orders from pipeline into Denomination records & pending list
+  useEffect(() => {
+    const syncPipelineDenominations = () => {
+      try {
+        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+        if (!storedPipeline) return;
+        const pipelineOrders = JSON.parse(storedPipeline);
+        if (!Array.isArray(pipelineOrders) || pipelineOrders.length === 0) return;
+
+        const storedRecords = getStoredDenominations();
+        const settledKeys = new Set(storedRecords.map((r) => `${r.date}_${r.vehicleNo}`));
+
+        // Group orders by date & vehicle
+        const groups: Record<string, any[]> = {};
+        for (const po of pipelineOrders) {
+          const rawDate = (po.deliveredAt || po.orderDate || "").trim();
+          let dateStr = "25-11-2026";
+          const m1 = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+          if (m1 && m1[1] && m1[2] && m1[3]) {
+            dateStr = `${m1[3].padStart(2, "0")}-${m1[2].padStart(2, "0")}-${m1[1]}`;
+          } else {
+            const m2 = rawDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (m2 && m2[1] && m2[2] && m2[3]) {
+              dateStr = `${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}-${m2[3]}`;
+            }
+          }
+
+          const veh = po.vehicleNo || "KA28AA6256";
+          const key = `${dateStr}_${veh}`;
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(po);
+        }
+
+        const newPending: VehicleDenominationRecord[] = [];
+        Object.entries(groups).forEach(([key, orders]) => {
+          if (!settledKeys.has(key)) {
+            const [dateStr, veh] = key.split("_");
+            const netSales = orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+            const qrAmount = orders.reduce((acc, o) => {
+              const pm = (o.paymentMode || o.paymentMethod || "").toLowerCase();
+              return pm === "qr" || pm === "online" || pm === "upi" ? acc + (Number(o.total) || 0) : acc;
+            }, 0);
+            const driverName = veh === "KA28AA6256" ? "Arun Patil" : veh === "KA28AB3425" ? "Basavaraj Hiremath" : "Ramesh Biradar";
+
+            newPending.push({
+              id: `PEND-${key}`,
+              date: dateStr || "25-11-2026",
+              vehicleNo: veh || "KA28AA6256",
+              driverName,
+              ordersCount: orders.length,
+              netSales,
+              qrAmount,
+              cashAmount: 0,
+              diff: -(netSales - qrAmount),
+              counts: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, coins: 0 },
+              settledBy: '',
+              settledAt: '',
+              status: 'pending',
+            });
+          }
+        });
+
+        setPendingList(newPending);
+      } catch (err) {
+        console.error("Error syncing pipeline denominations:", err);
+      }
+    };
+
+    syncPipelineDenominations();
+    window.addEventListener("crm_order_placed", syncPipelineDenominations);
+    window.addEventListener("storage", syncPipelineDenominations);
+    return () => {
+      window.removeEventListener("crm_order_placed", syncPipelineDenominations);
+      window.removeEventListener("storage", syncPipelineDenominations);
+    };
+  }, []);
 
   // Dedicated 2nd Page: Check if viewing a specific voucher
   const activeRecord = useMemo(() => {
