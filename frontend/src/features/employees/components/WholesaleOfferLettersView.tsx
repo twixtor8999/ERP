@@ -25,9 +25,10 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
   const [letters, setLetters] = useState<OfferLetterRecord[]>(() => getStoredOffers());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Top Date range filters
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  // Date of letter form default to today's real date
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
 
   // Form State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -37,9 +38,9 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
   const [formPh, setFormPh] = useState('');
   const [formAddr, setFormAddr] = useState('');
   const [formDes, setFormDes] = useState('Sales Executive');
-  const [formJd, setFormJd] = useState(new Date().toISOString().slice(0, 10));
+  const [formJd, setFormJd] = useState(todayIso);
   const [formSal, setFormSal] = useState('');
-  const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
+  const [formDate, setFormDate] = useState(todayIso);
   const [formProb, setFormProb] = useState(3);
   const [formNotice, setFormNotice] = useState(15);
   const [formHrs, setFormHrs] = useState('9:30 AM – 7:30 PM');
@@ -547,12 +548,21 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
             </div>
           </div>
 
-          <div className="flex items-center justify-end pt-3">
+          <div className="flex items-center justify-end gap-2 pt-3">
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               className="px-6 py-2.5 bg-navy-900 text-white rounded-lg text-sm font-semibold hover:bg-navy-800 transition-colors shadow-sm"
             >
-              Save &amp; View
+              {editingId ? 'Update & View' : 'Save & View'}
             </button>
           </div>
         </form>
@@ -570,11 +580,11 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
         />
       </div>
 
-      {/* Letters Table */}
+      {/* Letters Table (Fixed box with 7-8 visible rows and internal scroll) */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
                 <th className="py-3 px-3">Ref</th>
                 <th className="py-3 px-3">Date</th>

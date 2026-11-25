@@ -49,8 +49,11 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
   const [salaries] = useState<SalaryRecord[]>(() => getStoredSalaries());
   const [selectedMonth, setSelectedMonth] = useState('2026-11');
 
-  // Today string (fixed to 2026-11-22 for parity with screenshot, or current date)
-  const todayStr = '2026-11-22';
+  // Today string dynamically defaulting to current real ISO date
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+  })();
 
   // Long-press state
   const [holdProgress, setHoldProgress] = useState(0); // 0 to 100%
@@ -140,22 +143,18 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
           const diff = getMinutesDiff(rec.inT, rec.outT);
           hrs = diff / 60;
           totalMinutes += Math.max(0, diff);
-          if (hrs >= 8) {
-            code = 'P';
-            label = 'Present';
-            present++;
-          } else {
-            code = 'HD';
-            label = 'Half Day';
-            halfDay++;
-          }
+          // Fair attendance: Checking in and working marks employee Present
+          code = 'P';
+          label = `Present (${Math.floor(diff / 60)}h ${diff % 60}m)`;
+          present++;
         } else if (d === todayStr) {
           code = 'In';
           label = 'Checked in';
+          present++;
         } else {
-          code = 'HD';
-          label = 'Half Day (No checkout)';
-          halfDay++;
+          code = 'P';
+          label = 'Present';
+          present++;
         }
       } else if (isPast) {
         code = 'A';

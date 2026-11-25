@@ -51,8 +51,11 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
   const [selectedMonth, setSelectedMonth] = useState('2026-11');
   const [showHolidays, setShowHolidays] = useState(false);
 
-  // Today string
-  const todayStr = '2026-11-22';
+  // Today string dynamically defaulting to current real ISO date
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+  })();
 
   // Modal State for Attendance Override (tap H or A -> P*)
   const [fixModal, setFixModal] = useState<{
@@ -747,13 +750,28 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Change Status to
+              </label>
+              <select
+                id="modal-attendance-status-select"
+                defaultValue="P"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="P">Present (P* - Admin override)</option>
+                <option value="HD">Half Day (HD)</option>
+                <option value="A">Absent (A)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Reason (optional)
               </label>
               <input
                 type="text"
                 value={fixReason}
                 onChange={(e) => setFixReason(e.target.value)}
-                placeholder="e.g. leave approved, worked on Sunday"
+                placeholder="e.g. leave approved, staff forgot to punch in morning"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -762,7 +780,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setFixModal(null)}
-                className="px-3 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-50"
+                className="px-3 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-50 cursor-pointer"
               >
                 Close
               </button>
@@ -771,7 +789,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleUndoFix}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700"
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 cursor-pointer"
                 >
                   Undo · back to original
                 </button>
@@ -779,9 +797,9 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleSaveFix}
-                  className="px-4 py-1.5 bg-navy-900 text-white rounded-lg text-xs font-semibold hover:bg-navy-800"
+                  className="px-4 py-1.5 bg-navy-900 text-white rounded-lg text-xs font-semibold hover:bg-navy-800 cursor-pointer"
                 >
-                  Mark as Present (P*)
+                  Save as Present (P*)
                 </button>
               )}
             </div>

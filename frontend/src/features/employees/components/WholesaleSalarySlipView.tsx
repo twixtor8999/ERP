@@ -47,9 +47,14 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
     return list.length > 0 ? (list[0]?.id ?? 0) : 0;
   });
 
-  // Date range inputs from screenshot
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  // Dynamic today ISO date
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+  })();
+
+  const [fromDate, setFromDate] = useState('2026-11-20');
+  const [toDate, setToDate] = useState(todayIso);
 
   const selectedEmp = useMemo(
     () => employees.find((e) => e.id === selectedEmpId) || employees[0],
@@ -73,13 +78,12 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
     let totalMinutes = 0;
 
     days.forEach((d) => {
-      if (d > '2026-11-22') return;
+      if (d > todayIso) return;
       const isSun = isSunday(d);
       const isHol = !!HOLIDAYS_2026[d];
       const rec = attendance.find((a) => a.emp === selectedEmp.id && a.date === d);
 
       if (isSun || isHol) {
-        // counted in working days
         return;
       }
 
@@ -87,17 +91,9 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
         P++;
         totalMinutes += 480;
       } else if (rec && rec.inT) {
-        if (rec.outT) {
-          const diff = getMinutesDiff(rec.inT, rec.outT);
-          if (diff >= 480) {
-            P++;
-          } else {
-            HD++;
-          }
-          totalMinutes += diff;
-        } else {
-          HD++;
-        }
+        const diff = rec.outT ? getMinutesDiff(rec.inT, rec.outT) : 480;
+        P++;
+        totalMinutes += diff;
       } else {
         A++;
       }
@@ -107,13 +103,14 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
     const thM = totalMinutes % 60;
     const totalHoursStr = `${thH}h ${String(thM).padStart(2, '0')}m`;
 
-    const sundaysCount = days.filter((d) => isSunday(d) && d <= '2026-11-22').length;
-    const holidaysCount = days.filter((d) => HOLIDAYS_2026[d] && d <= '2026-11-22').length;
-    const dw = P + HD * 0.5 + sundaysCount + holidaysCount;
+    const sundaysCount = days.filter((d) => isSunday(d) && d <= todayIso).length;
+    const holidaysCount = days.filter((d) => HOLIDAYS_2026[d] && d <= todayIso).length;
+    const dw = P + sundaysCount + holidaysCount;
 
-    const gross = selectedEmp.sal;
+    // Use employee salary or standard base for CRM/Admin staff
+    const gross = selectedEmp.sal > 0 ? selectedEmp.sal : (selectedEmp.des.includes('Admin') ? 25000 : 18000);
     const dim = days.length;
-    const earned = Math.round((gross * dw) / dim);
+    const earned = Math.round((gross * Math.max(1, dw)) / dim);
     const net = salaryRecord?.amt || earned;
     const adj = net - earned;
 
@@ -129,7 +126,7 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
       adj,
       net,
     };
-  }, [selectedEmp, selectedMonth, attendance, salaryRecord]);
+  }, [selectedEmp, selectedMonth, attendance, salaryRecord, todayIso]);
 
   const handlePrint = () => {
     window.print();
@@ -210,7 +207,8 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
           </div>
         </div>
 
-        {salaryRecord && (
+        {/* Print / Save Button (Active when slip is ready or provisional) */}
+        {selectedEmp && (
           <button
             onClick={handlePrint}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-navy-900 text-white hover:bg-navy-800 text-xs font-semibold shadow-sm transition-colors"
@@ -222,22 +220,26 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
       </div>
 
       {/* Salary Slip Content or Empty State */}
-      {!salaryRecord || !selectedEmp ? (
+      {!selectedEmp ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm space-y-3">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto text-gray-400">
             <FileText className="w-8 h-8" />
           </div>
-          <h2 className="text-lg font-bold text-navy-950">No Data Available</h2>
+          <h2 className="text-lg font-bold text-navy-950">Select an Employee</h2>
           <p className="text-sm text-gray-500 max-w-md mx-auto">
-            Salary for {selectedMonth} is not processed yet.
-          </p>
-          <p className="text-xs text-gray-400">
-            The salary slip is ready after the Owner / Admin approves the salary in Attendance List → Salary Process.
+            Choose an employee from the dropdown above to view the salary slip for {selectedMonth}.
           </p>
         </div>
       ) : (
         /* Formatted Realistic Wholesale Salary Slip matching reference app nxSlipHtml */
         <div className="bg-white rounded-xl border-2 border-navy-950 shadow-lg max-w-3xl mx-auto overflow-hidden print:m-0 print:border-none print:shadow-none">
+          {/* Provisional Banner if not approved yet */}
+          {!salaryRecord && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs font-medium text-amber-800 flex items-center justify-between">
+              <span>ℹ️ <strong>Provisional Calculation</strong> — Computed dynamically from attendance records for {selectedMonth}. Official sign-off pending in Salary Process.</span>
+              <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold uppercase">Provisional</span>
+            </div>
+          )}
           {/* Slip Header Banner */}
           <div className="bg-[#0d1b4c] text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -306,7 +308,7 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
                       Bank A/C Details
                     </td>
                     <td className="py-2 px-3 text-xs text-gray-800">
-                      {salaryRecord.acct || `${selectedEmp.bank} · ${selectedEmp.acno}`}
+                      {salaryRecord?.acct || (selectedEmp.bank ? `${selectedEmp.bank} · ${selectedEmp.acno}` : '—')}
                     </td>
                   </tr>
                 </tbody>
@@ -388,7 +390,7 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
                       <tr>
                         <td className="py-2 px-3 text-gray-700">
                           {slipStats.adj > 0 ? 'Incentive / Bonus' : 'Deduction'}
-                          {salaryRecord.note ? ` · ${salaryRecord.note}` : ''}
+                          {salaryRecord?.note ? ` · ${salaryRecord.note}` : ''}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-medium text-gray-800">
                           {slipStats.adj > 0 ? '+ ' : '- '}₹
@@ -420,10 +422,16 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
                   Only
                 </div>
                 <div className="text-[11px] text-gray-500">
-                  Paid by: <strong className="text-gray-800">{salaryRecord.pm}</strong> ·
-                  Approved by: <strong className="text-gray-800">{salaryRecord.by}</strong> on{' '}
-                  <strong className="text-gray-800">{salaryRecord.date}</strong>
-                  {salaryRecord.note && ` · Note: ${salaryRecord.note}`}
+                  {salaryRecord ? (
+                    <>
+                      Paid by: <strong className="text-gray-800">{salaryRecord.pm}</strong> ·
+                      Approved by: <strong className="text-gray-800">{salaryRecord.by}</strong> on{' '}
+                      <strong className="text-gray-800">{salaryRecord.date}</strong>
+                      {salaryRecord.note && ` · Note: ${salaryRecord.note}`}
+                    </>
+                  ) : (
+                    <span>Status: <strong className="text-amber-700">Provisional Calculation</strong> · Pending formal approval in Salary Process</span>
+                  )}
                 </div>
               </div>
             )}
