@@ -38,6 +38,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { getStaffMetricsInDateRange, getAllTelecallers } from "../data/mockCrmReports";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -831,23 +832,47 @@ export function CrmTelecallerPortalPage() {
     };
   });
 
-  // Team CRM Report state matching screenshot
+  // Team CRM Report state initialized dynamically
   const [teamActiveTab, setTeamActiveTab] = useState<"CRM" | "APP">("CRM");
-  const [teamReportData, setTeamReportData] = useState<TeamReportData>({
-    start_date: "22/11/2026",
-    end_date: "22/11/2026",
-    telecaller_report: [
-      { sl: 1, name: "Pushpa Patil", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
-      { sl: 2, name: "Dhruthi A S", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
-      { sl: 3, name: "Mahalaxmi Hiremath", not_reachable: 0, shop_closed: 0, call_back: 0, stock_available: 0, not_interested: 0 },
-    ],
-    sale_report: [
-      { sl: 1, name: "Pushpa Patil", order_count: 3, order_total: 17077 },
-      { sl: 2, name: "Dhruthi A S", order_count: 2, order_total: 11620 },
-      { sl: 3, name: "Mahalaxmi Hiremath", order_count: 0, order_total: 0 },
-    ],
-    total_order_count: 5,
-    total_order_amount: 28697,
+  const [teamReportData, setTeamReportData] = useState<TeamReportData>(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const activeStaff = getAllTelecallers();
+    const metrics = getStaffMetricsInDateRange(today, today);
+
+    const telecaller_report = activeStaff.map((st, idx) => {
+      const m = metrics.find((x) => x.name.toLowerCase() === st.name.toLowerCase());
+      return {
+        sl: idx + 1,
+        name: st.name,
+        not_reachable: m?.callResults.notReachable || 0,
+        shop_closed: m?.callResults.shopClosed || 0,
+        call_back: m?.callResults.callLater || 0,
+        stock_available: m?.callResults.stockAvailable || 0,
+        not_interested: m?.callResults.notInterested || 0,
+      };
+    });
+
+    const sale_report = activeStaff.map((st, idx) => {
+      const m = metrics.find((x) => x.name.toLowerCase() === st.name.toLowerCase());
+      return {
+        sl: idx + 1,
+        name: st.name,
+        order_count: m ? m.ordersCount : 0,
+        order_total: m ? m.totalSales : 0,
+      };
+    });
+
+    const total_order_count = sale_report.reduce((sum, r) => sum + r.order_count, 0);
+    const total_order_amount = sale_report.reduce((sum, r) => sum + r.order_total, 0);
+
+    return {
+      start_date: today,
+      end_date: today,
+      telecaller_report,
+      sale_report,
+      total_order_count,
+      total_order_amount,
+    };
   });
 
   // Log Call Modal state
@@ -1324,10 +1349,52 @@ export function CrmTelecallerPortalPage() {
   const loadTeamReports = async (sDate = reportStartDate, eDate = reportEndDate) => {
     try {
       const res = await apiClient.get<TeamReportData>(`/api/v1/admin/crm/team-reports?start_date=${sDate}&end_date=${eDate}`);
-      setTeamReportData(res.data);
+      if (res.data && res.data.sale_report && res.data.sale_report.length > 0) {
+        setTeamReportData(res.data);
+        return;
+      }
     } catch {
-      // Graceful fallback
+      // Fallback to real-time local storage calculations
     }
+
+    // Dynamic real-time calculation from live orders & telecallers
+    const staffMetrics = getStaffMetricsInDateRange(sDate, eDate);
+    const activeStaff = getAllTelecallers();
+
+    const telecaller_report = activeStaff.map((st, idx) => {
+      const metric = staffMetrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
+      return {
+        sl: idx + 1,
+        name: st.name,
+        not_reachable: metric?.callResults.notReachable || 0,
+        shop_closed: metric?.callResults.shopClosed || 0,
+        call_back: metric?.callResults.callLater || 0,
+        stock_available: metric?.callResults.stockAvailable || 0,
+        not_interested: metric?.callResults.notInterested || 0,
+      };
+    });
+
+    const sale_report = activeStaff.map((st, idx) => {
+      const metric = staffMetrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
+      return {
+        sl: idx + 1,
+        name: st.name,
+        order_count: metric ? metric.ordersCount : 0,
+        order_total: metric ? metric.totalSales : 0,
+      };
+    });
+
+    const total_order_count = sale_report.reduce((sum, r) => sum + r.order_count, 0);
+    const total_order_amount = sale_report.reduce((sum, r) => sum + r.order_total, 0);
+
+    setTeamReportData({
+      start_date: sDate,
+      end_date: eDate,
+      telecaller_report,
+      sale_report,
+      total_order_count,
+      total_order_amount,
+    });
   };
 
   const loadOrderStatus = async (sDate = orderStatusStartDate, eDate = orderStatusEndDate, showToast = false) => {

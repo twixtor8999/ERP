@@ -265,13 +265,45 @@ export function normalizeDateToIso(dStr?: string): string {
   return s;
 }
 
-// All recognized CRM telecallers in Siddeshwar Enterprises
-export const ALL_CRM_STAFF_BASE = [
-  { id: "staff-pushpa", name: "Pushpa Patil", phone: "9663447859", role: "CRM Staff / Telecaller" },
-  { id: "staff-dhruthi", name: "Dhruthi A S", phone: "8861629653", role: "CRM Staff / Telecaller" },
-  { id: "staff-mahalaxmi", name: "Mahalaxmi Hiremath", phone: "8197353836", role: "CRM Staff / Telecaller" },
-  { id: "staff-vijay", name: "Vijaykumar Shantagiri", phone: "9739396236", role: "Super Admin / Calling In-Charge" },
+import { getStoredEmployees, type Employee } from "@/features/employees/data/mockEmployees";
+
+// Base telecallers list
+export const INITIAL_CRM_STAFF_LIST = [
+  { id: "staff-pushpa", name: "Pushpa Patil", phone: "9663447859", role: "Telecaller/CRM" },
+  { id: "staff-dhruthi", name: "Dhruthi A S", phone: "8861629653", role: "Telecaller/CRM" },
+  { id: "staff-mahalaxmi", name: "Mahalaxmi Hiremath", phone: "8197353836", role: "Telecaller/CRM" },
 ];
+
+// Helper: Dynamically get all active Telecallers from Employee database (excluding Admins and Owners)
+export function getAllTelecallers(): Array<{ id: string; name: string; phone: string; role: string }> {
+  try {
+    const employees: Employee[] = getStoredEmployees();
+    const telecallers = employees.filter((e) => {
+      const des = (e.des || "").toLowerCase();
+      const role = (e.role || "").toLowerCase();
+      // Exclude Admin, Owner, CA
+      if (role.includes("admin") || role.includes("owner") || role.includes("ca") || des.includes("admin") || des.includes("owner") || des.includes("ca")) {
+        return false;
+      }
+      return des.includes("telecaller") || des.includes("crm") || role.includes("telecaller") || role.includes("crm");
+    });
+
+    if (telecallers.length > 0) {
+      return telecallers.map((e) => ({
+        id: `staff-${e.id}`,
+        name: e.name,
+        phone: e.ph,
+        role: "Telecaller/CRM",
+      }));
+    }
+  } catch (err) {
+    console.error("Failed to load telecallers from employees:", err);
+  }
+  return INITIAL_CRM_STAFF_LIST;
+}
+
+// All recognized CRM telecallers in Siddeshwar Enterprises (only telecallers)
+export const ALL_CRM_STAFF_BASE = INITIAL_CRM_STAFF_LIST;
 
 // Helper: Get all orders across local storage (pipeline, CRM reports, master orders, and initial)
 export function getAllCrmOrders(): CrmOrderRecord[] {
@@ -401,8 +433,9 @@ export function getOrdersInDateRange(fromDate: string, toDate: string): CrmOrder
 // Helper: Aggregate staff performance for a given date range
 export function getStaffMetricsInDateRange(fromDate: string, toDate: string): CrmStaffMember[] {
   const rangeOrders = getOrdersInDateRange(fromDate, toDate);
+  const activeTelecallers = getAllTelecallers();
 
-  return ALL_CRM_STAFF_BASE.map((base) => {
+  return activeTelecallers.map((base) => {
     const staffOrders = rangeOrders.filter(
       (o) => o.staffName.toLowerCase() === base.name.toLowerCase() && o.status !== "cancelled"
     );
