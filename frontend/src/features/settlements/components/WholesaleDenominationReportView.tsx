@@ -27,37 +27,49 @@ export const WholesaleDenominationReportView: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<VehicleDenominationRecord | null>(null);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
-  // Sync real-time orders from pipeline into Denomination records & pending list
+  // Sync real-time orders from pipeline & settlements into Denomination records & pending list
   useEffect(() => {
     const syncPipelineDenominations = () => {
       try {
+        const storedRecords = getStoredDenominations();
+        setRecords(storedRecords);
+
         const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
         if (!storedPipeline) return;
         const pipelineOrders = JSON.parse(storedPipeline);
         if (!Array.isArray(pipelineOrders) || pipelineOrders.length === 0) return;
 
-        const storedRecords = getStoredDenominations();
         const settledKeys = new Set(storedRecords.map((r) => `${r.date}_${r.vehicleNo}`));
 
-        // Group orders by date & vehicle
+        // Format today's date in DD-MM-YYYY
+        const now = new Date();
+        const todayDmY = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getFullYear()}`;
+
+        // Group today's delivered/completed orders by vehicle
         const groups: Record<string, any[]> = {};
         for (const po of pipelineOrders) {
-          const rawDate = (po.deliveredAt || po.orderDate || "").trim();
-          let dateStr = "25-11-2026";
-          const m1 = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-          if (m1 && m1[1] && m1[2] && m1[3]) {
-            dateStr = `${m1[3].padStart(2, "0")}-${m1[2].padStart(2, "0")}-${m1[1]}`;
-          } else {
-            const m2 = rawDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-            if (m2 && m2[1] && m2[2] && m2[3]) {
-              dateStr = `${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}-${m2[3]}`;
+          // Only show vehicles with orders actively in delivery or completed
+          if (po.stage === "completed" || po.stage === "delivery" || (po.status && po.status.toLowerCase() === "delivered")) {
+            const rawDate = (po.deliveredAt || po.orderDate || "").trim();
+            let dateStr = todayDmY;
+            const m1 = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (m1 && m1[1] && m1[2] && m1[3]) {
+              dateStr = `${m1[3].padStart(2, "0")}-${m1[2].padStart(2, "0")}-${m1[1]}`;
+            } else {
+              const m2 = rawDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+              if (m2 && m2[1] && m2[2] && m2[3]) {
+                dateStr = `${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}-${m2[3]}`;
+              }
+            }
+
+            // Only consider recent or today's pending trips for the action banner
+            if (dateStr === todayDmY || dateStr.endsWith("2026")) {
+              const veh = po.vehicleNo || "KA28AA6256";
+              const key = `${dateStr}_${veh}`;
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(po);
             }
           }
-
-          const veh = po.vehicleNo || "KA28AA6256";
-          const key = `${dateStr}_${veh}`;
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(po);
         }
 
         const newPending: VehicleDenominationRecord[] = [];
@@ -73,7 +85,7 @@ export const WholesaleDenominationReportView: React.FC = () => {
 
             newPending.push({
               id: `PEND-${key}`,
-              date: dateStr || "25-11-2026",
+              date: dateStr || todayDmY,
               vehicleNo: veh || "KA28AA6256",
               driverName,
               ordersCount: orders.length,
@@ -97,9 +109,11 @@ export const WholesaleDenominationReportView: React.FC = () => {
 
     syncPipelineDenominations();
     window.addEventListener("crm_order_placed", syncPipelineDenominations);
+    window.addEventListener("settlements_updated", syncPipelineDenominations);
     window.addEventListener("storage", syncPipelineDenominations);
     return () => {
       window.removeEventListener("crm_order_placed", syncPipelineDenominations);
+      window.removeEventListener("settlements_updated", syncPipelineDenominations);
       window.removeEventListener("storage", syncPipelineDenominations);
     };
   }, []);
@@ -141,9 +155,55 @@ export const WholesaleDenominationReportView: React.FC = () => {
   const handleSaveModal = (updated: VehicleDenominationRecord) => {
     // If it was in pendingList, remove from pending and add to records
     setPendingList((prev) => prev.filter((p) => p.id !== updated.id));
-    const nextRecords = [updated, ...records.filter((r) => r.id !== updated.id)];
+    const nextRecords = [updated, ...records.filter((r) => r.id !== updated.id && `${r.date}_${r.vehicleNo}` !== `${updated.date}_${updated.vehicleNo}`)];
     setRecords(nextRecords);
     saveStoredDenominations(nextRecords);
+
+    // Also update Vehicle Settlements storage so View 1 (Vehicle Settlement) updates immediately
+    try {
+      const rawSettlements = localStorage.getItem("ai_smart_bazar_settlements_v5");
+      if (rawSettlements) {
+        const settlements = JSON.parse(rawSettlements);
+        if (Array.isArray(settlements)) {
+          // Normalize updated.date to YYYY-MM-DD for settlements comparison
+          const dParts = updated.date.split("-");
+          const p0 = dParts[0];
+          const p1 = dParts[1];
+          const p2 = dParts[2];
+          const dateIso = dParts.length === 3 && p0 && p1 && p2 && p0.length === 2
+            ? `${p2}-${p1}-${p0}`
+            : updated.date;
+
+          const updatedSettlements = settlements.map((s: any) => {
+            const sDate = s.date;
+            if ((sDate === dateIso || sDate === updated.date) && s.vehicleNumber === updated.vehicleNo) {
+              return {
+                ...s,
+                countedCash: updated.cashAmount,
+                qrPayment: updated.qrAmount,
+                diff: updated.diff,
+                denominations: {
+                  "500": updated.counts.n500,
+                  "200": updated.counts.n200,
+                  "100": updated.counts.n100,
+                  "50": updated.counts.n50,
+                  "20": updated.counts.n20,
+                  "10": updated.counts.n10,
+                  "1": updated.counts.coins,
+                },
+                enteredBy: updated.settledBy || "Vijaykumar Shantagiri",
+              };
+            }
+            return s;
+          });
+          localStorage.setItem("ai_smart_bazar_settlements_v5", JSON.stringify(updatedSettlements));
+          window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new Event("settlements_updated"));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to sync settlement storage from denomination report:", e);
+    }
   };
 
   const handleExportCsv = () => {

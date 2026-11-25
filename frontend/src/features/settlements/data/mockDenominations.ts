@@ -97,36 +97,75 @@ export const INITIAL_DENOMINATIONS: VehicleDenominationRecord[] = [
   },
 ];
 
-export const PENDING_DENOMINATIONS: VehicleDenominationRecord[] = [
-  {
-    id: 'PEND-01',
-    date: '25-11-2026',
-    vehicleNo: 'KA28AB3425',
-    driverName: 'Basavaraj Hiremath',
-    ordersCount: 8,
-    netSales: 26400,
-    qrAmount: 11000,
-    cashAmount: 0,
-    diff: -15400,
-    counts: { n500: 0, n200: 0, n100: 0, n50: 0, n20: 0, n10: 0, coins: 0 },
-    settledBy: '',
-    settledAt: '',
-    status: 'pending',
-  },
-];
+export const PENDING_DENOMINATIONS: VehicleDenominationRecord[] = [];
 
 const STORAGE_KEY = 'erp_denominations_records';
+const SETTLEMENTS_STORAGE_KEY = 'ai_smart_bazar_settlements_v5';
 
 export function getStoredDenominations(): VehicleDenominationRecord[] {
   if (typeof window === 'undefined') return INITIAL_DENOMINATIONS;
   try {
+    const recordsMap = new Map<string, VehicleDenominationRecord>();
+
+    // Load any explicitly saved denomination vouchers first
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DENOMINATIONS));
-      return INITIAL_DENOMINATIONS;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((r) => recordsMap.set(`${r.date}_${r.vehicleNo}`, r));
+      }
     }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_DENOMINATIONS;
+
+    // Merge with any settlements saved in Vehicle Settlement (STORAGE_KEY_SETTLEMENTS)
+    const rawSettlements = localStorage.getItem(SETTLEMENTS_STORAGE_KEY);
+    if (rawSettlements) {
+      const settlements = JSON.parse(rawSettlements);
+      if (Array.isArray(settlements)) {
+        settlements.forEach((s: any) => {
+          if (s.countedCash != null) {
+            // Convert date to DD-MM-YYYY format for consistent display
+            let dateStr = s.date || "25-11-2026";
+            const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (m && m[1] && m[2] && m[3]) {
+              dateStr = `${m[3].padStart(2, "0")}-${m[2].padStart(2, "0")}-${m[1]}`;
+            }
+
+            const key = `${dateStr}_${s.vehicleNumber}`;
+            const existing = recordsMap.get(key);
+            recordsMap.set(key, {
+              id: existing?.id || `DEN-${s.sl || Date.now()}`,
+              date: dateStr,
+              vehicleNo: s.vehicleNumber,
+              driverName: s.driverName || "Driver",
+              ordersCount: s.noOfOrders || 0,
+              netSales: s.netAmt || s.invoiceAmt || 0,
+              qrAmount: s.qrPayment || 0,
+              cashAmount: s.countedCash || 0,
+              diff: (s.countedCash + (s.qrPayment || 0)) - (s.netAmt || 0),
+              counts: existing?.counts || {
+                n500: s.denominations?.["500"] || 0,
+                n200: s.denominations?.["200"] || 0,
+                n100: s.denominations?.["100"] || 0,
+                n50: s.denominations?.["50"] || 0,
+                n20: s.denominations?.["20"] || 0,
+                n10: s.denominations?.["10"] || 0,
+                coins: s.denominations?.["1"] || 0,
+              },
+              settledBy: s.enteredBy || 'Vijaykumar Shantagiri',
+              settledAt: existing?.settledAt || `${dateStr} 05:00 PM`,
+              notes: s.remarks,
+              status: 'settled',
+            });
+          }
+        });
+      }
+    }
+
+    if (recordsMap.size > 0) {
+      return Array.from(recordsMap.values());
+    }
+
+    return INITIAL_DENOMINATIONS;
   } catch {
     return INITIAL_DENOMINATIONS;
   }

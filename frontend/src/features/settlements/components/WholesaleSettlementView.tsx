@@ -590,20 +590,28 @@ export function WholesaleSettlementView() {
     e.preventDefault();
     if (!activeDenomRow) return;
 
-    const updated = settlements.map((r) =>
-      r.sl === activeDenomRow.sl
-        ? {
-            ...r,
-            countedCash: calculatedCountedCash,
-            qrPayment: denomQR,
-            bankPayment: denomBank,
-            diff: cashDiscrepancy,
-            denominations: { ...noteCounts },
-            remarks: denomRemarks,
-            enteredBy: "Vijaykumar Shantagiri",
-          }
-        : r
+    const rowExists = settlements.some(
+      (r) => r.sl === activeDenomRow.sl || (r.date === activeDenomRow.date && r.vehicleNumber === activeDenomRow.vehicleNumber)
     );
+
+    const savedRow: SettlementRow = {
+      ...activeDenomRow,
+      countedCash: calculatedCountedCash,
+      qrPayment: denomQR,
+      bankPayment: denomBank,
+      diff: cashDiscrepancy,
+      denominations: { ...noteCounts },
+      remarks: denomRemarks || activeDenomRow.remarks,
+      enteredBy: "Vijaykumar Shantagiri",
+    };
+
+    const updated: SettlementRow[] = rowExists
+      ? settlements.map((r) =>
+          r.sl === activeDenomRow.sl || (r.date === activeDenomRow.date && r.vehicleNumber === activeDenomRow.vehicleNumber)
+            ? savedRow
+            : r
+        )
+      : [savedRow, ...settlements];
 
     setSettlements(updated);
 
@@ -613,7 +621,7 @@ export function WholesaleSettlementView() {
       })`,
     });
 
-    // Save to localStorage so Sales vs Collection and persistent state pick it up immediately
+    // Save to localStorage so Sales vs Collection and Denomination Report pick it up immediately
     try {
       localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
       window.dispatchEvent(new Event("storage"));
