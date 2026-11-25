@@ -57,6 +57,20 @@ export interface PipelineOrder {
   deliveredAt?: string;
 }
 
+export function extractIsoDate(dStr?: string): string {
+  if (!dStr) return "";
+  const str = dStr.trim();
+  const isoMatch = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+  const inMatch = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (inMatch && inMatch[1] && inMatch[2] && inMatch[3]) {
+    return `${inMatch[3]}-${inMatch[2].padStart(2, "0")}-${inMatch[1].padStart(2, "0")}`;
+  }
+  return "";
+}
+
 export const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
   {
     id: "ord-1672",
@@ -992,20 +1006,6 @@ export function WholesaleOrdersPipelineView() {
     if (activeTab.includes("inv")) targetStage = "invoice";
     else if (activeTab.includes("disp")) targetStage = "dispatch";
     else if (activeTab.includes("dlv") || activeTab.includes("deliv")) targetStage = "delivery";
-
-    const extractIsoDate = (dStr?: string): string => {
-      if (!dStr) return "";
-      const str = dStr.trim();
-      const isoMatch = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
-        return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
-      }
-      const inMatch = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (inMatch && inMatch[1] && inMatch[2] && inMatch[3]) {
-        return `${inMatch[3]}-${inMatch[2].padStart(2, "0")}-${inMatch[1].padStart(2, "0")}`;
-      }
-      return "";
-    };
 
     const q = pageSearch.toLowerCase().trim();
 
