@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
@@ -649,9 +649,9 @@ export function WholesaleSettlementView() {
   };
 
   // Build live settlements by combining saved settlements with real delivered orders from pipeline
-  const allSettlements = useMemo(() => {
+  const allSettlements: SettlementRow[] = useMemo(() => {
     const list: SettlementRow[] = [...settlements];
-    const existingVehDates = new Set(list.map((r) => `${r.date}_${r.vehicleNumber}`));
+    const existingVehDates = new Set(list.map((r: SettlementRow) => `${r.date}_${r.vehicleNumber}`));
 
     if (typeof window !== "undefined") {
       try {
@@ -663,15 +663,15 @@ export function WholesaleSettlementView() {
             const deliveredGroups: Record<string, any[]> = {};
             for (const po of pipelineOrders) {
               if (po.stage === "completed" || po.stage === "delivery" || (po.status && po.status.toLowerCase() === "delivered")) {
-                const dateIso = (() => {
+                const dateIso: string = (() => {
                   const str = (po.deliveredAt || po.orderDate || "").trim();
                   const m1 = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-                  if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+                  if (m1 && m1[1] && m1[2] && m1[3]) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
                   const m2 = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-                  if (m2) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
+                  if (m2 && m2[1] && m2[2] && m2[3]) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
                   return todayStr;
                 })();
-                const veh = po.vehicleNo || "KA28AA6256";
+                const veh: string = po.vehicleNo || "KA28AA6256";
                 const key = `${dateIso}_${veh}`;
                 if (!deliveredGroups[key]) deliveredGroups[key] = [];
                 deliveredGroups[key].push(po);
@@ -683,11 +683,11 @@ export function WholesaleSettlementView() {
               if (!existingVehDates.has(key)) {
                 existingVehDates.add(key);
                 const [dIso, veh] = key.split("_");
-                const totalAmt = orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+                const totalAmt = orders.reduce((acc: number, o: any) => acc + (Number(o.total) || 0), 0);
                 list.unshift({
                   sl: list.length + 1,
-                  date: dIso,
-                  vehicleNumber: veh,
+                  date: dIso || todayStr,
+                  vehicleNumber: veh || "KA28AA6256",
                   driverName: veh === "KA28AA6256" ? "Arun Patil" : "Ramesh Biradar",
                   noOfOrders: orders.length,
                   invoiceAmt: totalAmt,
@@ -713,7 +713,7 @@ export function WholesaleSettlementView() {
   }, [settlements, todayStr]);
 
   // Filtered rows
-  const filteredRows = allSettlements.filter((r) => {
+  const filteredRows: SettlementRow[] = allSettlements.filter((r: SettlementRow) => {
     if (r.date && (r.date < fromDate || r.date > toDate)) return false;
     if (!pageSearch) return true;
     const q = pageSearch.toLowerCase();
@@ -726,15 +726,15 @@ export function WholesaleSettlementView() {
   });
 
   // Totals
-  const totalOrders = filteredRows.reduce((a, b) => a + b.noOfOrders, 0);
-  const totalInvoice = filteredRows.reduce((a, b) => a + b.invoiceAmt, 0);
-  const totalFullRet = filteredRows.reduce((a, b) => a + b.fullReturn, 0);
-  const totalPartRet = filteredRows.reduce((a, b) => a + b.partialReturn, 0);
-  const totalOldRet = filteredRows.reduce((a, b) => a + b.oldReturn, 0);
-  const totalNet = filteredRows.reduce((a, b) => a + b.netAmt, 0);
-  const totalQR = filteredRows.reduce((a, b) => a + b.qrPayment, 0);
-  const totalCash = filteredRows.reduce((a, b) => a + b.cashReceived, 0);
-  const totalCounted = filteredRows.reduce((a, b) => a + (b.countedCash || 0), 0);
+  const totalOrders = filteredRows.reduce((a: number, b: SettlementRow) => a + b.noOfOrders, 0);
+  const totalInvoice = filteredRows.reduce((a: number, b: SettlementRow) => a + b.invoiceAmt, 0);
+  const totalFullRet = filteredRows.reduce((a: number, b: SettlementRow) => a + b.fullReturn, 0);
+  const totalPartRet = filteredRows.reduce((a: number, b: SettlementRow) => a + b.partialReturn, 0);
+  const totalOldRet = filteredRows.reduce((a: number, b: SettlementRow) => a + b.oldReturn, 0);
+  const totalNet = filteredRows.reduce((a: number, b: SettlementRow) => a + b.netAmt, 0);
+  const totalQR = filteredRows.reduce((a: number, b: SettlementRow) => a + b.qrPayment, 0);
+  const totalCash = filteredRows.reduce((a: number, b: SettlementRow) => a + b.cashReceived, 0);
+  const totalCounted = filteredRows.reduce((a: number, b: SettlementRow) => a + (b.countedCash || 0), 0);
 
   const handleExport = (type = "Vehicle") => {
     setShowExportMenu(false);
