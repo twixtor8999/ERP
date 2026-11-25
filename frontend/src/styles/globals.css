@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Global base font: bumped to 17px for readability on mobile/tablet
+        for field staff and shop owners. All rem-based Tailwind sizes scale
+        proportionally — text-xs goes from 12→12.75px, text-sm 14→14.9px,
+        text-base 16→17px, text-lg 18→19px, etc. ─── */
+  html {
+    font-size: 17px;
+  }
+
   :root {
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
