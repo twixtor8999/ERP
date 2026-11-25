@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, Search, Check, Copy, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Search, Check, Copy } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { PlanUpgradeCheckoutPage } from './PlanUpgradeCheckoutPage';
 
-interface PlanDef {
+export interface PlanDef {
   name: string;
   price: number;
   period: string;
@@ -15,7 +16,7 @@ interface PlanDef {
   isPopular?: boolean;
 }
 
-const PLANS: PlanDef[] = [
+export const PLANS: PlanDef[] = [
   {
     name: 'FREE',
     price: 0,
@@ -122,9 +123,19 @@ const FEATURES_LIST = [
 
 export function SubscriptionPlansPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // If URL indicates upgrade checkout view, render dedicated page
+  if (
+    searchParams.get('tab') === 'upgrade' ||
+    searchParams.get('action') === 'buy' ||
+    searchParams.get('checkout') === 'true'
+  ) {
+    return <PlanUpgradeCheckoutPage />;
+  }
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activationCode, setActivationCode] = useState('');
-  const [selectedBuyPlan, setSelectedBuyPlan] = useState<PlanDef | null>(null);
 
   const accountId = 'SIDDESHWAR-9739396236';
 
@@ -350,8 +361,10 @@ export function SubscriptionPlansPage() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setSelectedBuyPlan(plan)}
-                    className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-[#0f2d59] hover:bg-slate-900 text-white transition shadow-2xs"
+                    onClick={() =>
+                      navigate(`/plans-billing/upgrade?plan=${encodeURIComponent(plan.name)}`)
+                    }
+                    className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-[#0f2d59] hover:bg-slate-900 text-white transition shadow-2xs cursor-pointer active:scale-95"
                   >
                     Buy · ₹{plan.price}
                   </button>
@@ -449,75 +462,6 @@ export function SubscriptionPlansPage() {
       <div className="text-center text-2xs text-slate-400">
         Ai Smart Bazar · Made for Karnataka FMCG distributors · Kannada / English
       </div>
-
-      {/* Buy Modal on Click */}
-      {selectedBuyPlan && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-[#0f2d59] text-white px-5 py-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-sm tracking-wide">
-                  Upgrade to {selectedBuyPlan.name} Plan
-                </h3>
-                <p className="text-xs text-slate-300">
-                  Amount payable: ₹{selectedBuyPlan.price}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedBuyPlan(null)}
-                className="text-slate-300 hover:text-white transition p-1 rounded hover:bg-white/10"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs text-slate-700">
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
-                <span className="font-bold">UPI ID:</span>{' '}
-                <span className="font-mono">9739396236@ybl</span>
-              </div>
-
-              <div className="space-y-1">
-                <div className="font-semibold text-slate-800">Your Account ID:</div>
-                <div className="p-2 bg-slate-100 rounded font-mono text-slate-900 font-bold flex items-center justify-between">
-                  <span>{accountId}</span>
-                  <button
-                    onClick={copyAccountId}
-                    className="text-blue-600 hover:text-blue-800 text-2xs font-bold"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-
-              <div className="text-slate-500 text-2xs leading-relaxed">
-                Scan or send ₹{selectedBuyPlan.price} to 9739396236@ybl. After
-                payment, share screenshot on WhatsApp (+91 9739396236) with your
-                Account ID to receive your instant activation code.
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setSelectedBuyPlan(null)}
-                className="px-4 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <a
-                href={`https://wa.me/919739396236?text=${encodeURIComponent(
-                  `Hi, I want to upgrade to ${selectedBuyPlan.name} Plan for Account ID: ${accountId}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-1.5 bg-[#15803d] hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-2xs"
-              >
-                Chat on WhatsApp
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -45,6 +45,7 @@ import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
 import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
 import { PnlPage } from "@/features/pnl";
 import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
+import { PlanUpgradeCheckoutPage } from "@/features/plans/pages/PlanUpgradeCheckoutPage";
 import { MyProfilePage } from "@/features/profile/pages/MyProfilePage";
 import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
 import { CustomInvoiceTemplatePage } from "@/features/settings";
@@ -320,6 +321,14 @@ export const router = createBrowserRouter([
       {
         path: "plans-billing",
         element: <SubscriptionPlansPage />,
+      },
+      {
+        path: "plans-billing/upgrade",
+        element: <PlanUpgradeCheckoutPage />,
+      },
+      {
+        path: "plans-billing/checkout",
+        element: <PlanUpgradeCheckoutPage />,
       },
       {
         path: "plans",
