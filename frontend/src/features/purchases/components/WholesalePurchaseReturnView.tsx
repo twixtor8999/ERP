@@ -21,7 +21,6 @@ import { WholesaleDebitNoteDetailView } from "./WholesaleDebitNoteDetailView";
 
 export function WholesalePurchaseReturnView() {
   const navigate = useNavigate();
-  const [purchases] = useState<PurchaseRecord[]>(() => getStoredPurchases());
   const [debitNotes, setDebitNotes] = useState<DebitNoteRecord[]>(() => getStoredDebitNotes());
 
   // Search input state
@@ -54,7 +53,14 @@ export function WholesalePurchaseReturnView() {
     }
     setSearchedInv(q);
 
-    const found = purchases.find((p) => p.invoiceNo.toLowerCase() === q.toLowerCase());
+    // Refresh purchases from storage so newly created purchases are included
+    const allPurchases = getStoredPurchases();
+    const cleanQ = q.toLowerCase().replace(/[\s\-_/]/g, "");
+
+    const found = allPurchases.find((p) => {
+      const cleanInv = p.invoiceNo.toLowerCase().replace(/[\s\-_/]/g, "");
+      return cleanInv === cleanQ || p.invoiceNo.toLowerCase() === q.toLowerCase();
+    });
 
     if (!found) {
       setMatchedPurchase(null);
@@ -407,10 +413,10 @@ export function WholesalePurchaseReturnView() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
             <table className="w-full text-left text-xs md:text-sm border-collapse">
-              <thead>
-                <tr className="bg-[#1e40af] text-white">
+              <thead className="sticky top-0 z-10 shadow-2xs">
+                <tr className="bg-[#1e40af] text-white whitespace-nowrap">
                   <th className="py-3 px-3.5 font-semibold text-center w-12">Sl</th>
                   <th className="py-3 px-3.5 font-semibold">Date</th>
                   <th className="py-3 px-3.5 font-semibold">Debit Note No</th>

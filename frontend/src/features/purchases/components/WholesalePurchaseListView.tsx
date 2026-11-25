@@ -20,9 +20,22 @@ export function WholesalePurchaseListView() {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState<PurchaseRecord[]>(() => getStoredPurchases());
 
-  const todayStr = "2026-11-22";
-  const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate, setToDate] = useState(todayStr);
+  // Dynamic today and earliest purchase date
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  const defaultFrom = useMemo(() => {
+    if (purchases.length > 0) {
+      const dates = purchases.map((p) => p.date).sort();
+      return dates[0] || todayIso;
+    }
+    return todayIso;
+  }, [purchases, todayIso]);
+
+  const [fromDate, setFromDate] = useState(defaultFrom);
+  const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRecord | null>(null);
@@ -109,11 +122,12 @@ export function WholesalePurchaseListView() {
             Back
           </button>
 
-          {/* Date Range Strip */}
+          {/* Date Range Strip with max today restriction */}
           <div className="flex items-center gap-2 text-xs bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
             <span className="text-slate-500 font-semibold pl-2">From</span>
             <input
               type="date"
+              max={todayIso}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="px-2 py-1 text-xs border border-slate-200 rounded font-medium focus:outline-none"
@@ -121,6 +135,7 @@ export function WholesalePurchaseListView() {
             <span className="text-slate-500 font-semibold">To</span>
             <input
               type="date"
+              max={todayIso}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="px-2 py-1 text-xs border border-slate-200 rounded font-medium focus:outline-none"
@@ -186,12 +201,12 @@ export function WholesalePurchaseListView() {
         />
       </div>
 
-      {/* Royal Blue Table */}
+      {/* Royal Blue Table with locked 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase whitespace-nowrap">
                 <th className="py-2.5 px-3 border-r border-blue-400/40 text-center w-12">Sl</th>
                 <th className="py-2.5 px-3 border-r border-blue-400/40 w-28">Date</th>
                 <th className="py-2.5 px-4 border-r border-blue-400/40 min-w-[200px]">Vendor</th>

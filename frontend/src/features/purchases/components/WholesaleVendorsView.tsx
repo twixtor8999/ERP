@@ -314,12 +314,12 @@ export function WholesaleVendorsView() {
         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
       </div>
 
-      {/* Vendors Table */}
+      {/* Vendors Table with 7-8 visible rows internal scroll */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
-              <tr className="bg-[#1e40af] text-white">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#1e40af] text-white whitespace-nowrap">
                 <th className="py-3 px-3.5 font-semibold text-center w-12">Sl</th>
                 <th className="py-3 px-3.5 font-semibold min-w-[200px]">Vendor name</th>
                 <th className="py-3 px-3.5 font-semibold min-w-[260px]">Address</th>
