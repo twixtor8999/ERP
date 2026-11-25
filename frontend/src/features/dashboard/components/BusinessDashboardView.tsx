@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Search, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, Search, Plus, Award } from "lucide-react";
 import { toast } from "sonner";
-import { getStoredEmployees } from "@/features/employees/data/mockEmployees";
 import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
+import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
 
 interface CrmStaffMember {
   id: string;
@@ -292,60 +292,63 @@ const STAFF_COLORS = [
   "#e11d48",
 ];
 
-function getDynamicStaffList(): CrmStaffMember[] {
+const TARGET_GOAL_AMOUNT = 120000; // ₹1.2 Lakh target for staff
+
+function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
   try {
-    const employees = getStoredEmployees();
-    const knownStaffMap = new Map<string, CrmStaffMember>();
+    const today = getIstDateString();
+    const from = fDate || today;
+    const to = tDate || today;
 
-    // Seed with DEFAULT_STAFF (telecallers with real orders & performance data)
-    DEFAULT_STAFF.forEach((s) => {
-      knownStaffMap.set(s.name.trim().toLowerCase(), { ...s });
+    const telecallers = getAllTelecallers();
+    const metrics = getStaffMetricsInDateRange(from, to);
+    const allOrders = getAllCrmOrders();
+
+    return telecallers.map((st, index) => {
+      const metric = metrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
+      
+      // Calculate live orders and sales for this staff
+      const staffOrders = allOrders.filter(
+        (o) => o.staffName.toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
+      );
+      
+      const ordersCount = metric ? metric.ordersCount : staffOrders.length;
+      const salesTotal = metric ? metric.totalSales : staffOrders.reduce((sum, o) => sum + o.total, 0);
+
+      // Unique covered villages
+      const villagesSet = new Set(staffOrders.map((o) => o.village).filter(Boolean));
+      const coveredVillages = villagesSet.size || (ordersCount > 0 ? Math.min(ordersCount, 2) : 0);
+
+      // Target progress percentage: (sales / 120,000) * 100
+      const targetPercent = Math.min(100, Math.round((salesTotal / TARGET_GOAL_AMOUNT) * 100));
+
+      const parts = st.name.trim().split(/\s+/);
+      const p0 = parts[0] || "";
+      const p1 = parts[1] || "";
+      const initials =
+        parts.length >= 2 && p0 && p1
+          ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
+          : st.name.slice(0, 2).toUpperCase();
+
+      const salesK = salesTotal >= 1000 ? `₹${(salesTotal / 1000).toFixed(1)}k` : `₹${salesTotal}`;
+
+      return {
+        id: st.id,
+        name: st.name,
+        initials: initials || "TC",
+        themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
+        orders: ordersCount,
+        salesK,
+        coveredVillages,
+        callings: metric ? metric.callResults.notReachable + metric.callResults.shopClosed + metric.callResults.callLater + metric.callResults.stockAvailable + metric.callResults.notInterested + metric.callResults.orderPlaced : 0,
+        salesReturnK: "₹0",
+        salesReturnOrders: 0,
+        salesReturnDate: `As on ${today}`,
+        obSalesK: "₹0",
+        targetK: "Target ₹1.2L",
+        targetPercent,
+      };
     });
-
-    // Merge in any employees from the employee module
-    if (employees && employees.length > 0) {
-      employees.forEach((emp, index) => {
-        const key = emp.name.trim().toLowerCase();
-        // If not already in knownStaffMap and not a generic "Owner" placeholder, add them
-        if (!knownStaffMap.has(key) && key !== "owner") {
-          const parts = emp.name.trim().split(/\s+/);
-          const p0 = parts[0] || "";
-          const p1 = parts[1] || "";
-          const initials =
-            parts.length >= 2 && p0 && p1
-              ? ((p0[0] || "") + (p1[0] || "")).toUpperCase()
-              : emp.name.slice(0, 2).toUpperCase();
-
-          knownStaffMap.set(key, {
-            id: String(emp.id),
-            name: emp.name,
-            initials: initials || "ST",
-            themeColor: STAFF_COLORS[index % STAFF_COLORS.length] || "#2563eb",
-            orders: 0,
-            salesK: "₹0",
-            coveredVillages: 0,
-            callings: 0,
-            salesReturnK: "₹0",
-            salesReturnOrders: 0,
-            salesReturnDate: "As on 21-11-2026",
-            obSalesK: "₹0",
-            targetK: "Target ₹1.2L",
-            targetPercent: 0,
-          });
-        }
-      });
-    }
-
-    // Convert map to array and sort so active telecallers with orders/sales come FIRST
-    const list = Array.from(knownStaffMap.values());
-    list.sort((a, b) => {
-      if (b.orders !== a.orders) return b.orders - a.orders;
-      const bSales = parseFloat(b.salesK.replace(/[^\d.]/g, "")) || 0;
-      const aSales = parseFloat(a.salesK.replace(/[^\d.]/g, "")) || 0;
-      return bSales - aSales;
-    });
-
-    return list.length > 0 ? list : DEFAULT_STAFF;
   } catch {
     return DEFAULT_STAFF;
   }
@@ -377,14 +380,14 @@ export function BusinessDashboardView() {
   const [staffList, setStaffList] = useState<CrmStaffMember[]>(() => getDynamicStaffList());
 
   useEffect(() => {
-    const refresh = () => setStaffList(getDynamicStaffList());
+    const refresh = () => setStaffList(getDynamicStaffList(fromDate, toDate));
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
     return () => {
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, []);
+  }, [fromDate, toDate]);
 
   const handleDateFilterSubmit = () => {
     if (fromDate === toDate) {
@@ -396,6 +399,7 @@ export function BusinessDashboardView() {
     } else {
       setDisplaySubtitle(`${fromDate} to ${toDate}`);
     }
+    setStaffList(getDynamicStaffList(fromDate, toDate));
     toast.success("Dashboard Filter Applied", {
       description: `Showing business metrics for ${fromDate} to ${toDate}`,
     });
@@ -1002,12 +1006,12 @@ export function BusinessDashboardView() {
           </div>
         </div>
 
-        {/* 1. Horizontal Scrolling CRM Staff Performance Deck matching .nxd-crm */}
-        <div className="flex flex-wrap gap-3.5 pb-3 pt-1">
+        {/* 1. Horizontal Scrolling CRM Staff Performance Deck */}
+        <div className="flex flex-nowrap overflow-x-auto gap-4 pb-4 pt-1 scrollbar-thin scrollbar-thumb-slate-300">
           {staffList.map((staff) => (
             <div
               key={staff.id}
-              className="w-[270px] min-w-[270px] bg-white rounded-2xl border border-slate-200/85 p-3.5 shadow-sm space-y-3 shrink-0 transition-transform hover:-translate-y-0.5"
+              className="w-[280px] min-w-[280px] bg-white rounded-2xl border border-slate-200/85 p-3.5 shadow-sm space-y-3 shrink-0 transition-transform hover:-translate-y-0.5"
               style={{ borderTop: `4px solid ${staff.themeColor}` }}
             >
               {/* Staff Header with Initials Badge & View link */}
@@ -1175,16 +1179,27 @@ export function BusinessDashboardView() {
                 <div className="font-black text-sm text-slate-900 mt-0.5">{staff.obSalesK}</div>
               </div>
 
-              {/* Target Progress Bar */}
-              <div className="space-y-1 pt-0.5">
+              {/* Target Progress Bar (Visible Only on Admin Panel, Tracks toward ₹1.2 Lakh Target) */}
+              <div className="space-y-1.5 pt-0.5">
                 <div className="flex items-center justify-between text-[11px] font-extrabold">
-                  <span className="text-slate-600">{staff.targetK}</span>
-                  <span className="text-emerald-600">{staff.targetPercent}%</span>
+                  <span className="text-slate-600 flex items-center gap-1">
+                    <span>{staff.targetK}</span>
+                  </span>
+                  {staff.targetPercent >= 100 ? (
+                    <span className="text-emerald-600 font-black flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5 text-amber-500" />
+                      <span>100% Target Met 🏆</span>
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 font-bold">{staff.targetPercent}%</span>
+                  )}
                 </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
                   <div
-                    className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${Math.min(100, staff.targetPercent)}%` }}
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      staff.targetPercent >= 100 ? "bg-linear-to-r from-emerald-500 to-teal-400" : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(staff.targetPercent, staff.orders > 0 ? 5 : 0))}%` }}
                   />
                 </div>
               </div>
