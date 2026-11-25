@@ -7,6 +7,7 @@ import {
   type PunchOrderItem,
   type InventorySku,
 } from "../data/mockInventory";
+import { getAllCrmOrders, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 
 interface SkuPunchSummary {
   skuId: number;
@@ -29,7 +30,55 @@ export function WholesalePunchOrdersView() {
   const [selectedSkuSummary, setSelectedSkuSummary] = useState<SkuPunchSummary | null>(null);
 
   const [skus] = useState<InventorySku[]>(() => getStoredSkus());
-  const [orders] = useState<PunchOrderItem[]>(INITIAL_PUNCH_ORDERS);
+
+  // Dynamically derive live punch orders directly from CRM Wholesale orders + pipeline orders
+  const orders = useMemo<PunchOrderItem[]>(() => {
+    const crmOrders: CrmOrderRecord[] = getAllCrmOrders();
+    const liveList: PunchOrderItem[] = [];
+
+    // Filter for active orders (placed, packed, invoiced)
+    crmOrders.forEach((o) => {
+      const statusKey = o.status.toLowerCase();
+      const mappedStatus: "placed" | "packed" | "invoiced" | "dispatched" =
+        statusKey.includes("invoiced") || statusKey.includes("completed")
+          ? "invoiced"
+          : statusKey.includes("pack")
+          ? "packed"
+          : statusKey.includes("dispatch")
+          ? "dispatched"
+          : "placed";
+
+      // If already fully delivered/dispatched, punch is complete
+      if (mappedStatus === "dispatched") return;
+
+      if (o.items && o.items.length > 0) {
+        o.items.forEach((item, idx) => {
+          // Find matching SKU
+          const foundSku = skus.find(
+            (s) =>
+              s.name.toLowerCase() === item.name.toLowerCase() ||
+              item.name.toLowerCase().includes(s.name.toLowerCase()) ||
+              s.name.toLowerCase().includes(item.name.toLowerCase())
+          );
+
+          liveList.push({
+            orderId: `${o.id}-${idx}`,
+            orderNo: o.orderNo || `ORD-${o.id}`,
+            customerName: o.customerName,
+            village: o.village || "Vijayapura",
+            orderDate: o.orderDate,
+            skuId: foundSku ? foundSku.id : 1794579615417490,
+            skuName: foundSku ? foundSku.name : item.name,
+            qty: item.qty,
+            rate: item.price,
+            status: mappedStatus,
+          });
+        });
+      }
+    });
+
+    return liveList.length > 0 ? liveList : INITIAL_PUNCH_ORDERS;
+  }, [skus]);
 
   // Group orders by SKU
   const skuSummaries = useMemo<SkuPunchSummary[]>(() => {
@@ -122,11 +171,11 @@ export function WholesalePunchOrdersView() {
         />
       </div>
 
-      {/* Punch Orders Table */}
+      {/* Punch Orders Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 w-12 text-center">Sl</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[240px]">SKU Name</th>

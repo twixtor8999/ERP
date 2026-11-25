@@ -301,11 +301,11 @@ export const SuperStockAuditLiveView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Main Super Audit Table */}
+      {/* Main Super Audit Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-xs">
               <tr className="bg-[#1e40af] text-white font-semibold uppercase tracking-wider text-2xs">
                 <th className="py-2.5 px-3">#</th>
                 <th className="py-2.5 px-3">SKU Name</th>

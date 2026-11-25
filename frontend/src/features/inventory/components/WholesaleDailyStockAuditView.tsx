@@ -96,9 +96,10 @@ export function WholesaleDailyStockAuditView() {
       };
     });
 
+    const todayStr = new Date().toISOString().slice(0, 10);
     const newAudit: SavedAudit = {
       id: "AUD-" + Date.now().toString(36).toUpperCase(),
-      date: "22-11-2026",
+      date: todayStr,
       time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
       auditor: auditorName,
       role: auditorRole,
@@ -180,11 +181,11 @@ export function WholesaleDailyStockAuditView() {
         />
       </div>
 
-      {/* Daily Audit Entry Table */}
+      {/* Daily Audit Entry Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 w-16 text-center">Sl No</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[280px]">SKU Name</th>

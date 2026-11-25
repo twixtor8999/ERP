@@ -157,9 +157,9 @@ export function WholesalePhysicalStocksView() {
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#1e40af] text-white uppercase text-[10px] tracking-wider font-semibold">
+              <thead className="bg-[#1e40af] text-white uppercase text-[10px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
                 <tr>
                   <th className="py-2.5 px-2.5 border-r border-blue-700/50 w-10 text-center">Sl</th>
                   <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[200px]">SKU Name</th>

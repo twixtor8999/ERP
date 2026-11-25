@@ -9,6 +9,7 @@ import {
   type SavedAudit,
   type AuditLine,
 } from "../data/mockInventory";
+import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
 
 export function WholesaleDailyAuditReportView() {
   const navigate = useNavigate();
@@ -78,7 +79,9 @@ export function WholesaleDailyAuditReportView() {
     };
 
     const shrinkage = grand.diffAmt;
-    const netSales = 28697;
+    const crmOrders = getAllCrmOrders();
+    const liveNetSales = crmOrders.reduce((sum, o) => sum + o.total, 0);
+    const netSales = liveNetSales > 0 ? liveNetSales : 28697;
     const invClosingVal = grand.closeVal;
     const shrinkOnClose = invClosingVal > 0 ? ((shrinkage / invClosingVal) * 100).toFixed(2) + "%" : "0%";
     const shrinkOnSales = netSales > 0 ? ((shrinkage / netSales) * 100).toFixed(2) + "%" : "0%";
@@ -353,7 +356,7 @@ export function WholesaleDailyAuditReportView() {
         </div>
       </div>
 
-      {/* Card 2: Audit Details */}
+      {/* Card 2: Audit Details with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-[#1e40af] px-4 py-2.5 text-white flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold text-xs sm:text-sm">Audit details</span>
@@ -363,9 +366,9 @@ export function WholesaleDailyAuditReportView() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-200">
+            <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-200 sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2 px-2.5 border-r border-slate-200 w-10 text-center">Sl No</th>
                 <th className="py-2 px-3 border-r border-slate-200 min-w-[200px]">Name</th>

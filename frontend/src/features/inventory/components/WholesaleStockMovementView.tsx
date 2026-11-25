@@ -6,8 +6,9 @@ import { getStoredSkus, type InventorySku } from "../data/mockInventory";
 
 export function WholesaleStockMovementView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
   const [selectedSkuId, setSelectedSkuId] = useState<number | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -209,11 +210,11 @@ export function WholesaleStockMovementView() {
         Closing = Opening + Purchase − Purchase Return − Sales + Sales Return + Split In − Split Out.
       </p>
 
-      {/* Main Movement Ledger Table */}
+      {/* Main Movement Ledger Table with fixed 10 rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50">Date</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[200px]">SKU</th>
