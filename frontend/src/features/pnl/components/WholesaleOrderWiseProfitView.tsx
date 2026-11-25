@@ -3,7 +3,7 @@ import { ArrowLeft, Download, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { computeOrderWiseProfit, computePnlCore } from '../data/pnlEngine';
 import { OrderProfitRow, PnlOrder } from '../types';
-import { WholesaleOrderProfitDetailModal } from './WholesaleOrderProfitDetailModal';
+import { WholesaleOrderProfitDetailView } from './WholesaleOrderProfitDetailView';
 import { toast } from 'sonner';
 
 interface WholesaleOrderWiseProfitViewProps {
@@ -102,6 +102,17 @@ export function WholesaleOrderWiseProfitView({
     a.click();
     toast.success('Order wise profit exported to CSV');
   };
+
+  // Dedicated 2nd Page: When an order is clicked for View
+  if (selectedOrder) {
+    return (
+      <WholesaleOrderProfitDetailView
+        order={selectedOrder.order}
+        vehicleExp={selectedOrder.vehicleExp}
+        onBack={() => setSelectedOrder(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -328,15 +339,6 @@ export function WholesaleOrderWiseProfitView({
           </table>
         </div>
       </div>
-
-      {/* Modal on View Click */}
-      {selectedOrder && (
-        <WholesaleOrderProfitDetailModal
-          order={selectedOrder.order}
-          vehicleExp={selectedOrder.vehicleExp}
-          onClose={() => setSelectedOrder(null)}
-        />
-      )}
     </div>
   );
 }

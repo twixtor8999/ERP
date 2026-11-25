@@ -18,6 +18,7 @@ import {
   getStoredRoutes,
   type CustomerRecord,
 } from "../data/mockCustomers";
+import { CustomerDetailView } from "./CustomerDetailView";
 
 export function WholesaleCustomersListView() {
   const navigate = useNavigate();
@@ -103,6 +104,17 @@ export function WholesaleCustomersListView() {
   const handleDownloadTemplate = () => {
     toast.success("Downloading Customer Bulk Import Excel Template...");
   };
+
+  // Dedicated 2nd Page: When a customer is clicked for View
+  if (selectedCustomer) {
+    return (
+      <CustomerDetailView
+        customer={selectedCustomer}
+        onBack={() => setSelectedCustomer(null)}
+        onDelete={handleDelete}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
@@ -421,83 +433,6 @@ export function WholesaleCustomersListView() {
           </table>
         </div>
       </div>
-
-      {/* View Customer Details Modal */}
-      {selectedCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">{selectedCustomer.name}</h3>
-                <div className="text-xs text-slate-500">{selectedCustomer.nameKn}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCustomer(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Shop Name</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.shop}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Mobile Number</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.ph}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Aadhaar</span>
-                <span className="font-bold text-slate-800 font-mono">{selectedCustomer.adh}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">GSTIN</span>
-                <span className="font-bold text-slate-800 font-mono">
-                  {selectedCustomer.gstin || "—"}
-                </span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Village</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.village}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Route</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.route}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Beat Day</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.beat}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-slate-400 block mb-0.5">Landmark</span>
-                <span className="font-bold text-slate-800">{selectedCustomer.lm}</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => handleDelete(selectedCustomer.id, selectedCustomer.name)}
-                className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-md transition-colors flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete Customer
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCustomer(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

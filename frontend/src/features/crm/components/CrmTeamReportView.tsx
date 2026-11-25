@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Download, Eye, X } from "lucide-react";
+import { ArrowLeft, Search, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   INITIAL_CRM_STAFF,
@@ -8,6 +8,7 @@ import {
   type CrmStaffMember,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
+import { CrmTeamMemberDetailView } from "./CrmTeamMemberDetailView";
 
 export function CrmTeamReportView() {
   const navigate = useNavigate();
@@ -56,6 +57,19 @@ export function CrmTeamReportView() {
     if (!viewStaff) return [];
     return orders.filter((o) => o.staffName === viewStaff.name);
   }, [viewStaff, orders]);
+
+  // Dedicated 2nd Page: When a team member is clicked for View
+  if (viewStaff) {
+    return (
+      <CrmTeamMemberDetailView
+        staff={viewStaff}
+        fromDate={fromDate}
+        toDate={toDate}
+        orders={selectedStaffOrders}
+        onBack={() => setViewStaff(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -244,107 +258,6 @@ export function CrmTeamReportView() {
           </table>
         </div>
       </div>
-
-      {/* Staff View Modal */}
-      {viewStaff && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <div>
-                <h3 className="font-bold text-base">{viewStaff.name}</h3>
-                <p className="text-xs text-blue-200">
-                  {fromDate} to {toDate} · {viewStaff.ordersCount} order(s) · ₹{viewStaff.totalSales.toLocaleString()}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewStaff(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto space-y-4">
-              <div>
-                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Orders</h4>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
-                      <tr>
-                        <th className="p-2.5">Order No</th>
-                        <th className="p-2.5">Date & Time</th>
-                        <th className="p-2.5">Customer</th>
-                        <th className="p-2.5">Village</th>
-                        <th className="p-2.5 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedStaffOrders.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-4 text-center text-gray-400">
-                            No orders in these dates
-                          </td>
-                        </tr>
-                      ) : (
-                        selectedStaffOrders.map((o) => (
-                          <tr key={o.id} className="hover:bg-gray-50">
-                            <td className="p-2.5 font-mono font-bold text-blue-700">{o.orderNo}</td>
-                            <td className="p-2.5 text-gray-600">{o.orderDate} {o.orderTime}</td>
-                            <td className="p-2.5 font-bold text-gray-900">{o.customerName}</td>
-                            <td className="p-2.5 text-gray-600">{o.village}</td>
-                            <td className="p-2.5 text-right font-bold text-gray-900">₹{o.total.toLocaleString()}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Call Summary</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
-                    <span className="text-gray-500">Number not reachable:</span>
-                    <div className="font-bold text-gray-900">{viewStaff.callResults.notReachable}</div>
-                  </div>
-                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
-                    <span className="text-gray-500">Shop closed:</span>
-                    <div className="font-bold text-gray-900">{viewStaff.callResults.shopClosed}</div>
-                  </div>
-                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
-                    <span className="text-gray-500">Call back later:</span>
-                    <div className="font-bold text-gray-900">{viewStaff.callResults.callLater}</div>
-                  </div>
-                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
-                    <span className="text-gray-500">Stock available:</span>
-                    <div className="font-bold text-gray-900">{viewStaff.callResults.stockAvailable}</div>
-                  </div>
-                  <div className="bg-gray-50 p-2.5 rounded border border-gray-200">
-                    <span className="text-gray-500">Not interested:</span>
-                    <div className="font-bold text-gray-900">{viewStaff.callResults.notInterested}</div>
-                  </div>
-                  <div className="bg-emerald-50 p-2.5 rounded border border-emerald-200">
-                    <span className="text-emerald-800">Order placed:</span>
-                    <div className="font-bold text-emerald-800">{viewStaff.callResults.orderPlaced}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewStaff(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

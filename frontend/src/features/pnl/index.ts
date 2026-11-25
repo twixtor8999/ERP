@@ -3,6 +3,8 @@ export * from './data/mockPnlData';
 export * from './data/pnlEngine';
 export * from './components/WholesalePnlSummaryView';
 export * from './components/WholesaleOrderWiseProfitView';
+export * from './components/WholesaleOrderProfitDetailView';
 export * from './components/WholesaleCrmWiseProfitView';
+export * from './components/WholesaleCrmOrdersDetailView';
 export * from './components/WholesaleVehicleWiseProfitView';
 export * from './pages/PnlPage';

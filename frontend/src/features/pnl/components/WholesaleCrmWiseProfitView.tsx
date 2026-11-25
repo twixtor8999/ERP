@@ -3,7 +3,7 @@ import { ArrowLeft, Download, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { computeCrmWiseProfit } from '../data/pnlEngine';
 import { CrmProfitRow, PnlOrder } from '../types';
-import { WholesaleCrmOrdersModal } from './WholesaleCrmOrdersModal';
+import { WholesaleCrmOrdersDetailView } from './WholesaleCrmOrdersDetailView';
 import { toast } from 'sonner';
 
 interface WholesaleCrmWiseProfitViewProps {
@@ -81,6 +81,17 @@ export function WholesaleCrmWiseProfitView({
     a.click();
     toast.success('CRM wise profit exported to CSV');
   };
+
+  // Dedicated 2nd Page: When CRM orders are clicked for View
+  if (selectedCrmOrders) {
+    return (
+      <WholesaleCrmOrdersDetailView
+        title={selectedCrmOrders.title}
+        orders={selectedCrmOrders.orders}
+        onBack={() => setSelectedCrmOrders(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -254,15 +265,6 @@ export function WholesaleCrmWiseProfitView({
           </table>
         </div>
       </div>
-
-      {/* Orders modal on View Click */}
-      {selectedCrmOrders && (
-        <WholesaleCrmOrdersModal
-          title={selectedCrmOrders.title}
-          orders={selectedCrmOrders.orders}
-          onClose={() => setSelectedCrmOrders(null)}
-        />
-      )}
     </div>
   );
 }

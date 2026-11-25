@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Eye, X } from "lucide-react";
+import { ArrowLeft, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   INITIAL_CRM_ORDERS,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
+import { CrmOrderDetailView } from "./CrmOrderDetailView";
 
 export function CrmOrderTotalView() {
   const navigate = useNavigate();
@@ -61,6 +62,16 @@ export function CrmOrderTotalView() {
     e.preventDefault();
     toast.success(`Order totals loaded for ${fromDate} to ${toDate}`);
   };
+
+  // Dedicated 2nd Page: When an order is clicked for View
+  if (selectedOrder) {
+    return (
+      <CrmOrderDetailView
+        order={selectedOrder}
+        onBack={() => setSelectedOrder(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -270,94 +281,6 @@ export function CrmOrderTotalView() {
           </div>
         </div>
       </div>
-
-      {/* View Order Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <div>
-                <h3 className="font-bold text-base">
-                  Order: {selectedOrder.orderNo}
-                </h3>
-                <p className="text-xs text-blue-200">
-                  {selectedOrder.customerName} · {selectedOrder.village} · {selectedOrder.orderDate}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs">
-                <div>
-                  <span className="text-gray-500">Order No:</span>
-                  <div className="font-bold text-gray-800">{selectedOrder.orderNo}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Placed By:</span>
-                  <div className="font-bold text-gray-800">{selectedOrder.staffName}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Source:</span>
-                  <div className="font-bold text-gray-800">{selectedOrder.source}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Total:</span>
-                  <div className="font-bold text-blue-700 text-sm">₹{selectedOrder.total.toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">
-                  Line Items ({selectedOrder.items.length})
-                </h4>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
-                      <tr>
-                        <th className="p-2.5">Item Name</th>
-                        <th className="p-2.5 text-center">Unit</th>
-                        <th className="p-2.5 text-center">Qty</th>
-                        <th className="p-2.5 text-right">Price</th>
-                        <th className="p-2.5 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedOrder.items.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="p-2.5 font-medium text-gray-900">{item.name}</td>
-                          <td className="p-2.5 text-center text-gray-500">{item.unit}</td>
-                          <td className="p-2.5 text-center font-bold text-gray-800">{item.qty}</td>
-                          <td className="p-2.5 text-right">₹{item.price}</td>
-                          <td className="p-2.5 text-right font-bold text-gray-900">
-                            ₹{(item.qty * item.price).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

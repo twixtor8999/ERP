@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Download, X, Phone } from "lucide-react";
+import { ArrowLeft, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
   INITIAL_CRM_ORDERS,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
+import { CrmOrderStatusDetailView } from "./CrmOrderStatusDetailView";
 
 export function CrmOrderStatusView() {
   const navigate = useNavigate();
@@ -44,6 +45,16 @@ export function CrmOrderStatusView() {
     e.preventDefault();
     toast.success(`Order status loaded for ${fromDate} to ${toDate}`);
   };
+
+  // Dedicated 2nd Page: When an order is clicked for View
+  if (selectedOrder) {
+    return (
+      <CrmOrderStatusDetailView
+        order={selectedOrder}
+        onBack={() => setSelectedOrder(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -214,87 +225,6 @@ export function CrmOrderStatusView() {
           </table>
         </div>
       </div>
-
-      {/* Selected Order Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in zoom-in-95">
-            <div className="bg-[#1e40af] text-white px-5 py-3 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base">{selectedOrder.orderNo}</h3>
-                <p className="text-xs text-blue-100">{selectedOrder.customerName} • {selectedOrder.customerPhone}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="p-1 rounded hover:bg-blue-800 text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center justify-between">
-                <div>
-                  <span className="text-gray-400 block text-[10px] uppercase font-bold">Current Status</span>
-                  <span className="font-bold text-blue-700 text-sm">{selectedOrder.statusDisplay}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-gray-400 block text-[10px] uppercase font-bold">Total Amount</span>
-                  <span className="font-extrabold text-gray-900 text-base font-mono">₹{selectedOrder.total?.toLocaleString("en-IN") || "—"}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="font-bold text-gray-700 block">Stage Timestamps</span>
-                <div className="grid grid-cols-3 gap-2 text-[11px]">
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Placed</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.placedTimestamp || "—"}</span>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Packed</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.packedTimestamp || "—"}</span>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Dispatched</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.dispatchedTimestamp || "—"}</span>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Out for Delivery</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.outForDeliveryTimestamp || "—"}</span>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Delivered</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.deliveredTimestamp || "—"}</span>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 border border-gray-200">
-                    <span className="text-gray-400 block text-[10px]">Completed</span>
-                    <span className="font-mono text-gray-800 font-medium">{selectedOrder.completedTimestamp || "—"}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex items-center justify-between">
-              <a
-                href={`tel:${selectedOrder.customerPhone}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                Call Customer
-              </a>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="px-3.5 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

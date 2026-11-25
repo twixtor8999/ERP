@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Download, Eye, X } from "lucide-react";
+import { ArrowLeft, Search, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   INITIAL_CRM_STAFF,
@@ -8,6 +8,7 @@ import {
   type CrmStaffMember,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
+import { CrmStaffOrdersDetailView } from "./CrmStaffOrdersDetailView";
 
 export function CrmSalesView() {
   const navigate = useNavigate();
@@ -57,6 +58,17 @@ export function CrmSalesView() {
     if (!selectedStaff) return [];
     return orders.filter((o) => o.staffName === selectedStaff.name);
   }, [selectedStaff, orders]);
+
+  // Dedicated 2nd Page: When a staff member is clicked for View
+  if (selectedStaff) {
+    return (
+      <CrmStaffOrdersDetailView
+        staff={selectedStaff}
+        orders={selectedStaffOrders}
+        onBack={() => setSelectedStaff(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
@@ -218,77 +230,6 @@ export function CrmSalesView() {
         <h2 className="text-sm font-bold text-gray-900">Daily incentive</h2>
         <p className="text-xs text-gray-500">No eligible incentive in these dates.</p>
       </div>
-
-      {/* View Staff Orders Modal */}
-      {selectedStaff && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-[#0d1b4c] text-white">
-              <div>
-                <h3 className="font-bold text-base">{selectedStaff.name}</h3>
-                <p className="text-xs text-blue-200">
-                  {selectedStaff.ordersCount} order(s) · ₹{selectedStaff.totalSales.toLocaleString()}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedStaff(null)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto space-y-3">
-              <h4 className="text-xs font-bold text-gray-700 uppercase">
-                Orders Taken in this date range
-              </h4>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
-                    <tr>
-                      <th className="p-2.5">Order No</th>
-                      <th className="p-2.5">Date & Time</th>
-                      <th className="p-2.5">Customer</th>
-                      <th className="p-2.5">Village</th>
-                      <th className="p-2.5 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {selectedStaffOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-4 text-center text-gray-400">
-                          No orders recorded.
-                        </td>
-                      </tr>
-                    ) : (
-                      selectedStaffOrders.map((o) => (
-                        <tr key={o.id} className="hover:bg-gray-50">
-                          <td className="p-2.5 font-bold font-mono text-blue-700">{o.orderNo}</td>
-                          <td className="p-2.5 text-gray-600">{o.orderDate} {o.orderTime}</td>
-                          <td className="p-2.5 font-semibold text-gray-900">{o.customerName}</td>
-                          <td className="p-2.5 text-gray-600">{o.village}</td>
-                          <td className="p-2.5 text-right font-bold text-gray-900">₹{o.total.toLocaleString()}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedStaff(null)}
-                className="px-4 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded border border-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
