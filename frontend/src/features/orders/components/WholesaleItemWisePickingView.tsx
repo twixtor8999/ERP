@@ -330,12 +330,12 @@ export const WholesaleItemWisePickingView: React.FC<Props> = ({ orders }) => {
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table with 10-SKU viewport height and internal scrolling only */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#1e40af] text-white font-bold text-[11px] tracking-wider uppercase border-b border-blue-900">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-[#1e40af] text-white font-bold text-[11px] tracking-wider uppercase border-b border-blue-900 shadow-xs">
                 <th className="py-3 px-3.5 text-center w-12">#</th>
                 <th className="py-3 px-3.5">Item Name</th>
                 <th className="py-3 px-3.5">Category</th>

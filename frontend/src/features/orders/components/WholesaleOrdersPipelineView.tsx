@@ -2015,15 +2015,17 @@ export function WholesaleOrdersPipelineView() {
           <span>From</span>
           <input
             type="date"
+            max={todayStr}
             value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            onChange={(e) => setFromDate(e.target.value > todayStr ? todayStr : e.target.value)}
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <span>To</span>
           <input
             type="date"
+            max={todayStr}
             value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
+            onChange={(e) => setToDate(e.target.value > todayStr ? todayStr : e.target.value)}
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
@@ -2125,7 +2127,15 @@ export function WholesaleOrdersPipelineView() {
       {/* 0. ITEM-WISE CONSOLIDATED PICKING VIEW (Client feature)   */}
       {/* ======================================================== */}
       {activeTab.includes("itemw") && (
-        <WholesaleItemWisePickingView orders={orders} />
+        <WholesaleItemWisePickingView
+          orders={orders.filter((o) => {
+            const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+            return (
+              (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
+              (!appliedToDate || !orderIso || orderIso <= appliedToDate)
+            );
+          })}
+        />
       )}
 
       {/* ======================================================== */}
