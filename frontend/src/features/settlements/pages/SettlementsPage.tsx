@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { WholesaleSettlementView } from "../components/WholesaleSettlementView";
+import { WholesaleDenominationReportView } from "../components/WholesaleDenominationReportView";
 import {
   AlertTriangle,
   Clock,
@@ -92,8 +93,14 @@ interface VehicleSettlementRow {
 }
 
 export function SettlementsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const mode = searchParams.get("mode");
+  const tabParam = searchParams.get("tab");
+
+  // If user navigates to denomination report tab
+  if (tabParam === "den" || tabParam === "denomination") {
+    return <WholesaleDenominationReportView />;
+  }
 
   // Default to 1:1 Wholesale Vehicle Settlement matching Siddeshwar Enterprises reference app
   if (mode !== "cashier" && mode !== "retail") {
@@ -101,7 +108,12 @@ export function SettlementsPage() {
   }
 
   const { activeBranch } = useBranchStore();
-  const [activeTab, setActiveTab] = useState<"vehicle" | "shifts" | "daybook">("vehicle");
+  const [activeTab, setActiveTab] = useState<"vehicle" | "shifts" | "daybook" | "den">(() => {
+    if (tabParam === "den" || tabParam === "denomination") return "den";
+    if (tabParam === "shifts") return "shifts";
+    if (tabParam === "daybook") return "daybook";
+    return "vehicle";
+  });
   const [shifts, setShifts] = useState<CashierShiftRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterDiscrepanciesOnly, setFilterDiscrepanciesOnly] = useState(false);
@@ -413,6 +425,19 @@ export function SettlementsPage() {
           }`}
         >
           <BookOpen className="w-4 h-4 shrink-0" /> Daybook (Roznamcha)
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("den");
+            setSearchParams({ tab: "den" });
+          }}
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "den"
+              ? "bg-[#132038] text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Coins className="w-4 h-4 shrink-0" /> Denomination Report
         </button>
       </div>
 
@@ -984,6 +1009,9 @@ export function SettlementsPage() {
           </Card>
         </div>
       )}
+
+      {/* 4. Cash Denominations Report (Client VW.den) */}
+      {activeTab === "den" && <WholesaleDenominationReportView />}
 
       {/* Denomination Counter Modal */}
       {isTallyModalOpen && activeShift && (

@@ -1,4 +1,4 @@
-export type PnlTab = 'pl' | 'plo' | 'plc';
+export type PnlTab = 'pl' | 'plo' | 'plc' | 'plv';
 
 export interface PnlOrderItem {
   s: number | string; // sku id
@@ -40,6 +40,7 @@ export interface PnlSku {
 export interface PnlVehicle {
   id: number | string;
   no: string;
+  dr?: string;
 }
 
 export interface PnlTrip {
@@ -127,4 +128,19 @@ export interface CrmProfitRow {
   profit: number;
   margin: string;
   orders: PnlOrder[];
+}
+
+export interface VehicleProfitRow {
+  vehicleId: number | string;
+  vehicleNo: string;
+  driverName: string;
+  tripsCount: number;
+  ordersCount: number;
+  sales: number;
+  cost: number;
+  orderProfit: number;
+  tripCost: number;
+  vehicleExpenses: number;
+  netProfit: number;
+  margin: string;
 }

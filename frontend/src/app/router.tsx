@@ -22,6 +22,11 @@ import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheet
 import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
 import { StockSplitPage } from "@/features/stock-split";
 import { PhotoStoragePage } from "@/features/storage/pages/PhotoStoragePage";
+import { DeletedRecordsPage } from "@/features/deleted-records";
+import { DenominationReportPage } from "@/features/settlements/pages/DenominationReportPage";
+import { HsnGstMasterPage } from "@/features/hsn-gst";
+import { RollManagementPage } from "@/features/rolls";
+import { SuperStockAuditPage } from "@/features/inventory/pages/SuperStockAuditPage";
 import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
 import { ReportsPage } from "@/features/reports/pages/ReportsPage";
 import { PaymentsManagementPage } from "@/features/payments/pages/PaymentsManagementPage";
@@ -347,6 +352,38 @@ export const router = createBrowserRouter([
       {
         path: "storage",
         element: <Navigate to="/photos-storage" replace />,
+      },
+      {
+        path: "deleted-records",
+        element: <DeletedRecordsPage />,
+      },
+      {
+        path: "trash",
+        element: <Navigate to="/deleted-records" replace />,
+      },
+      {
+        path: "denomination-report",
+        element: <DenominationReportPage />,
+      },
+      {
+        path: "hsn-gst",
+        element: <HsnGstMasterPage />,
+      },
+      {
+        path: "roll-management",
+        element: <RollManagementPage />,
+      },
+      {
+        path: "rolls",
+        element: <Navigate to="/roll-management" replace />,
+      },
+      {
+        path: "super-stock-audit",
+        element: <SuperStockAuditPage />,
+      },
+      {
+        path: "super-audit",
+        element: <Navigate to="/super-stock-audit" replace />,
       },
     ],
   },

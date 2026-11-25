@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { TrendingUp, ShoppingBag, Users, Calendar } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Users, Calendar, Truck } from 'lucide-react';
 import { WholesalePnlSummaryView } from '../components/WholesalePnlSummaryView';
 import { WholesaleOrderWiseProfitView } from '../components/WholesaleOrderWiseProfitView';
 import { WholesaleCrmWiseProfitView } from '../components/WholesaleCrmWiseProfitView';
+import { WholesaleVehicleWiseProfitView } from '../components/WholesaleVehicleWiseProfitView';
 import { PnlTab } from '../types';
 import { toast } from 'sonner';
 
@@ -13,7 +14,7 @@ export function PnlPage() {
   // Tab state
   const tabParam = (searchParams.get('tab') || 'pl') as PnlTab;
   const [activeTab, setActiveTab] = useState<PnlTab>(
-    ['pl', 'plo', 'plc'].includes(tabParam) ? tabParam : 'pl'
+    ['pl', 'plo', 'plc', 'plv'].includes(tabParam) ? tabParam : 'pl'
   );
 
   // Date range state defaulting to 22-11-2026 (matching reference app screenshots)
@@ -22,7 +23,7 @@ export function PnlPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('today');
 
   useEffect(() => {
-    if (tabParam && ['pl', 'plo', 'plc'].includes(tabParam)) {
+    if (tabParam && ['pl', 'plo', 'plc', 'plv'].includes(tabParam)) {
       setActiveTab(tabParam as PnlTab);
     }
   }, [tabParam]);
@@ -66,6 +67,7 @@ export function PnlPage() {
             { id: 'pl' as PnlTab, label: '1) Profit & Loss Report', icon: TrendingUp },
             { id: 'plo' as PnlTab, label: '2) Order Wise Profit', icon: ShoppingBag },
             { id: 'plc' as PnlTab, label: '3) CRM Wise Profit', icon: Users },
+            { id: 'plv' as PnlTab, label: '4) Vehicle Wise Profit', icon: Truck },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -134,6 +136,16 @@ export function PnlPage() {
 
       {activeTab === 'plc' && (
         <WholesaleCrmWiseProfitView
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromChange={setFromDate}
+          onToChange={setToDate}
+          onSubmit={handleSubmit}
+        />
+      )}
+
+      {activeTab === 'plv' && (
+        <WholesaleVehicleWiseProfitView
           fromDate={fromDate}
           toDate={toDate}
           onFromChange={setFromDate}

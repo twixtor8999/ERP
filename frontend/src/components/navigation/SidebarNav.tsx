@@ -270,11 +270,11 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
               {isExpanded && (
                 <div className="pl-3 space-y-0.5 border-l border-slate-700/60 ml-2">
                   {item.children.map((child) => {
-                    if (child.title.startsWith("• ")) {
+                    if (child.title.startsWith("▾ ") || child.title.startsWith("• ")) {
                       return (
                         <div
                           key={child.title}
-                          className="pt-2 pb-0.5 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none"
+                          className="pt-2 pb-0.5 px-3 text-[13px] font-bold text-white tracking-wide select-none"
                         >
                           {child.title}
                         </div>

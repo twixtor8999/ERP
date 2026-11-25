@@ -5,6 +5,7 @@ import {
   PnlSkuBatchRow,
   OrderProfitRow,
   CrmProfitRow,
+  VehicleProfitRow,
 } from '../types';
 import {
   PNL_ORDERS,
@@ -520,6 +521,120 @@ export function computeCrmWiseProfit(
     totalCrmsCount: crmKeys.filter((k) => k !== 'Not assigned').length,
     totalSales: grandSales,
     totalProfit: grandProfit,
+    overallMargin,
+  };
+}
+
+export function computeVehicleWiseProfit(
+  fromDate: string,
+  toDate: string
+): {
+  rows: VehicleProfitRow[];
+  totalVehicles: number;
+  totalTrips: number;
+  totalSales: number;
+  totalGrossProfit: number;
+  totalTripCost: number;
+  totalVehExp: number;
+  totalNetProfit: number;
+  overallMargin: string;
+} {
+  const inRange = (d: string) => (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+  const rows: VehicleProfitRow[] = [];
+
+  let sumSales = 0;
+  let sumCost = 0;
+  let sumGrossProfit = 0;
+  let sumTripCost = 0;
+  let sumVehExp = 0;
+  let sumNetProfit = 0;
+  let sumTrips = 0;
+
+  for (const v of PNL_VEHICLES) {
+    // Trips in range
+    const vTrips = PNL_TRIPS.filter((t) => String(t.veh) === String(v.id) && inRange(t.date));
+    const tripOrderIds = new Set<string>();
+    let tripCost = 0;
+
+    for (const t of vTrips) {
+      tripCost += (t.st === 'closed' ? +(t.rent || 0) : 0) + +(t.cost || 0);
+      for (const oId of t.ords || []) {
+        tripOrderIds.add(String(oId));
+      }
+    }
+
+    // Delivered orders for this vehicle in range
+    const vOrders = PNL_ORDERS.filter(
+      (o) =>
+        (tripOrderIds.has(String(o.id)) || String(o.veh) === String(v.id)) &&
+        isOrderDelivered(o) &&
+        inRange(getDeliveryDay(o))
+    );
+
+    let sales = 0;
+    let cost = 0;
+    let orderGrossProfit = 0;
+
+    for (const o of vOrders) {
+      const totals = calculateOrderTotals(o);
+      sales += totals.salesExclGst;
+      cost += totals.cogsExclGst;
+      orderGrossProfit += totals.grossProfit;
+    }
+
+    // Vehicle specific expenses in range (fuel, repairs, maintenance)
+    const vehExpenses = PNL_EXPENSES.filter(
+      (e) => String(e.veh) === String(v.id) && inRange(e.date)
+    ).reduce((a, e) => a + +(e.amt || 0), 0);
+
+    sales = Math.round(sales * 100) / 100;
+    cost = Math.round(cost * 100) / 100;
+    orderGrossProfit = Math.round(orderGrossProfit * 100) / 100;
+    tripCost = Math.round(tripCost * 100) / 100;
+    const vehExpTotal = Math.round(vehExpenses * 100) / 100;
+    const netProfit = Math.round((orderGrossProfit - tripCost - vehExpTotal) * 100) / 100;
+    const margin = sales > 0 ? ((netProfit / sales) * 100).toFixed(1) + '%' : '—';
+
+    sumSales += sales;
+    sumCost += cost;
+    sumGrossProfit += orderGrossProfit;
+    sumTripCost += tripCost;
+    sumVehExp += vehExpTotal;
+    sumNetProfit += netProfit;
+    sumTrips += vTrips.length;
+
+    rows.push({
+      vehicleId: v.id,
+      vehicleNo: v.no,
+      driverName: v.dr || 'Driver',
+      tripsCount: vTrips.length,
+      ordersCount: vOrders.length,
+      sales,
+      cost,
+      orderProfit: orderGrossProfit,
+      tripCost,
+      vehicleExpenses: vehExpTotal,
+      netProfit,
+      margin,
+    });
+  }
+
+  sumSales = Math.round(sumSales * 100) / 100;
+  sumGrossProfit = Math.round(sumGrossProfit * 100) / 100;
+  sumTripCost = Math.round(sumTripCost * 100) / 100;
+  sumVehExp = Math.round(sumVehExp * 100) / 100;
+  sumNetProfit = Math.round(sumNetProfit * 100) / 100;
+  const overallMargin = sumSales > 0 ? ((sumNetProfit / sumSales) * 100).toFixed(1) + '%' : '—';
+
+  return {
+    rows,
+    totalVehicles: PNL_VEHICLES.length,
+    totalTrips: sumTrips,
+    totalSales: sumSales,
+    totalGrossProfit: sumGrossProfit,
+    totalTripCost: sumTripCost,
+    totalVehExp: sumVehExp,
+    totalNetProfit: sumNetProfit,
     overallMargin,
   };
 }

@@ -233,7 +233,7 @@ export function MyProfilePage() {
               <Clock className="w-4 h-4 text-slate-400" />
               <span>Logged in since</span>
             </div>
-            <div className="text-slate-600 font-medium">22 Nov 2026, 9:24 pm</div>
+            <div className="text-slate-600 font-medium">24 Nov 2026, 11:28 pm</div>
           </div>
         </div>
       </div>
@@ -338,9 +338,18 @@ export function MyProfilePage() {
 
       {/* Section 5: Delete / Purge Management (Matching Screenshot 9) */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
-        <h4 className="font-bold text-xs text-slate-900 tracking-wide">
-          Delete
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-xs text-slate-900 tracking-wide">
+            Delete
+          </h4>
+          <button
+            type="button"
+            onClick={() => navigate('/deleted-records')}
+            className="text-xs font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer"
+          >
+            Owner Module → Deleted records ›
+          </button>
+        </div>
         <p className="text-xs text-slate-500 leading-relaxed">
           Choose what to delete. Deleted items are kept in Owner Module → Deleted records and can be restored.
         </p>
