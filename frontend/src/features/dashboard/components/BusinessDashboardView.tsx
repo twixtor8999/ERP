@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Search, Plus, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
-import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
+import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 
 interface CrmStaffMember {
   id: string;
@@ -420,28 +420,125 @@ export function BusinessDashboardView() {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Top 5 Villages Data
-  const topVillages = [
-    { rank: 1, name: "Tadavalga", orders: 2, sales: "₹11.6k" },
-    { rank: 2, name: "Rugi", orders: 1, sales: "₹10.4k" },
-    { rank: 3, name: "Devara Hippargi", orders: 2, sales: "₹6.7k" },
-  ];
+  // -------------------------------------------------------------
+  // DYNAMIC COMPUTATION OF KPI CARDS & LEADERBOARDS FOR DATE RANGE
+  // -------------------------------------------------------------
+  const rangeOrders = useMemo((): CrmOrderRecord[] => {
+    return getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
+  }, [fromDate, toDate, staffList]);
 
-  // Top 5 Customers Data
-  const topCustomers = [
-    { rank: 1, name: "Ramesh M Genni · Rugi", orders: 1, sales: "₹10.4k" },
-    { rank: 2, name: "Ashok Hadagali · Devara Hippargi", orders: 1, sales: "₹6.2k" },
-    { rank: 3, name: "M M TALAWAR · Tadavalga", orders: 1, sales: "₹6.0k" },
-    { rank: 4, name: "Chandrshekhar · Tadavalga", orders: 1, sales: "₹5.7k" },
-    { rank: 5, name: "Shankargouda Biradar · Devara Hippargi", orders: 1, sales: "₹410" },
-  ];
+  // Total Sales & Order stats
+  const totalSalesAmount = useMemo((): number => {
+    return rangeOrders.reduce((sum: number, o: CrmOrderRecord) => sum + (Number(o.total) || 0), 0);
+  }, [rangeOrders]);
 
-  // Top 5 Routes Data
-  const topRoutes = [
-    { rank: 1, name: "Tadavalaga", orders: 2, sales: "₹11.6k" },
-    { rank: 2, name: "Tamba", orders: 1, sales: "₹10.4k" },
-    { rank: 3, name: "DEVARHIPARAGI", orders: 2, sales: "₹6.7k" },
-  ];
+  const totalOrdersCount = rangeOrders.length;
+  const uniqueCustomersCount = useMemo((): number => {
+    return new Set(rangeOrders.map((o: CrmOrderRecord) => o.customerPhone || o.customerName)).size;
+  }, [rangeOrders]);
+
+  const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSalesAmount / totalOrdersCount) : 0;
+
+  // Dynamic Top Villages
+  const topVillages = useMemo(() => {
+    const vMap = new Map<string, { orders: number; sales: number }>();
+    for (const o of rangeOrders) {
+      const vName = o.village?.trim() || "Unknown";
+      const existing = vMap.get(vName) || { orders: 0, sales: 0 };
+      existing.orders += 1;
+      existing.sales += Number(o.total) || 0;
+      vMap.set(vName, existing);
+    }
+
+    const sorted = Array.from(vMap.entries())
+      .map(([name, data]) => ({
+        name,
+        orders: data.orders,
+        rawSales: data.sales,
+        sales: data.sales >= 1000 ? `₹${(data.sales / 1000).toFixed(1)}k` : `₹${data.sales}`,
+      }))
+      .sort((a, b) => b.rawSales - a.rawSales)
+      .slice(0, 5);
+
+    return sorted.map((v, idx) => ({
+      rank: idx + 1,
+      name: v.name,
+      orders: v.orders,
+      sales: v.sales,
+      rawSales: v.rawSales,
+    }));
+  }, [rangeOrders]);
+
+  // Dynamic Top Customers
+  const topCustomers = useMemo(() => {
+    const cMap = new Map<string, { name: string; village: string; orders: number; sales: number }>();
+    for (const o of rangeOrders) {
+      const key = o.customerPhone || o.customerName || "Customer";
+      const existing = cMap.get(key) || {
+        name: o.customerName,
+        village: o.village || "",
+        orders: 0,
+        sales: 0,
+      };
+      existing.orders += 1;
+      existing.sales += Number(o.total) || 0;
+      cMap.set(key, existing);
+    }
+
+    const sorted = Array.from(cMap.values())
+      .map((c) => {
+        const displayName = c.village ? `${c.name} · ${c.village}` : c.name;
+        return {
+          name: displayName,
+          orders: c.orders,
+          rawSales: c.sales,
+          sales: c.sales >= 1000 ? `₹${(c.sales / 1000).toFixed(1)}k` : `₹${c.sales}`,
+        };
+      })
+      .sort((a, b) => b.rawSales - a.rawSales)
+      .slice(0, 5);
+
+    return sorted.map((c, idx) => ({
+      rank: idx + 1,
+      name: c.name,
+      orders: c.orders,
+      sales: c.sales,
+      rawSales: c.rawSales,
+    }));
+  }, [rangeOrders]);
+
+  // Dynamic Top Routes
+  const topRoutes = useMemo(() => {
+    const rMap = new Map<string, { orders: number; sales: number }>();
+    for (const o of rangeOrders) {
+      const rName = o.route?.trim() || "Main Route";
+      const existing = rMap.get(rName) || { orders: 0, sales: 0 };
+      existing.orders += 1;
+      existing.sales += Number(o.total) || 0;
+      rMap.set(rName, existing);
+    }
+
+    const sorted = Array.from(rMap.entries())
+      .map(([name, data]) => ({
+        name,
+        orders: data.orders,
+        rawSales: data.sales,
+        sales: data.sales >= 1000 ? `₹${(data.sales / 1000).toFixed(1)}k` : `₹${data.sales}`,
+      }))
+      .sort((a, b) => b.rawSales - a.rawSales)
+      .slice(0, 5);
+
+    return sorted.map((r, idx) => ({
+      rank: idx + 1,
+      name: r.name,
+      orders: r.orders,
+      sales: r.sales,
+      rawSales: r.rawSales,
+    }));
+  }, [rangeOrders]);
+
+  const topRouteName = topRoutes.length > 0 ? topRoutes[0]?.name : "None";
+  const uniqueRoutesCount = topRoutes.length;
 
   // -------------------------------------------------------------
   // SUB-VIEW 1: Sales by [Staff Name] (Dynamic per staff member)
@@ -1244,9 +1341,11 @@ export function BusinessDashboardView() {
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹28,697</div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">
+              ₹{totalSalesAmount.toLocaleString("en-IN")}
+            </div>
             <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              5 orders · ▼ 64%
+              {totalOrdersCount} {totalOrdersCount === 1 ? "order" : "orders"}
             </div>
           </div>
 
@@ -1262,9 +1361,11 @@ export function BusinessDashboardView() {
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹28,697</div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">
+              ₹{totalSalesAmount.toLocaleString("en-IN")}
+            </div>
             <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              3 routes · Top: Tadavalaga
+              {uniqueRoutesCount} {uniqueRoutesCount === 1 ? "route" : "routes"} · Top: {topRouteName}
             </div>
           </div>
 
@@ -1298,9 +1399,11 @@ export function BusinessDashboardView() {
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-slate-900">₹5,739</div>
+            <div className="text-lg sm:text-xl font-black text-slate-900">
+              ₹{avgOrderValue.toLocaleString("en-IN")}
+            </div>
             <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-              5 customers · ▲ 30%
+              {uniqueCustomersCount} {uniqueCustomersCount === 1 ? "customer" : "customers"}
             </div>
           </div>
 
@@ -1351,28 +1454,36 @@ export function BusinessDashboardView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {topVillages.map((v) => (
-                    <tr
-                      key={v.rank}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => setCurrentView("all_villages")}
-                    >
-                      <td className="py-2.5">
-                        <span
-                          className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
-                            v.rank === 1
-                              ? "bg-[#fef3c7] text-[#92400e]"
-                              : "bg-[#f1f5f9] text-[#334155]"
-                          }`}
-                        >
-                          {v.rank}
-                        </span>
+                  {topVillages.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-xs text-slate-400 font-medium">
+                        No orders in this date range
                       </td>
-                      <td className="py-2.5 font-bold text-slate-900">{v.name}</td>
-                      <td className="py-2.5 text-center font-semibold text-slate-600">{v.orders}</td>
-                      <td className="py-2.5 text-right font-black text-[#059669]">{v.sales}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    topVillages.map((v) => (
+                      <tr
+                        key={v.rank}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        onClick={() => setCurrentView("all_villages")}
+                      >
+                        <td className="py-2.5">
+                          <span
+                            className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
+                              v.rank === 1
+                                ? "bg-[#fef3c7] text-[#92400e]"
+                                : "bg-[#f1f5f9] text-[#334155]"
+                            }`}
+                          >
+                            {v.rank}
+                          </span>
+                        </td>
+                        <td className="py-2.5 font-bold text-slate-900">{v.name}</td>
+                        <td className="py-2.5 text-center font-semibold text-slate-600">{v.orders}</td>
+                        <td className="py-2.5 text-right font-black text-[#059669]">{v.sales}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1404,30 +1515,38 @@ export function BusinessDashboardView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {topCustomers.map((c) => (
-                    <tr
-                      key={c.rank}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => setCurrentView("all_customers")}
-                    >
-                      <td className="py-2.5">
-                        <span
-                          className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
-                            c.rank === 1
-                              ? "bg-[#fef3c7] text-[#92400e]"
-                              : "bg-[#f1f5f9] text-[#334155]"
-                          }`}
-                        >
-                          {c.rank}
-                        </span>
+                  {topCustomers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-xs text-slate-400 font-medium">
+                        No orders in this date range
                       </td>
-                      <td className="py-2.5 font-bold text-slate-900 truncate max-w-[140px]">
-                        {c.name}
-                      </td>
-                      <td className="py-2.5 text-center font-semibold text-slate-600">{c.orders}</td>
-                      <td className="py-2.5 text-right font-black text-[#059669]">{c.sales}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    topCustomers.map((c) => (
+                      <tr
+                        key={c.rank}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        onClick={() => setCurrentView("all_customers")}
+                      >
+                        <td className="py-2.5">
+                          <span
+                            className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
+                              c.rank === 1
+                                ? "bg-[#fef3c7] text-[#92400e]"
+                                : "bg-[#f1f5f9] text-[#334155]"
+                            }`}
+                          >
+                            {c.rank}
+                          </span>
+                        </td>
+                        <td className="py-2.5 font-bold text-slate-900 truncate max-w-[140px]">
+                          {c.name}
+                        </td>
+                        <td className="py-2.5 text-center font-semibold text-slate-600">{c.orders}</td>
+                        <td className="py-2.5 text-right font-black text-[#059669]">{c.sales}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1459,28 +1578,36 @@ export function BusinessDashboardView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {topRoutes.map((r) => (
-                    <tr
-                      key={r.rank}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => setCurrentView("all_routes")}
-                    >
-                      <td className="py-2.5">
-                        <span
-                          className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
-                            r.rank === 1
-                              ? "bg-[#fef3c7] text-[#92400e]"
-                              : "bg-[#f1f5f9] text-[#334155]"
-                          }`}
-                        >
-                          {r.rank}
-                        </span>
+                  {topRoutes.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-xs text-slate-400 font-medium">
+                        No orders in this date range
                       </td>
-                      <td className="py-2.5 font-bold text-slate-900">{r.name}</td>
-                      <td className="py-2.5 text-center font-semibold text-slate-600">{r.orders}</td>
-                      <td className="py-2.5 text-right font-black text-[#059669]">{r.sales}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    topRoutes.map((r) => (
+                      <tr
+                        key={r.rank}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        onClick={() => setCurrentView("all_routes")}
+                      >
+                        <td className="py-2.5">
+                          <span
+                            className={`w-5 h-5 rounded flex items-center justify-center font-extrabold text-[11px] ${
+                              r.rank === 1
+                                ? "bg-[#fef3c7] text-[#92400e]"
+                                : "bg-[#f1f5f9] text-[#334155]"
+                            }`}
+                          >
+                            {r.rank}
+                          </span>
+                        </td>
+                        <td className="py-2.5 font-bold text-slate-900">{r.name}</td>
+                        <td className="py-2.5 text-center font-semibold text-slate-600">{r.orders}</td>
+                        <td className="py-2.5 text-right font-black text-[#059669]">{r.sales}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
