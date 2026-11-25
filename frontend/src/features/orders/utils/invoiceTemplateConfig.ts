@@ -1,8 +1,16 @@
 import { TaxInvoiceOrder } from "./taxInvoicePrinter";
 
-export type InvoiceFormat = "a4" | "a5" | "thermal_80" | "thermal_58";
+export type InvoiceFormat =
+  | "slip_80"
+  | "a4"
+  | "a5"
+  | "thermal_80"
+  | "thermal_58"
+  | "packing_slip"
+  | "packing_sheet";
 
 export interface InvoiceTemplateConfig {
+  documentType?: "invoice" | "packing";
   paperSize: InvoiceFormat;
   companyName: string;
   address: string;
@@ -18,7 +26,8 @@ export interface InvoiceTemplateConfig {
 }
 
 export const DEFAULT_INVOICE_CONFIG: InvoiceTemplateConfig = {
-  paperSize: "a4",
+  documentType: "invoice",
+  paperSize: "slip_80",
   companyName: "SIDDESHWAR ENTERPRISES",
   address: "648/1 Flat No 28, Akashvani road, Vijayapura, Karnataka, 586101",
   gstin: "29FMEPK5524A1Z8",

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Plus, Search, Edit3, X } from "lucide-react";
+import { ArrowLeft, Download, Plus, Search, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getStoredSkuProducts,
@@ -141,6 +141,141 @@ export function WholesaleSkuListView() {
     document.body.removeChild(link);
     toast.success("SKU list exported");
   };
+
+  // Dedicated 2nd Page: Edit SKU (0 overlay modals)
+  if (editingSku) {
+    return (
+      <div className="p-4 md:p-6 space-y-5 max-w-4xl mx-auto font-sans antialiased text-slate-800 animate-in fade-in duration-150 pb-16">
+        <div className="flex items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setEditingSku(null)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md transition-colors shadow-sm cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to SKU List
+          </button>
+          <span className="text-xs text-slate-500 font-mono">SKU ID: {editingSku.id}</span>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-[#0f2d59] px-6 py-4 text-white flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">Edit SKU – {editingSku.name}</h2>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Update product specifications, tax rates, GRN cost, and selling price
+              </p>
+            </div>
+            <span className="px-2.5 py-1 text-xs font-bold bg-white/20 rounded-md font-mono">
+              {editingSku.code || "SKU"}
+            </span>
+          </div>
+
+          <form onSubmit={handleSaveEdit} className="p-6 space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                SKU Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  HSN Code
+                </label>
+                <input
+                  type="text"
+                  value={editHsn}
+                  onChange={(e) => setEditHsn(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  GST Rate (%)
+                </label>
+                <select
+                  value={editGst}
+                  onChange={(e) => setEditGst(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                >
+                  {[0, 3, 5, 12, 18, 28].map((g) => (
+                    <option key={g} value={g}>
+                      {g}% GST
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  GRN Price (Cost incl. GST) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={editCost}
+                  onChange={(e) => setEditCost(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Selling Rate (incl. GST) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-blue-700"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Minimum Stock Alert
+              </label>
+              <input
+                type="number"
+                value={editMin}
+                onChange={(e) => setEditMin(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingSku(null)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-12">
@@ -345,116 +480,7 @@ export function WholesaleSkuListView() {
         </div>
       </div>
 
-      {/* Edit SKU Modal */}
-      {editingSku && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="bg-[#0f2d59] px-4 py-3 text-white flex items-center justify-between">
-              <h3 className="font-semibold text-sm">Edit SKU – {editingSku.name}</h3>
-              <button
-                onClick={() => setEditingSku(null)}
-                className="text-slate-300 hover:text-white transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">SKU Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">HSN Code</label>
-                  <input
-                    type="text"
-                    value={editHsn}
-                    onChange={(e) => setEditHsn(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">GST %</label>
-                  <select
-                    value={editGst}
-                    onChange={(e) => setEditGst(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {[0, 3, 5, 12, 18, 28].map((g) => (
-                      <option key={g} value={g}>
-                        {g}%
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    GRN Price (incl. GST)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    value={editCost}
-                    onChange={(e) => setEditCost(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Selling Rate (incl. GST)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500 font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Minimum Stock</label>
-                <input
-                  type="number"
-                  value={editMin}
-                  onChange={(e) => setEditMin(e.target.value)}
-                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingSku(null)}
-                  className="px-3 py-1.5 border border-slate-300 rounded text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded text-xs font-semibold transition"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* End of SKU Table */}
     </div>
   );
 }

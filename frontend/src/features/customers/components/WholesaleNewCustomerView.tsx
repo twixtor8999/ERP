@@ -246,6 +246,62 @@ export function WholesaleNewCustomerView() {
               />
             </div>
 
+            {/* Inline Live QR Scanner Frame (0 overlay modals) */}
+            {isQrScannerOpen && (
+              <div className="mt-3 p-4 bg-slate-900 rounded-xl text-white space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-blue-400" />
+                    Aadhaar QR Scanner Frame
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsQrScannerOpen(false)}
+                    className="text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+
+                <p className="text-2xs text-slate-400">
+                  Hold the QR code on the Aadhaar card inside the frame. It reads automatically.
+                </p>
+
+                <div className="relative aspect-video max-h-48 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-slate-800">
+                  <div className="absolute inset-4 border-2 border-dashed border-white/70 rounded-lg pointer-events-none flex items-center justify-center">
+                    <span className="text-2xs text-white/80 bg-black/50 px-2 py-1 rounded">
+                      Looking for Aadhaar QR code...
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAadhaarScanned(
+                        "Shivanand S Gowda",
+                        "ಶಿವಾನಂದ ಎಸ್ ಗೌಡ",
+                        "8921 4501 2345",
+                        "Tikota"
+                      );
+                      setIsQrScannerOpen(false);
+                    }}
+                    className="flex-1 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Simulate QR Match
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsQrScannerOpen(false)}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {qrStatusMsg && (
               <div className="flex items-center justify-between text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded border border-emerald-200 mt-2">
                 <span>{qrStatusMsg}</span>
@@ -423,60 +479,7 @@ export function WholesaleNewCustomerView() {
         </form>
       </div>
 
-      {/* Mock Live QR Scanner Modal */}
-      {isQrScannerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Scan Aadhaar QR</h3>
-              <button
-                type="button"
-                onClick={() => setIsQrScannerOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Hold the QR code on the Aadhaar card inside the frame. It reads automatically.
-            </p>
-
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
-              <div className="absolute inset-8 border-2 border-dashed border-white/70 rounded-lg pointer-events-none flex items-center justify-center">
-                <span className="text-xs text-white/70 bg-black/40 px-2 py-1 rounded">
-                  Looking for Aadhaar QR code...
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  handleAadhaarScanned(
-                    "Shivanand S Gowda",
-                    "ಶಿವಾನಂದ ಎಸ್ ಗೌಡ",
-                    "8921 4501 2345",
-                    "Tikota"
-                  );
-                  setIsQrScannerOpen(false);
-                }}
-                className="flex-1 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
-              >
-                Simulate QR Match
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsQrScannerOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* End of Form */}
     </div>
   );
 }

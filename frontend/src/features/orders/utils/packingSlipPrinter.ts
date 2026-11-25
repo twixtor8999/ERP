@@ -13,7 +13,27 @@ export interface PackingSlipOrderData {
   }>;
 }
 
-export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
+export const SAMPLE_PREVIEW_PACKING_ORDER: PackingSlipOrderData = {
+  orderNo: "ORD-1690",
+  orderDate: "24-11-2026",
+  customerName: "Patil Gundu",
+  route: "Basavan Bagewadi",
+  village: "Uppaladinni",
+  phone: "9611161548",
+  items: [
+    { name: "Raag Gold Palm Oil 1Ltr 10Pcs Box", qty: 5 },
+    { name: "VST Vegetable Oil 1Kg 10Pcs Box", qty: 3 },
+    { name: "Zeeba Jeera Rice 26 Kg Bag", qty: 1 },
+    { name: "Namasthe Gram Flour 10Kg Bag", qty: 5 },
+    { name: "Sugar S-30 50Kg Bag", qty: 1 },
+    { name: "Poha 30kg Bag", qty: 1 },
+    { name: "Trulove Orange Kreme 5Rs 144Pcs Box", qty: 1 },
+  ],
+};
+
+export function generatePackingSlipHtml(order: PackingSlipOrderData, format: "slip" | "sheet" = "slip"): string {
+  const isSheet = format === "sheet";
+  const containerWidth = isSheet ? "750px" : "380px";
   const customerName = order.customerName || "";
   const village = order.village || "";
   const phone = order.phone || "8748930231";
@@ -117,7 +137,7 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
       display: block !important;
       background: #ffffff;
       margin: 70px auto 30px;
-      width: 320px;
+      width: ${containerWidth};
       max-width: 95%;
       box-shadow: 0 2px 14px rgba(0,0,0,0.12);
       padding: 12px 14px;
@@ -240,7 +260,7 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
       <table>
         <thead>
           <tr>
-            <th style="width: 28px; text-align: center;">Sl</th>
+            <th style="width: 28px; text-align: center;">SI</th>
             <th style="text-align: left;">Product Name</th>
             <th class="n" style="width: 36px; text-align: right;">Qty</th>
             <th style="width: 44px; text-align: center;">Check</th>
@@ -249,13 +269,16 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
         <tbody>
           ${itemsRows}
           <tr>
-            <td colspan="2" style="border: 1px solid #000; padding: 3px 4px;"><b>Total Items</b></td>
-            <td class="n" style="border: 1px solid #000; padding: 3px 4px; text-align: right;"><b>${totalQty}</b></td>
-            <td style="border: 1px solid #000; padding: 3px 4px;"></td>
+            <td colspan="2" style="border: 1px solid #000; padding: 4px 6px;"><b>Total Items</b></td>
+            <td class="n" style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><b>${totalQty}</b></td>
+            <td style="border: 1px solid #000; padding: 4px 6px;"></td>
           </tr>
         </tbody>
       </table>
-      <p style="margin-top: 18px; font-size: 11px;">Packed by: ____________ &nbsp; Checked by: ____________</p>
+      <div style="margin-top: 24px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; padding: 0 4px;">
+        <span>Packed by: ____________________</span>
+        <span>Checked by: ____________________</span>
+      </div>
     </div>
   </div>
   <script>
@@ -298,9 +321,9 @@ export function generatePackingSlipHtml(order: PackingSlipOrderData): string {
 </html>`;
 }
 
-export function openPackingSlipWindow(order: PackingSlipOrderData): boolean {
+export function openPackingSlipWindow(order: PackingSlipOrderData, format: "slip" | "sheet" = "slip"): boolean {
   try {
-    const docHtml = generatePackingSlipHtml(order);
+    const docHtml = generatePackingSlipHtml(order, format);
     const docTitle = `packing_${order.orderNo}`;
 
     // 1. Direct window.open with document.write

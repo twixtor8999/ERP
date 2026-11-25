@@ -22,12 +22,11 @@ export function WholesaleRoutePlannerView() {
   const [activeTab, setActiveTab] = useState<"route" | "villageKey">("route");
   const [selectedRouteForVk, setSelectedRouteForVk] = useState<string>(routes[0]?.name || "Basavan Bagewadi");
 
-  // Modals
-  const [isNewRouteOpen, setIsNewRouteOpen] = useState(false);
+  // Separate Sub-page Navigation (0 overlay modals)
+  const [subPage, setSubPage] = useState<"list" | "newRoute" | "assignCrm">("list");
   const [newRouteName, setNewRouteName] = useState("");
   const [newRouteDays, setNewRouteDays] = useState<string[]>(["Mon", "Thu"]);
 
-  const [isAssignCrmOpen, setIsAssignCrmOpen] = useState(false);
   const [assignRoute, setAssignRoute] = useState(routes[0]?.name || "");
   const [assignCrm, setAssignCrm] = useState("Pushpa Patil");
   const [assignDays, setAssignDays] = useState<string[]>(["Mon", "Thu"]);
@@ -94,7 +93,7 @@ export function WholesaleRoutePlannerView() {
     const updated = [created, ...routes];
     setRoutes(updated);
     saveStoredRoutes(updated);
-    setIsNewRouteOpen(false);
+    setSubPage("list");
     setNewRouteName("");
     window.dispatchEvent(new Event("routes_updated"));
     toast.success(`Route "${created.name}" created!`);
@@ -115,7 +114,6 @@ export function WholesaleRoutePlannerView() {
     });
     setRoutes(updated);
     saveStoredRoutes(updated);
-
     // Also update telecaller in customers matching this route
     try {
       const updatedCustomers = customers.map((c) => {
@@ -130,7 +128,7 @@ export function WholesaleRoutePlannerView() {
       window.dispatchEvent(new Event("customers_updated"));
     } catch {}
 
-    setIsAssignCrmOpen(false);
+    setSubPage("list");
     toast.success(`CRM ${assignCrm} assigned to ${assignRoute}`);
   };
 
@@ -177,6 +175,204 @@ export function WholesaleRoutePlannerView() {
     );
   }
 
+  // Dedicated 2nd Page: New Route (0 overlay modals)
+  if (subPage === "newRoute") {
+    return (
+      <div className="p-4 md:p-6 space-y-5 max-w-4xl mx-auto font-sans antialiased text-slate-800 animate-in fade-in duration-150">
+        <div className="flex items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setSubPage("list")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md transition-colors shadow-sm cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Route Planner
+          </button>
+          <span className="text-xs text-slate-500 font-medium">Customer / Route Planner / New Route</span>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Create New Route</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Define a wholesale delivery route and assign default scheduled beat delivery days.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveNewRoute} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Route Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Muddebihal South"
+                value={newRouteName}
+                onChange={(e) => setNewRouteName(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Beat Day(s)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((d) => {
+                  const isChecked = newRouteDays.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setNewRouteDays((prev) =>
+                          isChecked ? prev.filter((x) => x !== d) : [...prev, d]
+                        );
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
+                        isChecked
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {isChecked && <Check className="w-3 h-3" />}
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSubPage("list")}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm cursor-pointer"
+              >
+                Save Route
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Dedicated 2nd Page: Assign CRM to Route (0 overlay modals)
+  if (subPage === "assignCrm") {
+    return (
+      <div className="p-4 md:p-6 space-y-5 max-w-4xl mx-auto font-sans antialiased text-slate-800 animate-in fade-in duration-150">
+        <div className="flex items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setSubPage("list")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md transition-colors shadow-sm cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Route Planner
+          </button>
+          <span className="text-xs text-slate-500 font-medium">Customer / Route Planner / Assign CRM</span>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Assign CRM to Route</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Map a CRM telecaller executive and calling beat schedule to a specific wholesale route.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveAssignCrm} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Select Route
+              </label>
+              <select
+                value={assignRoute}
+                onChange={(e) => setAssignRoute(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              >
+                {routes.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.name} ({r.totalCustomers} customers)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                CRM Executive
+              </label>
+              <select
+                value={assignCrm}
+                onChange={(e) => setAssignCrm(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              >
+                <option value="Pushpa Patil">Pushpa Patil (CRM Telecaller)</option>
+                <option value="Dhruthi A S">Dhruthi A S (CRM Telecaller)</option>
+                <option value="Vijaykumar Shantagiri">Vijaykumar Shantagiri (Super Admin)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Beat Day(s)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((d) => {
+                  const isChecked = assignDays.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setAssignDays((prev) =>
+                          isChecked ? prev.filter((x) => x !== d) : [...prev, d]
+                        );
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
+                        isChecked
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {isChecked && <Check className="w-3 h-3" />}
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSubPage("list")}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm cursor-pointer"
+              >
+                Save Assignment
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
       {/* Top Header Row */}
@@ -202,8 +398,8 @@ export function WholesaleRoutePlannerView() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setIsNewRouteOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+            onClick={() => setSubPage("newRoute")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             New Route
@@ -211,8 +407,8 @@ export function WholesaleRoutePlannerView() {
 
           <button
             type="button"
-            onClick={() => setIsAssignCrmOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-sm transition-colors"
+            onClick={() => setSubPage("assignCrm")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-sm transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5 text-slate-500" />
             Assign CRM
@@ -441,186 +637,7 @@ export function WholesaleRoutePlannerView() {
         </div>
       )}
 
-      {/* Modal: + New Route */}
-      {isNewRouteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <form
-            onSubmit={handleSaveNewRoute}
-            className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95"
-          >
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-base font-bold text-slate-900">New Route</h3>
-              <button
-                type="button"
-                onClick={() => setIsNewRouteOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Route Name <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Muddebihal South"
-                value={newRouteName}
-                onChange={(e) => setNewRouteName(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Beat Day(s)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map((d) => {
-                  const isChecked = newRouteDays.includes(d);
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => {
-                        setNewRouteDays((prev) =>
-                          isChecked ? prev.filter((x) => x !== d) : [...prev, d]
-                        );
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 ${
-                        isChecked
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {isChecked && <Check className="w-3 h-3" />}
-                      {d}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsNewRouteOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
-              >
-                Save Route
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Modal: Assign CRM */}
-      {isAssignCrmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <form
-            onSubmit={handleSaveAssignCrm}
-            className="bg-white rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95"
-          >
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-base font-bold text-slate-900">Assign CRM to Route</h3>
-              <button
-                type="button"
-                onClick={() => setIsAssignCrmOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Route
-              </label>
-              <select
-                value={assignRoute}
-                onChange={(e) => setAssignRoute(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              >
-                {routes.map((r) => (
-                  <option key={r.name} value={r.name}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                CRM Executive
-              </label>
-              <select
-                value={assignCrm}
-                onChange={(e) => setAssignCrm(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              >
-                <option value="Dhruthi A S">Dhruthi A S (CRM)</option>
-                <option value="Pushpa Patil">Pushpa Patil (CRM)</option>
-                <option value="Vijaykumar Shantagiri">Vijaykumar Shantagiri (Super Admin)</option>
-                <option value="Ramesh Biradar">Ramesh Biradar (Delivery Staff)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Beat Day(s)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map((d) => {
-                  const isChecked = assignDays.includes(d);
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => {
-                        setAssignDays((prev) =>
-                          isChecked ? prev.filter((x) => x !== d) : [...prev, d]
-                        );
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors flex items-center gap-1 ${
-                        isChecked
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {isChecked && <Check className="w-3 h-3" />}
-                      {d}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsAssignCrmOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
-              >
-                Save Assignment
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* End of Village Key Tab */}
     </div>
   );
 }

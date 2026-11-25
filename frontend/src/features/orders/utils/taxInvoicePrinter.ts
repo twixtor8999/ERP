@@ -292,10 +292,11 @@ export function generateTaxInvoiceInnerHtml(order: TaxInvoiceOrder, isDuplicate 
       </table>
 
       <p style="margin:8px 0 0;font-size:10px;line-height:1.45;border:1px dashed #aaa;padding:6px;border-radius:4px;text-align:justify">
-        ಹ್ಯಾಂಡಲಿಂಗ್ ಹಾಗು ಸಪೋರ್ಟ್ ಚಾರ್ಜಸ್ , ಇದು ಶುಲ್ಕವಲ್ಲ. ನಿಮಗೆ ಬೇಕಾದ ವಸ್ತುಗಳನ್ನು ದೂರದ ಊರಿಂದ ಸೂಕ್ತವಾಗಿ ಆಯ್ದು ಅತ್ಯಂತ ಸುರಕ್ಷಿತವಾಗಿ ಪ್ಯಾಕ್ ಮಾಡಿ, ತುಂಬಾ ಮುತುವರ್ಜಿಯಿಂದ ನಿಮ್ಮ ಅಂಗಡಿಗೆ ತಲುಪಿಸಲು ಹಾಗು ನಿಮ್ಮ ಅಂಗಡಿಯ ಅಗತ್ಯತೆಗಳನ್ನು ಸಂಪೂರ್ಣವಾಗಿ ಪೂರೈಸುವ ನಿಟ್ಟಿನಲ್ಲಿ ಸೇವೆ ಸಲ್ಲಿಸಲು ಉಪಯೋಗವಾಗುತ್ತದೆ. ಇನ್ನಷ್ಟು ಶಕ್ತಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಸೇವೆಗೆ ಸದಾ ಸಿದ್ಧರಿದ್ದೇವೆ.
+        ಹ್ಯಾಂಡಲಿಂಗ್ ಹಾಗು ಸಪೋರ್ಟ್ ಚಾರ್ಜಸ್, ಇದು ಶುಲ್ಕವಲ್ಲ, ನಿಮಗೆ ಬೇಕಾದ ವಸ್ತುಗಳನ್ನು ದೂರದ ಊರಿಂದ ಸುರಕ್ಷವಾಗಿ ಅಷ್ಟೂ ಅತ್ಯಂತ ಸುರಕ್ಷಿತವಾಗಿ ಪ್ಯಾಕ್ ಮಾಡಿ, ತುಂಬಾ ಮುತುವರ್ಜಿಯಿಂದ ನಿಮ್ಮ ಅಂಗಡಿಗೆ ತಲುಪಿಸಲು ಹಾಗು ನಿಮ್ಮ ಅಂಗಡಿಯ ಅಗತ್ಯತೆಗಳನ್ನು ಸಂಪೂರ್ಣವಾಗಿ ಪೂರೈಸುವ ನಿಟ್ಟಿನಲ್ಲಿ ಸೇವೆ ಸಲ್ಲಿಸಲು ಉಪಯೋಗವಾಗುತ್ತದೆ. ಇನ್ನಷ್ಟು ಶಕ್ತಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಸೇವೆಗೆ ಸದಾ ಸಿದ್ಧರಿದ್ದೇವೆ.
       </p>
 
-      <div class="c" style="margin-top:8px;font-weight:bold;letter-spacing:1px">* THANK YOU *</div>
+      <div style="border-top:2px double #000;border-bottom:2px double #000;margin:10px 0 6px;padding:3px 0;text-align:center;font-size:10px;font-weight:bold;letter-spacing:1.5px">OFFERS</div>
+      <div class="c" style="margin-top:6px;font-weight:bold;letter-spacing:1px">* THANK YOU *</div>
     </div>
   `;
 }
@@ -521,12 +522,15 @@ export function openTaxInvoiceWindow(
 ): boolean {
   try {
     const config = getInvoiceTemplateConfig();
-    const effectiveFormat: InvoiceFormat = formatOverride || config.paperSize || "a4";
+    const effectiveFormat: InvoiceFormat = formatOverride || config.paperSize || "slip_80";
 
     let doc = "";
     const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}_${effectiveFormat}`;
 
-    if (effectiveFormat === "thermal_80") {
+    if (effectiveFormat === "slip_80") {
+      // PDF Format 1: Exact Bilingual 80mm Slip Tax Invoice
+      doc = generateTaxInvoiceDocument(order, isDuplicate);
+    } else if (effectiveFormat === "thermal_80") {
       doc = generateThermalReceiptHtml(order, 80);
     } else if (effectiveFormat === "thermal_58") {
       doc = generateThermalReceiptHtml(order, 58);
