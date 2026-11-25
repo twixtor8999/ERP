@@ -21,11 +21,29 @@ export const WholesaleDenominationReportView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const voucherParam = searchParams.get('voucher') || searchParams.get('id');
 
+  // Today's date in YYYY-MM-DD
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayIso);
+  const [appliedToDate, setAppliedToDate] = useState(todayIso);
+
   const [records, setRecords] = useState<VehicleDenominationRecord[]>(() => getStoredDenominations());
   const [pendingList, setPendingList] = useState<VehicleDenominationRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<VehicleDenominationRecord | null>(null);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
+
+  const handleDateFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppliedFromDate(fromDate);
+    setAppliedToDate(toDate);
+    toast.info(`Filtered denominations for ${fromDate} to ${toDate}`);
+  };
 
   // Sync real-time orders from pipeline & settlements into Denomination records & pending list
   useEffect(() => {
@@ -127,9 +145,42 @@ export const WholesaleDenominationReportView: React.FC = () => {
     return null;
   }, [selectedRecord, isReadOnlyModal, voucherParam, records]);
 
-  // Totals
+  // Helper to convert DD-MM-YYYY or any format to YYYY-MM-DD
+  const toIsoDate = (dStr: string): string => {
+    const trimmed = (dStr || "").trim();
+    const m1 = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m1 && m1[1] && m1[2] && m1[3]) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+    const m2 = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (m2 && m2[1] && m2[2] && m2[3]) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
+    return trimmed;
+  };
+
+  // Filtered & sorted records (strict descending date order)
+  const filteredRecords = useMemo(() => {
+    return records
+      .filter((r) => {
+        const rIso = toIsoDate(r.date);
+        if (appliedFromDate && rIso < appliedFromDate) return false;
+        if (appliedToDate && rIso > appliedToDate) return false;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+          r.vehicleNo.toLowerCase().includes(q) ||
+          r.driverName.toLowerCase().includes(q) ||
+          r.date.includes(q) ||
+          r.settledBy.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const isoA = toIsoDate(a.date);
+        const isoB = toIsoDate(b.date);
+        return isoB.localeCompare(isoA);
+      });
+  }, [records, appliedFromDate, appliedToDate, searchQuery]);
+
+  // Totals calculated strictly on the filtered records
   const totals = useMemo(() => {
-    return records.reduce(
+    return filteredRecords.reduce(
       (acc, r) => ({
         netSales: acc.netSales + r.netSales,
         qrAmount: acc.qrAmount + r.qrAmount,
@@ -138,19 +189,7 @@ export const WholesaleDenominationReportView: React.FC = () => {
       }),
       { netSales: 0, qrAmount: 0, cashAmount: 0, diff: 0 }
     );
-  }, [records]);
-
-  const filteredRecords = useMemo(() => {
-    if (!searchQuery.trim()) return records;
-    const q = searchQuery.toLowerCase();
-    return records.filter(
-      (r) =>
-        r.vehicleNo.toLowerCase().includes(q) ||
-        r.driverName.toLowerCase().includes(q) ||
-        r.date.includes(q) ||
-        r.settledBy.toLowerCase().includes(q)
-    );
-  }, [records, searchQuery]);
+  }, [filteredRecords]);
 
   const handleSaveModal = (updated: VehicleDenominationRecord) => {
     // If it was in pendingList, remove from pending and add to records
@@ -246,14 +285,46 @@ export const WholesaleDenominationReportView: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
-      {/* Top Header & Back Button */}
+      {/* Top Header & Back Button & Date Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-        <button
-          onClick={() => navigate('/settlements')}
-          className="bg-[#0f2d59] hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-xs transition shadow-2xs cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Settlements
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => navigate('/settlements')}
+            className="bg-[#0f2d59] hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-xs transition shadow-2xs cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Settlements
+          </button>
+
+          {/* Date Filter Bar */}
+          <form onSubmit={handleDateFilterSubmit} className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+              <span className="text-slate-500 font-semibold text-2xs">From</span>
+              <input
+                type="date"
+                value={fromDate}
+                max={todayIso}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-transparent font-medium text-slate-800 text-xs focus:outline-none cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+              <span className="text-slate-500 font-semibold text-2xs">To</span>
+              <input
+                type="date"
+                value={toDate}
+                max={todayIso}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-transparent font-medium text-slate-800 text-xs focus:outline-none cursor-pointer"
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-[#0f2d59] hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-2xs transition cursor-pointer"
+            >
+              Submit
+            </button>
+          </form>
+        </div>
 
         <button
           onClick={handleExportCsv}
@@ -346,11 +417,11 @@ export const WholesaleDenominationReportView: React.FC = () => {
         />
       </div>
 
-      {/* Main Table */}
+      {/* Main Table - Fixed 5-Row Viewport with Internal Scrolling & Sticky Headers */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[290px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-2xs">
               <tr className="bg-[#1e40af] text-white font-semibold uppercase tracking-wider text-2xs">
                 <th className="py-2.5 px-3">Date</th>
                 <th className="py-2.5 px-3">Vehicle</th>
@@ -365,66 +436,74 @@ export const WholesaleDenominationReportView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredRecords.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/70 transition">
-                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{r.date}</td>
-                  <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{r.vehicleNo}</td>
-                  <td className="py-2.5 px-3">{r.driverName}</td>
-                  <td className="py-2.5 px-3 text-center font-mono font-semibold">{r.ordersCount}</td>
-                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                    ₹{r.netSales.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-mono text-blue-700 font-semibold">
-                    ₹{r.qrAmount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
-                    ₹{r.cashAmount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-mono font-bold">
-                    {r.diff === 0 ? (
-                      <span className="text-emerald-700">✔ 0</span>
-                    ) : r.diff < 0 ? (
-                      <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">Short ₹{Math.abs(r.diff)}</span>
-                    ) : (
-                      <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Excess ₹{r.diff}</span>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-3 text-2xs text-slate-600">{r.settledBy}</td>
-                  <td className="py-2.5 px-3 text-center">
-                    <button
-                      onClick={() => {
-                        setSelectedRecord(r);
-                        setIsReadOnlyModal(true);
-                        setSearchParams({ voucher: String(r.id) });
-                      }}
-                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-2xs font-bold px-2.5 py-1 rounded shadow-2xs transition cursor-pointer active:scale-95"
-                      title="Open dedicated Cash Denomination Voucher page"
-                    >
-                      View
-                    </button>
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-slate-400 font-medium">
+                    No denomination records found for {appliedFromDate} to {appliedToDate}.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRecords.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50/70 transition">
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{r.date}</td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{r.vehicleNo}</td>
+                    <td className="py-2.5 px-3">{r.driverName}</td>
+                    <td className="py-2.5 px-3 text-center font-mono font-semibold">{r.ordersCount}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                      ₹{r.netSales.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-blue-700 font-semibold">
+                      ₹{r.qrAmount.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
+                      ₹{r.cashAmount.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-mono font-bold">
+                      {r.diff === 0 ? (
+                        <span className="text-emerald-700">✔ 0</span>
+                      ) : r.diff < 0 ? (
+                        <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">Short ₹{Math.abs(r.diff)}</span>
+                      ) : (
+                        <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Excess ₹{r.diff}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-2xs text-slate-600">{r.settledBy}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <button
+                        onClick={() => {
+                          setSelectedRecord(r);
+                          setIsReadOnlyModal(true);
+                          setSearchParams({ voucher: String(r.id) });
+                        }}
+                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-2xs font-bold px-2.5 py-1 rounded shadow-2xs transition cursor-pointer active:scale-95"
+                        title="Open dedicated Cash Denomination Voucher page"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
-            {/* Table Totals Footer */}
-            <tfoot>
-              <tr className="bg-slate-50 border-t-2 border-slate-200 font-black text-slate-900">
-                <td className="py-3 px-3">Total</td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3 text-center">
-                  {records.reduce((a, b) => a + b.ordersCount, 0)}
+            {/* Table Totals Footer - Sticky at bottom of internal scroll */}
+            <tfoot className="sticky bottom-0 z-10">
+              <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900 shadow-xs">
+                <td className="py-2.5 px-3">Total</td>
+                <td className="py-2.5 px-3"></td>
+                <td className="py-2.5 px-3"></td>
+                <td className="py-2.5 px-3 text-center">
+                  {filteredRecords.reduce((a, b) => a + b.ordersCount, 0)}
                 </td>
-                <td className="py-3 px-3 text-right font-mono text-sm">
+                <td className="py-2.5 px-3 text-right font-mono text-sm">
                   ₹{totals.netSales.toLocaleString('en-IN')}
                 </td>
-                <td className="py-3 px-3 text-right font-mono text-sm text-blue-700">
+                <td className="py-2.5 px-3 text-right font-mono text-sm text-blue-700">
                   ₹{totals.qrAmount.toLocaleString('en-IN')}
                 </td>
-                <td className="py-3 px-3 text-right font-mono text-sm text-emerald-800">
+                <td className="py-2.5 px-3 text-right font-mono text-sm text-emerald-800">
                   ₹{totals.cashAmount.toLocaleString('en-IN')}
                 </td>
-                <td className="py-3 px-3 text-center font-mono text-xs">
+                <td className="py-2.5 px-3 text-center font-mono text-xs">
                   {totals.diff === 0 ? (
                     <span className="text-emerald-700">✔ 0</span>
                   ) : totals.diff < 0 ? (
@@ -433,7 +512,7 @@ export const WholesaleDenominationReportView: React.FC = () => {
                     <span className="text-amber-700">Excess ₹{totals.diff}</span>
                   )}
                 </td>
-                <td className="py-3 px-3" colSpan={2}></td>
+                <td className="py-2.5 px-3" colSpan={2}></td>
               </tr>
             </tfoot>
           </table>
