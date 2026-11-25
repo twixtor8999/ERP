@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Plus, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { StockSplitRecord } from '../types';
 import { getStoredStockSplits, saveStoredStockSplit } from '../data/mockStockSplits';
 import { AddStockSplitModal } from './AddStockSplitModal';
-import { ViewStockSplitModal } from './ViewStockSplitModal';
+import { StockSplitDetailView } from './StockSplitDetailView';
 import { toast } from 'sonner';
 
 interface Props {
@@ -12,14 +13,26 @@ interface Props {
 
 export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
   const [splits, setSplits] = useState<StockSplitRecord[]>(() => getStoredStockSplits());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const voucherParam = searchParams.get('voucher') || searchParams.get('id');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('2026-11-24');
   const [endDate, setEndDate] = useState('2026-11-24');
   const [activeDateFilter, setActiveDateFilter] = useState({ start: '2026-11-24', end: '2026-11-24' });
 
-  // Modals
+  // Modals & 2nd Page Selected Record
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedSplit, setSelectedSplit] = useState<StockSplitRecord | null>(null);
+
+  // Check if user is viewing a dedicated voucher 2nd page
+  const activeRecord = useMemo(() => {
+    if (selectedSplit) return selectedSplit;
+    if (voucherParam) {
+      return splits.find((s) => String(s.id) === voucherParam) || null;
+    }
+    return null;
+  }, [selectedSplit, voucherParam, splits]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,6 +107,19 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
     setShowAddModal(false);
     toast.success(`Successfully converted ${record.parentItemName} into ${record.convertedQty}x ${record.childItemName}`);
   };
+
+  // Dedicated 2nd Page: If a voucher is active, render full detail view
+  if (activeRecord) {
+    return (
+      <StockSplitDetailView
+        record={activeRecord}
+        onBack={() => {
+          setSelectedSplit(null);
+          setSearchParams({});
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 text-slate-800">
@@ -219,8 +245,12 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
                       </td>
                       <td className="py-3 px-3.5 text-center">
                         <button
-                          onClick={() => setSelectedSplit(r)}
-                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs cursor-pointer"
+                          onClick={() => {
+                            setSelectedSplit(r);
+                            setSearchParams({ voucher: String(r.id) });
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Open dedicated Stock Split Voucher page"
                         >
                           <Eye className="w-3 h-3 text-blue-600" /> View
                         </button>
@@ -283,14 +313,6 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
         <AddStockSplitModal
           onClose={() => setShowAddModal(false)}
           onSuccess={handleSplitCreated}
-        />
-      )}
-
-      {/* View Modal */}
-      {selectedSplit && (
-        <ViewStockSplitModal
-          record={selectedSplit}
-          onClose={() => setSelectedSplit(null)}
         />
       )}
     </div>
