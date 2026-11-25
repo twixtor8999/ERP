@@ -6,7 +6,6 @@ import {
   Eye,
   Edit2,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -17,6 +16,7 @@ import {
   type VendorRecord,
 } from "../data/mockPurchases";
 import { WholesaleVendorDetailView } from "./WholesaleVendorDetailView";
+import { WholesaleVendorEditView } from "./WholesaleVendorEditView";
 
 export function WholesaleVendorsView() {
   const navigate = useNavigate();
@@ -51,26 +51,6 @@ export function WholesaleVendorsView() {
     }
     return "";
   }, [gstin]);
-
-  // Edit modal auto-derived
-  const editDerivedState = useMemo(() => {
-    if (!editVendor) return "";
-    const cleanGst = editVendor.gstin.trim().toUpperCase();
-    if (cleanGst.length >= 2) {
-      const code = cleanGst.slice(0, 2);
-      return STATE_CODE_MAP[code] || "Other / Union Territory";
-    }
-    return "";
-  }, [editVendor]);
-
-  const editDerivedPan = useMemo(() => {
-    if (!editVendor) return "";
-    const cleanGst = editVendor.gstin.trim().toUpperCase();
-    if (cleanGst.length >= 12) {
-      return cleanGst.slice(2, 12);
-    }
-    return "";
-  }, [editVendor]);
 
   const handleSaveVendor = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,39 +110,6 @@ export function WholesaleVendorsView() {
     setAddress("");
   };
 
-  const handleUpdateVendor = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editVendor) return;
-
-    if (!editVendor.name.trim()) {
-      toast.error("Vendor name is required.");
-      return;
-    }
-
-    const cleanGst = editVendor.gstin.trim().toUpperCase();
-    if (cleanGst.length !== 15) {
-      toast.error("GST No must have 15 characters.");
-      return;
-    }
-
-    const updated = vendors.map((v) => {
-      if (v.id === editVendor.id) {
-        return {
-          ...editVendor,
-          gstin: cleanGst,
-          state: editDerivedState || editVendor.state,
-          pan: editDerivedPan || editVendor.pan,
-        };
-      }
-      return v;
-    });
-
-    setVendors(updated);
-    saveStoredVendors(updated);
-    setEditVendor(null);
-    toast.success("Vendor details updated!");
-  };
-
   const handleDeleteVendor = (id: number, name: string) => {
     const hasPurchases = purchases.some((p) => p.vendorId === id);
     if (hasPurchases) {
@@ -201,6 +148,23 @@ export function WholesaleVendorsView() {
         onEdit={(v) => {
           setViewVendor(null);
           setEditVendor(v);
+        }}
+      />
+    );
+  }
+
+  // Dedicated 2nd Page: If editing vendor, render full dedicated page
+  if (editVendor) {
+    return (
+      <WholesaleVendorEditView
+        vendor={editVendor}
+        onBack={() => setEditVendor(null)}
+        onSave={(updated) => {
+          const next = vendors.map((v) => (v.id === updated.id ? updated : v));
+          setVendors(next);
+          saveStoredVendors(next);
+          setEditVendor(null);
+          toast.success("Vendor details updated!");
         }}
       />
     );
@@ -436,123 +400,6 @@ export function WholesaleVendorsView() {
         </div>
       </div>
 
-      {/* Edit Vendor Modal */}
-      {editVendor && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h3 className="font-bold text-gray-900 text-base">Edit vendor</h3>
-              <button
-                type="button"
-                onClick={() => setEditVendor(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateVendor} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Vendor name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editVendor.name}
-                  onChange={(e) => setEditVendor({ ...editVendor, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    GST No *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={15}
-                    value={editVendor.gstin}
-                    onChange={(e) => setEditVendor({ ...editVendor, gstin: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 text-sm font-mono uppercase border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Contact No *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={editVendor.ph}
-                    onChange={(e) => setEditVendor({ ...editVendor, ph: e.target.value.replace(/\D/g, "") })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State (from GST No)
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    tabIndex={-1}
-                    value={editDerivedState}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 bg-gray-50 text-gray-600 rounded-lg cursor-not-allowed"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    PAN (from GST No)
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    tabIndex={-1}
-                    value={editDerivedPan}
-                    className="w-full px-3 py-2 text-sm font-mono border border-gray-200 bg-gray-50 text-gray-600 rounded-lg cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Address *
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={editVendor.addr}
-                  onChange={(e) => setEditVendor({ ...editVendor, addr: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditVendor(null)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded-lg border border-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-lg shadow-sm"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

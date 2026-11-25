@@ -12,8 +12,8 @@ import {
   getStoredDenominations,
   saveStoredDenominations,
 } from '../data/mockDenominations';
-import { DenominationCountModal } from './DenominationCountModal';
 import { CashDenominationVoucherDetailView } from './CashDenominationVoucherDetailView';
+import { WholesaleDenominationCountView } from './WholesaleDenominationCountView';
 import { toast } from 'sonner';
 
 export const WholesaleDenominationReportView: React.FC = () => {
@@ -269,6 +269,17 @@ export const WholesaleDenominationReportView: React.FC = () => {
     toast.success('Denomination report exported to CSV');
   };
 
+  // Render full dedicated 2nd Page if counting denominations
+  if (selectedRecord && !isReadOnlyModal) {
+    return (
+      <WholesaleDenominationCountView
+        record={selectedRecord}
+        onBack={() => setSelectedRecord(null)}
+        onSave={handleSaveModal}
+      />
+    );
+  }
+
   // Render full dedicated 2nd Page if viewing a voucher
   if (activeRecord) {
     return (
@@ -519,15 +530,6 @@ export const WholesaleDenominationReportView: React.FC = () => {
         </div>
       </div>
 
-      {/* Counting Drawer Modal (Only shown when Cashier explicitly clicks Count Now) */}
-      {selectedRecord && !isReadOnlyModal && (
-        <DenominationCountModal
-          record={selectedRecord}
-          isReadOnly={false}
-          onClose={() => setSelectedRecord(null)}
-          onSave={handleSaveModal}
-        />
-      )}
     </div>
   );
 };

@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Plus, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { StockSplitRecord } from '../types';
 import { getStoredStockSplits, saveStoredStockSplit } from '../data/mockStockSplits';
-import { AddStockSplitModal } from './AddStockSplitModal';
 import { StockSplitDetailView } from './StockSplitDetailView';
+import { WholesaleAddStockSplitView } from './WholesaleAddStockSplitView';
 import { toast } from 'sonner';
 
 interface Props {
@@ -107,6 +107,16 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
     setShowAddModal(false);
     toast.success(`Successfully converted ${record.parentItemName} into ${record.convertedQty}x ${record.childItemName}`);
   };
+
+  // Dedicated 2nd Page: If creating a stock split, render full dedicated page
+  if (showAddModal) {
+    return (
+      <WholesaleAddStockSplitView
+        onBack={() => setShowAddModal(false)}
+        onSuccess={handleSplitCreated}
+      />
+    );
+  }
 
   // Dedicated 2nd Page: If a voucher is active, render full detail view
   if (activeRecord) {
@@ -308,13 +318,6 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <AddStockSplitModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={handleSplitCreated}
-        />
-      )}
     </div>
   );
 };

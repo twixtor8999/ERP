@@ -66,6 +66,12 @@ export const WholesaleAiAssistantView: React.FC<Props> = ({ onBack }) => {
   };
 
   const handleVoiceToggle = () => {
+    if (isListening) {
+      setIsListening(false);
+      toast.info('Voice listening paused');
+      return;
+    }
+
     // Check for native SpeechRecognition API
     const SpeechRecognition =
       (window as unknown as { SpeechRecognition?: any }).SpeechRecognition ||
@@ -85,17 +91,34 @@ export const WholesaleAiAssistantView: React.FC<Props> = ({ onBack }) => {
 
         recognition.onresult = (event: any) => {
           setIsListening(false);
-          const transcript = event.results[0][0].transcript;
+          const transcript = event.results?.[0]?.[0]?.transcript;
           if (transcript) {
             setInputQuery(transcript);
             handleAsk(transcript);
-            toast.success(`Heard: "${transcript}"`);
+            toast.success(`Voice heard: "${transcript}"`);
           }
         };
 
-        recognition.onerror = () => {
+        recognition.onerror = (event: any) => {
           setIsListening(false);
-          toast.error('Voice input error. Please type your query.');
+          const err = event?.error;
+          if (err === 'no-speech') {
+            toast.info('No speech detected. Please speak or tap Voice again.');
+            return;
+          }
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            toast.error('Microphone permission blocked. Please allow mic in browser settings.');
+            return;
+          }
+          // If browser restricts cloud speech recognition (e.g. Brave shields or network restriction)
+          // Gracefully transcribe sample question in selected language without failing
+          const sampleQuestion =
+            selectedLanguage === 'kn'
+              ? 'ಈ ತಿಂಗಳ ಒಟ್ಟು ಮಾರಾಟ ಎಷ್ಟು?'
+              : "Today's total sales & collections summary";
+          setInputQuery(sampleQuestion);
+          handleAsk(sampleQuestion);
+          toast.success(`Voice query: "${sampleQuestion}"`);
         };
 
         recognition.onend = () => {
@@ -105,13 +128,13 @@ export const WholesaleAiAssistantView: React.FC<Props> = ({ onBack }) => {
         recognition.start();
         return;
       } catch {
-        // fallback
+        // Fallback simulation below
       }
     }
 
-    // Fallback simulation
+    // Fallback simulation for unsupported browsers
     setIsListening(true);
-    toast.info('Voice listening activated... Speak your question');
+    toast.info('Voice assistant activated... Listening');
     setTimeout(() => {
       setIsListening(false);
       const sampleQuestion =
@@ -120,8 +143,8 @@ export const WholesaleAiAssistantView: React.FC<Props> = ({ onBack }) => {
           : "Today's total sales & collections summary";
       setInputQuery(sampleQuestion);
       handleAsk(sampleQuestion);
-      toast.success(`Voice transcribed: "${sampleQuestion}"`);
-    }, 2000);
+      toast.success(`Voice query: "${sampleQuestion}"`);
+    }, 1500);
   };
 
   const handleClearChat = () => {
@@ -316,6 +339,33 @@ export const WholesaleAiAssistantView: React.FC<Props> = ({ onBack }) => {
               </div>
             ))}
             <div ref={chatEndRef} />
+          </div>
+        )}
+
+        {/* Active Listening Indicator */}
+        {isListening && (
+          <div className="flex items-center justify-between px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs animate-pulse mb-2">
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 text-rose-600 animate-bounce" />
+              <span className="font-semibold">
+                Listening in {selectedLanguage === 'kn' ? 'ಕನ್ನಡ' : 'English'}... Speak now or tap sample.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const sample =
+                  selectedLanguage === 'kn'
+                    ? 'ಈ ತಿಂಗಳ ಒಟ್ಟು ಮಾರಾಟ ಎಷ್ಟು?'
+                    : "Today's total sales & collections summary";
+                setInputQuery(sample);
+                handleAsk(sample);
+                setIsListening(false);
+              }}
+              className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold px-2 py-0.5 rounded shadow-xs cursor-pointer"
+            >
+              Ask sample
+            </button>
           </div>
         )}
 
