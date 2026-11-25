@@ -20,8 +20,9 @@ import { WholesaleExpenseDetailView } from "./WholesaleExpenseDetailView";
 
 export function WholesaleExpensesView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-24");
-  const [toDate, setToDate] = useState("2026-11-24");
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => getStoredExpenses());
@@ -33,7 +34,7 @@ export function WholesaleExpensesView() {
   const [sub, setSub] = useState("Rent");
   const [amt, setAmt] = useState("");
   const [paymentType, setPaymentType] = useState<"Cash" | "Credit">("Cash");
-  const [spentDate, setSpentDate] = useState("2026-11-24");
+  const [spentDate, setSpentDate] = useState(todayIso);
   const [vehicleNo, setVehicleNo] = useState("");
   const [paidTo, setPaidTo] = useState("");
   const [accountNo, setAccountNo] = useState("");
@@ -394,11 +395,11 @@ export function WholesaleExpensesView() {
         <h2 className="text-base font-bold text-gray-900">Expenses</h2>
       </div>
 
-      {/* Expenses Table matching Screenshot 1 */}
+      {/* Expenses Table matching Screenshot 1 with fixed 7-8 rows scroll */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-[#2563eb] text-white font-bold">
                 <th className="py-2.5 px-3.5">Date</th>
                 <th className="py-2.5 px-3.5 min-w-[200px]">Category / Type</th>
@@ -411,15 +412,11 @@ export function WholesaleExpensesView() {
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium">
               {filteredExpenses.length === 0 ? (
-                /* Matches Screenshot 1 zero row */
-                <tr className="hover:bg-gray-50/50 text-gray-500 font-mono text-center">
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5 text-right">0</td>
-                  <td className="py-3 px-3.5 text-center">0</td>
-                  <td className="py-3 px-3.5 text-center">0</td>
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5">0</td>
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-gray-500 font-medium bg-gray-50/50">
+                    <p className="text-sm font-semibold text-gray-700">No expenses recorded in this date range.</p>
+                    <p className="text-xs text-gray-400 mt-1">Select another date range or click "+ Add expense" to create a new expense entry.</p>
+                  </td>
                 </tr>
               ) : (
                 filteredExpenses.map((e) => (

@@ -11,14 +11,18 @@ import {
   getStoredInwardExpenses,
   saveStoredInwardExpenses,
   type InwardExpenseRecord,
+  getStoredExpenses,
+  saveStoredExpenses,
+  type ExpenseRecord,
 } from "../data/mockExpenses";
 import { getStoredPurchases, saveStoredPurchases } from "@/features/purchases/data/mockPurchases";
 import { WholesaleInwardExpenseDetailView } from "./WholesaleInwardExpenseDetailView";
 
 export function WholesaleInwardExpensesView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-24");
-  const [toDate, setToDate] = useState("2026-11-24");
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [inwardExpenses, setInwardExpenses] = useState<InwardExpenseRecord[]>(() =>
@@ -58,16 +62,20 @@ export function WholesaleInwardExpensesView() {
   }, [filteredExpenses]);
 
   const handleApprove = (id: number) => {
-    const updated = inwardExpenses.map((e) => {
+    const today = new Date().toISOString().slice(0, 10);
+    let approvedRecord: InwardExpenseRecord | undefined;
+
+    const updated: InwardExpenseRecord[] = inwardExpenses.map((e) => {
       if (e.id === id) {
-        return {
+        approvedRecord = {
           ...e,
           ap: {
             by: "Vijaykumar Shantagiri (Admin)",
-            date: new Date().toISOString().split("T")[0] || "2026-11-24",
+            date: today,
             at: new Date().toISOString(),
           },
         };
+        return approvedRecord;
       }
       return e;
     });
@@ -84,7 +92,32 @@ export function WholesaleInwardExpensesView() {
     });
     saveStoredPurchases(updatedPurchases);
 
-    toast.success("Inward purchase expense approved! Stock added to inventory.");
+    // Log corresponding entry into main Expenses ledger
+    if (approvedRecord) {
+      const expenses = getStoredExpenses();
+      const existingExp = expenses.find((x) => x.billNo === approvedRecord!.invoiceNo);
+      if (!existingExp) {
+        const newExpense: ExpenseRecord = {
+          id: Date.now(),
+          date: today,
+          cat: "Procurement",
+          sub: "Stock Inward",
+          amt: approvedRecord.invoiceTotal,
+          paymentType: "Credit",
+          paidTo: approvedRecord.vendorName,
+          billNo: approvedRecord.invoiceNo,
+          remarks: `Purchase invoice ${approvedRecord.invoiceNo} · ${approvedRecord.vendorName}`,
+          ap: {
+            by: "Vijaykumar Shantagiri (Admin)",
+            date: today,
+            at: new Date().toISOString(),
+          },
+        };
+        saveStoredExpenses([newExpense, ...expenses]);
+      }
+    }
+
+    toast.success("Inward purchase expense approved! Synced to Purchases and Expenses.");
   };
 
   const handleExport = () => {
@@ -211,11 +244,11 @@ export function WholesaleInwardExpensesView() {
         </div>
       </div>
 
-      {/* Inward Expenses Table matching Screenshot 2 */}
+      {/* Inward Expenses Table matching Screenshot 2 with fixed 7-8 rows scroll */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
           <table className="w-full text-left text-xs md:text-sm border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-sm">
               <tr className="bg-[#2563eb] text-white font-bold">
                 <th className="py-2.5 px-3.5">Date</th>
                 <th className="py-2.5 px-3.5 font-mono">Invoice no</th>
@@ -227,14 +260,11 @@ export function WholesaleInwardExpensesView() {
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium">
               {filteredExpenses.length === 0 ? (
-                /* Matches Screenshot 2 zero row */
-                <tr className="hover:bg-gray-50/50 text-gray-500 font-mono text-center">
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5 text-right">0</td>
-                  <td className="py-3 px-3.5 text-center">0</td>
-                  <td className="py-3 px-3.5">0</td>
-                  <td className="py-3 px-3.5">0</td>
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-500 font-medium bg-gray-50/50">
+                    <p className="text-sm font-semibold text-gray-700">No inward purchase expenses recorded in this date range.</p>
+                    <p className="text-xs text-gray-400 mt-1">Select another date range or submit purchase entries in the Purchase module.</p>
+                  </td>
                 </tr>
               ) : (
                 filteredExpenses.map((e) => (

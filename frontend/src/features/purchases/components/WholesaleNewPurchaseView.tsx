@@ -9,6 +9,11 @@ import {
   type PurchaseRecord,
   type PurchaseLine,
 } from "../data/mockPurchases";
+import {
+  getStoredInwardExpenses,
+  saveStoredInwardExpenses,
+  type InwardExpenseRecord,
+} from "@/features/expenses/data/mockExpenses";
 
 const SAMPLE_SKUS = [
   { id: 1, name: "Fortune Sunlite Refined Sunflower Oil 1L", defaultGrn: 125, defaultSell: 138, gst: 5 },
@@ -177,6 +182,23 @@ export function WholesaleNewPurchaseView() {
 
     const currentList = getStoredPurchases();
     saveStoredPurchases([newPurchase, ...currentList]);
+
+    // Also sync to Inward Expenses immediately
+    try {
+      const currentInward = getStoredInwardExpenses();
+      const newInward: InwardExpenseRecord = {
+        id: newPurchase.id,
+        purchaseId: newPurchase.id,
+        date: newPurchase.date,
+        invoiceNo: newPurchase.invoiceNo,
+        invoiceTotal: newPurchase.totalAmount,
+        vendorName: newPurchase.vendorName,
+        expenseType: "Purchase (Stock Inward)",
+      };
+      saveStoredInwardExpenses([newInward, ...currentInward]);
+    } catch (err) {
+      console.error("Failed to sync inward expense:", err);
+    }
 
     toast.success("Purchase entry saved · Waiting for Owner / Admin approval!");
     navigate("/purchases?tab=list");

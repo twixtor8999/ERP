@@ -1059,10 +1059,51 @@ export function saveStoredExpenses(list: ExpenseRecord[]) {
   }
 }
 
+import { getStoredPurchases } from "@/features/purchases/data/mockPurchases";
+
 export function getStoredInwardExpenses(): InwardExpenseRecord[] {
   try {
+    let inwardList: InwardExpenseRecord[] = [];
     const raw = localStorage.getItem(STORAGE_KEY_INWARD);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      inwardList = JSON.parse(raw);
+    } else {
+      inwardList = INITIAL_INWARD_EXPENSES;
+    }
+
+    // Dynamic sync: Ensure every purchase in mockPurchases is reflected as an Inward Expense
+    const purchases = getStoredPurchases();
+    const existingPurchaseIds = new Set(inwardList.filter((e) => e.purchaseId).map((e) => e.purchaseId));
+    const existingInvoices = new Set(inwardList.map((e) => e.invoiceNo.trim().toUpperCase()));
+
+    const newlyAddedFromPurchases: InwardExpenseRecord[] = [];
+    for (const p of purchases) {
+      const invClean = p.invoiceNo.trim().toUpperCase();
+      if (!existingPurchaseIds.has(p.id) && !existingInvoices.has(invClean)) {
+        newlyAddedFromPurchases.push({
+          id: p.id,
+          purchaseId: p.id,
+          date: p.date,
+          invoiceNo: p.invoiceNo,
+          invoiceTotal: p.totalAmount,
+          vendorName: p.vendorName,
+          expenseType: "Purchase (Stock Inward)",
+          ap: p.status === "approved" ? {
+            by: "Owner / Admin",
+            date: p.date,
+            at: p.createdAt || p.date,
+          } : undefined,
+        });
+      }
+    }
+
+    if (newlyAddedFromPurchases.length > 0) {
+      const combined = [...newlyAddedFromPurchases, ...inwardList];
+      saveStoredInwardExpenses(combined);
+      return combined;
+    }
+
+    return inwardList;
   } catch (e) {
     console.error("Failed to load inward expenses", e);
   }
