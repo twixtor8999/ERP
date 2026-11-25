@@ -13,7 +13,6 @@ import {
   saveStoredTrips,
   type VehicleTripRecord,
 } from "../data/mockVehicles";
-import { WholesaleCreateTripModal } from "./WholesaleCreateTripModal";
 import { WholesaleVehicleTripDetailEditView } from "./WholesaleVehicleTripDetailEditView";
 
 export function WholesaleVehicleTripsView() {
@@ -24,8 +23,6 @@ export function WholesaleVehicleTripsView() {
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [isCreateTripOpen, setIsCreateTripOpen] = useState(false);
   const [selectedTripToEdit, setSelectedTripToEdit] = useState<VehicleTripRecord | null>(null);
 
   const filteredTrips = useMemo(() => {
@@ -186,8 +183,8 @@ export function WholesaleVehicleTripsView() {
       <div>
         <button
           type="button"
-          onClick={() => setIsCreateTripOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md shadow-sm transition-colors"
+          onClick={() => navigate("/vehicles?tab=create-trip")}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-md shadow-sm transition-colors cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           Create trip
@@ -318,13 +315,6 @@ export function WholesaleVehicleTripsView() {
           </table>
         </div>
       </div>
-
-      {/* Create Trip Modal */}
-      <WholesaleCreateTripModal
-        isOpen={isCreateTripOpen}
-        onClose={() => setIsCreateTripOpen(false)}
-        onTripCreated={() => setTrips(getStoredTrips())}
-      />
     </div>
   );
 }
