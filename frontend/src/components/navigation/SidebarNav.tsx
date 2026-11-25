@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { navigationItems, type NavItem } from "@/config/navigation.config";
@@ -15,6 +15,19 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
   const currentPath = location.pathname;
   const currentSearch = location.search;
   const fullUrl = `${currentPath}${currentSearch}`;
+
+  // Ref to the currently active sidebar item — used to auto-scroll it into view
+  const activeItemRef = useRef<HTMLAnchorElement | null>(null);
+
+  // Whenever the route changes, scroll the active item into view smoothly
+  useEffect(() => {
+    if (activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [currentPath, currentSearch]);
 
   const isItemActive = (item: NavItem) => {
     if (item.href === "/home") {
@@ -286,6 +299,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
                         key={child.href}
                         to={child.href}
                         onClick={onItemClick}
+                        ref={active ? activeItemRef : undefined}
                         className={cn(
                           "block px-3 py-1.5 text-[13.5px] rounded-lg transition-all text-left font-medium",
                           active
@@ -310,6 +324,7 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
             key={item.href}
             to={item.href}
             onClick={onItemClick}
+            ref={active ? activeItemRef : undefined}
             className={cn(
               "block px-3.5 py-2 text-[14.5px] rounded-xl transition-all text-left truncate font-semibold tracking-wide",
               active
