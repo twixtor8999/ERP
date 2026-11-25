@@ -3,5 +3,6 @@ export * from "./types";
 export * from "./types/denomination";
 export * from "./data/mockDenominations";
 export * from "./components/DenominationCountModal";
+export * from "./components/CashDenominationVoucherDetailView";
 export * from "./components/WholesaleDenominationReportView";
 export * from "./pages/DenominationReportPage";

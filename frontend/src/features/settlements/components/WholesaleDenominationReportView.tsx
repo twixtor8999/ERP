@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Search,
@@ -14,15 +14,28 @@ import {
   PENDING_DENOMINATIONS,
 } from '../data/mockDenominations';
 import { DenominationCountModal } from './DenominationCountModal';
+import { CashDenominationVoucherDetailView } from './CashDenominationVoucherDetailView';
 import { toast } from 'sonner';
 
 export const WholesaleDenominationReportView: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const voucherParam = searchParams.get('voucher') || searchParams.get('id');
+
   const [records, setRecords] = useState<VehicleDenominationRecord[]>(() => getStoredDenominations());
   const [pendingList, setPendingList] = useState<VehicleDenominationRecord[]>(PENDING_DENOMINATIONS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<VehicleDenominationRecord | null>(null);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
+
+  // Dedicated 2nd Page: Check if viewing a specific voucher
+  const activeRecord = useMemo(() => {
+    if (selectedRecord && isReadOnlyModal) return selectedRecord;
+    if (voucherParam) {
+      return records.find((r) => String(r.id) === voucherParam || r.vehicleNo === voucherParam) || null;
+    }
+    return null;
+  }, [selectedRecord, isReadOnlyModal, voucherParam, records]);
 
   // Totals
   const totals = useMemo(() => {
@@ -80,6 +93,20 @@ export const WholesaleDenominationReportView: React.FC = () => {
     a.click();
     toast.success('Denomination report exported to CSV');
   };
+
+  // Render full dedicated 2nd Page if viewing a voucher
+  if (activeRecord) {
+    return (
+      <CashDenominationVoucherDetailView
+        record={activeRecord}
+        onBack={() => {
+          setSelectedRecord(null);
+          setIsReadOnlyModal(false);
+          setSearchParams({});
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
@@ -232,8 +259,10 @@ export const WholesaleDenominationReportView: React.FC = () => {
                       onClick={() => {
                         setSelectedRecord(r);
                         setIsReadOnlyModal(true);
+                        setSearchParams({ voucher: String(r.id) });
                       }}
-                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-2xs font-bold px-2.5 py-1 rounded shadow-2xs transition cursor-pointer"
+                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-2xs font-bold px-2.5 py-1 rounded shadow-2xs transition cursor-pointer active:scale-95"
+                      title="Open dedicated Cash Denomination Voucher page"
                     >
                       View
                     </button>
@@ -275,11 +304,11 @@ export const WholesaleDenominationReportView: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
-      {selectedRecord && (
+      {/* Counting Drawer Modal (Only shown when Cashier explicitly clicks Count Now) */}
+      {selectedRecord && !isReadOnlyModal && (
         <DenominationCountModal
           record={selectedRecord}
-          isReadOnly={isReadOnlyModal}
+          isReadOnly={false}
           onClose={() => setSelectedRecord(null)}
           onSave={handleSaveModal}
         />

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Eye, X } from "lucide-react";
+import { ArrowLeft, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { B2bOrderDetailView } from "./B2bOrderDetailView";
 
 export interface B2bOrderRow {
   sl: number;
@@ -72,6 +73,16 @@ export function WholesaleB2bOrdersListView() {
       (o.invoiceNo && o.invoiceNo.toLowerCase().includes(q))
     );
   });
+
+  // Dedicated 2nd Page: Render full B2B order invoice detail view when an order is selected
+  if (selectedOrder) {
+    return (
+      <B2bOrderDetailView
+        order={selectedOrder}
+        onBack={() => setSelectedOrder(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a] pb-12">
@@ -197,77 +208,6 @@ export function WholesaleB2bOrdersListView() {
           </tbody>
         </table>
       </div>
-
-      {/* Order View Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-2xs z-50 flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-[#132038]">
-                  Order {selectedOrder.orderNo}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  {selectedOrder.customerName} · {selectedOrder.villageName}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Items Table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[360px] overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[#2563eb] text-white font-extrabold whitespace-nowrap">
-                    <th className="py-2 px-3 text-left w-10">Sl</th>
-                    <th className="py-2 px-3 text-left">Item name</th>
-                    <th className="py-2 px-3 text-center">Qty</th>
-                    <th className="py-2 px-3 text-right">Price</th>
-                    <th className="py-2 px-3 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold">
-                  {selectedOrder.items.map((it, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80">
-                      <td className="py-2.5 px-3 text-slate-500">{idx + 1}</td>
-                      <td className="py-2.5 px-3 font-medium text-slate-900">{it.name}</td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold">{it.qty}</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">
-                        ₹{it.price.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                        ₹{(it.qty * it.price).toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-50 font-black border-t border-slate-200 text-slate-900">
-                    <td colSpan={4} className="py-2.5 px-3 text-right">Order Total</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-blue-700">
-                      ₹{selectedOrder.total.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white rounded-lg text-xs font-bold transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
