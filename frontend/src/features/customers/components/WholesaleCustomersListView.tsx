@@ -291,12 +291,12 @@ export function WholesaleCustomersListView() {
         </div>
       </div>
 
-      {/* Royal Blue Table */}
+      {/* Royal Blue Table with Fixed 7-8 Row Viewport and Internal Scroll */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase whitespace-nowrap">
                 {/* Beat day dropdown filter */}
                 <th className="py-2.5 px-3 border-r border-blue-400/40">
                   <div className="space-y-1">
