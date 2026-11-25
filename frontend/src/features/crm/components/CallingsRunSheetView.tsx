@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Check, Phone } from "lucide-react";
 import { toast } from "sonner";
+import { getAllCrmOrders, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 
 interface CallingRow {
   sl: number;
@@ -11,6 +12,7 @@ interface CallingRow {
   villageKey: string;
   mobile: string;
   lastOrder: string;
+  lastOrderTimestamp?: string;
   remark?: string;
 }
 
@@ -1130,16 +1132,70 @@ export function CallingsRunSheetView() {
     }
   };
 
-  const filteredCallings = callings.filter((c) => {
-    if (!pageSearch) return true;
-    const q = pageSearch.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.shop.toLowerCase().includes(q) ||
-      c.mobile.includes(q) ||
-      c.village.toLowerCase().includes(q)
-    );
-  });
+  // Load dynamic orders and merge with callings so latest orders show on top
+  const mergedCallings = useMemo((): CallingRow[] => {
+    try {
+      const allOrders = getAllCrmOrders();
+      // Map customerPhone/name to latest order
+      const orderMap = new Map<string, CrmOrderRecord>();
+      for (const ord of allOrders) {
+        const phone = (ord.customerPhone || "").replace(/\D/g, "");
+        const name = ord.customerName.toLowerCase().trim();
+        if (phone && !orderMap.has(phone)) {
+          orderMap.set(phone, ord);
+        }
+        if (name && !orderMap.has(name)) {
+          orderMap.set(name, ord);
+        }
+      }
+
+      const updated = callings.map((c) => {
+        const cleanMobile = c.mobile.replace(/\D/g, "");
+        const cleanName = c.name.toLowerCase().trim();
+        const matched = orderMap.get(cleanMobile) || orderMap.get(cleanName);
+
+        if (matched) {
+          // Format date as YYYY-MM-DD
+          let formattedDate = matched.orderDate;
+          if (formattedDate.includes("-") && formattedDate.split("-")[0]?.length === 2) {
+            const [d, m, y] = formattedDate.split("-");
+            formattedDate = `${y}-${m}-${d}`;
+          }
+          return {
+            ...c,
+            lastOrder: formattedDate || c.lastOrder,
+            lastOrderTimestamp: matched.placedTimestamp || `${formattedDate} 10:00 am`,
+          };
+        }
+        return c;
+      });
+
+      // Sort with latest order dates/calls on top (descending)
+      return updated.sort((a, b) => {
+        const dateA = a.lastOrder || "";
+        const dateB = b.lastOrder || "";
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA); // newest date first
+        }
+        return (b.lastOrderTimestamp || "").localeCompare(a.lastOrderTimestamp || "");
+      });
+    } catch {
+      return callings;
+    }
+  }, [callings]);
+
+  const filteredCallings = useMemo(() => {
+    return mergedCallings.filter((c) => {
+      if (!pageSearch) return true;
+      const q = pageSearch.toLowerCase();
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.shop.toLowerCase().includes(q) ||
+        c.mobile.includes(q) ||
+        c.village.toLowerCase().includes(q)
+      );
+    });
+  }, [mergedCallings, pageSearch]);
 
   return (
     <div className="space-y-3 font-sans antialiased text-[#0f172a]">
@@ -1265,83 +1321,85 @@ export function CallingsRunSheetView() {
         </div>
       </div>
 
-      {/* Callings Table matching Reference App Screenshot 9 */}
+      {/* Callings Table matching Reference App Screenshot 9 with internal 8-row viewport scroll */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
-              <th className="py-2.5 px-3 text-left w-10">Sl</th>
-              <th className="py-2.5 px-3 text-left">Customer Name</th>
-              <th className="py-2.5 px-3 text-left">Village</th>
-              <th className="py-2.5 px-3 text-left">Village Key</th>
-              <th className="py-2.5 px-3 text-left">Mobile No</th>
-              <th className="py-2.5 px-3 text-left">Last order</th>
-              <th className="py-2.5 px-3 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 font-semibold">
-            {filteredCallings.map((c) => (
-              <tr key={c.sl} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-3 px-3 text-slate-500 font-bold">{c.sl}</td>
-                <td className="py-3 px-3">
-                  <div className="font-bold text-slate-900">{c.name}</div>
-                  <div className="text-[11px] text-slate-400 font-medium">{c.shop}</div>
-                </td>
-                <td className="py-3 px-3 text-slate-700 font-medium">{c.village}</td>
-                <td className="py-3 px-3 text-slate-500 font-medium">{c.villageKey}</td>
-                <td className="py-3 px-3 font-mono text-slate-800">{c.mobile}</td>
-                <td className="py-3 px-3 text-slate-600">{c.lastOrder}</td>
-                <td className="py-3 px-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {/* Call Now button */}
-                    <a
-                      href={`tel:+91${c.mobile}`}
-                      className="inline-flex items-center gap-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-2xs"
-                    >
-                      <Phone className="w-3 h-3" />
-                      <span>Call Now</span>
-                    </a>
-
-                    {/* Copy button */}
-                    <button
-                      onClick={() => handleCopy(c.mobile)}
-                      className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                    >
-                      {copiedMobile === c.mobile ? (
-                        <span className="text-emerald-600 flex items-center gap-0.5">
-                          <Check className="w-3 h-3" /> Copied
-                        </span>
-                      ) : (
-                        "Copy"
-                      )}
-                    </button>
-
-                    {/* Place Order button */}
-                    <button
-                      onClick={() => navigate(`/pos?customer=${c.sl}`)}
-                      className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                    >
-                      Place Order
-                    </button>
-
-                    {/* Customer Remark Dropdown */}
-                    <select
-                      value={c.remark || ""}
-                      onChange={(e) => handleRemarkChange(c.sl, e.target.value)}
-                      className="text-[11px] font-medium bg-[#f8fafc] border border-slate-200 rounded-md px-2 py-1 text-slate-700 focus:outline-none max-w-[170px]"
-                    >
-                      {REMARKS_LIST.map((r, i) => (
-                        <option key={i} value={i === 0 ? "" : r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </td>
+        <div className="max-h-[520px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 shadow-xs">
+              <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                <th className="py-2.5 px-3 text-left w-10">Sl</th>
+                <th className="py-2.5 px-3 text-left">Customer Name</th>
+                <th className="py-2.5 px-3 text-left">Village</th>
+                <th className="py-2.5 px-3 text-left">Village Key</th>
+                <th className="py-2.5 px-3 text-left">Mobile No</th>
+                <th className="py-2.5 px-3 text-left">Last order</th>
+                <th className="py-2.5 px-3 text-left">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold">
+              {filteredCallings.map((c) => (
+                <tr key={c.sl} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-3 text-slate-500 font-bold">{c.sl}</td>
+                  <td className="py-3 px-3">
+                    <div className="font-bold text-slate-900">{c.name}</div>
+                    <div className="text-[11px] text-slate-400 font-medium">{c.shop}</div>
+                  </td>
+                  <td className="py-3 px-3 text-slate-700 font-medium">{c.village}</td>
+                  <td className="py-3 px-3 text-slate-500 font-medium">{c.villageKey}</td>
+                  <td className="py-3 px-3 font-mono text-slate-800">{c.mobile}</td>
+                  <td className="py-3 px-3 text-slate-600 font-medium">{c.lastOrder}</td>
+                  <td className="py-3 px-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Call Now button */}
+                      <a
+                        href={`tel:+91${c.mobile}`}
+                        className="inline-flex items-center gap-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-2xs"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>Call Now</span>
+                      </a>
+
+                      {/* Copy button */}
+                      <button
+                        onClick={() => handleCopy(c.mobile)}
+                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                      >
+                        {copiedMobile === c.mobile ? (
+                          <span className="text-emerald-600 flex items-center gap-0.5">
+                            <Check className="w-3 h-3" /> Copied
+                          </span>
+                        ) : (
+                          "Copy"
+                        )}
+                      </button>
+
+                      {/* Place Order button */}
+                      <button
+                        onClick={() => navigate(`/pos?customer=${c.sl}`)}
+                        className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
+                      >
+                        Place Order
+                      </button>
+
+                      {/* Customer Remark Dropdown */}
+                      <select
+                        value={c.remark || ""}
+                        onChange={(e) => handleRemarkChange(c.sl, e.target.value)}
+                        className="text-[11px] font-medium bg-[#f8fafc] border border-slate-200 rounded-md px-2 py-1 text-slate-700 focus:outline-none max-w-[170px]"
+                      >
+                        {REMARKS_LIST.map((r, i) => (
+                          <option key={i} value={i === 0 ? "" : r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
