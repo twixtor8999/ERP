@@ -37,18 +37,7 @@ export interface DuplicateReturnItem {
   dates: string[];
 }
 
-export const INITIAL_DUPLICATE_RETURNS: DuplicateReturnItem[] = [
-  {
-    id: "dup-1",
-    orderNo: "ORD-1630",
-    itemName: "1/2 LTR WATER ( 24 PCS )",
-    qty: 1,
-    rate: 1590,
-    amount: 1590,
-    timesSaved: 2,
-    dates: ["24-11-2026", "24-11-2026"],
-  },
-];
+export const INITIAL_DUPLICATE_RETURNS: DuplicateReturnItem[] = [];
 
 export const INITIAL_SETTLEMENTS: SettlementRow[] = [
   {
@@ -469,9 +458,13 @@ const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 export function WholesaleSettlementView() {
   const navigate = useNavigate();
 
-  // Date range matching Reference App Screenshot (24-11-2026)
-  const [fromDate, setFromDate] = useState("2026-11-24");
-  const [toDate, setToDate] = useState("2026-11-24");
+  // Date range defaulting dynamically to today's date
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
   const [pageSearch, setPageSearch] = useState("");
 
   // Duplicate returns state matching client v4.92 / v4.95
@@ -480,7 +473,7 @@ export function WholesaleSettlementView() {
       const raw = localStorage.getItem("ai_smart_bazar_dup_returns_v1");
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    return INITIAL_DUPLICATE_RETURNS;
+    return [];
   });
   const [showDupFixModal, setShowDupFixModal] = useState(false);
   const [isFixingDups, setIsFixingDups] = useState(false);
@@ -655,8 +648,72 @@ export function WholesaleSettlementView() {
     });
   };
 
+  // Build live settlements by combining saved settlements with real delivered orders from pipeline
+  const allSettlements = useMemo(() => {
+    const list: SettlementRow[] = [...settlements];
+    const existingVehDates = new Set(list.map((r) => `${r.date}_${r.vehicleNumber}`));
+
+    if (typeof window !== "undefined") {
+      try {
+        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+        if (storedPipeline) {
+          const pipelineOrders = JSON.parse(storedPipeline);
+          if (Array.isArray(pipelineOrders)) {
+            // Group completed/delivered orders by date & vehicle
+            const deliveredGroups: Record<string, any[]> = {};
+            for (const po of pipelineOrders) {
+              if (po.stage === "completed" || po.stage === "delivery" || (po.status && po.status.toLowerCase() === "delivered")) {
+                const dateIso = (() => {
+                  const str = (po.deliveredAt || po.orderDate || "").trim();
+                  const m1 = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+                  if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+                  const m2 = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                  if (m2) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
+                  return todayStr;
+                })();
+                const veh = po.vehicleNo || "KA28AA6256";
+                const key = `${dateIso}_${veh}`;
+                if (!deliveredGroups[key]) deliveredGroups[key] = [];
+                deliveredGroups[key].push(po);
+              }
+            }
+
+            // Create or merge live settlement rows for each delivered vehicle
+            Object.entries(deliveredGroups).forEach(([key, orders]) => {
+              if (!existingVehDates.has(key)) {
+                existingVehDates.add(key);
+                const [dIso, veh] = key.split("_");
+                const totalAmt = orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+                list.unshift({
+                  sl: list.length + 1,
+                  date: dIso,
+                  vehicleNumber: veh,
+                  driverName: veh === "KA28AA6256" ? "Arun Patil" : "Ramesh Biradar",
+                  noOfOrders: orders.length,
+                  invoiceAmt: totalAmt,
+                  fullReturn: 0,
+                  partialReturn: 0,
+                  oldReturn: 0,
+                  netAmt: totalAmt,
+                  qrPayment: 0,
+                  cashReceived: totalAmt,
+                  countedCash: null,
+                  diff: null,
+                  denominations: null,
+                  remarks: `Live delivery settlement (${orders.length} order(s))`,
+                  enteredBy: "Vijaykumar Shantagiri",
+                });
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    }
+    return list;
+  }, [settlements, todayStr]);
+
   // Filtered rows
-  const filteredRows = settlements.filter((r) => {
+  const filteredRows = allSettlements.filter((r) => {
     if (r.date && (r.date < fromDate || r.date > toDate)) return false;
     if (!pageSearch) return true;
     const q = pageSearch.toLowerCase();
