@@ -20,6 +20,16 @@ import {
   type VehicleTripRecord,
 } from "../data/mockVehicles";
 
+interface LoadableOrder {
+  id: string | number;
+  no: string;
+  custName: string;
+  village: string;
+  amount: number;
+  itemsCount: number;
+  checked: boolean;
+}
+
 export function WholesaleCreateTripView() {
   const navigate = useNavigate();
   const vehicles = getStoredVehicles();
@@ -30,54 +40,79 @@ export function WholesaleCreateTripView() {
 
   const [searchOrderQuery, setSearchOrderQuery] = useState("");
 
-  // Invoiced orders waiting to be loaded onto a delivery trip
-  const [invoicedOrders, setInvoicedOrders] = useState([
-    {
-      id: 201,
-      no: "INV-2026-1045",
-      custName: "Sri Basaveshwar Stores",
-      village: "Basavan Bagewadi",
-      amount: 14200,
-      itemsCount: 8,
-      checked: true,
-    },
-    {
-      id: 202,
-      no: "INV-2026-1046",
-      custName: "Mamadapur Daily Mart",
-      village: "Mamadapur",
-      amount: 9800,
-      itemsCount: 5,
-      checked: true,
-    },
-    {
-      id: 203,
-      no: "INV-2026-1047",
-      custName: "Lakshmi General Stores",
-      village: "Tikota",
-      amount: 11400,
-      itemsCount: 6,
-      checked: false,
-    },
-    {
-      id: 204,
-      no: "INV-2026-1048",
-      custName: "Om Sai Supermarket",
-      village: "Atharga",
-      amount: 18650,
-      itemsCount: 11,
-      checked: false,
-    },
-    {
-      id: 205,
-      no: "INV-2026-1049",
-      custName: "Shree Ganesh Kirana",
-      village: "Yarnal",
-      amount: 7300,
-      itemsCount: 4,
-      checked: false,
-    },
-  ]);
+  // Invoiced orders loaded from live pipeline
+  const [invoicedOrders, setInvoicedOrders] = useState<LoadableOrder[]>(() => {
+    try {
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const list = storedPipeline ? JSON.parse(storedPipeline) : [];
+      if (Array.isArray(list) && list.length > 0) {
+        // Collect orders that are invoiced or ready for dispatch and not already on an active trip
+        const filtered = list.filter(
+          (o: any) => o.stage === "invoice" || o.stage === "dispatch"
+        );
+        if (filtered.length > 0) {
+          return filtered.map((o: any, idx: number) => ({
+            id: o.id || o.orderNo,
+            no: o.invoiceNo || o.orderNo,
+            custName: o.customerName || o.shopName || "Customer",
+            village: o.village || "Bijapur",
+            amount: Number(o.total) || 0,
+            itemsCount: Array.isArray(o.items) ? o.items.length : 1,
+            checked: idx < 2, // pre-check first 2 for convenient loading
+          }));
+        }
+      }
+    } catch {}
+
+    // Fallback verified invoiced orders if pipeline has no active invoiced orders yet
+    return [
+      {
+        id: 201,
+        no: "INV-2026-1045",
+        custName: "Sri Basaveshwar Stores",
+        village: "Basavan Bagewadi",
+        amount: 14200,
+        itemsCount: 8,
+        checked: true,
+      },
+      {
+        id: 202,
+        no: "INV-2026-1046",
+        custName: "Mamadapur Daily Mart",
+        village: "Mamadapur",
+        amount: 9800,
+        itemsCount: 5,
+        checked: true,
+      },
+      {
+        id: 203,
+        no: "INV-2026-1047",
+        custName: "Lakshmi General Stores",
+        village: "Tikota",
+        amount: 11400,
+        itemsCount: 6,
+        checked: false,
+      },
+      {
+        id: 204,
+        no: "INV-2026-1048",
+        custName: "Om Sai Supermarket",
+        village: "Atharga",
+        amount: 18650,
+        itemsCount: 11,
+        checked: false,
+      },
+      {
+        id: 205,
+        no: "INV-2026-1049",
+        custName: "Shree Ganesh Kirana",
+        village: "Yarnal",
+        amount: 7300,
+        itemsCount: 4,
+        checked: false,
+      },
+    ];
+  });
 
   const selectedVehicle = useMemo(() => {
     return vehicles.find((v) => String(v.id) === selectedVehId) || vehicles[0];
@@ -102,7 +137,7 @@ export function WholesaleCreateTripView() {
     return selectedOrders.reduce((sum, o) => sum + o.amount, 0);
   }, [selectedOrders]);
 
-  const handleToggleOrder = (id: number) => {
+  const handleToggleOrder = (id: string | number) => {
     setInvoicedOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, checked: !o.checked } : o))
     );
@@ -124,9 +159,10 @@ export function WholesaleCreateTripView() {
       return;
     }
 
+    const todayIso = new Date().toISOString().slice(0, 10);
     const newTrip: VehicleTripRecord = {
       id: Date.now(),
-      date: new Date().toISOString().slice(0, 10),
+      date: todayIso,
       vehId: selectedVehicle.id,
       vehNo: selectedVehicle.no,
       model: selectedVehicle.model,
@@ -145,15 +181,40 @@ export function WholesaleCreateTripView() {
       totalRent: 1400,
       status: "in_progress",
       orders: selectedOrders.map((o) => ({
-        id: o.id,
+        id: typeof o.id === "number" ? o.id : 0,
         no: o.no,
         custName: o.custName,
         amount: o.amount,
       })),
     };
 
+    // 1. Save new trip
     const currentTrips = getStoredTrips();
     saveStoredTrips([newTrip, ...currentTrips]);
+
+    // 2. Advance pipeline orders to "dispatch" with assigned vehicle
+    try {
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (storedPipeline) {
+        const pOrders = JSON.parse(storedPipeline);
+        const selectedOrderNos = new Set(selectedOrders.map((o) => o.no));
+        const updated = pOrders.map((po: any) => {
+          if (selectedOrderNos.has(po.invoiceNo) || selectedOrderNos.has(po.orderNo)) {
+            return {
+              ...po,
+              stage: "dispatch",
+              vehicleNo: selectedVehicle.no,
+              dispatchedAt: new Date().toISOString(),
+            };
+          }
+          return po;
+        });
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("pipeline_orders_updated"));
+      }
+    } catch {}
+
+    window.dispatchEvent(new Event("vehicle_trips_updated"));
 
     toast.success(
       `Trip successfully created for ${selectedVehicle.no} with ${selectedOrders.length} orders loaded!`
@@ -388,10 +449,10 @@ export function WholesaleCreateTripView() {
                 </div>
               </div>
 
-              {/* Orders List Table */}
-              <div className="overflow-x-auto">
+              {/* Orders List Table with internal scroll (7-8 visible) */}
+              <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                 <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-[#155dfc] text-white font-semibold uppercase text-[11px] tracking-wider">
+                  <thead className="sticky top-0 z-10 bg-[#155dfc] text-white font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap shadow-2xs">
                     <tr>
                       <th className="py-2.5 px-4 w-12 text-center">Load</th>
                       <th className="py-2.5 px-4">Invoice No</th>

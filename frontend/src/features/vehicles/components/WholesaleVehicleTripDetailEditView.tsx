@@ -40,6 +40,48 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
       totalRent: totalRentCalc,
       status,
     };
+
+    // When trip is closed, auto-sync / create settlement record in WholesaleSettlementView
+    if (status === "closed") {
+      try {
+        const SETTLEMENT_KEY = "ai_smart_bazar_settlements_v5";
+        const raw = localStorage.getItem(SETTLEMENT_KEY);
+        const existingList = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(existingList)) {
+          const alreadyExists = existingList.some(
+            (s: any) => s.vehicleNumber === trip.vehNo && s.date === trip.date
+          );
+          if (!alreadyExists) {
+            const netAmount = Math.max(0, trip.invoiceAmt - trip.returns);
+            const newSettlement = {
+              sl: existingList.length + 1,
+              date: trip.date,
+              vehicleNumber: trip.vehNo,
+              driverName: (trip as any).driverName || (trip as any).dr || "Driver",
+              noOfOrders: trip.ordersCount,
+              invoiceAmt: trip.invoiceAmt,
+              fullReturn: 0,
+              partialReturn: trip.returns,
+              oldReturn: 0,
+              netAmt: netAmount,
+              qrPayment: 0,
+              bankPayment: 0,
+              cashReceived: netAmount,
+              countedCash: null,
+              diff: null,
+              denominations: null,
+              remarks: `Auto-generated from closed trip (${trip.startKm} to ${endKmNum} km)`,
+              enteredBy: "Vijaykumar Shantagiri",
+            };
+            localStorage.setItem(SETTLEMENT_KEY, JSON.stringify([newSettlement, ...existingList]));
+            window.dispatchEvent(new Event("settlements_updated"));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to auto-sync settlement for closed trip", err);
+      }
+    }
+
     onSave(updated);
   };
 
