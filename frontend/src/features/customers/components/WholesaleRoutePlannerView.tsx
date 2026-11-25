@@ -84,15 +84,19 @@ export function WholesaleRoutePlannerView() {
       name: newRouteName.trim(),
       beatDays: newRouteDays.length ? newRouteDays : ["Mon"],
       crmName: "Pushpa Patil",
-      villages: [{ name: `${newRouteName.trim()} Central`, key: "V1", customerCount: 0 }],
+      villages: [
+        { name: `${newRouteName.trim()} Main`, key: "V1", customerCount: 0 },
+        { name: `${newRouteName.trim()} Rural`, key: "V2", customerCount: 0 },
+      ],
       totalCustomers: 0,
     };
 
-    const updated = [...routes, created];
+    const updated = [created, ...routes];
     setRoutes(updated);
     saveStoredRoutes(updated);
     setIsNewRouteOpen(false);
     setNewRouteName("");
+    window.dispatchEvent(new Event("routes_updated"));
     toast.success(`Route "${created.name}" created!`);
   };
 
@@ -111,6 +115,21 @@ export function WholesaleRoutePlannerView() {
     });
     setRoutes(updated);
     saveStoredRoutes(updated);
+
+    // Also update telecaller in customers matching this route
+    try {
+      const updatedCustomers = customers.map((c) => {
+        if (c.route.toLowerCase() === assignRoute.toLowerCase()) {
+          return { ...c, telecaller: assignCrm, staffAssigned: assignCrm };
+        }
+        return c;
+      });
+      setCustomers(updatedCustomers);
+      saveStoredCustomers(updatedCustomers);
+      window.dispatchEvent(new Event("routes_updated"));
+      window.dispatchEvent(new Event("customers_updated"));
+    } catch {}
+
     setIsAssignCrmOpen(false);
     toast.success(`CRM ${assignCrm} assigned to ${assignRoute}`);
   };
@@ -230,10 +249,10 @@ export function WholesaleRoutePlannerView() {
       {/* Tab 1: Route Grouped Table */}
       {activeTab === "route" && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase">
+              <thead className="sticky top-0 z-10 shadow-2xs">
+                <tr className="bg-[#2563eb] text-white font-bold text-[11px] tracking-wide uppercase whitespace-nowrap">
                   <th className="py-2.5 px-3 border-r border-blue-400/40 text-center w-12">Sl No</th>
                   <th className="py-2.5 px-3 border-r border-blue-400/40 w-36">Beat Day</th>
                   <th className="py-2.5 px-4 border-r border-blue-400/40 min-w-[200px]">Route Name</th>
@@ -389,10 +408,10 @@ export function WholesaleRoutePlannerView() {
             <b>Nil</b> in Callings and Place Order.
           </p>
 
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[380px] overflow-y-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#2563eb] text-white font-bold text-[11px] uppercase tracking-wide">
+              <thead className="sticky top-0 z-10 shadow-2xs">
+                <tr className="bg-[#2563eb] text-white font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
                   <th className="py-2.5 px-4 w-28">Village Key</th>
                   <th className="py-2.5 px-4">Village Name</th>
                   <th className="py-2.5 px-4 text-center w-36">Customers</th>
@@ -547,8 +566,10 @@ export function WholesaleRoutePlannerView() {
                 onChange={(e) => setAssignCrm(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
               >
+                <option value="Dhruthi A S">Dhruthi A S (CRM)</option>
                 <option value="Pushpa Patil">Pushpa Patil (CRM)</option>
                 <option value="Vijaykumar Shantagiri">Vijaykumar Shantagiri (Super Admin)</option>
+                <option value="Ramesh Biradar">Ramesh Biradar (Delivery Staff)</option>
               </select>
             </div>
 
