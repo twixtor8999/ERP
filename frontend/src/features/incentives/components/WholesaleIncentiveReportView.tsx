@@ -7,21 +7,112 @@ import {
 import {
   TargetStatusRow,
   getStoredStatusRows,
+  getStoredSkuTargets,
 } from '../data/mockIncentives';
 import { toast } from 'sonner';
+import { getOrdersInDateRange } from '@/features/crm/data/mockCrmReports';
+import { getIstDateString } from '@/lib/utilities/istTime';
 
 interface Props {
   onBack?: () => void;
 }
 
 export const WholesaleIncentiveReportView: React.FC<Props> = ({ onBack }) => {
-  const [rows] = useState<TargetStatusRow[]>(() => getStoredStatusRows());
+  const [initialRows] = useState<TargetStatusRow[]>(() => getStoredStatusRows());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
 
   // Top Date range filters
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  const today = getIstDateString();
+  const [fromDate, setFromDate] = useState(() => today);
+  const [toDate, setToDate] = useState(() => today);
+
+  // Compute live incentive rows based on actual orders placed in the selected date range
+  const rows = useMemo((): TargetStatusRow[] => {
+    try {
+      const orders = getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
+      const skuTargets = getStoredSkuTargets().filter((s) => s.isActive && s.inc > 0);
+
+      // If user is reviewing an earlier period where there are no dynamic orders, use baseline status rows
+      if (orders.length === 0) {
+        return initialRows;
+      }
+
+      const generatedRows: TargetStatusRow[] = [];
+      let idCounter = 1;
+
+      // Group orders by staff
+      const staffOrdersMap = new Map<string, typeof orders>();
+      for (const ord of orders) {
+        const staff = ord.staffName?.trim() || "Pushpa Patil";
+        const list = staffOrdersMap.get(staff) || [];
+        list.push(ord);
+        staffOrdersMap.set(staff, list);
+      }
+
+      // 1. Process SKU incentives for each staff based on items sold
+      for (const [staff, sOrders] of staffOrdersMap.entries()) {
+        const staffSalesTotal = sOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+        // Check each SKU target
+        for (const st of skuTargets) {
+          let totalQtySold = 0;
+          for (const ord of sOrders) {
+            if (Array.isArray(ord.items)) {
+              for (const it of ord.items) {
+                const itName = (it.name || "").toLowerCase().trim();
+                const stName = st.skuName.toLowerCase().trim();
+                if (itName.includes(stName) || stName.includes(itName)) {
+                  totalQtySold += Number(it.qty) || 0;
+                }
+              }
+            }
+          }
+
+          const isEligible = totalQtySold >= (st.incMin || 1);
+          const earned = isEligible ? totalQtySold * st.inc : 0;
+          const potential = Math.max(st.incMin || 1, totalQtySold) * st.inc;
+
+          generatedRows.push({
+            id: idCounter++,
+            by: staff,
+            kind: 'sku',
+            schemeName: st.skuName,
+            f: st.incF || fromDate,
+            t: st.incT || toDate,
+            target: st.incMin || 1,
+            ach: totalQtySold,
+            gap: Math.max(0, (st.incMin || 1) - totalQtySold),
+            ok: isEligible && totalQtySold > 0,
+            earn: earned,
+            pot: potential,
+          });
+        }
+
+        // 2. Process Daily Sales Target (₹1.2L = ₹100 reward)
+        const salesTarget = 120000;
+        const reachedSalesTarget = staffSalesTotal >= salesTarget;
+        generatedRows.push({
+          id: idCounter++,
+          by: staff,
+          kind: 'sale',
+          schemeName: 'Sales Target Nov 2026',
+          f: fromDate,
+          t: toDate,
+          target: salesTarget,
+          ach: staffSalesTotal,
+          gap: Math.max(0, salesTarget - staffSalesTotal),
+          ok: reachedSalesTarget,
+          earn: reachedSalesTarget ? 100 : 0,
+          pot: 100,
+        });
+      }
+
+      return generatedRows.length > 0 ? generatedRows : initialRows;
+    } catch {
+      return initialRows;
+    }
+  }, [fromDate, toDate, initialRows]);
 
   // Unique employees
   const employeesList = useMemo(() => {
@@ -210,86 +301,90 @@ export const WholesaleIncentiveReportView: React.FC<Props> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* SECTION 1: Employee-wise total */}
+      {/* SECTION 1: Employee-wise total with 7-8 visible rows internal scroll */}
       <div className="space-y-2">
         <h2 className="text-sm font-bold text-navy-950">Employee-wise total</h2>
         {eligibleRows.length === 0 ? (
           <p className="text-xs text-gray-500 italic">No eligible incentive in these dates.</p>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b text-gray-700 font-bold">
-                <tr>
-                  <th className="py-2.5 px-4">Employee</th>
-                  <th className="py-2.5 px-3">SKU Incentive</th>
-                  <th className="py-2.5 px-3">Target Rewards</th>
-                  <th className="py-2.5 px-4 text-right">Total Incentive</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {employeesList.map((emp) => {
-                  const empRows = eligibleRows.filter((r) => r.by === emp);
-                  if (empRows.length === 0) return null;
-                  const empSku = empRows.filter((r) => r.kind === 'sku').reduce((s, r) => s + r.earn, 0);
-                  const empTg = empRows.filter((r) => r.kind !== 'sku').reduce((s, r) => s + r.earn, 0);
-                  const empTot = empSku + empTg;
-                  return (
-                    <tr key={emp} className="hover:bg-gray-50">
-                      <td className="py-2.5 px-4 font-bold text-navy-950">{emp}</td>
-                      <td className="py-2.5 px-3 font-mono">₹{empSku}</td>
-                      <td className="py-2.5 px-3 font-mono">₹{empTg}</td>
-                      <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-700">
-                        ₹{empTot}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="max-h-[360px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 border-b text-gray-700 font-bold sticky top-0 z-10 shadow-xs">
+                  <tr>
+                    <th className="py-2.5 px-4">Employee</th>
+                    <th className="py-2.5 px-3">SKU Incentive</th>
+                    <th className="py-2.5 px-3">Target Rewards</th>
+                    <th className="py-2.5 px-4 text-right">Total Incentive</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {employeesList.map((emp) => {
+                    const empRows = eligibleRows.filter((r) => r.by === emp);
+                    if (empRows.length === 0) return null;
+                    const empSku = empRows.filter((r) => r.kind === 'sku').reduce((s, r) => s + r.earn, 0);
+                    const empTg = empRows.filter((r) => r.kind !== 'sku').reduce((s, r) => s + r.earn, 0);
+                    const empTot = empSku + empTg;
+                    return (
+                      <tr key={emp} className="hover:bg-gray-50">
+                        <td className="py-2.5 px-4 font-bold text-navy-950">{emp}</td>
+                        <td className="py-2.5 px-3 font-mono">₹{empSku}</td>
+                        <td className="py-2.5 px-3 font-mono">₹{empTg}</td>
+                        <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-700">
+                          ₹{empTot}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
-      {/* SECTION 2: Day-wise */}
+      {/* SECTION 2: Day-wise with 7-8 visible rows internal scroll */}
       <div className="space-y-2">
         <h2 className="text-sm font-bold text-navy-950">Day-wise</h2>
         {eligibleRows.length === 0 ? (
           <p className="text-xs text-gray-500 italic">No eligible incentive in these dates.</p>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b text-gray-700 font-bold">
-                <tr>
-                  <th className="py-2.5 px-4">Date</th>
-                  <th className="py-2.5 px-3">Employee</th>
-                  <th className="py-2.5 px-4">Scheme</th>
-                  <th className="py-2.5 px-4 text-right">Earned</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {eligibleRows.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="py-2 px-4 font-mono text-gray-600">{r.t}</td>
-                    <td className="py-2 px-3 font-bold text-navy-950">{r.by}</td>
-                    <td className="py-2 px-4 text-gray-700">{r.schemeName}</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold text-emerald-700">
-                      ₹{r.earn}
-                    </td>
+            <div className="max-h-[360px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 border-b text-gray-700 font-bold sticky top-0 z-10 shadow-xs">
+                  <tr>
+                    <th className="py-2.5 px-4">Date</th>
+                    <th className="py-2.5 px-3">Employee</th>
+                    <th className="py-2.5 px-4">Scheme</th>
+                    <th className="py-2.5 px-4 text-right">Earned</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {eligibleRows.map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="py-2 px-4 font-mono text-gray-600">{r.t}</td>
+                      <td className="py-2 px-3 font-bold text-navy-950">{r.by}</td>
+                      <td className="py-2 px-4 text-gray-700">{r.schemeName}</td>
+                      <td className="py-2 px-4 text-right font-mono font-bold text-emerald-700">
+                        ₹{r.earn}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
-      {/* SECTION 3: Not eligible yet (running schemes) (matching Screenshot 8) */}
+      {/* SECTION 3: Not eligible yet with 7-8 visible rows internal scroll */}
       <div className="space-y-2">
         <h2 className="text-sm font-bold text-navy-950">Not eligible yet (running schemes)</h2>
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          <div className="max-h-[360px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
             <table className="w-full text-left text-xs">
-              <thead>
+              <thead className="sticky top-0 z-10 shadow-xs">
                 <tr className="bg-blue-600 text-white font-semibold tracking-wider">
                   <th className="py-2.5 px-4">Employee</th>
                   <th className="py-2.5 px-4">Scheme</th>

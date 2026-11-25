@@ -11,6 +11,7 @@ import {
   saveStoredSkuTargets,
 } from '../data/mockIncentives';
 import { toast } from 'sonner';
+import { getIstDateString } from '@/lib/utilities/istTime';
 
 interface Props {
   onBack?: () => void;
@@ -22,8 +23,9 @@ export const WholesaleSkuTargetView: React.FC<Props> = ({ onBack }) => {
   const [onlyScheme, setOnlyScheme] = useState(false);
 
   // Top Date range filters
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  const today = getIstDateString();
+  const [fromDate, setFromDate] = useState(() => today);
+  const [toDate, setToDate] = useState(() => today);
 
   // Single Edit Modal State
   const [editingSku, setEditingSku] = useState<SkuTargetItem | null>(null);
@@ -282,11 +284,11 @@ export const WholesaleSkuTargetView: React.FC<Props> = ({ onBack }) => {
         </label>
       </div>
 
-      {/* Table (matching Screenshot 1) */}
+      {/* Table (matching Screenshot 1) with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="max-h-[500px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
           <table className="w-full text-left text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 shadow-xs">
               <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
                 <th className="py-3 px-4">SKU</th>
                 <th className="py-3 px-3">Price</th>
@@ -361,7 +363,7 @@ export const WholesaleSkuTargetView: React.FC<Props> = ({ onBack }) => {
                         {/* Edit Button */}
                         <button
                           onClick={() => openEditModal(item)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-navy-900 text-white rounded hover:bg-navy-800 transition-colors shadow-sm"
+                          className="px-2.5 py-1 text-xs font-semibold bg-navy-900 text-white rounded hover:bg-navy-800 transition-colors shadow-sm cursor-pointer"
                         >
                           Edit
                         </button>
@@ -369,7 +371,7 @@ export const WholesaleSkuTargetView: React.FC<Props> = ({ onBack }) => {
                         {/* Delete Button */}
                         <button
                           onClick={() => handleDelete(item.id, item.skuName)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-red-600 text-white rounded hover:bg-red-700 transition-colors shadow-sm"
+                          className="px-2.5 py-1 text-xs font-semibold bg-red-600 text-white rounded hover:bg-red-700 transition-colors shadow-sm cursor-pointer"
                         >
                           Delete
                         </button>

@@ -17,6 +17,7 @@ import {
   getStoredAchievedTargets,
 } from '../data/mockIncentives';
 import { toast } from 'sonner';
+import { getIstDateString } from '@/lib/utilities/istTime';
 
 interface Props {
   type: 'sale' | 'cust' | 'newc' | 'vill' | 'ord';
@@ -25,7 +26,7 @@ interface Props {
   onBack?: () => void;
 }
 
-const CRM_STAFF = ['All CRM staff', 'Pushpa Patil', 'Dhruthi A S', 'Prashant Kalamadi'];
+const CRM_STAFF = ['All CRM staff', 'Pushpa Patil', 'Dhruthi A S', 'Mahalaxmi Hiremath'];
 
 export const WholesaleTargetSectionView: React.FC<Props> = ({
   type,
@@ -40,8 +41,9 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Top Date range filters
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  const today = getIstDateString();
+  const [fromDate, setFromDate] = useState(() => today);
+  const [toDate, setToDate] = useState(() => today);
 
   // Modal State for New / Edit Scheme
   const [showFormModal, setShowFormModal] = useState(false);
@@ -579,11 +581,11 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* SECTION 2: ✅ Achieved today (22-11-2026) */}
+      {/* SECTION 2: ✅ Achieved today */}
       <div className="space-y-3">
         <h2 className="text-base font-bold text-navy-950 flex items-center gap-2">
           <span>✅</span>
-          <span>Achieved today (22-11-2026)</span>
+          <span>Achieved today ({today})</span>
         </h2>
         <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500 shadow-sm">
           Nobody reached this target today yet.
