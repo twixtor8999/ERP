@@ -1,16 +1,5 @@
 import React from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import {
-  PackageCheck,
-  TrendingUp,
-  Users,
-  UserPlus,
-  MapPin,
-  ShoppingBag,
-  CheckCircle,
-  FileSpreadsheet,
-  Image as ImageIcon,
-} from 'lucide-react';
 import { WholesaleSkuTargetView } from '../components/WholesaleSkuTargetView';
 import { WholesaleTargetSectionView } from '../components/WholesaleTargetSectionView';
 import { WholesaleTargetStatusView } from '../components/WholesaleTargetStatusView';
@@ -28,24 +17,8 @@ type IncentiveTabKey =
   | 'report'
   | 'poster';
 
-const INCENTIVE_SUB_TABS: {
-  key: IncentiveTabKey;
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  { key: 'sku', label: '1) SKU Target', icon: PackageCheck },
-  { key: 'sales', label: '2) Sales Target', icon: TrendingUp },
-  { key: 'customer', label: '3) Customer Target', icon: Users },
-  { key: 'new-customer', label: '4) New Customer Target', icon: UserPlus },
-  { key: 'village', label: '5) Village Target', icon: MapPin },
-  { key: 'order', label: '6) Order Target', icon: ShoppingBag },
-  { key: 'status', label: '7) Target Status', icon: CheckCircle },
-  { key: 'report', label: '8) Incentive Report', icon: FileSpreadsheet },
-  { key: 'poster', label: '9) Scheme Poster', icon: ImageIcon },
-];
-
 export const IncentivesPage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const tabParam = searchParams.get('tab') || 'sku';
@@ -63,39 +36,11 @@ export const IncentivesPage: React.FC = () => {
     return 'sku';
   })();
 
-  const setTab = (key: IncentiveTabKey) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', key);
-    setSearchParams(params);
-  };
-
   return (
     <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 py-4">
-      {/* 9 Sub-Tabs Pill Navigation Bar */}
-      <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-1 overflow-x-auto">
-        {INCENTIVE_SUB_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTab(tab.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Render Active View */}
+      {/* Render Active View directly based on sidebar tab navigation */}
       {activeTab === 'sku' && (
-        <WholesaleSkuTargetView onBack={() => navigate('/')} />
+        <WholesaleSkuTargetView onBack={() => navigate('/dashboard')} />
       )}
 
       {activeTab === 'sales' && (
@@ -103,7 +48,7 @@ export const IncentivesPage: React.FC = () => {
           type="sale"
           title="Sales Target"
           targetUnitLabel="Amount (₹)"
-          onBack={() => setTab('sku')}
+          onBack={() => navigate('/dashboard')}
         />
       )}
 
@@ -112,7 +57,7 @@ export const IncentivesPage: React.FC = () => {
           type="cust"
           title="Customer Target"
           targetUnitLabel="No. of Distinct Customers"
-          onBack={() => setTab('sku')}
+          onBack={() => navigate('/dashboard')}
         />
       )}
 
@@ -121,7 +66,7 @@ export const IncentivesPage: React.FC = () => {
           type="newc"
           title="New Customer Target"
           targetUnitLabel="No. of New Customers"
-          onBack={() => setTab('sku')}
+          onBack={() => navigate('/dashboard')}
         />
       )}
 
@@ -130,7 +75,7 @@ export const IncentivesPage: React.FC = () => {
           type="vill"
           title="Village Target"
           targetUnitLabel="No. of Villages"
-          onBack={() => setTab('sku')}
+          onBack={() => navigate('/dashboard')}
         />
       )}
 
@@ -139,20 +84,20 @@ export const IncentivesPage: React.FC = () => {
           type="ord"
           title="Order Target"
           targetUnitLabel="No. of Orders"
-          onBack={() => setTab('sku')}
+          onBack={() => navigate('/dashboard')}
         />
       )}
 
       {activeTab === 'status' && (
-        <WholesaleTargetStatusView onBack={() => setTab('sku')} />
+        <WholesaleTargetStatusView onBack={() => navigate('/dashboard')} />
       )}
 
       {activeTab === 'report' && (
-        <WholesaleIncentiveReportView onBack={() => setTab('sku')} />
+        <WholesaleIncentiveReportView onBack={() => navigate('/dashboard')} />
       )}
 
       {activeTab === 'poster' && (
-        <WholesaleSchemePosterView onBack={() => setTab('sku')} />
+        <WholesaleSchemePosterView onBack={() => navigate('/dashboard')} />
       )}
     </div>
   );
