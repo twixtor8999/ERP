@@ -1,8 +1,40 @@
-/* Responsive layout helpers */
-@media (max-width: 768px) {
-  .responsive-table-container {
+/* Responsive layout helpers & Mobile Touch Ergonomics */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+button,
+a,
+select,
+input,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  .responsive-table-container,
+  .overflow-x-auto {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Prevent iOS/Android auto-zoom when tapping inputs & selects */
+  input:not([type="checkbox"]):not([type="radio"]):not(.compact-input),
+  select:not(.compact-select),
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Ensure standalone form controls & modal/card buttons have comfortable tap height */
+  form input:not([type="checkbox"]):not([type="radio"]),
+  form select,
+  form textarea,
+  .mobile-touch-btn {
+    min-height: 44px;
+  }
 }
+
 

@@ -479,7 +479,72 @@ export function SettlementsPage() {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile Card View for Vehicle Settlements */}
+              <div className="md:hidden divide-y divide-border">
+                {vehicleSettlements.map((r, i) => (
+                  <div
+                    key={r.id}
+                    onClick={() => setSelectedVehicleForDenomination(r.id)}
+                    className={`p-4 space-y-3 cursor-pointer active:bg-amber-50/60 transition ${
+                      selectedVehicleForDenomination === r.id ? "bg-amber-50/60 border-l-4 border-l-amber-500" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[11px] font-mono text-slate-500">#{i + 1}</span>
+                        <div className="text-base font-bold text-foreground">{r.vehicle_no}</div>
+                        <div className="text-xs text-slate-600">Driver: {r.driver_name} · {r.orders_count} orders</div>
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${
+                          r.status === "SETTLED"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : r.status === "RECONCILED"
+                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                            : "bg-amber-100 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border">
+                      <div>
+                        <span className="text-slate-500 block">Net Amt</span>
+                        <span className="font-mono font-bold text-blue-900">₹{r.net_amount.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">QR / UPI</span>
+                        <span className="font-mono font-bold text-emerald-700">₹{r.qr_collected.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Cash Recv</span>
+                        <span className="font-mono font-bold text-amber-800">₹{r.cash_collected.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 font-mono">
+                      <span>Inv: ₹{r.invoice_total.toLocaleString("en-IN")}</span>
+                      <span>Full Ret: {r.full_return_amount ? `₹${r.full_return_amount.toLocaleString("en-IN")}` : "—"}</span>
+                      <span>Part Ret: {r.part_return_amount ? `₹${r.part_return_amount.toLocaleString("en-IN")}` : "—"}</span>
+                      <span>Old: {r.old_orders_amount ? `₹${r.old_orders_amount.toLocaleString("en-IN")}` : "—"}</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="p-4 bg-slate-100 space-y-1.5 text-xs font-bold">
+                  <div className="flex justify-between text-slate-900">
+                    <span>Total ({vehicleSettlements.length} Vehicles · {totalVehicleOrders} Orders)</span>
+                    <span className="font-mono text-blue-900">Net: ₹{totalVehicleNet.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between font-mono">
+                    <span className="text-emerald-700">QR: ₹{totalVehicleQr.toLocaleString("en-IN")}</span>
+                    <span className="text-amber-800">Cash: ₹{totalVehicleCash.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-xs sm:text-sm">
                   <thead className="bg-slate-100/70 border-b text-xs text-slate-700 text-left">
                     <tr>

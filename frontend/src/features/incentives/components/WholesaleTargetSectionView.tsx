@@ -230,8 +230,30 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Detail Table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Detail Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {viewAchieved.orders.map((o, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono font-bold text-blue-700 text-sm">
+                  #{i + 1} · {o.inv}
+                </span>
+                <span className="font-mono font-bold text-navy-950 text-base">
+                  ₹{o.value.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="text-sm font-semibold text-gray-800">{o.cust}</div>
+              <div className="text-xs text-gray-500">Village: {o.village}</div>
+            </div>
+          ))}
+          <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center justify-between font-bold text-navy-950">
+            <span>Total Achieved ({viewAchieved.orders.length} orders)</span>
+            <span className="font-mono text-base">₹{viewAchieved.ach.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+
+        {/* Detail Table (Desktop) */}
+        <div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -273,7 +295,7 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setViewAchieved(null)}
-            className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm font-semibold hover:bg-navy-800 shadow-sm transition-colors"
+            className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-navy-900 text-white rounded-lg text-sm font-semibold hover:bg-navy-800 shadow-sm transition-colors"
           >
             ← Back to {title}
           </button>
@@ -393,86 +415,167 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
             No running {title}. Tap &quot;+ New {title}&quot;.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
-                    <th className="py-3 px-4">Target</th>
-                    <th className="py-3 px-3">Period</th>
-                    <th className="py-3 px-3">Applies to</th>
-                    <th className="py-3 px-3">Target</th>
-                    <th className="py-3 px-3">Reward</th>
-                    <th className="py-3 px-3 text-center">Reached</th>
-                    <th className="py-3 px-3 text-center">Status</th>
-                    <th className="py-3 px-4 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {typeTargets.map((sc) => (
-                    <tr key={sc.id} className="hover:bg-blue-50/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-navy-950">{sc.name}</td>
-                      <td className="py-3 px-3 text-xs text-gray-600 whitespace-nowrap">
+          <>
+            {/* Mobile Cards: Running & upcoming */}
+            <div className="md:hidden space-y-3">
+              {typeTargets.map((sc) => (
+                <div key={sc.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-navy-950 text-base">{sc.name}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
                         {sc.f} to {sc.t}{' '}
                         {sc.daily && (
                           <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded ml-1">
                             DAILY
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-3 text-gray-700">{sc.emp}</td>
-                      <td className="py-3 px-3 font-mono font-semibold text-gray-800">
-                        {type === 'sale' ? `₹${sc.target.toLocaleString('en-IN')}` : sc.target}
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-emerald-700 font-mono">
-                        {sc.rt === 'pct' ? `${sc.rv}%` : `₹${sc.rv}`}
-                      </td>
-                      <td className="py-3 px-3 text-center text-xs font-semibold text-gray-700">
+                      </div>
+                    </div>
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                        sc.st === 'active'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {sc.st === 'active' ? 'Running' : 'Stopped'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div>
+                      <span className="text-gray-500 block">Applies to</span>
+                      <span className="font-semibold text-gray-800">{sc.emp}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Reached</span>
+                      <span className="font-semibold text-gray-800">
                         {typeAchieved.length > 0 ? `${typeAchieved.length} day(s)` : '0 day(s)'}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            sc.st === 'active'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {sc.st === 'active' ? 'Running' : 'Stopped'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5 flex-nowrap">
-                          <select
-                            value={sc.st === 'active' ? 'Active' : 'Stopped'}
-                            onChange={(e) =>
-                              handleToggleActive(sc.id, e.target.value === 'Active')
-                            }
-                            className="text-xs font-semibold px-2 py-1 rounded border border-gray-200 bg-gray-50 text-gray-700"
-                          >
-                            <option value="Active">Active</option>
-                            <option value="Stopped">Stopped</option>
-                          </select>
-                          <button
-                            onClick={() => openEditModal(sc)}
-                            className="px-2.5 py-1 text-xs font-semibold bg-navy-900 text-white rounded hover:bg-navy-800 shadow-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteScheme(sc.id, sc.name)}
-                            className="px-2.5 py-1 text-xs font-semibold bg-red-600 text-white rounded hover:bg-red-700 shadow-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Target</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {type === 'sale' ? `₹${sc.target.toLocaleString('en-IN')}` : sc.target}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Reward</span>
+                      <span className="font-mono font-bold text-emerald-700">
+                        {sc.rt === 'pct' ? `${sc.rv}%` : `₹${sc.rv}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <select
+                      value={sc.st === 'active' ? 'Active' : 'Stopped'}
+                      onChange={(e) => handleToggleActive(sc.id, e.target.value === 'Active')}
+                      className="min-h-[44px] text-xs font-semibold px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Stopped">Stopped</option>
+                    </select>
+                    <button
+                      onClick={() => openEditModal(sc)}
+                      className="min-h-[44px] px-3 text-xs font-semibold bg-navy-900 text-white rounded-lg hover:bg-navy-800 shadow-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteScheme(sc.id, sc.name)}
+                      className="min-h-[44px] px-3 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+
+            {/* Desktop Table: Running & upcoming */}
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
+                      <th className="py-3 px-4">Target</th>
+                      <th className="py-3 px-3">Period</th>
+                      <th className="py-3 px-3">Applies to</th>
+                      <th className="py-3 px-3">Target</th>
+                      <th className="py-3 px-3">Reward</th>
+                      <th className="py-3 px-3 text-center">Reached</th>
+                      <th className="py-3 px-3 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {typeTargets.map((sc) => (
+                      <tr key={sc.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3 px-4 font-bold text-navy-950">{sc.name}</td>
+                        <td className="py-3 px-3 text-xs text-gray-600 whitespace-nowrap">
+                          {sc.f} to {sc.t}{' '}
+                          {sc.daily && (
+                            <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded ml-1">
+                              DAILY
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-gray-700">{sc.emp}</td>
+                        <td className="py-3 px-3 font-mono font-semibold text-gray-800">
+                          {type === 'sale' ? `₹${sc.target.toLocaleString('en-IN')}` : sc.target}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-emerald-700 font-mono">
+                          {sc.rt === 'pct' ? `${sc.rv}%` : `₹${sc.rv}`}
+                        </td>
+                        <td className="py-3 px-3 text-center text-xs font-semibold text-gray-700">
+                          {typeAchieved.length > 0 ? `${typeAchieved.length} day(s)` : '0 day(s)'}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              sc.st === 'active'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {sc.st === 'active' ? 'Running' : 'Stopped'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                            <select
+                              value={sc.st === 'active' ? 'Active' : 'Stopped'}
+                              onChange={(e) =>
+                                handleToggleActive(sc.id, e.target.value === 'Active')
+                              }
+                              className="text-xs font-semibold px-2 py-1 rounded border border-gray-200 bg-gray-50 text-gray-700"
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Stopped">Stopped</option>
+                            </select>
+                            <button
+                              onClick={() => openEditModal(sc)}
+                              className="px-2.5 py-1 text-xs font-semibold bg-navy-900 text-white rounded hover:bg-navy-800 shadow-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteScheme(sc.id, sc.name)}
+                              className="px-2.5 py-1 text-xs font-semibold bg-red-600 text-white rounded hover:bg-red-700 shadow-sm"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -499,52 +602,90 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
             Nobody has reached a target yet.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
-                    <th className="py-3 px-3 w-12 text-center">Sl</th>
-                    <th className="py-3 px-4">Target</th>
-                    <th className="py-3 px-3">Employee</th>
-                    <th className="py-3 px-3">Reached on</th>
-                    <th className="py-3 px-3">Achieved</th>
-                    <th className="py-3 px-3">Reward</th>
-                    <th className="py-3 px-4 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {typeAchieved.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
-                      <td className="py-3 px-3 text-center text-gray-500 font-medium">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-navy-950">{item.targetName}</td>
-                      <td className="py-3 px-3 text-gray-800 font-semibold">{item.by}</td>
-                      <td className="py-3 px-3 text-xs text-gray-600 whitespace-nowrap">
-                        {item.date}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-gray-900">
-                        {type === 'sale' ? `₹${item.ach.toLocaleString('en-IN')}` : item.ach}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-emerald-700">
-                        ₹{item.rw}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => setViewAchieved(item)}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-semibold bg-navy-900 text-white hover:bg-navy-800 shadow-sm"
-                        >
-                          <Eye className="w-3 h-3 text-amber-400" />
-                          <span>View</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <>
+            {/* Mobile Cards: Target achieved */}
+            <div className="md:hidden space-y-3">
+              {typeAchieved.map((item, idx) => (
+                <div key={item.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[11px] font-bold text-gray-400">#{idx + 1}</span>
+                      <div className="font-bold text-navy-950 text-base">{item.targetName}</div>
+                      <div className="text-xs text-gray-600 mt-0.5">
+                        {item.by} · Reached on {item.date}
+                      </div>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs shrink-0">
+                      +₹{item.rw}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                    <span className="text-gray-500">Achieved</span>
+                    <span className="font-mono font-bold text-gray-900 text-sm">
+                      {type === 'sale' ? `₹${item.ach.toLocaleString('en-IN')}` : item.ach}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setViewAchieved(item)}
+                    className="w-full min-h-[44px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-navy-900 text-white hover:bg-navy-800 shadow-sm"
+                  >
+                    <Eye className="w-4 h-4 text-amber-400" />
+                    <span>View Orders Breakdown</span>
+                  </button>
+                </div>
+              ))}
             </div>
-          </div>
+
+            {/* Desktop Table: Target achieved */}
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
+                      <th className="py-3 px-3 w-12 text-center">Sl</th>
+                      <th className="py-3 px-4">Target</th>
+                      <th className="py-3 px-3">Employee</th>
+                      <th className="py-3 px-3">Reached on</th>
+                      <th className="py-3 px-3">Achieved</th>
+                      <th className="py-3 px-3">Reward</th>
+                      <th className="py-3 px-4 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {typeAchieved.map((item, idx) => (
+                      <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3 px-3 text-center text-gray-500 font-medium">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-navy-950">{item.targetName}</td>
+                        <td className="py-3 px-3 text-gray-800 font-semibold">{item.by}</td>
+                        <td className="py-3 px-3 text-xs text-gray-600 whitespace-nowrap">
+                          {item.date}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-gray-900">
+                          {type === 'sale' ? `₹${item.ach.toLocaleString('en-IN')}` : item.ach}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-700">
+                          ₹{item.rw}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => setViewAchieved(item)}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-semibold bg-navy-900 text-white hover:bg-navy-800 shadow-sm"
+                          >
+                            <Eye className="w-3 h-3 text-amber-400" />
+                            <span>View</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

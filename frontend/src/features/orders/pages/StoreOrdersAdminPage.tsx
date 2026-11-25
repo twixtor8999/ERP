@@ -665,10 +665,81 @@ export const StoreOrdersAdminPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Orders Table */
+        /* Orders List: Mobile Cards + Desktop Table */
         <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-border">
+            {loading && orders.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                <span>Loading storefront orders...</span>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground px-4">
+                <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <span>No customer storefront orders match the current filter criteria.</span>
+              </div>
+            ) : (
+              orders.map((ord) => (
+                <div key={ord.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-mono font-bold text-base text-foreground">{ord.order_number}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(ord.created_at).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                    {getStatusBadge(ord.status)}
+                  </div>
+
+                  <div className="bg-muted/30 rounded-xl p-3 border space-y-1 text-xs">
+                    <div className="font-bold text-sm text-foreground">{ord.customer_name}</div>
+                    <div className="text-muted-foreground">
+                      {ord.customer_phone ? `+91 ${ord.customer_phone}` : ""}
+                      {ord.shipping_city ? ` • ${ord.shipping_city}` : ""}
+                    </div>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-border/60 mt-1.5">
+                      <span>
+                        <span className="font-semibold text-foreground">{ord.items.length} item(s)</span>
+                        {ord.package_count > 1 ? ` · ${ord.package_count} pkgs` : ""}
+                      </span>
+                      <span className="font-bold text-base text-foreground">
+                        ₹{Number(ord.total_amount).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span>
+                        Pay: <b>{ord.payment_method}</b>{" "}
+                        <span className={ord.payment_status === "PAID" ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+                          ({ord.payment_status})
+                        </span>
+                      </span>
+                      <span>
+                        Staff: <b>{ord.delivery_employee_name || "Unassigned"}</b>
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => openOrderDetail(ord.id)}
+                    className="w-full min-h-[44px] inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold rounded-xl transition"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Fulfill Order</span>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 border-b text-xs font-semibold uppercase text-muted-foreground tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Order #</th>

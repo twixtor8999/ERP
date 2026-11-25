@@ -203,8 +203,89 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
         />
       </div>
 
-      {/* Table Container */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      {/* Mobile Card List (<= md) */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+            No employees found matching &quot;{searchTerm}&quot;
+          </div>
+        ) : (
+          filtered.map((emp, index) => {
+            const docCount = getDocCount(emp.docs);
+            return (
+              <div key={emp.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 font-semibold">#{index + 1}</span>
+                      <span className="font-mono font-medium text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-800 border border-gray-200">
+                        {emp.code}
+                      </span>
+                    </div>
+                    <div className="text-base font-bold text-navy-950 mt-1">{emp.name}</div>
+                    <div className="text-xs text-gray-600">{emp.des || '—'}</div>
+                  </div>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                    {emp.role || '—'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  <div>
+                    <span className="text-gray-500 block">Phone</span>
+                    <a href={`tel:${emp.ph}`} className="font-mono font-semibold text-blue-700 hover:underline">
+                      {emp.ph}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Salary</span>
+                    <span className="font-semibold text-navy-900">₹{emp.sal.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Joined</span>
+                    <span className="text-gray-700">{emp.jd || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Bank</span>
+                    <span className="text-gray-700 truncate block">{emp.bank || '—'}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    onClick={() => setViewDocsEmp(emp)}
+                    className={`min-h-[44px] inline-flex items-center justify-center gap-1 px-2 rounded-lg text-xs font-semibold border transition-colors ${
+                      docCount === 4
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-red-50 text-red-700 border-red-300'
+                    }`}
+                  >
+                    <Paperclip className="w-3.5 h-3.5" />
+                    <span>{docCount}/4</span>
+                  </button>
+                  <button
+                    onClick={() => openEditModal(emp)}
+                    className="min-h-[44px] inline-flex items-center justify-center gap-1 px-2 rounded-lg text-xs font-semibold bg-navy-900 text-white hover:bg-navy-800 shadow-sm"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(emp.id, emp.name)}
+                    className="min-h-[44px] inline-flex items-center justify-center gap-1 px-2 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Table Container (Desktop) */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
