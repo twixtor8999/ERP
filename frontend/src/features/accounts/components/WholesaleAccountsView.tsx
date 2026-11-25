@@ -249,19 +249,30 @@ export function WholesaleAccountsView() {
   }, [manualEntries]);
 
   // Denomination verification status alert from Settlement
-  const hasPendingDenomination = useMemo(() => {
+  const pendingVehiclesInfo = useMemo(() => {
     try {
       const stored = localStorage.getItem(STORAGE_SETTLEMENTS);
-      if (!stored) return true; // Default alert active matching live client site
+      if (!stored) return { hasPending: false, vehicles: [] };
       const settlements = JSON.parse(stored);
-      if (Array.isArray(settlements) && settlements.length > 0) {
-        return settlements.some((s: any) => !s.denominationConfirmed);
+      if (Array.isArray(settlements)) {
+        const pending = settlements.filter(
+          (s: any) =>
+            (s.date === fromDate || s.date === formatDmy(fromDate)) &&
+            s.noOfOrders > 0 &&
+            s.countedCash == null
+        );
+        return {
+          hasPending: pending.length > 0,
+          vehicles: pending.map((p: any) => p.vehicleNumber || "Vehicle"),
+        };
       }
-      return true;
+      return { hasPending: false, vehicles: [] };
     } catch {
-      return true;
+      return { hasPending: false, vehicles: [] };
     }
-  }, []);
+  }, [fromDate]);
+
+  const hasPendingDenomination = pendingVehiclesInfo.hasPending;
 
   // Format YYYY-MM-DD -> DD-MM-YYYY
   const formatDmy = (isoDate: string) => {
@@ -286,7 +297,7 @@ export function WholesaleAccountsView() {
     bankTotalIn,
     bankTotalOut,
   } = useMemo(() => {
-    // 1. Pull orders from pipeline
+    // 1. Pull orders from pipeline & settlements
     let pipelineReceipts: Omit<CashBankEntry, "balance">[] = [];
     try {
       const storedOrders = localStorage.getItem("crm_wholesale_pipeline_orders");
@@ -294,15 +305,22 @@ export function WholesaleAccountsView() {
         const parsed = JSON.parse(storedOrders);
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsed.forEach((ord: any) => {
+            const rawDate = (ord.deliveredAt || ord.orderDate || "").trim();
+            const ordIso = rawDate.includes("-") && rawDate.split("-")[0].length === 4
+              ? rawDate
+              : rawDate.includes("-") && rawDate.split("-")[2]?.length === 4
+              ? `${rawDate.split("-")[2]}-${rawDate.split("-")[1]}-${rawDate.split("-")[0]}`
+              : fromDate;
+
             if (
-              (ord.status === "completed" || ord.status === "delivered") &&
-              ord.orderDate === fromDate
+              (ord.status === "completed" || ord.status === "delivered" || ord.stage === "completed" || ord.stage === "delivery") &&
+              (ordIso === fromDate || rawDate === formatDmy(fromDate))
             ) {
-              const cashPaid = Number(ord.cashPaid || 0);
-              const qrPaid = Number(ord.qrPaid || ord.bankPaid || 0);
+              const cashPaid = Number(ord.cashPaid || (ord.paymentMode === "Cash" ? ord.total : 0));
+              const qrPaid = Number(ord.qrPaid || ord.bankPaid || (ord.paymentMode === "QR" || ord.paymentMode === "UPI" ? ord.total : 0));
               if (cashPaid > 0) {
                 pipelineReceipts.push({
-                  date: formatDmy(ord.orderDate || fromDate),
+                  date: formatDmy(ordIso),
                   voucher: "Receipt",
                   party: `${ord.customerName || "Customer"} · ${ord.orderNo || "ORD"}`,
                   moneyIn: cashPaid,
@@ -313,7 +331,7 @@ export function WholesaleAccountsView() {
               }
               if (qrPaid > 0) {
                 pipelineReceipts.push({
-                  date: formatDmy(ord.orderDate || fromDate),
+                  date: formatDmy(ordIso),
                   voucher: "QR Receipt",
                   party: `${ord.customerName || "Customer"} · ${ord.orderNo || "ORD"}`,
                   moneyIn: qrPaid,
@@ -328,6 +346,51 @@ export function WholesaleAccountsView() {
       }
     } catch (e) {
       console.warn("Error parsing pipeline orders in Accounts", e);
+    }
+
+    // 1.b Also pull settled vehicle trip collections from Vehicle Settlements
+    try {
+      const rawSettlements = localStorage.getItem(STORAGE_SETTLEMENTS);
+      if (rawSettlements) {
+        const settlements = JSON.parse(rawSettlements);
+        if (Array.isArray(settlements)) {
+          settlements.forEach((s: any) => {
+            const sDate = s.date;
+            const matchesDate = sDate === fromDate || sDate === formatDmy(fromDate);
+            if (matchesDate && s.countedCash != null && s.countedCash > 0) {
+              // Avoid duplicate if pipeline orders already matched exactly
+              const hasMatchingPipeline = pipelineReceipts.some((r) => r.type === "Cash");
+              if (!hasMatchingPipeline) {
+                pipelineReceipts.push({
+                  date: formatDmy(fromDate),
+                  voucher: "Receipt",
+                  party: `Vehicle Trip Collection · ${s.vehicleNumber} (${s.driverName || "Driver"})`,
+                  moneyIn: Number(s.countedCash),
+                  moneyOut: 0,
+                  type: "Cash",
+                  narration: `Trip settlement: ${s.noOfOrders || 0} order(s) cash remittance`,
+                });
+              }
+            }
+            if (matchesDate && s.qrPayment != null && s.qrPayment > 0) {
+              const hasMatchingQr = pipelineReceipts.some((r) => r.type === "Bank");
+              if (!hasMatchingQr) {
+                pipelineReceipts.push({
+                  date: formatDmy(fromDate),
+                  voucher: "QR Receipt",
+                  party: `Vehicle Trip QR · ${s.vehicleNumber} (${s.driverName || "Driver"})`,
+                  moneyIn: Number(s.qrPayment),
+                  moneyOut: 0,
+                  type: "Bank",
+                  narration: `Trip settlement: UPI / QR payment collection`,
+                });
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Error parsing settlements in Accounts", e);
     }
 
     // If no fresh pipeline orders found for the date, use the live production receipts
@@ -837,11 +900,11 @@ export function WholesaleAccountsView() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
             <span>
-              Denomination pending: {formatDmy(fromDate)} KA28AB3425 — 1 vehicle(s) without denomination. Entry is compulsory for physical cash reconciliation in Settlement.
+              Denomination pending: {formatDmy(fromDate)} {pendingVehiclesInfo.vehicles.join(", ")} — {pendingVehiclesInfo.vehicles.length} vehicle(s) without denomination. Entry is compulsory for physical cash reconciliation in Settlement.
             </span>
           </div>
           <button
-            onClick={() => navigate("/admin/settlements")}
+            onClick={() => navigate("/settlements")}
             className="text-xs font-extrabold text-[#9b1c1c] hover:text-rose-900 underline cursor-pointer"
           >
             Review Settlement &rarr;
@@ -859,99 +922,101 @@ export function WholesaleAccountsView() {
             <h2 className="text-sm font-extrabold text-[#1e293b] flex items-center gap-1.5">
               <span>💵 Cash Book</span>
             </h2>
-            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
-                    <th className="py-2.5 px-3 text-left w-12">Sl</th>
-                    <th className="py-2.5 px-3 text-left w-28">Date</th>
-                    <th className="py-2.5 px-3 text-left">Voucher</th>
-                    <th className="py-2.5 px-3 text-left">Party</th>
-                    <th className="py-2.5 px-3 text-right">Money In ₹</th>
-                    <th className="py-2.5 px-3 text-right">Money Out ₹</th>
-                    <th className="py-2.5 px-3 text-right">Balance ₹</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold">
-                  {/* 3. DISTINCT TOP ROW: OPENING BALANCE */}
-                  <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
-                    <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
-                    <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
-                      {formatDmy(fromDate)}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        style={{ color: NXVTC["Opening Balance"] }}
-                        className="font-extrabold tracking-wide"
-                      >
-                        Opening Balance
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-[13px]">
-                      ₹{cashOpening.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-
-                  {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
-                  {filteredCashRows.map((row) => (
-                    <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
-                      <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
-                      <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="sticky top-0 z-10 shadow-2xs">
+                    <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+                      <th className="py-2.5 px-3 text-left w-12">Sl</th>
+                      <th className="py-2.5 px-3 text-left w-28">Date</th>
+                      <th className="py-2.5 px-3 text-left">Voucher</th>
+                      <th className="py-2.5 px-3 text-left">Party</th>
+                      <th className="py-2.5 px-3 text-right">Money In ₹</th>
+                      <th className="py-2.5 px-3 text-right">Money Out ₹</th>
+                      <th className="py-2.5 px-3 text-right">Balance ₹</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold">
+                    {/* 3. DISTINCT TOP ROW: OPENING BALANCE */}
+                    <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
+                      <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
+                        {formatDmy(fromDate)}
+                      </td>
                       <td className="py-2.5 px-3">
                         <span
-                          style={{ color: NXVTC[row.voucher] || "#1e293b" }}
-                          className="font-bold"
+                          style={{ color: NXVTC["Opening Balance"] }}
+                          className="font-extrabold tracking-wide"
                         >
-                          {row.voucher}
+                          Opening Balance
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-slate-700">
-                        <div>{row.party}</div>
-                        {row.narration && (
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            {row.narration}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
-                        {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
-                        {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-mono font-black ${
-                          row.balance < 0 ? "text-rose-600" : "text-slate-900"
-                        }`}
-                      >
-                        ₹{row.balance.toLocaleString("en-IN")}
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-[13px]">
+                        ₹{cashOpening.toLocaleString("en-IN")}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
 
-                {/* 3. DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
-                <tfoot>
-                  <tr className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                      ₹{cashTotalIn.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
-                      ₹{cashTotalOut.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-sm">
-                      ₹{cashClosing.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                    {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
+                    {filteredCashRows.map((row) => (
+                      <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
+                        <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
+                        <td className="py-2.5 px-3">
+                          <span
+                            style={{ color: NXVTC[row.voucher] || "#1e293b" }}
+                            className="font-bold"
+                          >
+                            {row.voucher}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700">
+                          <div>{row.party}</div>
+                          {row.narration && (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              {row.narration}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
+                          {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
+                          {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td
+                          className={`py-2.5 px-3 text-right font-mono font-black ${
+                            row.balance < 0 ? "text-rose-600" : "text-slate-900"
+                          }`}
+                        >
+                          ₹{row.balance.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                  {/* 3. DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
+                  <tfoot className="sticky bottom-0 z-10 shadow-xs">
+                    <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                        ₹{cashTotalIn.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
+                        ₹{cashTotalOut.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-sm">
+                        ₹{cashClosing.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -960,99 +1025,101 @@ export function WholesaleAccountsView() {
             <h2 className="text-sm font-extrabold text-[#1e293b] flex items-center gap-1.5">
               <span>🏦 Bank Book (QR / UPI / Bank)</span>
             </h2>
-            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
-                    <th className="py-2.5 px-3 text-left w-12">Sl</th>
-                    <th className="py-2.5 px-3 text-left w-28">Date</th>
-                    <th className="py-2.5 px-3 text-left">Voucher</th>
-                    <th className="py-2.5 px-3 text-left">Party</th>
-                    <th className="py-2.5 px-3 text-right">Money In ₹</th>
-                    <th className="py-2.5 px-3 text-right">Money Out ₹</th>
-                    <th className="py-2.5 px-3 text-right">Balance ₹</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold">
-                  {/* DISTINCT TOP ROW: OPENING BALANCE */}
-                  <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
-                    <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
-                    <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
-                      {formatDmy(fromDate)}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        style={{ color: NXVTC["Opening Balance"] }}
-                        className="font-extrabold tracking-wide"
-                      >
-                        Opening Balance
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-[13px]">
-                      ₹{bankOpening.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-
-                  {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
-                  {filteredBankRows.map((row) => (
-                    <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
-                      <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
-                      <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="sticky top-0 z-10 shadow-2xs">
+                    <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+                      <th className="py-2.5 px-3 text-left w-12">Sl</th>
+                      <th className="py-2.5 px-3 text-left w-28">Date</th>
+                      <th className="py-2.5 px-3 text-left">Voucher</th>
+                      <th className="py-2.5 px-3 text-left">Party</th>
+                      <th className="py-2.5 px-3 text-right">Money In ₹</th>
+                      <th className="py-2.5 px-3 text-right">Money Out ₹</th>
+                      <th className="py-2.5 px-3 text-right">Balance ₹</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold">
+                    {/* DISTINCT TOP ROW: OPENING BALANCE */}
+                    <tr className="bg-purple-50/40 hover:bg-purple-50/70 transition-colors whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-slate-400 font-mono">—</td>
+                      <td className="py-2.5 px-3 text-slate-700 font-mono font-bold">
+                        {formatDmy(fromDate)}
+                      </td>
                       <td className="py-2.5 px-3">
                         <span
-                          style={{ color: NXVTC[row.voucher] || "#1e293b" }}
-                          className="font-bold"
+                          style={{ color: NXVTC["Opening Balance"] }}
+                          className="font-extrabold tracking-wide"
                         >
-                          {row.voucher}
+                          Opening Balance
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-slate-700">
-                        <div>{row.party}</div>
-                        {row.narration && (
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            {row.narration}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
-                        {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
-                        {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-mono font-black ${
-                          row.balance < 0 ? "text-rose-600" : "text-slate-900"
-                        }`}
-                      >
-                        ₹{row.balance.toLocaleString("en-IN")}
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-[13px]">
+                        ₹{bankOpening.toLocaleString("en-IN")}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
 
-                {/* DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
-                <tfoot>
-                  <tr className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
-                    <td className="py-2.5 px-3 text-slate-400">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                      ₹{bankTotalIn.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
-                      ₹{bankTotalOut.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-sm">
-                      ₹{bankClosing.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                    {/* TRANSACTION ROWS (WITH NXVTC COLOR CODING) */}
+                    {filteredBankRows.map((row) => (
+                      <tr key={row.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-slate-500">{row.sl}</td>
+                        <td className="py-2.5 px-3 text-slate-700 font-mono">{row.date}</td>
+                        <td className="py-2.5 px-3">
+                          <span
+                            style={{ color: NXVTC[row.voucher] || "#1e293b" }}
+                            className="font-bold"
+                          >
+                            {row.voucher}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700">
+                          <div>{row.party}</div>
+                          {row.narration && (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              {row.narration}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-bold">
+                          {row.moneyIn > 0 ? `₹${row.moneyIn.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">
+                          {row.moneyOut > 0 ? `₹${row.moneyOut.toLocaleString("en-IN")}` : "—"}
+                        </td>
+                        <td
+                          className={`py-2.5 px-3 text-right font-mono font-black ${
+                            row.balance < 0 ? "text-rose-600" : "text-slate-900"
+                          }`}
+                        >
+                          ₹{row.balance.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                  {/* DISTINCT BOTTOM SUMMARY ROW: CLOSING BALANCE */}
+                  <tfoot className="sticky bottom-0 z-10 shadow-xs">
+                    <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-xs whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 font-extrabold text-slate-900">Closing Balance</td>
+                      <td className="py-2.5 px-3 text-slate-400">—</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                        ₹{bankTotalIn.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-600">
+                        ₹{bankTotalOut.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-rose-600 text-sm">
+                        ₹{bankClosing.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </div>
         </div>
