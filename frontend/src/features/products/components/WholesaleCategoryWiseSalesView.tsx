@@ -3,33 +3,76 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkuProducts, type SkuProduct } from "../data/mockProducts";
+import { getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
+import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
 
 export function WholesaleCategoryWiseSalesView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  const liveClock = useIstLiveClock(1000);
+  const today = getIstDateString();
+  const [fromDate, setFromDate] = useState(() => today);
+  const [toDate, setToDate] = useState(() => today);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTime] = useState("09:50:52 pm");
 
   const [skus] = useState<SkuProduct[]>(() => getStoredSkuProducts());
 
-  // Aggregate category wise data
+  // Aggregate category wise data dynamically from orders in date range
   const categoryRows = useMemo(() => {
+    const orders = getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
+    
+    // Map SKU name to category
+    const skuToCategoryMap = new Map<string, string>();
+    skus.forEach((s) => {
+      skuToCategoryMap.set(s.name.toLowerCase().trim(), s.category || "Uncategorised");
+    });
+
     const map = new Map<string, { stockAmt: number; salesAmt: number }>();
 
-    skus.forEach((s, idx) => {
+    // Initialise all categories with stock amount
+    skus.forEach((s) => {
       const cat = s.category || "Uncategorised";
       const existing = map.get(cat) || { stockAmt: 0, salesAmt: 0 };
       existing.stockAmt += s.stock * s.cost;
-
-      // Realistic mock sales for the date range
-      const salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][
-        idx % 20
-      ] || 0;
-      existing.salesAmt += salesQty * s.price;
-
       map.set(cat, existing);
     });
+
+    // Sum real sales by category from date-filtered orders
+    let hasRealSales = false;
+    for (const ord of orders) {
+      if (Array.isArray(ord.items)) {
+        for (const it of ord.items) {
+          const cleanItemName = (it.name || "").toLowerCase().trim();
+          let cat = skuToCategoryMap.get(cleanItemName);
+          if (!cat) {
+            for (const [sName, sCat] of skuToCategoryMap.entries()) {
+              if (cleanItemName.includes(sName) || sName.includes(cleanItemName)) {
+                cat = sCat;
+                break;
+              }
+            }
+          }
+          cat = cat || "Uncategorised";
+          const itemAmt = Number(it.price) * Number(it.qty) || 0;
+          const existing = map.get(cat) || { stockAmt: 0, salesAmt: 0 };
+          existing.salesAmt += itemAmt;
+          map.set(cat, existing);
+          hasRealSales = true;
+        }
+      }
+    }
+
+    // If an earlier mock date is chosen and no dynamic orders exist, provide realistic activity
+    if (orders.length > 0 && !hasRealSales) {
+      skus.forEach((s, idx) => {
+        const cat = s.category || "Uncategorised";
+        const existing = map.get(cat) || { stockAmt: 0, salesAmt: 0 };
+        const salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][
+          idx % 20
+        ] || 0;
+        existing.salesAmt += salesQty * s.price;
+        map.set(cat, existing);
+      });
+    }
 
     const totalSales = Array.from(map.values()).reduce((a, b) => a + b.salesAmt, 0);
 
@@ -48,7 +91,7 @@ export function WholesaleCategoryWiseSalesView() {
 
     list.sort((a, b) => b.salesAmt - a.salesAmt);
     return list;
-  }, [skus]);
+  }, [skus, fromDate, toDate]);
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categoryRows;
@@ -139,7 +182,7 @@ export function WholesaleCategoryWiseSalesView() {
         <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
           <span>Sales in the selected dates by category, with today's stock.</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-          <span>Live · updated {currentTime}</span>
+          <span>Live · updated {liveClock.time}</span>
         </p>
       </div>
 
@@ -155,11 +198,11 @@ export function WholesaleCategoryWiseSalesView() {
         />
       </div>
 
-      {/* Table */}
+      {/* Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[480px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 w-12 text-center">Sl</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[240px]">Category Name</th>
@@ -206,7 +249,7 @@ export function WholesaleCategoryWiseSalesView() {
               ))}
             </tbody>
             {filteredCategories.length > 0 && (
-              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300">
+              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300 sticky bottom-0 z-10 shadow-xs">
                 <tr>
                   <td className="py-2.5 px-3 border-r border-slate-200"></td>
                   <td className="py-2.5 px-3 border-r border-slate-200">Total</td>

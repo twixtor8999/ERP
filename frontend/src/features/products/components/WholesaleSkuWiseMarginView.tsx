@@ -3,23 +3,52 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkuProducts, type SkuProduct } from "../data/mockProducts";
+import { getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
+import { getIstDateString } from "@/lib/utilities/istTime";
 
 export function WholesaleSkuWiseMarginView() {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  const today = getIstDateString();
+  const [fromDate, setFromDate] = useState(() => today);
+  const [toDate, setToDate] = useState(() => today);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [skus] = useState<SkuProduct[]>(() => getStoredSkuProducts());
 
-  // Compute margin per SKU based on sales
+  // Compute margin per SKU dynamically based on actual orders in date range
   const skuMarginRows = useMemo(() => {
-    // Generate realistic simulated invoiced sales for the date range
+    const orders = getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
+    
+    // Aggregate item sales from orders
+    const itemSalesMap = new Map<string, number>();
+    for (const ord of orders) {
+      if (Array.isArray(ord.items)) {
+        for (const it of ord.items) {
+          const name = (it.name || "").toLowerCase().trim();
+          const current = itemSalesMap.get(name) || 0;
+          itemSalesMap.set(name, current + (Number(it.qty) || 0));
+        }
+      }
+    }
+
     return skus.map((s, idx) => {
-      // Mock sales qty proportional to closing stock and activity
-      const salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][
-        idx % 20
-      ] || 0;
+      const cleanName = s.name.toLowerCase().trim();
+      let salesQty = itemSalesMap.get(cleanName) || 0;
+
+      // If no direct exact match, check partial match or graceful fallback
+      if (salesQty === 0) {
+        for (const [key, qty] of itemSalesMap.entries()) {
+          if (cleanName.includes(key) || key.includes(cleanName)) {
+            salesQty = qty;
+            break;
+          }
+        }
+      }
+
+      // If user selected an earlier date (e.g. 2026-11-22) that had simulated initial orders
+      if (orders.length > 0 && itemSalesMap.size === 0) {
+        salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][idx % 20] || 0;
+      }
 
       const gstFactor = 1 + (s.gst || 0) / 100;
       const salesAmtExclGst = Math.round(((salesQty * s.price) / gstFactor) * 100) / 100;
@@ -35,7 +64,7 @@ export function WholesaleSkuWiseMarginView() {
         profitPc,
       };
     });
-  }, [skus]);
+  }, [skus, fromDate, toDate]);
 
   const filteredRows = useMemo(() => {
     if (!searchQuery.trim()) return skuMarginRows;
@@ -179,11 +208,11 @@ export function WholesaleSkuWiseMarginView() {
         />
       </div>
 
-      {/* Table */}
+      {/* Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[480px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 w-12 text-center">Sl</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[240px]">SKU Name</th>
@@ -240,7 +269,7 @@ export function WholesaleSkuWiseMarginView() {
               )}
             </tbody>
             {filteredRows.length > 0 && (
-              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300">
+              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300 sticky bottom-0 z-10 shadow-xs">
                 <tr>
                   <td className="py-2.5 px-3 border-r border-slate-200"></td>
                   <td className="py-2.5 px-3 border-r border-slate-200">Total</td>

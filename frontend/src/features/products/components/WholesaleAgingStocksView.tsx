@@ -116,11 +116,11 @@ export function WholesaleAgingStocksView() {
         />
       </div>
 
-      {/* Table */}
+      {/* Table with 7-8 visible rows internal scroll */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[480px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+            <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 min-w-[240px]">SKU</th>
                 <th className="py-2.5 px-3 border-r border-blue-700/50 text-right w-28">Stock</th>
@@ -178,7 +178,7 @@ export function WholesaleAgingStocksView() {
               )}
             </tbody>
             {filteredItems.length > 0 && (
-              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300">
+              <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300 sticky bottom-0 z-10 shadow-xs">
                 <tr>
                   <td className="py-2.5 px-3 border-r border-slate-200">Total</td>
                   <td className="py-2.5 px-3 border-r border-slate-200 text-right">{totals.stock}</td>
