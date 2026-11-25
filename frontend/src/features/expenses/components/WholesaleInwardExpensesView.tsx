@@ -7,6 +7,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   getStoredInwardExpenses,
   saveStoredInwardExpenses,
@@ -63,6 +64,8 @@ export function WholesaleInwardExpensesView() {
 
   const handleApprove = (id: number) => {
     const today = new Date().toISOString().slice(0, 10);
+    const currentUser = useAuthStore.getState().user;
+    const approverName = currentUser?.fullName ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Admin"})` : "Admin";
     let approvedRecord: InwardExpenseRecord | undefined;
 
     const updated: InwardExpenseRecord[] = inwardExpenses.map((e) => {
@@ -70,7 +73,7 @@ export function WholesaleInwardExpensesView() {
         approvedRecord = {
           ...e,
           ap: {
-            by: "Vijaykumar Shantagiri (Admin)",
+            by: approverName,
             date: today,
             at: new Date().toISOString(),
           },

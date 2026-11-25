@@ -25,8 +25,8 @@ export function MyProfilePage() {
   const { user, logout } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [fullName, setFullName] = useState(user?.fullName || 'Vijaykumar Shantagiri');
-  const [mobileNumber, setMobileNumber] = useState(user?.phone || '9739396236');
+  const [fullName, setFullName] = useState(user?.fullName || 'Business Owner');
+  const [mobileNumber, setMobileNumber] = useState(user?.phone || '');
 
   // Modals
   const [showEditModal, setShowEditModal] = useState(false);

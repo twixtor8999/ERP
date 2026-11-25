@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { VehicleDenominationRecord } from '../types/denomination';
 import { toast } from 'sonner';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 
 interface Props {
   record: VehicleDenominationRecord;
@@ -122,7 +123,10 @@ export const CashDenominationVoucherDetailView: React.FC<Props> = ({ record, onB
         <div className="bg-[#132038] text-white p-6 sm:p-7 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-2xs font-extrabold uppercase tracking-widest text-blue-300 flex items-center gap-1.5">
-              <Receipt className="w-3.5 h-3.5" /> SIDDESHWAR ENTERPRISES · WHOLESALE SETTLEMENT
+              <Receipt className="w-3.5 h-3.5" /> {(() => {
+                const cfg = getInvoiceTemplateConfig();
+                return cfg.companyName || 'SIDDESHWAR ENTERPRISES';
+              })()} · WHOLESALE SETTLEMENT
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               Cash Denomination Voucher

@@ -11,6 +11,7 @@ import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
+import { useAuthStore } from "@/stores/auth.store";
 import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
@@ -1099,7 +1100,7 @@ export function WholesaleOrdersPipelineView() {
             when: new Date().toISOString().replace("T", " ").substring(0, 16),
             from: "Packed",
             to: "Invoice",
-            by: "Vijaykumar Shantagiri",
+            by: useAuthStore.getState().user?.fullName || "Staff",
             where: "invoice",
           };
           return {
@@ -1905,7 +1906,7 @@ export function WholesaleOrdersPipelineView() {
                     when: "2026-11-23 17:42",
                     from: "Placed",
                     to: "Packed",
-                    by: "Vijaykumar Shantagiri",
+                    by: useAuthStore.getState().user?.fullName || "Staff",
                     where: "pack",
                   },
                 ];

@@ -45,7 +45,7 @@ export function generatePackingSlipHtml(
   const customerName = order.customerName || "";
   const village = order.village || "";
   const phone = order.phone || cfg.phone || "";
-  const route = order.route ? (order.route.toLowerCase().includes("route") ? order.route : `${order.route} Route`) : "—";
+  const route = order.route ? (order.route.toLowerCase().includes("route") ? order.route : `${order.route} Route`) : "";
   const orderDate = order.orderDate || new Date().toLocaleDateString("en-GB");
   const packedDate = orderDate;
   const title = `packing_${order.orderNo}`;

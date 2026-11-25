@@ -17,6 +17,7 @@ import {
   numberToIndianWords,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 
 interface Props {
   onBack?: () => void;
@@ -244,13 +245,22 @@ export const WholesaleSalarySlipView: React.FC<Props> = ({ onBack, initialEmploy
           <div className="bg-[#0d1b4c] text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="text-2xl font-black tracking-wide text-white">
-                SIDDESHWAR ENTERPRISES
+                {(() => {
+                  const cfg = getInvoiceTemplateConfig();
+                  return cfg.companyName || 'SIDDESHWAR ENTERPRISES';
+                })()}
               </div>
               <div className="text-xs text-blue-200 mt-0.5">
-                Wholesale Distributors · APMC Yard, Vijayapura - 586101
+                {(() => {
+                  const cfg = getInvoiceTemplateConfig();
+                  return cfg.address || 'Wholesale Distributors · APMC Yard, Vijayapura - 586101';
+                })()}
               </div>
               <div className="text-xs text-blue-200 font-mono">
-                GSTIN: 29ABCDE1234F1Z5
+                GSTIN: {(() => {
+                  const cfg = getInvoiceTemplateConfig();
+                  return cfg.gstin || '29ABCDE1234F1Z5';
+                })()}
               </div>
             </div>
 

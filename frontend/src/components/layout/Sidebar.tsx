@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
+import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
 import { cn } from "@/lib/utilities/cn";
 import { getIstTimeString } from "@/lib/utilities/istTime";
 
@@ -70,7 +71,11 @@ export function Sidebar() {
             {/* Organization Tag wrapped in rounded pill box container */}
             <div className="w-full bg-[#203254] hover:bg-[#253b63] border border-[#2c4470] rounded-xl px-3 py-2 text-center shadow-xs transition">
               <span className="text-[13px] font-black tracking-wide text-white uppercase truncate block">
-                {user?.organizationName ? (user.organizationName.length > 16 ? user.organizationName.slice(0, 15) + "..." : user.organizationName) : "SIDDESHWAR ENT..."}
+                {(() => {
+                  const cfg = getInvoiceTemplateConfig();
+                  const name = user?.organizationName || cfg.companyName || "SIDDESHWAR ENT...";
+                  return name.length > 16 ? name.slice(0, 15) + "..." : name;
+                })()}
               </span>
             </div>
 

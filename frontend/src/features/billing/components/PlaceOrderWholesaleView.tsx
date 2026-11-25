@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import { FireworksOverlay } from "@/features/crm/components/FireworksOverlay";
 import realCustomersData from "@/data/realCustomers.json";
 import realProductsData from "@/data/realProducts.json";
@@ -372,6 +373,10 @@ export function PlaceOrderWholesaleView() {
       };
     });
 
+    const currentUser = useAuthStore.getState().user;
+    const creatorName = currentUser?.fullName ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Staff"})` : "Admin";
+    const staffName = currentUser?.fullName || "Staff";
+
     const newOrderRecord: CustomerOrderRecord = {
       id: String(Date.now()),
       orderNo: orderNo,
@@ -379,7 +384,7 @@ export function PlaceOrderWholesaleView() {
       date: new Date().toISOString().split("T")[0] || "2026-11-24",
       at: new Date().toISOString(),
       status: "placed",
-      createdBy: "Vijaykumar Shantagiri (Admin)",
+      createdBy: creatorName,
       remarks: deliveryRemarks.trim(),
       items: newItems,
       total: cartTotal,
@@ -398,7 +403,7 @@ export function PlaceOrderWholesaleView() {
         shopName: (activeCustomerForOrder as any)?.shop || "Kirana Store",
         village: activeCustomerForOrder?.village || "Bijapur",
         route: (activeCustomerForOrder as any)?.route || "Bijapur Route",
-        createdBy: "Vijaykumar Shantagiri (Admin)",
+        createdBy: creatorName,
         source: "CRM",
         orderDate: new Date().toISOString().split("T")[0] || "24-11-2026",
         orderTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase(),
@@ -412,7 +417,7 @@ export function PlaceOrderWholesaleView() {
             when: new Date().toISOString().replace("T", " ").substring(0, 16),
             from: "Placed",
             to: "Packed",
-            by: "Vijaykumar Shantagiri",
+            by: staffName,
             where: "POS Place Order",
           },
         ],

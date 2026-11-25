@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Download, Printer, Search, CheckCircle } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth.store';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { toast } from 'sonner';
 
 interface Props {
@@ -18,6 +20,11 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
   const [returnMonth, setReturnMonth] = useState('2026-11');
   const [financialYear, setFinancialYear] = useState('FY 2025-26');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const user = useAuthStore((s) => s.user);
+  const cfg = getInvoiceTemplateConfig();
+  const companyName = user?.organizationName || cfg.companyName || 'My Wholesale Distribution';
+  const companyGstin = cfg.gstin || '29ABCDE1234F1Z5';
 
   const isNov = returnMonth === '2026-11';
   const periodLabel = returnType === '9' ? financialYear : (isNov ? 'November 2026' : 'October 2026');
@@ -199,11 +206,11 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white p-3 rounded-xl border border-slate-200 text-xs shadow-2xs">
         <div>
           <span className="text-slate-500 block">Business</span>
-          <b className="text-slate-900 font-bold text-sm">SIDDESHWAR ENTERPRISES</b>
+          <b className="text-slate-900 font-bold text-sm">{companyName}</b>
         </div>
         <div>
           <span className="text-slate-500 block">GSTIN</span>
-          <b className="text-slate-900 font-mono font-bold text-sm">29FMEPK5524A1Z8</b>
+          <b className="text-slate-900 font-mono font-bold text-sm">{companyGstin}</b>
         </div>
         <div>
           <span className="text-slate-500 block">Period</span>

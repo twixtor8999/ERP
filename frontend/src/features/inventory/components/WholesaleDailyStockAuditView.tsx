@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   getStoredSkus,
   getStoredAuditDraft,
@@ -15,6 +16,10 @@ import {
 
 export function WholesaleDailyStockAuditView() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const auditorName = user?.fullName || "Auditor / Staff";
+  const auditorRole = user?.role ? user.role.replace(/_/g, " ") : "Owner";
+
   const [skus] = useState<InventorySku[]>(() => getStoredSkus());
   const [searchQuery, setSearchQuery] = useState("");
   const [draftCounts, setDraftCounts] = useState<Record<number, number | string>>(() =>
@@ -95,8 +100,8 @@ export function WholesaleDailyStockAuditView() {
       id: "AUD-" + Date.now().toString(36).toUpperCase(),
       date: "22-11-2026",
       time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
-      auditor: "Vijaykumar Shantagiri",
-      role: "Owner",
+      auditor: auditorName,
+      role: auditorRole,
       status: "saved",
       lines,
       netSales: 28697,
@@ -124,7 +129,7 @@ export function WholesaleDailyStockAuditView() {
         </button>
 
         <span className="text-xs text-slate-500 font-medium">
-          Auditor: <b className="text-slate-800">Vijaykumar Shantagiri</b> (Owner)
+          Auditor: <b className="text-slate-800">{auditorName}</b> ({auditorRole})
         </span>
       </div>
 
@@ -142,7 +147,7 @@ export function WholesaleDailyStockAuditView() {
             <span className="text-sm font-bold text-slate-900">New audit · 22 Nov 2026</span>
             <span className="text-xs text-slate-400">|</span>
             <span className="text-xs text-slate-600">
-              Auditor: <b className="text-slate-800">Vijaykumar Shantagiri</b>
+              Auditor: <b className="text-slate-800">{auditorName}</b>
             </span>
           </div>
 

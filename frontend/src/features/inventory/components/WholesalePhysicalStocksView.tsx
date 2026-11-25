@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, CheckCircle, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   getSuperStockAudits,
   saveSuperStockAudits,
@@ -12,6 +13,10 @@ import {
 
 export function WholesalePhysicalStocksView() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const auditorName = user?.fullName || "Owner / Auditor";
+  const auditorRole = user?.role ? user.role.replace(/_/g, " ") : "Owner";
+
   const [superAudits, setSuperAudits] = useState<SavedAudit[]>(() => getSuperStockAudits());
   const [selectedAuditId, setSelectedAuditId] = useState<string>(
     superAudits[0]?.id || ""
@@ -42,8 +47,8 @@ export function WholesalePhysicalStocksView() {
       id: "SUP-" + Date.now().toString(36).toUpperCase(),
       date: "22-11-2026",
       time: "03:14 pm",
-      auditor: "Vijaykumar Shantagiri",
-      role: "Owner",
+      auditor: auditorName,
+      role: auditorRole,
       status: "approved",
       netSales: 28697,
       inventoryClosingValue: skus.reduce((a, b) => a + b.closing * b.cost, 0),
@@ -90,7 +95,7 @@ export function WholesalePhysicalStocksView() {
           </button>
         ) : (
           <span className="text-xs text-slate-500 font-medium">
-            Approved by: <b className="text-slate-800">Vijaykumar Shantagiri</b>
+            Approved by: <b className="text-slate-800">{auditorName}</b>
           </span>
         )}
       </div>

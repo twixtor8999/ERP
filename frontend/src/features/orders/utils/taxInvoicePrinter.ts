@@ -88,56 +88,28 @@ export function generateTaxInvoiceInnerHtml(
   const companyPhone = cfg.phone || "9880801735";
   const invoiceTitle = cfg.title || "TAX INVOICE";
 
-  const custName = order.customerName || order.customer?.name || "B M";
-  const custNameKn = order.customerNameKn || order.customer?.nameKn || (custName === "B M" ? "ಬಿ ಎಮ್" : "");
-  const custShop = order.customerShop || order.customer?.shop || (custName ? `${custName} kirana store` : "B M kirana store");
-  const custVillage = order.customerVillage || order.customer?.village || "Bijapur (Rural)";
-  const custVillageKn = order.customerVillageKn || order.customer?.villageKn || (custVillage.includes("Bijapur") ? "ಬಿಜಾಪುರ" : "");
-  const custPhone = order.customerPhone || order.customer?.phone || "8105690356";
-  const custLandmark = order.customerLandmark || order.customer?.landmark || "Madina Nagar";
-  const custTaluka = order.customerTaluka || order.customer?.taluka || "Vijayapura";
-  const custDistrict = order.customerDistrict || order.customer?.district || "Vijayapura";
-  const custRoute = order.customerRoute || order.customer?.route || order.route || "Bijapur";
+  const custName = order.customerName || order.customer?.name || "";
+  const custNameKn = order.customerNameKn || order.customer?.nameKn || "";
+  const custShop = order.customerShop || order.customer?.shop || (custName ? `${custName} Store` : "");
+  const custVillage = order.customerVillage || order.customer?.village || "";
+  const custVillageKn = order.customerVillageKn || order.customer?.villageKn || "";
+  const custPhone = order.customerPhone || order.customer?.phone || "";
+  const custLandmark = order.customerLandmark || order.customer?.landmark || "";
+  const custTaluka = order.customerTaluka || order.customer?.taluka || "";
+  const custDistrict = order.customerDistrict || order.customer?.district || "";
+  const custRoute = order.customerRoute || order.customer?.route || order.route || "";
   const custGst = order.customerGstin || order.customer?.gstin || "N/A";
 
-  const orderNo = order.orderNo || "ORD-1489";
-  const invoiceNo = order.invoiceNo || "INV-469";
-  const dateStr = order.orderDate || "20-11-2026";
-  const timeStr = order.orderTime || "10:00 AM";
-  const vehicleNo = order.vehicleNo || "KA28AB3425";
-  const orderTakenBy = order.createdBy || "Arun Patil";
-  const takenByPhone = order.creatorPhone || "9916801495";
+  const orderNo = order.orderNo || "";
+  const invoiceNo = order.invoiceNo || order.orderNo || "";
+  const dateStr = order.orderDate || new Date().toLocaleDateString("en-GB");
+  const timeStr = order.orderTime || "";
+  const vehicleNo = order.vehicleNo || "";
+  const orderTakenBy = order.createdBy || "";
+  const takenByPhone = order.creatorPhone || "";
 
   // Process items & compute GST
-  const lines = (order.items && order.items.length > 0 ? order.items : [
-    {
-      name: "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )",
-      nameKn: "BUMTUM ಬೇಬಿ ಡೈಪರ್ 10 ರೂ. (S1, 4-8 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
-      hsn: "96190030",
-      qty: 140,
-      price: 7.0,
-      gst: 5,
-      total: 980.0,
-    },
-    {
-      name: "BUMTUM BABY DIAPER 12RS ( M1 7-12 KG 1PANS PKT )",
-      nameKn: "BUMTUM ಬೇಬಿ ಡೈಪರ್ 12 ರೂ. (M1, 7-12 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
-      hsn: "96190030",
-      qty: 100,
-      price: 8.0,
-      gst: 5,
-      total: 800.0,
-    },
-    {
-      name: "BUMTUM BABY DIAPER 14 RS ( L1 9 -14KG 1 PANS PKT )",
-      nameKn: "BUMTUM ಬೇಬಿ ಡೈಪರ್ 14 ರೂ. (L1, 9-14 ಕೆಜಿ, 1 ಪ್ಯಾಂಟ್ ಪ್ಯಾಕೆಟ್)",
-      hsn: "96190030",
-      qty: 80,
-      price: 10.0,
-      gst: 5,
-      total: 800.0,
-    },
-  ]).map((item) => {
+  const lines = (order.items && order.items.length > 0 ? order.items : []).map((item) => {
     const qty = Number(item.qty) || 0;
     const price = Number(item.price) || 0;
     const amt = item.total != null ? Number(item.total) : qty * price;

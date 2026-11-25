@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
@@ -602,7 +603,7 @@ export function WholesaleSettlementView() {
       diff: cashDiscrepancy,
       denominations: { ...noteCounts },
       remarks: denomRemarks || activeDenomRow.remarks,
-      enteredBy: "Vijaykumar Shantagiri",
+      enteredBy: useAuthStore.getState().user?.fullName || "Settlement Officer",
     };
 
     const updated: SettlementRow[] = rowExists
@@ -709,7 +710,7 @@ export function WholesaleSettlementView() {
                   diff: null,
                   denominations: null,
                   remarks: `Live delivery settlement (${orders.length} order(s))`,
-                  enteredBy: "Vijaykumar Shantagiri",
+                  enteredBy: useAuthStore.getState().user?.fullName || "Settlement Officer",
                 });
               }
             });

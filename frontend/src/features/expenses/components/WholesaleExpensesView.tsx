@@ -11,6 +11,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   getStoredExpenses,
   saveStoredExpenses,
@@ -149,12 +150,14 @@ export function WholesaleExpensesView() {
   const grandClosing = totalOpening;
 
   const handleApprove = (id: number) => {
+    const currentUser = useAuthStore.getState().user;
+    const approverName = currentUser?.fullName ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Admin"})` : "Admin";
     const updated = expenses.map((e) => {
       if (e.id === id) {
         return {
           ...e,
           ap: {
-            by: "Vijaykumar Shantagiri (Admin)",
+            by: approverName,
             date: new Date().toISOString().split("T")[0] || "2026-11-24",
             at: new Date().toISOString(),
           },
@@ -175,6 +178,9 @@ export function WholesaleExpensesView() {
       return;
     }
 
+    const currentUser = useAuthStore.getState().user;
+    const approverName = currentUser?.fullName ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Admin"})` : "Admin";
+
     const newExpense: ExpenseRecord = {
       id: Date.now(),
       date: spentDate,
@@ -187,7 +193,7 @@ export function WholesaleExpensesView() {
       billNo: billNo.trim() || undefined,
       remarks: remarks.trim() || undefined,
       ap: {
-        by: "Vijaykumar Shantagiri (Admin)",
+        by: approverName,
         date: spentDate,
         at: new Date().toISOString(),
       },

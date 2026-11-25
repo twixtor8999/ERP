@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarNav } from "./SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
+import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
 import { useNavigate } from "react-router-dom";
 import { getIstTimeString } from "@/lib/utilities/istTime";
 
@@ -44,7 +45,12 @@ export function MobileNav() {
     }
   }, [isOpen]);
 
-  const userInitials = (user?.fullName || "Vijaykumar Shantagiri")
+  const cfg = getInvoiceTemplateConfig();
+  const orgName = user?.organizationName || cfg.companyName || "My Enterprise";
+  const orgFormatted = orgName.length > 16 ? orgName.slice(0, 15) + "..." : orgName;
+  const userName = user?.fullName || "Staff User";
+
+  const userInitials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -104,7 +110,7 @@ export function MobileNav() {
           {/* Organization Tag wrapped in rounded pill box container */}
           <div className="w-full bg-[#203254] border border-[#2c4470] rounded-xl px-3 py-1.5 text-center shadow-xs">
             <span className="text-xs font-black tracking-wide text-white uppercase truncate block">
-              {user?.organizationName ? (user.organizationName.length > 16 ? user.organizationName.slice(0, 15) + "..." : user.organizationName) : "SIDDESHWAR ENT..."}
+              {orgFormatted}
             </span>
           </div>
 
@@ -137,7 +143,7 @@ export function MobileNav() {
                 {userInitials}
               </div>
               <div className="overflow-hidden leading-tight min-w-0">
-                <p className="font-bold text-white text-xs truncate">{user?.fullName || "Vijaykumar Shantagiri"}</p>
+                <p className="font-bold text-white text-xs truncate">{userName}</p>
                 <p className="text-[10px] text-slate-400 capitalize truncate">{user?.role?.replace(/_/g, " ") || "Admin"}</p>
               </div>
             </div>

@@ -13,6 +13,7 @@ import {
   saveStoredSuperAuditHistory,
 } from '../data/mockSuperAudit';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Props {
   items: SuperAuditItem[];
@@ -103,10 +104,15 @@ export const SuperStockAuditLiveView: React.FC<Props> = ({
       const dateStr = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
       const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+      const currentUser = useAuthStore.getState().user;
+      const auditor = currentUser?.fullName
+        ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Owner"})`
+        : "Owner";
+
       const newReport: ApprovedSuperAuditReport = {
         id: `SUP-AUD-${Date.now().toString().slice(-8)}`,
         auditDate: dateStr,
-        auditorName: 'Vijaykumar Shantagiri (Owner)',
+        auditorName: auditor,
         totalSkusCounted: stats.counted,
         matchingSkus: stats.matched,
         shortageSkus: stats.shortages,

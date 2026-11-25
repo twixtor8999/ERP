@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { VehicleRecord } from '../data/mockVehicles';
 import { toast } from 'sonner';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 
 interface Props {
   vehicle: VehicleRecord;
@@ -139,7 +140,10 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
         <div className="bg-[#132038] text-white p-6 sm:p-7 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-2xs font-extrabold uppercase tracking-widest text-blue-300 flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5" /> SIDDESHWAR ENTERPRISES · FLEET MANAGEMENT
+              <Truck className="w-3.5 h-3.5" /> {(() => {
+                const cfg = getInvoiceTemplateConfig();
+                return cfg.companyName || 'SIDDESHWAR ENTERPRISES';
+              })()} · FLEET MANAGEMENT
             </div>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-mono">

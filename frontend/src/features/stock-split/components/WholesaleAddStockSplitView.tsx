@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Search, Scissors, CheckCircle2, Save } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
 import { PNL_SKUS } from '@/features/pnl/data/mockPnlData';
+import { useAuthStore } from '@/stores/auth.store';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { toast } from 'sonner';
 
 interface Props {
@@ -10,6 +12,10 @@ interface Props {
 }
 
 export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess }) => {
+  const user = useAuthStore((s) => s.user);
+  const dcName = user?.organizationName || getInvoiceTemplateConfig().companyName || 'Distribution Center';
+  const operatorName = user?.fullName || 'Authorized Staff';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentId, setSelectedParentId] = useState<string | number>('');
   const [selectedChildId, setSelectedChildId] = useState<string | number>('');
@@ -89,7 +95,7 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
     const newRecord: StockSplitRecord = {
       id: `SPLIT-${Date.now().toString().slice(-8)}`,
       date: new Date().toISOString().split('T')[0] || '',
-      dcName: 'SIDDESHWAR ENTERPRISES',
+      dcName: dcName,
       parentSkuId: parentSku.id,
       parentSkuNo: parentSku.skuNo,
       parentItemName: parentSku.name,
@@ -103,7 +109,7 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
       convertedQty,
       splitGrnPrice: Math.round(derivedUnitCost * 100) / 100,
       shrinkageQty: shrinkageQty || 0,
-      operatorName: 'Vijaykumar Shantagiri',
+      operatorName: operatorName,
       notes: notes.trim() || `Standard stock split ${parentSku.name} → ${childSku.name}`,
       createdAt: new Date().toISOString(),
     };
@@ -127,10 +133,10 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-md">
-            DC: SIDDESHWAR ENTERPRISES
+            DC: {dcName}
           </span>
           <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-            Operator: Vijaykumar Shantagiri
+            Operator: {operatorName}
           </span>
         </div>
       </div>

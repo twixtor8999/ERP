@@ -2,6 +2,8 @@ import React from "react";
 import { ArrowLeft, Printer, Download } from "lucide-react";
 import { OfferLetterRecord, numberToIndianWords } from "../data/mockEmployees";
 import { toast } from "sonner";
+import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
+import { useAuthStore } from "@/stores/auth.store";
 
 interface Props {
   letter: OfferLetterRecord;
@@ -80,16 +82,28 @@ export const WholesaleOfferLetterDetailView: React.FC<Props> = ({
         {/* Company Header Letterhead */}
         <div className="border-b-2 border-[#0d1b4c] pb-5 text-center font-sans">
           <h1 className="text-2xl sm:text-3xl font-black text-[#0d1b4c] tracking-wider uppercase">
-            SIDDESHWAR ENTERPRISES
+            {(() => {
+              const cfg = getInvoiceTemplateConfig();
+              return cfg.companyName || "SIDDESHWAR ENTERPRISES";
+            })()}
           </h1>
           <p className="text-xs text-slate-600 mt-1 font-semibold">
             Authorized FMCG Wholesale Distributors &amp; General Merchants
           </p>
           <p className="text-xs text-slate-500">
-            APMC Yard, Near Market Gate, Vijayapura, Karnataka - 586101
+            {(() => {
+              const cfg = getInvoiceTemplateConfig();
+              return cfg.address || "APMC Yard, Near Market Gate, Vijayapura, Karnataka - 586101";
+            })()}
           </p>
           <p className="text-xs text-slate-500 font-mono mt-0.5">
-            Phone: +91 9739396236 · GSTIN: 29ABCDE1234F1Z5
+            {(() => {
+              const cfg = getInvoiceTemplateConfig();
+              const user = useAuthStore.getState().user;
+              const phone = cfg.phone || user?.phone || "";
+              const gstin = cfg.gstin || "";
+              return [phone ? `Phone: +91 ${phone}` : null, gstin ? `GSTIN: ${gstin}` : null].filter(Boolean).join(" · ");
+            })()}
           </p>
         </div>
 
@@ -173,9 +187,15 @@ export const WholesaleOfferLetterDetailView: React.FC<Props> = ({
         {/* Dual Signature Block */}
         <div className="pt-10 flex justify-between items-end border-t border-slate-200 text-xs font-sans">
           <div className="space-y-8">
-            <div className="text-slate-500">For Siddeshwar Enterprises</div>
+            <div className="text-slate-500">
+              For {(() => {
+                const cfg = getInvoiceTemplateConfig();
+                const user = useAuthStore.getState().user;
+                return user?.organizationName || cfg.companyName || "Wholesale Distribution";
+              })()}
+            </div>
             <div className="border-t border-slate-400 pt-1 font-bold text-slate-900">
-              {letter.sign || "Vijaykumar Shantagiri"}
+              {letter.sign || useAuthStore.getState().user?.fullName || "Authorized Signatory"}
               <div className="text-[10px] text-slate-500 font-normal">Authorized Signatory</div>
             </div>
           </div>

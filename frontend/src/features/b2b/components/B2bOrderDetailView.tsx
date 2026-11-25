@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { B2bOrderRow } from './WholesaleB2bOrdersListView';
 import { toast } from 'sonner';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 
 interface Props {
   order: B2bOrderRow;
@@ -108,7 +109,10 @@ export const B2bOrderDetailView: React.FC<Props> = ({ order, onBack }) => {
         <div className="bg-[#132038] text-white p-6 sm:p-7 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-2xs font-extrabold uppercase tracking-widest text-blue-300 flex items-center gap-1.5">
-              <Receipt className="w-3.5 h-3.5" /> SIDDESHWAR ENTERPRISES · B2B WHOLESALE INVOICE
+              <Receipt className="w-3.5 h-3.5" /> {(() => {
+                const cfg = getInvoiceTemplateConfig();
+                return cfg.companyName || 'SIDDESHWAR ENTERPRISES';
+              })()} · B2B WHOLESALE INVOICE
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 font-mono">
               Order {order.orderNo}

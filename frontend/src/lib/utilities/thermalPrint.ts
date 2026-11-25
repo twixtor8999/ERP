@@ -3,6 +3,9 @@
  * Directly opens a dedicated print frame without capturing the app background or modal backdrops.
  */
 
+import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
+import { useAuthStore } from "@/stores/auth.store";
+
 export interface PrintSlipData {
   orderNo: string;
   invoiceNo?: string;
@@ -24,6 +27,12 @@ export interface PrintSlipData {
 }
 
 export function printThermalSlip(data: PrintSlipData) {
+  const cfg = getInvoiceTemplateConfig();
+  const user = useAuthStore.getState().user;
+  const companyName = user?.organizationName || cfg.companyName || "Wholesale Mart";
+  const addressLine = cfg.address || "Main Road, Wholesale Market";
+  const contactPhone = user?.phone || cfg.phone || "";
+
   const iframeId = "__thermal_print_frame__";
   let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
   if (!iframe) {
@@ -80,9 +89,9 @@ export function printThermalSlip(data: PrintSlipData) {
         </style>
       </head>
       <body>
-        <div class="center bold" style="font-size: 15px; letter-spacing: 0.5px;">SIDDESHWAR ENTERPRISES</div>
-        <div class="center" style="font-size: 10px;">WHOLESALE FMCG & PROVISION STORE</div>
-        <div class="center" style="font-size: 10px;">Main Road, Bijapur · Ph: 9739396236</div>
+        <div class="center bold" style="font-size: 15px; letter-spacing: 0.5px;">${companyName}</div>
+        <div class="center" style="font-size: 10px;">${cfg.title || "WHOLESALE FMCG & PROVISION STORE"}</div>
+        <div class="center" style="font-size: 10px;">${addressLine}${contactPhone ? ` · Ph: ${contactPhone}` : ""}${cfg.gstin ? ` · GSTIN: ${cfg.gstin}` : ""}</div>
         <div class="dash"></div>
         <div><b>ORDER:</b> ${data.orderNo} ${data.invoiceNo ? `· <b>INV:</b> ${data.invoiceNo}` : ""}</div>
         <div><b>DATE:</b> ${data.orderDate} ${data.orderTime || ""}</div>

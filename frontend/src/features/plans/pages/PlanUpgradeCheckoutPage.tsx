@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Copy, MessageCircle, ShieldCheck, Zap, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { PLANS, PlanDef } from './SubscriptionPlansPage';
 
 export function PlanUpgradeCheckoutPage() {
@@ -9,9 +11,24 @@ export function PlanUpgradeCheckoutPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const planParam = searchParams.get('plan') || 'PRO';
 
+  const { user } = useAuthStore();
+  const invoiceConfig = getInvoiceTemplateConfig();
+
+  // Dynamic user account ID based on active business identity and contact number
+  const businessName = (user?.organizationName || invoiceConfig.companyName || 'STORE')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 14);
+  const businessPhone = (user?.phone || invoiceConfig.phone || '9739396236')
+    .replace(/\D/g, '')
+    .slice(-10);
+  const accountId = `${businessName}-${businessPhone}`;
+
+  // Merchant payment details from platform config or environment
+  const upiId = (typeof window !== 'undefined' && localStorage.getItem('pk_platform_merchant_upi')) || '9739396236@ybl';
+  const supportPhone = (typeof window !== 'undefined' && localStorage.getItem('pk_platform_support_phone')) || '9739396236';
+
   const [activationCode, setActivationCode] = useState('');
-  const accountId = 'SIDDESHWAR-9739396236';
-  const upiId = '9739396236@ybl';
 
   // Find selected plan or fallback to PRO
   const currentPlan: PlanDef = useMemo(() => {
@@ -55,7 +72,7 @@ export function PlanUpgradeCheckoutPage() {
     }
   };
 
-  const whatsAppUrl = `https://wa.me/919739396236?text=${encodeURIComponent(
+  const whatsAppUrl = `https://wa.me/91${supportPhone}?text=${encodeURIComponent(
     `Hi, I want to upgrade to ${currentPlan.name} Plan (₹${currentPlan.price}) for Account ID: ${accountId}`
   )}`;
 
@@ -264,7 +281,7 @@ export function PlanUpgradeCheckoutPage() {
             <div className="text-2xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
               Scan or send <b className="text-slate-800">₹{currentPlan.price}</b> to{' '}
               <b className="font-mono text-slate-800">{upiId}</b>. After payment, share your payment
-              screenshot on WhatsApp (+91 9739396236) with your Account ID to receive your instant
+              screenshot on WhatsApp (+91 {supportPhone}) with your Account ID to receive your instant
               activation code.
             </div>
           </div>
@@ -280,7 +297,7 @@ export function PlanUpgradeCheckoutPage() {
                   Share Payment Screenshot on WhatsApp
                 </h3>
                 <p className="text-2xs text-slate-500">
-                  Dedicated customer support: +91 9739396236
+                  Dedicated customer support: +91 {supportPhone}
                 </p>
               </div>
             </div>

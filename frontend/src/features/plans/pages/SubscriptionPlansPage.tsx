@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { ArrowLeft, Search, Check, Copy } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { PlanUpgradeCheckoutPage } from './PlanUpgradeCheckoutPage';
 
 export interface PlanDef {
@@ -137,7 +139,16 @@ export function SubscriptionPlansPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activationCode, setActivationCode] = useState('');
 
-  const accountId = 'SIDDESHWAR-9739396236';
+  const { user } = useAuthStore();
+  const invoiceConfig = getInvoiceTemplateConfig();
+  const orgName = (user?.organizationName || invoiceConfig.companyName || 'STORE')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 14);
+  const orgPhone = (user?.phone || invoiceConfig.phone || '9739396236')
+    .replace(/\D/g, '')
+    .slice(-10);
+  const accountId = `${orgName}-${orgPhone}`;
 
   const handleActivate = () => {
     if (!activationCode.trim()) {

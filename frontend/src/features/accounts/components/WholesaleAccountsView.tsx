@@ -15,6 +15,8 @@ import {
 import { toast } from "sonner";
 import { getStoredSkus } from "../../inventory/data/mockInventory";
 import { getStoredExpenses } from "../../expenses/data/mockExpenses";
+import { useAuthStore } from "@/stores/auth.store";
+import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
 
 // ============================================================================
 // Types
@@ -185,6 +187,9 @@ const STORAGE_SETTLEMENTS = "ai_smart_bazar_settlements_v5";
 
 export function WholesaleAccountsView() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const cfg = getInvoiceTemplateConfig();
+  const companyName = user?.organizationName || cfg.companyName || "Wholesale Distribution";
 
   // Primary navigation: 'cash' | 'cd' | 'bs'
   const [activeTab, setActiveTab] = useState<"cash" | "cd" | "bs">("cash");
@@ -733,7 +738,7 @@ export function WholesaleAccountsView() {
           {activeTab === "cd" &&
             `Credit & Debit sheet for ${formatDmy(fromDate)} to ${formatDmy(toDate)} · Closing = Opening + Credit − Debit`}
           {activeTab === "bs" &&
-            `Balance Sheet as on ${formatDmy(toDate)} · SIDDESHWAR ENTERPRISES`}
+            `Balance Sheet as on ${formatDmy(toDate)} · ${companyName}`}
         </p>
       </div>
 

@@ -14,6 +14,8 @@ import {
   getStoredEmployees,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
+import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { WholesaleOfferLetterDetailView } from './WholesaleOfferLetterDetailView';
 
 interface Props {
@@ -41,13 +43,17 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
   const [formJd, setFormJd] = useState(todayIso);
   const [formSal, setFormSal] = useState('');
   const [formDate, setFormDate] = useState(todayIso);
+  const user = useAuthStore((s) => s.user);
+  const cfg = getInvoiceTemplateConfig();
+  const defaultSignatory = user?.fullName || 'Authorized Signatory';
+  const defaultPlace = cfg.address?.split(',')?.[0]?.trim() || 'Head Office';
   const [formProb, setFormProb] = useState(3);
   const [formNotice, setFormNotice] = useState(15);
   const [formHrs, setFormHrs] = useState('9:30 AM – 7:30 PM');
   const [formOff, setFormOff] = useState('Sunday');
   const [formRep, setFormRep] = useState('Owner / Admin');
-  const [formPlace, setFormPlace] = useState('Vijayapura');
-  const [formSign, setFormSign] = useState('Vijaykumar Shantagiri');
+  const [formPlace, setFormPlace] = useState(defaultPlace);
+  const [formSign, setFormSign] = useState(defaultSignatory);
   const [formAcc, setFormAcc] = useState('');
   const [formTerms, setFormTerms] = useState('');
 
@@ -177,8 +183,8 @@ export const WholesaleOfferLettersView: React.FC<Props> = ({ onBack }) => {
     setFormHrs('9:30 AM – 7:30 PM');
     setFormOff('Sunday');
     setFormRep('Owner / Admin');
-    setFormPlace('Vijayapura');
-    setFormSign('Vijaykumar Shantagiri');
+    setFormPlace(defaultPlace);
+    setFormSign(defaultSignatory);
     setFormAcc('');
     setFormTerms('');
   };

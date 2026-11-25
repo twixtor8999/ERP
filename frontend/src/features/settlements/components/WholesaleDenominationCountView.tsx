@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Calculator, Save } from 'lucide-react';
 import { VehicleDenominationRecord, DenominationCounts } from '../types/denomination';
+import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 
 interface Props {
@@ -57,7 +58,7 @@ export const WholesaleDenominationCountView: React.FC<Props> = ({
       diff,
       counts,
       notes,
-      settledBy: 'Vijaykumar Shantagiri',
+      settledBy: useAuthStore.getState().user?.fullName || 'Cashier',
       settledAt: `${record.date} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       status: 'settled',
     };
