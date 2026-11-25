@@ -710,11 +710,15 @@ export function WholesaleOrdersPipelineView() {
   });
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
-  // Date filters
-  const [fromDate, setFromDate] = useState("2026-11-20");
-  const [toDate, setToDate] = useState("2026-11-24");
-  const [appliedFromDate, setAppliedFromDate] = useState("2026-11-20");
-  const [appliedToDate, setAppliedToDate] = useState("2026-11-24");
+  // Date filters defaulting to today's date dynamically
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayStr);
+  const [appliedToDate, setAppliedToDate] = useState(todayStr);
   const [pageSearch, setPageSearch] = useState("");
 
   // Sync real-time orders from backend API
@@ -1343,7 +1347,7 @@ export function WholesaleOrdersPipelineView() {
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "cancelled", cancel_reason: reason }).catch(() => {});
   };
 
-  // Summary Matrix for "5) Orders Report"
+  // Summary Matrix for "5) Orders Report" - filtered strictly by applied date range
   const reportStats = useMemo(() => {
     const stages: Array<{ key: PipelineOrder["stage"]; label: string }> = [
       { key: "packing", label: "Packing" },
@@ -1355,8 +1359,16 @@ export function WholesaleOrdersPipelineView() {
       { key: "return", label: "Return" },
     ];
 
+    const dateFilteredOrders = orders.filter((o) => {
+      const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+      return (
+        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
+        (!appliedToDate || !orderIso || orderIso <= appliedToDate)
+      );
+    });
+
     return stages.map((s, idx) => {
-      const stageOrders = orders.filter((o) => o.stage === s.key);
+      const stageOrders = dateFilteredOrders.filter((o) => o.stage === s.key);
       const count = stageOrders.length;
       const amt = stageOrders.reduce((acc, o) => acc + o.total, 0);
       return {
@@ -1367,17 +1379,23 @@ export function WholesaleOrdersPipelineView() {
         total: amt,
       };
     });
-  }, [orders]);
+  }, [orders, appliedFromDate, appliedToDate]);
 
   const reportTotalOrders = reportStats.reduce((acc, s) => acc + s.count, 0);
   const reportTotalAmt = reportStats.reduce((acc, s) => acc + s.total, 0);
 
-  // Drilldown orders computed from stageKey (or all orders for View All)
+  // Drilldown orders computed from stageKey (or all orders for View All), matching date range
   const drilldownOrders = useMemo(() => {
     if (!reportDrilldown) return [];
-    if (!reportDrilldown.stageKey) return orders;
-    return orders.filter((o) => o.stage === reportDrilldown.stageKey);
-  }, [orders, reportDrilldown]);
+    return orders.filter((o) => {
+      const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+      const matchDate =
+        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
+        (!appliedToDate || !orderIso || orderIso <= appliedToDate);
+      if (!matchDate) return false;
+      return !reportDrilldown.stageKey || o.stage === reportDrilldown.stageKey;
+    });
+  }, [orders, reportDrilldown, appliedFromDate, appliedToDate]);
 
   const drilldownTotalAmt = drilldownOrders.reduce((sum, o) => sum + o.total, 0);
 
