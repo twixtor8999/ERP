@@ -62,7 +62,7 @@ export function PnlPage() {
       {/* Top Tab Bar & Range Quick Presets */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
         {/* Horizontal Navigation Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto py-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 py-0.5">
           {[
             { id: 'pl' as PnlTab, label: '1) Profit & Loss Report', icon: TrendingUp },
             { id: 'plo' as PnlTab, label: '2) Order Wise Profit', icon: ShoppingBag },

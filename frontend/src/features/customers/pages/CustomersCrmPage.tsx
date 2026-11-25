@@ -279,7 +279,7 @@ export function CustomersCrmPage() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 overflow-x-auto max-w-full">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 max-w-full">
           <Button
             size="sm"
             variant={filterTab === "ALL" ? "default" : "ghost"}

@@ -5812,7 +5812,7 @@ export function CrmTelecallerPortalPage() {
                   </div>
 
                   {/* Route Selector Pills */}
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  <div className="flex flex-wrap gap-1.5 pb-1">
                     {routes.map((r) => (
                       <button
                         key={r}

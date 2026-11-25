@@ -395,7 +395,7 @@ export function SettlementsPage() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b pb-2 overflow-x-auto max-w-full">
+      <div className="flex items-center gap-2 border-b pb-2 flex-wrap max-w-full">
         <button
           onClick={() => setActiveTab("vehicle")}
           className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${

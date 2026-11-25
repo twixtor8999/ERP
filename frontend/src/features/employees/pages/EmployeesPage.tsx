@@ -62,7 +62,7 @@ export const EmployeesPage: React.FC = () => {
   return (
     <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 py-4">
       {/* Subtabs Navigation Bar */}
-      <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-1 overflow-x-auto">
+      <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-1 flex-wrap">
         {SUB_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;

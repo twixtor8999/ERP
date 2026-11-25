@@ -1003,7 +1003,7 @@ export function BusinessDashboardView() {
         </div>
 
         {/* 1. Horizontal Scrolling CRM Staff Performance Deck matching .nxd-crm */}
-        <div className="flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+        <div className="flex flex-wrap gap-3.5 pb-3 pt-1">
           {staffList.map((staff) => (
             <div
               key={staff.id}

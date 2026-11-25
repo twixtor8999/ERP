@@ -525,8 +525,8 @@ export const StoreOrdersAdminPage: React.FC = () => {
         </div>
 
         {/* Status Filter Tabs & Item-Wise Packing View Switcher */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 pt-1 border-t">
-          <div className="flex items-center space-x-1.5 overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 flex-wrap pb-1 pt-1 border-t">
+          <div className="flex items-center space-x-1.5 flex-wrap">
             <Filter className="w-3.5 h-3.5 text-muted-foreground mr-1 flex-shrink-0" />
             {[
               { id: "ALL", label: "All Orders" },
