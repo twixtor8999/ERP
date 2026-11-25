@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Search, Plus, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
-import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
+import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
 
 interface CrmStaffMember {
   id: string;
@@ -302,25 +302,32 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
 
     const telecallers = getAllTelecallers();
     const metrics = getStaffMetricsInDateRange(from, to);
+    const rangeOrders = getOrdersInDateRange(from, to);
     const allOrders = getAllCrmOrders();
 
     return telecallers.map((st, index) => {
       const metric = metrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
       
-      // Calculate live orders and sales for this staff
-      const staffOrders = allOrders.filter(
+      // Calculate live orders and sales for this staff within the selected date range
+      const staffRangeOrders = rangeOrders.filter(
         (o) => o.staffName.toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
       );
       
-      const ordersCount = metric ? metric.ordersCount : staffOrders.length;
-      const salesTotal = metric ? metric.totalSales : staffOrders.reduce((sum, o) => sum + o.total, 0);
+      const ordersCount = metric ? metric.ordersCount : staffRangeOrders.length;
+      const salesTotal = metric ? metric.totalSales : staffRangeOrders.reduce((sum, o) => sum + o.total, 0);
 
-      // Unique covered villages
-      const villagesSet = new Set(staffOrders.map((o) => o.village).filter(Boolean));
-      const coveredVillages = villagesSet.size || (ordersCount > 0 ? Math.min(ordersCount, 2) : 0);
+      // Unique covered villages strictly for the selected date range
+      const villagesSet = new Set(staffRangeOrders.map((o) => o.village).filter(Boolean));
+      const coveredVillages = villagesSet.size;
 
-      // Target progress percentage: (sales / 120,000) * 100
-      const targetPercent = Math.min(100, Math.round((salesTotal / TARGET_GOAL_AMOUNT) * 100));
+      // Cumulative sales for Target calculation (total achieved towards ₹1.2L)
+      const allStaffOrders = allOrders.filter(
+        (o) => o.staffName.toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
+      );
+      const cumulativeSales = allStaffOrders.reduce((sum, o) => sum + o.total, 0);
+
+      // Target progress percentage: (cumulativeSales / 120,000) * 100
+      const targetPercent = Math.min(100, Math.round((cumulativeSales / TARGET_GOAL_AMOUNT) * 100));
 
       const parts = st.name.trim().split(/\s+/);
       const p0 = parts[0] || "";
@@ -994,10 +1001,9 @@ export function BusinessDashboardView() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/employees?tab=list&action=new')}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer"
               title="Create new employee or staff"
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>+ New Staff</span>
             </button>
             <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs font-mono" title="Live Indian Standard Time (IST)">
