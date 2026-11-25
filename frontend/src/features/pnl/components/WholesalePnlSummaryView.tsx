@@ -240,12 +240,12 @@ export function WholesalePnlSummaryView({
 
           {/* Table: Line | Amount */}
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
               <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#1e40af] text-white font-semibold">
-                    <th className="py-2.5 px-4">Line</th>
-                    <th className="py-2.5 px-4 text-right">Amount</th>
+                <thead className="sticky top-0 z-10 bg-[#1e40af] text-white font-semibold">
+                  <tr>
+                    <th className="py-2.5 px-4 bg-[#1e40af]">Line</th>
+                    <th className="py-2.5 px-4 text-right bg-[#1e40af]">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -375,21 +375,21 @@ export function WholesalePnlSummaryView({
 
           {/* Table */}
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
               <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#1e40af] text-white font-semibold">
-                    <th className="py-2 px-3">Sl</th>
-                    <th className="py-2 px-3">SKU Name</th>
-                    <th className="py-2 px-3">Batch</th>
-                    <th className="py-2 px-3 text-right">GRN Price</th>
-                    <th className="py-2 px-3 text-right">Selling Price</th>
-                    <th className="py-2 px-3 text-right">Qty</th>
-                    <th className="py-2 px-3 text-right">Orders</th>
-                    <th className="py-2 px-3 text-right">Sales (excl. GST)</th>
-                    <th className="py-2 px-3 text-right">Cost (excl. GST)</th>
-                    <th className="py-2 px-3 text-right">Profit</th>
-                    <th className="py-2 px-3 text-right">Margin</th>
+                <thead className="sticky top-0 z-10 bg-[#1e40af] text-white font-semibold">
+                  <tr>
+                    <th className="py-2 px-3 bg-[#1e40af]">Sl</th>
+                    <th className="py-2 px-3 bg-[#1e40af]">SKU Name</th>
+                    <th className="py-2 px-3 bg-[#1e40af]">Batch</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">GRN Price</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Selling Price</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Qty</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Orders</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Sales (excl. GST)</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Cost (excl. GST)</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Profit</th>
+                    <th className="py-2 px-3 text-right bg-[#1e40af]">Margin</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">

@@ -196,20 +196,20 @@ export const WholesaleVehicleWiseProfitView: React.FC<Props> = ({
 
       {/* Main Table matching Client App VW.plv */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#1e40af] text-white font-semibold uppercase tracking-wider text-2xs">
-                <th className="py-2.5 px-3">Vehicle</th>
-                <th className="py-2.5 px-3">Driver</th>
-                <th className="py-2.5 px-3 text-center">Trips</th>
-                <th className="py-2.5 px-3 text-center">Orders</th>
-                <th className="py-2.5 px-3 text-right">Sales</th>
-                <th className="py-2.5 px-3 text-right">Order Profit</th>
-                <th className="py-2.5 px-3 text-right">Trip Cost</th>
-                <th className="py-2.5 px-3 text-right">Vehicle Expenses</th>
-                <th className="py-2.5 px-3 text-right">Net Profit</th>
-                <th className="py-2.5 px-3 text-center">Margin</th>
+            <thead className="sticky top-0 z-10 bg-[#1e40af] text-white font-semibold uppercase tracking-wider text-2xs">
+              <tr>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Vehicle</th>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Driver</th>
+                <th className="py-2.5 px-3 text-center bg-[#1e40af]">Trips</th>
+                <th className="py-2.5 px-3 text-center bg-[#1e40af]">Orders</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Sales</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Order Profit</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Trip Cost</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Vehicle Expenses</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Net Profit</th>
+                <th className="py-2.5 px-3 text-center bg-[#1e40af]">Margin</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

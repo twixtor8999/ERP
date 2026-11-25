@@ -6,6 +6,7 @@ import { WholesaleOrderWiseProfitView } from '../components/WholesaleOrderWisePr
 import { WholesaleCrmWiseProfitView } from '../components/WholesaleCrmWiseProfitView';
 import { WholesaleVehicleWiseProfitView } from '../components/WholesaleVehicleWiseProfitView';
 import { PnlTab } from '../types';
+import { getIstDateString } from '@/lib/utilities/istTime';
 import { toast } from 'sonner';
 
 export function PnlPage() {
@@ -17,9 +18,10 @@ export function PnlPage() {
     ['pl', 'plo', 'plc', 'plv'].includes(tabParam) ? tabParam : 'pl'
   );
 
-  // Date range state defaulting to 22-11-2026 (matching reference app screenshots)
-  const [fromDate, setFromDate] = useState('2026-11-22');
-  const [toDate, setToDate] = useState('2026-11-22');
+  // Dynamic date range state defaulting to live IST date
+  const todayIst = getIstDateString(); // e.g. "2026-11-26"
+  const [fromDate, setFromDate] = useState(todayIst);
+  const [toDate, setToDate] = useState(todayIst);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('today');
 
   useEffect(() => {
@@ -35,22 +37,51 @@ export function PnlPage() {
 
   const handlePeriodChange = (period: string) => {
     setSelectedPeriod(period);
+    const parts = todayIst.split('-').map(Number);
+    const y = parts[0] || 2026;
+    const m = parts[1] || 11;
+    const d = parts[2] || 26;
+    const todayObj = new Date(y, m - 1, d);
+
     if (period === 'today') {
-      setFromDate('2026-11-22');
-      setToDate('2026-11-22');
+      setFromDate(todayIst);
+      setToDate(todayIst);
     } else if (period === 'yesterday') {
-      setFromDate('2026-11-21');
-      setToDate('2026-11-21');
+      const yDate = new Date(todayObj);
+      yDate.setDate(todayObj.getDate() - 1);
+      const yStr = `${yDate.getFullYear()}-${String(yDate.getMonth() + 1).padStart(2, '0')}-${String(yDate.getDate()).padStart(2, '0')}`;
+      setFromDate(yStr);
+      setToDate(yStr);
     } else if (period === 'last7') {
-      setFromDate('2026-11-15');
-      setToDate('2026-11-22');
+      const past7 = new Date(todayObj);
+      past7.setDate(todayObj.getDate() - 7);
+      const p7Str = `${past7.getFullYear()}-${String(past7.getMonth() + 1).padStart(2, '0')}-${String(past7.getDate()).padStart(2, '0')}`;
+      setFromDate(p7Str);
+      setToDate(todayIst);
     } else if (period === 'this_month') {
-      setFromDate('2026-11-01');
-      setToDate('2026-11-22');
+      const mStartStr = `${y}-${String(m).padStart(2, '0')}-01`;
+      setFromDate(mStartStr);
+      setToDate(todayIst);
     } else if (period === 'all') {
       setFromDate('2026-10-01');
-      setToDate('2026-11-22');
+      setToDate(todayIst);
     }
+  };
+
+  const formatPresetLabel = (type: 'today' | 'yesterday' | 'month') => {
+    const parts = todayIst.split('-').map(Number);
+    const y = parts[0] || 2026;
+    const m = parts[1] || 11;
+    const d = parts[2] || 26;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (type === 'today') {
+      return `Today (${d} ${months[m - 1] || ''})`;
+    }
+    if (type === 'yesterday') {
+      const yDate = new Date(y, m - 1, d - 1);
+      return `Yesterday (${yDate.getDate()} ${months[yDate.getMonth()] || ''})`;
+    }
+    return `This Month (${months[m - 1] || ''})`;
   };
 
   const handleSubmit = () => {
@@ -93,10 +124,10 @@ export function PnlPage() {
           <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1" />
           <span className="text-slate-500 font-medium mr-1 hidden sm:inline">Range:</span>
           {[
-            { id: 'today', label: 'Today (22 Nov)' },
-            { id: 'yesterday', label: 'Yesterday (21 Nov)' },
+            { id: 'today', label: formatPresetLabel('today') },
+            { id: 'yesterday', label: formatPresetLabel('yesterday') },
             { id: 'last7', label: 'Last 7 Days' },
-            { id: 'this_month', label: 'This Month (Nov)' },
+            { id: 'this_month', label: formatPresetLabel('month') },
           ].map((p) => (
             <button
               key={p.id}

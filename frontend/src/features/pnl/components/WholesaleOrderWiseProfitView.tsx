@@ -225,21 +225,21 @@ export function WholesaleOrderWiseProfitView({
 
       {/* Table: 11 Columns */}
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#1e40af] text-white font-semibold">
-                <th className="py-2.5 px-3">Order</th>
-                <th className="py-2.5 px-3">Delivery date</th>
-                <th className="py-2.5 px-3">Customer</th>
-                <th className="py-2.5 px-3">Vehicle</th>
-                <th className="py-2.5 px-3 text-right">Sales</th>
-                <th className="py-2.5 px-3 text-right">Cost</th>
-                <th className="py-2.5 px-3 text-right">Gross profit</th>
-                <th className="py-2.5 px-3 text-right">Vehicle exp</th>
-                <th className="py-2.5 px-3 text-right">Profit after vehicle</th>
-                <th className="py-2.5 px-3 text-right">Margin</th>
-                <th className="py-2.5 px-3 text-center"></th>
+            <thead className="sticky top-0 z-10 bg-[#1e40af] text-white font-semibold">
+              <tr>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Order</th>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Delivery date</th>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Customer</th>
+                <th className="py-2.5 px-3 bg-[#1e40af]">Vehicle</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Sales</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Cost</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Gross profit</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Vehicle exp</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Profit after vehicle</th>
+                <th className="py-2.5 px-3 text-right bg-[#1e40af]">Margin</th>
+                <th className="py-2.5 px-3 text-center bg-[#1e40af]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

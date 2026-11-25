@@ -16,6 +16,7 @@ import {
   PNL_CUSTOMERS,
   PNL_ROUTE_CRM_MAP,
 } from './mockPnlData';
+import { getAllCrmOrders } from '@/features/crm/data/mockCrmReports';
 
 // Lookup dictionaries
 const SKU_MAP = new Map<string | number, PnlSku>(
@@ -28,8 +29,81 @@ const CUST_MAP = new Map<string | number, string>(
   PNL_CUSTOMERS.map((c) => [String(c.id), c.name])
 );
 
+// Standardize date into YYYY-MM-DD
+function normalizeDateStr(d: string): string {
+  if (!d) return '';
+  if (d.includes('/')) {
+    const parts = d.split('/');
+    if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+      if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
+  }
+  if (d.includes('-')) {
+    const parts = d.split('-');
+    if (parts.length === 3 && parts[0] && parts[1] && parts[2] && parts[0].length === 2) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  return d;
+}
+
+// Get all orders by combining PNL_ORDERS with live CRM orders
+export function getAllMergedPnlOrders(): PnlOrder[] {
+  const merged: PnlOrder[] = [...PNL_ORDERS];
+  const existingOrderNos = new Set(merged.map((o) => o.no.toLowerCase()));
+
+  try {
+    const liveCrmOrders = getAllCrmOrders();
+    for (const co of liveCrmOrders) {
+      if (existingOrderNos.has(co.orderNo.toLowerCase())) continue;
+
+      const normDate = normalizeDateStr(co.orderDate);
+      const items = (co.items || []).map((it, idx) => {
+        // match sku by name if possible
+        const matchedSku = PNL_SKUS.find((s) =>
+          s.name.toLowerCase().includes((it.name || '').toLowerCase()) ||
+          (it.name || '').toLowerCase().includes(s.name.toLowerCase())
+        );
+        const skuId = matchedSku ? matchedSku.id : `sku-${idx + 1}`;
+        const unitCost = matchedSku ? matchedSku.cost : Math.round(it.price * 0.85);
+
+        return {
+          s: skuId,
+          q: it.qty || 1,
+          p: it.price || 0,
+          c: unitCost,
+        };
+      });
+
+      merged.push({
+        id: co.id || co.orderNo,
+        no: co.orderNo,
+        inv: co.orderNo,
+        cust: co.shopName || co.customerName || 'Customer',
+        custName: `${co.customerName}${co.shopName ? ` (${co.shopName})` : ''}`,
+        date: normDate,
+        dsp: normDate, // default dispatch/delivery to order date for live CRM orders
+        st: co.status === 'cancelled' ? 'cancelled' : 'delivered',
+        veh: '1',
+        vehNo: 'KA28AA6256',
+        items,
+        by: co.staffName || 'Pushpa Patil',
+        route: co.route || 'Bijapur Route',
+      });
+      existingOrderNos.add(co.orderNo.toLowerCase());
+    }
+  } catch (err) {
+    console.error('Failed to merge live CRM orders in P&L:', err);
+  }
+
+  return merged;
+}
+
 export function getDeliveryDay(order: PnlOrder): string {
-  return order.dsp || order.date;
+  return normalizeDateStr(order.dsp || order.date);
 }
 
 export function isOrderDelivered(order: PnlOrder): boolean {
@@ -75,15 +149,19 @@ export function calculateOrderTotals(order: PnlOrder): {
 }
 
 export function computePnlCore(fromDate: string, toDate: string): PnlCoreResult {
-  const inRange = (d: string) => (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+  const allOrders = getAllMergedPnlOrders();
+  const inRange = (d: string) => {
+    const nd = normalizeDateStr(d);
+    return (!fromDate || nd >= fromDate) && (!toDate || nd <= toDate);
+  };
 
   // Delivered orders in range
-  const deliveredOrders = PNL_ORDERS.filter(
+  const deliveredOrders = allOrders.filter(
     (o) => isOrderDelivered(o) && inRange(getDeliveryDay(o))
   );
 
   // Pending (billed but not delivered) orders
-  const pendingOrders = PNL_ORDERS.filter(
+  const pendingOrders = allOrders.filter(
     (o) => !isOrderDelivered(o) && inRange(o.date)
   );
 
@@ -201,8 +279,12 @@ export function computePnlSkuBatches(
   totalSales: number;
   totalProfit: number;
 } {
-  const inRange = (d: string) => (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
-  const deliveredOrders = PNL_ORDERS.filter(
+  const allOrders = getAllMergedPnlOrders();
+  const inRange = (d: string) => {
+    const nd = normalizeDateStr(d);
+    return (!fromDate || nd >= fromDate) && (!toDate || nd <= toDate);
+  };
+  const deliveredOrders = allOrders.filter(
     (o) => isOrderDelivered(o) && inRange(getDeliveryDay(o))
   );
 
@@ -443,10 +525,14 @@ export function computeCrmWiseProfit(
   totalProfit: number;
   overallMargin: string;
 } {
-  const inRange = (d: string) => (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+  const allOrders = getAllMergedPnlOrders();
+  const inRange = (d: string) => {
+    const nd = normalizeDateStr(d);
+    return (!fromDate || nd >= fromDate) && (!toDate || nd <= toDate);
+  };
 
   // All billed orders in range
-  const billedOrders = PNL_ORDERS.filter(
+  const billedOrders = allOrders.filter(
     (o) => inRange(o.date) || inRange(getDeliveryDay(o))
   );
 
@@ -539,7 +625,11 @@ export function computeVehicleWiseProfit(
   totalNetProfit: number;
   overallMargin: string;
 } {
-  const inRange = (d: string) => (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+  const allOrders = getAllMergedPnlOrders();
+  const inRange = (d: string) => {
+    const nd = normalizeDateStr(d);
+    return (!fromDate || nd >= fromDate) && (!toDate || nd <= toDate);
+  };
   const rows: VehicleProfitRow[] = [];
 
   let sumSales = 0;
@@ -564,7 +654,7 @@ export function computeVehicleWiseProfit(
     }
 
     // Delivered orders for this vehicle in range
-    const vOrders = PNL_ORDERS.filter(
+    const vOrders = allOrders.filter(
       (o) =>
         (tripOrderIds.has(String(o.id)) || String(o.veh) === String(v.id)) &&
         isOrderDelivered(o) &&
