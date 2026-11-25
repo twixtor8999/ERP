@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  FileText,
-  Bot,
-  ShieldAlert,
-  PieChart,
-  TrendingUp,
   Download,
   Printer,
   ArrowLeft,
@@ -18,7 +13,7 @@ import { toast } from 'sonner';
 type ReportTab = 'gst' | 'ai' | 'audit' | 'ca' | 'pnl';
 
 export function ReportsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const typeParam = searchParams.get('type') || searchParams.get('tab');
@@ -41,49 +36,8 @@ export function ReportsPage() {
     }
   }, [typeParam]);
 
-  const handleTabChange = (tab: ReportTab) => {
-    setActiveTab(tab);
-    setSearchParams({ type: tab });
-  };
-
   return (
     <div className="space-y-4">
-      {/* Wholesale Subtabs Navigation Bar */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 flex-wrap">
-        {[
-          { id: 'gst', label: '1) GST Report', icon: FileText },
-          { id: 'ai', label: '2) AI Assistant', icon: Bot },
-          { id: 'audit', label: 'AI Cross Check', icon: ShieldAlert },
-          { id: 'ca', label: 'CA Reports', icon: PieChart },
-          { id: 'pnl', label: 'P & L', icon: TrendingUp },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                if (tab.id === 'ca') {
-                  navigate('/ca-reports');
-                } else if (tab.id === 'pnl') {
-                  navigate('/p-and-l');
-                } else {
-                  handleTabChange(tab.id as ReportTab);
-                }
-              }}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                isActive
-                  ? 'bg-[#f59e0b] text-slate-950 shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* 1) GST REPORT SUBTAB */}
       {activeTab === 'gst' && (
         <WholesaleGstReportView onBack={() => navigate('/dashboard')} />
