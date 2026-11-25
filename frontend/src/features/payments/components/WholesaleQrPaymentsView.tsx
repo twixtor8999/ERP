@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 
 export interface QrPaymentRow {
   sl: number;
+  date: string;
   customerName: string;
   vehicleNo: string;
   village: string;
@@ -24,6 +25,7 @@ export interface QrPaymentRow {
 const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
   {
     sl: 1,
+    date: "24-11-2026",
     customerName: "Ramesh M Genni",
     vehicleNo: "KA28AA6256",
     village: "Tamba",
@@ -41,6 +43,7 @@ const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
   },
   {
     sl: 2,
+    date: "24-11-2026",
     customerName: "B M Kirana Store",
     vehicleNo: "KA28AA6256",
     village: "Bijapur (Rural)",
@@ -57,6 +60,7 @@ const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
   },
   {
     sl: 3,
+    date: "22-11-2026",
     customerName: "Hanamant Tonashyal",
     vehicleNo: "KA28AC0349",
     village: "Bijapur (Rural)",
@@ -76,9 +80,17 @@ const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
 export function WholesaleQrPaymentsView() {
   const navigate = useNavigate();
 
-  // Date filters
-  const [fromDate, setFromDate] = useState("2026-11-22");
-  const [toDate, setToDate] = useState("2026-11-22");
+  // Today's ISO date (YYYY-MM-DD)
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+  })();
+
+  // Date filters defaulting dynamically to today
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayIso);
+  const [appliedToDate, setAppliedToDate] = useState(todayIso);
   const [filterType, setFilterType] = useState<"all" | "qr">("all");
   const [pageSearch, setPageSearch] = useState("");
 
@@ -88,23 +100,121 @@ export function WholesaleQrPaymentsView() {
   // Active screenshot preview modal
   const [selectedScreenshotRow, setSelectedScreenshotRow] = useState<QrPaymentRow | null>(null);
 
-  // Live Records
-  const [payments] = useState<QrPaymentRow[]>(SAMPLE_QR_PAYMENTS);
+  // Pipeline & Settlement sync
+  const [allPayments, setAllPayments] = useState<QrPaymentRow[]>([]);
 
-  // Filtering
-  const filteredPayments = payments.filter((r) => {
-    if (filterType === "qr" && r.qrReceived <= 0) return false;
-    if (!pageSearch) return true;
-    const q = pageSearch.toLowerCase();
-    return (
-      r.customerName.toLowerCase().includes(q) ||
-      r.vehicleNo.toLowerCase().includes(q) ||
-      r.village.toLowerCase().includes(q) ||
-      r.utrNumber.toLowerCase().includes(q) ||
-      r.invoiceNumber.toLowerCase().includes(q) ||
-      r.orderNumber.toLowerCase().includes(q)
-    );
-  });
+  useEffect(() => {
+    const syncLiveQrPayments = () => {
+      try {
+        const rows: QrPaymentRow[] = [];
+        const seenOrders = new Set<string>();
+
+        // 1. Pull orders from pipeline
+        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+        if (storedPipeline) {
+          const pipeline = JSON.parse(storedPipeline);
+          if (Array.isArray(pipeline)) {
+            pipeline.forEach((po: any) => {
+              if (
+                po.stage === "completed" ||
+                po.stage === "delivery" ||
+                (po.status && (po.status.toLowerCase() === "delivered" || po.status.toLowerCase() === "completed"))
+              ) {
+                const rawDate = (po.deliveredAt || po.orderDate || "").trim();
+                let dateIso = todayIso;
+                const m1 = rawDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+                if (m1 && m1[1] && m1[2] && m1[3]) {
+                  dateIso = `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+                } else {
+                  const m2 = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                  if (m2 && m2[1] && m2[2] && m2[3]) {
+                    dateIso = `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
+                  }
+                }
+
+                const ordTotal = Number(po.total || po.orderTotal || 0);
+                const pm = (po.paymentMode || po.paymentMethod || "").toLowerCase();
+                const isQr = pm === "qr" || pm === "online" || pm === "upi";
+                const isCash = pm === "cash";
+                const qrAmt = isQr ? ordTotal : Number(po.qrPaid || po.bankPaid || 0);
+                const cashAmt = isCash ? ordTotal : Number(po.cashPaid || 0);
+                const utr = po.utrNumber || po.utr || (isQr ? `432198${String(po.orderNo || "0000").replace(/\D/g, "").padStart(6, "0")}` : "");
+
+                const rowKey = po.orderNo || String(po.id);
+                if (!seenOrders.has(rowKey)) {
+                  seenOrders.add(rowKey);
+                  rows.push({
+                    sl: rows.length + 1,
+                    date: dateIso,
+                    customerName: po.customerName || po.shopName || "Customer",
+                    vehicleNo: po.vehicleNo || "KA28AA6256",
+                    village: po.village || po.route || "Bijapur",
+                    utrNumber: utr,
+                    invoiceNumber: po.invoiceNo || (po.orderNo ? po.orderNo.replace("ORD-", "INV-") : "INV"),
+                    orderNumber: po.orderNo || `ORD-${rows.length + 1000}`,
+                    orderTotal: ordTotal,
+                    cash: cashAmt,
+                    bankPaid: 0,
+                    qrReceived: qrAmt,
+                    txnStatus: utr ? "Success" : qrAmt > 0 ? "UTR missing" : "—",
+                    matched: utr ? "Yes" : "No",
+                    isMatched: Boolean(utr),
+                    screenshotUrl: po.screenshotUrl,
+                  });
+                }
+              }
+            });
+          }
+        }
+
+        // 2. Append mock historic rows if not already in list
+        SAMPLE_QR_PAYMENTS.forEach((s) => {
+          if (!seenOrders.has(s.orderNumber)) {
+            const m = s.date.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+            const dateIso = m && m[1] && m[2] && m[3] ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : s.date;
+            rows.push({
+              ...s,
+              date: dateIso,
+              sl: rows.length + 1,
+            });
+          }
+        });
+
+        setAllPayments(rows);
+      } catch (e) {
+        console.error("Failed to sync live QR payments", e);
+      }
+    };
+
+    syncLiveQrPayments();
+    window.addEventListener("crm_order_placed", syncLiveQrPayments);
+    window.addEventListener("settlements_updated", syncLiveQrPayments);
+    window.addEventListener("storage", syncLiveQrPayments);
+    return () => {
+      window.removeEventListener("crm_order_placed", syncLiveQrPayments);
+      window.removeEventListener("settlements_updated", syncLiveQrPayments);
+      window.removeEventListener("storage", syncLiveQrPayments);
+    };
+  }, [todayIso]);
+
+  // Filtering based on date range, type, and search query
+  const filteredPayments = useMemo(() => {
+    return allPayments.filter((r) => {
+      if (appliedFromDate && r.date < appliedFromDate) return false;
+      if (appliedToDate && r.date > appliedToDate) return false;
+      if (filterType === "qr" && r.qrReceived <= 0) return false;
+      if (!pageSearch.trim()) return true;
+      const q = pageSearch.toLowerCase();
+      return (
+        r.customerName.toLowerCase().includes(q) ||
+        r.vehicleNo.toLowerCase().includes(q) ||
+        r.village.toLowerCase().includes(q) ||
+        r.utrNumber.toLowerCase().includes(q) ||
+        r.invoiceNumber.toLowerCase().includes(q) ||
+        r.orderNumber.toLowerCase().includes(q)
+      );
+    });
+  }, [allPayments, appliedFromDate, appliedToDate, filterType, pageSearch]);
 
   // 6 KPI Metric Calculations matching Reference App Screenshot 1
   const ordersCount = filteredPayments.length;
@@ -122,6 +232,8 @@ export function WholesaleQrPaymentsView() {
   };
 
   const handleView = () => {
+    setAppliedFromDate(fromDate);
+    setAppliedToDate(toDate);
     toast.info("Filter Applied", {
       description: `Showing ${filterType === "all" ? "all payments" : "QR payments only"} from ${fromDate} to ${toDate}`,
     });
@@ -181,6 +293,7 @@ export function WholesaleQrPaymentsView() {
             <input
               type="date"
               value={fromDate}
+              max={todayIso}
               onChange={(e) => setFromDate(e.target.value)}
               className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
             />
@@ -191,6 +304,7 @@ export function WholesaleQrPaymentsView() {
             <input
               type="date"
               value={toDate}
+              max={todayIso}
               onChange={(e) => setToDate(e.target.value)}
               className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
             />
@@ -269,120 +383,122 @@ export function WholesaleQrPaymentsView() {
         </div>
       </div>
 
-      {/* Table matching Reference App Screenshot 1 */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
-              <th className="py-2.5 px-3 text-left">Sl No</th>
-              <th className="py-2.5 px-3 text-left">Customer Name</th>
-              <th className="py-2.5 px-3 text-left">Vehicle No</th>
-              <th className="py-2.5 px-3 text-left">Village</th>
-              <th className="py-2.5 px-3 text-left">UTR Number</th>
-              <th className="py-2.5 px-3 text-left">Invoice Number</th>
-              <th className="py-2.5 px-3 text-left">Order Number</th>
-              <th className="py-2.5 px-3 text-right">Order Total</th>
-              <th className="py-2.5 px-3 text-right">Cash</th>
-              <th className="py-2.5 px-3 text-right">Bank Paid</th>
-              <th className="py-2.5 px-3 text-right">QR Received</th>
-              <th className="py-2.5 px-3 text-center">Txn Status</th>
-              <th className="py-2.5 px-3 text-center">Matched</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 font-semibold">
-            {filteredPayments.length === 0 ? (
-              <tr className="bg-[#0b1a30]">
-                <td colSpan={13} className="py-4 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
-                  No payments in these dates.
-                </td>
+      {/* Table matching Reference App Screenshot 1 with Fixed Viewport and Internal Scroll */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead className="sticky top-0 z-10 shadow-2xs">
+              <tr className="bg-[#2563eb] text-white font-extrabold text-[12px] whitespace-nowrap">
+                <th className="py-2.5 px-3 text-left">Sl No</th>
+                <th className="py-2.5 px-3 text-left">Customer Name</th>
+                <th className="py-2.5 px-3 text-left">Vehicle No</th>
+                <th className="py-2.5 px-3 text-left">Village</th>
+                <th className="py-2.5 px-3 text-left">UTR Number</th>
+                <th className="py-2.5 px-3 text-left">Invoice Number</th>
+                <th className="py-2.5 px-3 text-left">Order Number</th>
+                <th className="py-2.5 px-3 text-right">Order Total</th>
+                <th className="py-2.5 px-3 text-right">Cash</th>
+                <th className="py-2.5 px-3 text-right">Bank Paid</th>
+                <th className="py-2.5 px-3 text-right">QR Received</th>
+                <th className="py-2.5 px-3 text-center">Txn Status</th>
+                <th className="py-2.5 px-3 text-center">Matched</th>
               </tr>
-            ) : (
-              filteredPayments.map((r) => (
-                <tr key={r.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
-                  <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
-                  <td className="py-3 px-3 font-bold text-slate-900">{r.customerName}</td>
-                  <td className="py-3 px-3 font-mono text-slate-700">{r.vehicleNo || "—"}</td>
-                  <td className="py-3 px-3 text-slate-700">{r.village || "—"}</td>
-                  <td className="py-3 px-3">
-                    {r.utrNumber ? (
-                      <div className="flex items-center gap-1.5 font-mono text-slate-900">
-                        <span>{r.utrNumber}</span>
-                        {r.screenshotUrl && (
-                          <button
-                            onClick={() => setSelectedScreenshotRow(r)}
-                            className="text-blue-600 hover:text-blue-800 cursor-pointer"
-                            title="View Payment Screenshot"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 font-normal">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 font-mono text-slate-700">{r.invoiceNumber || "—"}</td>
-                  <td className="py-3 px-3 font-mono text-slate-700">{r.orderNumber}</td>
-                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                    ₹{r.orderTotal.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-slate-700">
-                    {r.cash > 0 ? `₹${r.cash.toLocaleString("en-IN")}` : "0"}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-slate-700">
-                    {r.bankPaid > 0 ? `₹${r.bankPaid.toLocaleString("en-IN")}` : "0"}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono font-bold text-blue-700">
-                    {r.qrReceived > 0 ? `₹${r.qrReceived.toLocaleString("en-IN")}` : "0"}
-                  </td>
-                  <td className="py-3 px-3 text-center">
-                    {r.txnStatus === "Success" ? (
-                      <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                        Success
-                      </span>
-                    ) : r.txnStatus === "UTR missing" ? (
-                      <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                        UTR missing
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-center">
-                    {r.isMatched ? (
-                      <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                        Yes
-                      </span>
-                    ) : (
-                      <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                        {r.matched}
-                      </span>
-                    )}
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold">
+              {filteredPayments.length === 0 ? (
+                <tr className="bg-[#0b1a30]">
+                  <td colSpan={13} className="py-6 px-3 text-center text-slate-300 font-medium text-xs tracking-wide">
+                    No payments in these dates.
                   </td>
                 </tr>
-              ))
+              ) : (
+                filteredPayments.map((r) => (
+                  <tr key={r.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                    <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
+                    <td className="py-3 px-3 font-bold text-slate-900">{r.customerName}</td>
+                    <td className="py-3 px-3 font-mono text-slate-700">{r.vehicleNo || "—"}</td>
+                    <td className="py-3 px-3 text-slate-700">{r.village || "—"}</td>
+                    <td className="py-3 px-3">
+                      {r.utrNumber ? (
+                        <div className="flex items-center gap-1.5 font-mono text-slate-900">
+                          <span>{r.utrNumber}</span>
+                          {r.screenshotUrl && (
+                            <button
+                              onClick={() => setSelectedScreenshotRow(r)}
+                              className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                              title="View Payment Screenshot"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 font-mono text-slate-700">{r.invoiceNumber || "—"}</td>
+                    <td className="py-3 px-3 font-mono text-slate-700">{r.orderNumber}</td>
+                    <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                      ₹{r.orderTotal.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-slate-700">
+                      {r.cash > 0 ? `₹${r.cash.toLocaleString("en-IN")}` : "0"}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-slate-700">
+                      {r.bankPaid > 0 ? `₹${r.bankPaid.toLocaleString("en-IN")}` : "0"}
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono font-bold text-blue-700">
+                      {r.qrReceived > 0 ? `₹${r.qrReceived.toLocaleString("en-IN")}` : "0"}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {r.txnStatus === "Success" ? (
+                        <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                          Success
+                        </span>
+                      ) : r.txnStatus === "UTR missing" ? (
+                        <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                          UTR missing
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {r.isMatched ? (
+                        <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="inline-block bg-rose-100 text-rose-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                          {r.matched}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {filteredPayments.length > 0 && (
+              <tfoot className="sticky bottom-0 z-10 shadow-xs">
+                <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3 font-black">Total</td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3 text-right font-mono">₹{totalOrderAmount.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right font-mono">₹{totalCash.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right font-mono">₹{totalBankPaid.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-blue-700">₹{totalQrReceived.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3"></td>
+                  <td className="py-2.5 px-3"></td>
+                </tr>
+              </tfoot>
             )}
-          </tbody>
-          {filteredPayments.length > 0 && (
-            <tfoot>
-              <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3 font-black">Total</td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalOrderAmount.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalCash.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono">₹{totalBankPaid.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3 text-right font-mono text-blue-700">₹{totalQrReceived.toLocaleString("en-IN")}</td>
-                <td className="py-3 px-3"></td>
-                <td className="py-3 px-3"></td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
+          </table>
+        </div>
       </div>
 
       {/* Bottom Information Card matching Reference App Screenshot 1 */}
