@@ -5,8 +5,11 @@ import {
   Plus,
   X,
   Eye,
-} from 'lucide-react';
-import {
+  Trophy,
+  User,
+  Calendar,
+  IndianRupee,
+} from 'lucide-react';import {
   SchemeTarget,
   AchievedTargetRecord,
   getStoredSchemeTargets,
@@ -185,6 +188,99 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
     saveStoredSchemeTargets(updated);
     toast.success(`Scheme status changed to ${active ? 'Active' : 'Stopped'}`);
   };
+
+  // ─── Full-page detail view (replaces the list when an achieved record is selected) ───
+  if (viewAchieved) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setViewAchieved(null)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-900 text-white hover:bg-navy-800 text-sm font-semibold shadow-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-navy-950">
+              {title} · {viewAchieved.targetName}
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="inline-flex items-center gap-1">
+                <User className="w-3 h-3" />
+                {viewAchieved.by}
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                reached on {viewAchieved.date}
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1">
+                <IndianRupee className="w-3 h-3" />
+                achieved {type === 'sale' ? `₹${viewAchieved.ach.toLocaleString('en-IN')}` : viewAchieved.ach}
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                <Trophy className="w-3 h-3" />
+                reward ₹{viewAchieved.rw}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {/* Detail Table */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-blue-600 text-white font-semibold text-xs tracking-wider">
+                  <th className="py-3 px-3 w-12 text-center">Sl</th>
+                  <th className="py-3 px-4">Order</th>
+                  <th className="py-3 px-3">Customer</th>
+                  <th className="py-3 px-3">Village</th>
+                  <th className="py-3 px-3 text-right">Value (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {viewAchieved.orders.map((o, i) => (
+                  <tr key={i} className="hover:bg-blue-50/40 transition-colors">
+                    <td className="py-3 px-3 text-center text-gray-500 font-medium">{i + 1}</td>
+                    <td className="py-3 px-4 font-mono font-bold text-blue-700">{o.inv}</td>
+                    <td className="py-3 px-3 font-medium text-gray-800">{o.cust}</td>
+                    <td className="py-3 px-3 text-gray-600">{o.village}</td>
+                    <td className="py-3 px-3 text-right font-mono font-semibold">
+                      ₹{o.value.toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-blue-50/60 font-bold">
+                  <td colSpan={4} className="py-3 px-4 text-navy-950">
+                    Total Achieved ({viewAchieved.orders.length} orders)
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-navy-950">
+                    ₹{viewAchieved.ach.toLocaleString('en-IN')}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer Back Button */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setViewAchieved(null)}
+            className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm font-semibold hover:bg-navy-800 shadow-sm transition-colors"
+          >
+            ← Back to {title}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -596,74 +692,6 @@ export const WholesaleTargetSectionView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Modal: View Achieved Target Details */}
-      {viewAchieved && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <div>
-                <h3 className="text-base font-bold text-navy-950">
-                  {title} · {viewAchieved.targetName}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {viewAchieved.by} · Reached on {viewAchieved.date} · Reward: ₹{viewAchieved.rw}
-                </p>
-              </div>
-              <button
-                onClick={() => setViewAchieved(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-700 font-bold border-b">
-                    <th className="py-2 px-3">Sl</th>
-                    <th className="py-2 px-3">Order</th>
-                    <th className="py-2 px-3">Customer</th>
-                    <th className="py-2 px-3">Village</th>
-                    <th className="py-2 px-3 text-right">Value (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {viewAchieved.orders.map((o, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="py-2 px-3 text-gray-500">{i + 1}</td>
-                      <td className="py-2 px-3 font-mono font-bold text-blue-700">{o.inv}</td>
-                      <td className="py-2 px-3 font-medium text-gray-800">{o.cust}</td>
-                      <td className="py-2 px-3 text-gray-600">{o.village}</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold">
-                        ₹{o.value.toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-blue-50/60 font-bold">
-                    <td colSpan={4} className="py-2 px-3 text-navy-950">
-                      Total Achieved ({viewAchieved.orders.length} orders)
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono text-navy-950">
-                      ₹{viewAchieved.ach.toLocaleString('en-IN')}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setViewAchieved(null)}
-                className="px-4 py-1.5 bg-navy-900 text-white rounded-lg text-xs font-semibold hover:bg-navy-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
