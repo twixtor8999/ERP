@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, UserPlus, Eye, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Plus, UserPlus, Eye, Check } from "lucide-react";
 import { toast } from "sonner";
+import { WholesaleVillageCustomersDetailView } from "./WholesaleVillageCustomersDetailView";
 import {
   getStoredRoutes,
   saveStoredRoutes,
@@ -143,6 +144,19 @@ export function WholesaleRoutePlannerView() {
 
   // Selected route for Village Key tab
   const curVkRoute = routes.find((r) => r.name === selectedRouteForVk) || routes[0];
+
+  // Dedicated 2nd Page: Return full village customers page matching client website
+  if (villageModal) {
+    return (
+      <WholesaleVillageCustomersDetailView
+        routeName={villageModal.routeName}
+        villageName={villageModal.villageName}
+        customers={villageModal.list}
+        onBack={() => setVillageModal(null)}
+        onDeleteCustomer={handleDeleteFromVillageModal}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
@@ -584,83 +598,6 @@ export function WholesaleRoutePlannerView() {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Modal: Village Customers View */}
-      {villageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  {villageModal.villageName} · {villageModal.routeName}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {villageModal.list.length} customer(s) · Only the Owner can delete. Customers with orders cannot be deleted.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVillageModal(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="max-h-[55vh] overflow-y-auto border border-slate-100 rounded-lg">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                    <th className="py-2 px-3 w-10 text-center">Sl</th>
-                    <th className="py-2 px-3">Customer</th>
-                    <th className="py-2 px-3">Shop</th>
-                    <th className="py-2 px-3">Mobile</th>
-                    <th className="py-2 px-3 text-center w-16"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {villageModal.list.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 italic">
-                        No customers registered under this village yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    villageModal.list.map((c, i) => (
-                      <tr key={c.id} className="hover:bg-slate-50/70">
-                        <td className="py-2 px-3 text-center text-slate-400">{i + 1}</td>
-                        <td className="py-2 px-3 font-bold text-slate-900">{c.name}</td>
-                        <td className="py-2 px-3 text-slate-600">{c.shop}</td>
-                        <td className="py-2 px-3 font-mono text-slate-600">{c.ph}</td>
-                        <td className="py-2 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteFromVillageModal(c.id, c.name)}
-                            className="text-rose-500 hover:bg-rose-50 p-1 rounded"
-                            title="Delete customer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setVillageModal(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
-              >
-                Close
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
