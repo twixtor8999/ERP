@@ -376,7 +376,11 @@ export function WholesaleVendorsView() {
                 filteredVendors.map((v, idx) => {
                   const purchaseCount = purchases.filter((p) => p.vendorId === v.id).length;
                   return (
-                    <tr key={v.id} className="hover:bg-gray-50/80 transition-colors">
+                    <tr
+                      key={v.id}
+                      onClick={() => setViewVendor(v)}
+                      className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                    >
                       <td className="py-3 px-3.5 text-center text-gray-500 font-medium">
                         {idx + 1}
                       </td>
@@ -395,12 +399,12 @@ export function WholesaleVendorsView() {
                       <td className="py-3 px-3.5 text-center font-bold text-blue-600">
                         {purchaseCount}
                       </td>
-                      <td className="py-3 px-3.5 text-center">
+                      <td className="py-3 px-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setViewVendor(v)}
-                            className="px-2.5 py-1 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 transition-colors flex items-center gap-1"
+                            className="px-2.5 py-1 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             View
@@ -408,7 +412,7 @@ export function WholesaleVendorsView() {
                           <button
                             type="button"
                             onClick={() => setEditVendor(v)}
-                            className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center gap-1"
+                            className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             Edit
@@ -416,7 +420,7 @@ export function WholesaleVendorsView() {
                           <button
                             type="button"
                             onClick={() => handleDeleteVendor(v.id, v.name)}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
                             title="Delete vendor"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
