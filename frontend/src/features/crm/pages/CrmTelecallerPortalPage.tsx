@@ -1202,7 +1202,7 @@ export function CrmTelecallerPortalPage() {
 
   // When switching views, immediately refresh data corresponding to that view
   useEffect(() => {
-    if (activeView === "place-order" || activeView === "targets") {
+    if (activeView === "home" || activeView === "place-order" || activeView === "targets") {
       loadDashboardData(false);
     } else if (activeView === "reports") {
       loadReportsAndOrders(reportStartDate, reportEndDate);
@@ -1421,83 +1421,34 @@ export function CrmTelecallerPortalPage() {
         apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`),
       ]);
 
-      const backendOrders = repRes.data?.my_orders || [];
-      const backendOrderCount = repRes.data?.total_orders || backendOrders.length || 0;
-
-      const localOrderCount = localReport.total_orders ?? (localReport.my_orders ? localReport.my_orders.length : 0);
-
-      // If backend returned zero orders or empty while local pipeline has authoritative orders for this staff, prefer local authoritative report
-      if (backendOrderCount === 0 && localOrderCount > 0) {
-        setReportData(localReport);
-        if (localReport.my_orders && Array.isArray(localReport.my_orders)) {
-          setOrdersList(
-            localReport.my_orders.map((mo: any) => ({
-              id: mo.id || `ord-${Math.random()}`,
-              order_number: mo.order_number,
-              order_date: mo.order_date,
-              customer_name: mo.customer_name,
-              customer_phone: mo.customer_phone || "",
-              total_amount: mo.total_amount || 0,
-              status: mo.status || "PLACED",
-              order_placed: mo.order_placed || sDate,
-              packed_confirmed: mo.packed_confirmed || "—",
-              dispatched: mo.dispatched || "—",
-              out_for_delivery: mo.out_for_delivery || "—",
-              delivered: mo.delivered || "—",
-              payment_method: "CASH",
-              payment_status: "UNPAID",
-            }))
-          );
-        }
-      } else if (repRes.data) {
-        // Merge any local orders not yet reflected on backend
-        const seenNos = new Set((repRes.data.my_orders || []).map((o) => o.order_number));
-        const missingLocal = (localReport.my_orders || []).filter((lo) => !seenNos.has(lo.order_number));
-        const combinedOrders = [...(repRes.data.my_orders || []), ...missingLocal];
-
-        // Sort my_orders newest-first by order_number (descending) so latest order always appears at top
-        const sortedCombined = combinedOrders.sort((a, b) => {
+      if (repRes.data) {
+        // Trust backend database as source of truth for the selected date range
+        const backendOrders = [...(repRes.data.my_orders || [])].sort((a, b) => {
           const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
           const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
           return numB - numA;
         });
 
-        const combinedTotalAmount = sortedCombined.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+        const totalAmount = backendOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
         const reportWithSortedOrders: CrmReportData = {
           ...repRes.data,
-          total_orders: sortedCombined.length,
-          order_total: combinedTotalAmount,
-          my_orders: sortedCombined,
+          total_orders: backendOrders.length,
+          order_total: totalAmount,
+          incentive_today: repRes.data.incentive_today ?? repRes.data.incentive ?? 0,
+          my_orders: backendOrders,
         };
         setReportData(reportWithSortedOrders);
 
-        if (ordRes.data && ordRes.data.length > 0) {
+        if (Array.isArray(ordRes.data)) {
           const sortedOrders = [...ordRes.data].sort((a, b) => {
             const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
             const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
             return numB - numA;
           });
           setOrdersList(sortedOrders);
-        } else if (sortedCombined.length > 0) {
-          setOrdersList(
-            sortedCombined.map((mo: any) => ({
-              id: mo.id || `ord-${Math.random()}`,
-              order_number: mo.order_number,
-              order_date: mo.order_date,
-              customer_name: mo.customer_name,
-              customer_phone: mo.customer_phone || "",
-              total_amount: mo.total_amount || 0,
-              status: mo.status || "PLACED",
-              order_placed: mo.order_placed || sDate,
-              packed_confirmed: mo.packed_confirmed || "—",
-              dispatched: mo.dispatched || "—",
-              out_for_delivery: mo.out_for_delivery || "—",
-              delivered: mo.delivered || "—",
-              payment_method: "CASH",
-              payment_status: "UNPAID",
-            }))
-          );
+        } else {
+          setOrdersList([]);
         }
       }
     } catch {
@@ -1610,18 +1561,15 @@ export function CrmTelecallerPortalPage() {
 
     try {
       const res = await apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`);
-      if (res.data && res.data.length > 0) {
-        // Merge any local orders not yet reflected on backend
-        const seenNos = new Set(res.data.map((o) => o.order_number));
-        const missingLocal = localConvertedList.filter((lo) => !seenNos.has(lo.order_number));
-        const combined = [...res.data, ...missingLocal].sort((a, b) => {
+      if (Array.isArray(res.data)) {
+        const sorted = [...res.data].sort((a, b) => {
           const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
           const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
           return numB - numA;
         });
-        setOrdersList(combined);
+        setOrdersList(sorted);
         if (showToast) {
-          toast.success(`Loaded ${combined.length} orders`);
+          toast.success(`Loaded ${sorted.length} orders`);
         }
         return;
       }
@@ -2481,6 +2429,7 @@ export function CrmTelecallerPortalPage() {
       setOrderPaidAmount("");
       setShowCelebration(true);
       setActiveView("reports");
+      loadDashboardData(false);
       loadReportsAndOrders();
     } catch {
       toast.error("Failed to place order.");

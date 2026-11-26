@@ -3111,8 +3111,13 @@ def get_crm_telecaller_summary(
     today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
     org_id = current_user.organization_id
 
-    # Order date expression covering both order_date and created_at
-    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
+    # Order date expression: prefer explicit order_date (now set in IST).
+    # For legacy rows where order_date may be UTC-based, also check
+    # created_at converted to IST date as a secondary match.
+    order_date_expr = func.coalesce(
+        Order.order_date,
+        func.cast(func.timezone("Asia/Kolkata", Order.created_at), Date),
+    )
 
     # Count today's orders
     orders_today_count = db.scalar(
@@ -3131,12 +3136,12 @@ def get_crm_telecaller_summary(
         )
     ) or Decimal("0.00")
 
-    # Count today's calls
+    # Count today's calls (IST)
     calls_today_count = db.scalar(
         select(func.count(CallLog.id))
         .where(
             CallLog.organization_id == org_id,
-            func.date(CallLog.call_date) == today,
+            func.cast(func.timezone("Asia/Kolkata", CallLog.call_date), Date) == today,
         )
     ) or 0
 
@@ -3548,7 +3553,8 @@ def place_crm_quick_order(
     count = db.scalar(select(func.count(Order.id)).where(Order.organization_id == org_id)) or 0
     order_no = f"ORD-{count + 1:04d}"
     inv_no = f"INV-{count + 1:04d}"
-    today = datetime.now(UTC).date()
+    # Use IST date so orders placed at 10 PM IST show as today, not tomorrow UTC
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
 
     subtotal = Decimal("0.00")
     for it in payload.items:
@@ -3691,18 +3697,18 @@ def get_crm_telecaller_reports(
         except Exception:
             pass
 
-    # Customer created in date range
+    # Customer created in date range (IST)
     customer_created = db.scalar(
         select(func.count(Customer.id)).where(
             Customer.organization_id == org_id,
-            func.cast(Customer.created_at, Date) >= s_date,
-            func.cast(Customer.created_at, Date) <= e_date,
+            func.cast(func.timezone("Asia/Kolkata", Customer.created_at), Date) >= s_date,
+            func.cast(func.timezone("Asia/Kolkata", Customer.created_at), Date) <= e_date,
         )
     ) or 0
 
     # Orders in date range
     order_conditions = [Order.organization_id == org_id]
-    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
+    order_date_expr = func.coalesce(Order.order_date, func.cast(func.timezone("Asia/Kolkata", Order.created_at), Date))
     if s_date:
         order_conditions.append(order_date_expr >= s_date)
     if e_date:
@@ -3723,8 +3729,8 @@ def get_crm_telecaller_reports(
     called_cust_ids = set(db.scalars(
         select(CallLog.customer_id).where(
             CallLog.organization_id == org_id,
-            func.cast(CallLog.call_date, Date) >= s_date,
-            func.cast(CallLog.call_date, Date) <= e_date,
+            func.cast(func.timezone("Asia/Kolkata", CallLog.call_date), Date) >= s_date,
+            func.cast(func.timezone("Asia/Kolkata", CallLog.call_date), Date) <= e_date,
             CallLog.customer_id.isnot(None),
         )
     ).all())
@@ -3754,10 +3760,17 @@ def get_crm_telecaller_reports(
                     disp = person_part
             customers_map[c.id] = disp.title()
 
+    ist = ZoneInfo("Asia/Kolkata")
     my_orders = []
     for o in orders:
         c_name = customers_map.get(o.customer_id) or o.shipping_recipient_name or "Retail Customer"
-        o_date = o.order_date or (o.created_at.date() if o.created_at else today)
+        if o.order_date:
+            o_date = o.order_date
+        elif o.created_at:
+            dt_ist = o.created_at.astimezone(ist) if o.created_at.tzinfo else o.created_at.replace(tzinfo=UTC).astimezone(ist)
+            o_date = dt_ist.date()
+        else:
+            o_date = today
         my_orders.append({
             "id": o.id,
             "order_number": o.order_number,
@@ -3767,11 +3780,29 @@ def get_crm_telecaller_reports(
             "status": (o.status or "PLACED").upper(),
         })
 
-    # Last seen and last order times
+    # Calculate incentive earnings for orders in the selected date range
+    order_ids = [o.id for o in orders]
+    incentive_earned = 0.0
+    if order_ids:
+        inc_products = get_crm_incentive_products(current_user=current_user, db=db)
+        order_items = db.scalars(
+            select(OrderItem).where(OrderItem.order_id.in_(order_ids))
+        ).all()
+        for item in order_items:
+            p_lower = (item.product_name or "").lower()
+            for ip in inc_products:
+                ip_lower = ip["name"].lower()
+                if ip_lower in p_lower or p_lower in ip_lower:
+                    incentive_earned += float(item.quantity or 0) * float(ip.get("incentive_amt", 0))
+                    break
+
+    # Last seen and last order times (IST)
     latest_order = orders[0] if orders else None
     last_order_str = "—"
     if latest_order and latest_order.created_at:
-        last_order_str = latest_order.created_at.strftime("%d %b, %I:%M %p").lower()
+        lo_dt = latest_order.created_at
+        lo_ist = lo_dt.astimezone(ist) if lo_dt.tzinfo else lo_dt.replace(tzinfo=UTC).astimezone(ist)
+        last_order_str = lo_ist.strftime("%d %b, %I:%M %p").lower()
 
     now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
     last_seen_str = now_ist.strftime("%d/%m/%Y, %I:%M %p").lower()
@@ -3811,7 +3842,8 @@ def get_crm_telecaller_reports(
         "unbilled_customers": unbilled_customers,
         "my_orders": my_orders,
         "visited_customers": visited_customers,
-        "incentive": 0,
+        "incentive": round(incentive_earned),
+        "incentive_today": round(incentive_earned),
         "last_seen": last_seen_str,
         "last_order": last_order_str,
         # Legacy compat
@@ -3849,67 +3881,100 @@ def get_crm_team_reports(
         except Exception:
             pass
 
-    # Real orders today for Pushpa (ORD-1506, ORD-1507, ORD-1508 = 17,077)
-    orders_pushpa = db.scalars(
+    # ----------------------------------------------------------------
+    # Dynamically fetch ALL telecaller orders in the date range.
+    # Attribute each order to its telecaller via the notes field:
+    #   notes = "Punched by Telecaller CRM (<user_id>)"
+    # We also join User to resolve user_id → full_name.
+    # order_date is set at placement time (IST); coalesce with created_at
+    # as a safety net for any legacy rows.
+    # ----------------------------------------------------------------
+    ist = ZoneInfo("Asia/Kolkata")
+    order_date_expr = func.coalesce(
+        Order.order_date,
+        func.cast(func.timezone("Asia/Kolkata", Order.created_at), Date),
+    )
+
+    crm_orders = db.scalars(
         select(Order).where(
             Order.organization_id == org_id,
-            func.coalesce(Order.order_date, func.cast(Order.created_at, Date)) >= s_date,
-            func.coalesce(Order.order_date, func.cast(Order.created_at, Date)) <= e_date,
+            order_date_expr >= s_date,
+            order_date_expr <= e_date,
         )
     ).all()
 
-    pushpa_count = len(orders_pushpa) or 3
-    pushpa_total = sum(float(o.total_amount) for o in orders_pushpa) or 17077.0
+    # Build caches: user_id -> full_name and registered crm_users
+    all_users = db.scalars(
+        select(User).where(User.organization_id == org_id)
+    ).all()
+    uid_to_name: dict[str, str] = {u.id: u.full_name for u in all_users}
 
-    telecaller_report = [
-        {
-            "sl": 1,
-            "name": "Pushpa Patil",
-            "not_reachable": 0,
-            "shop_closed": 0,
-            "call_back": 0,
-            "stock_available": 0,
-            "not_interested": 0,
-        },
-        {
-            "sl": 2,
-            "name": "Dhruthi A S",
-            "not_reachable": 0,
-            "shop_closed": 0,
-            "call_back": 0,
-            "stock_available": 0,
-            "not_interested": 0,
-        },
-        {
-            "sl": 3,
-            "name": "Mahalaxmi Hiremath",
-            "not_reachable": 0,
-            "shop_closed": 0,
-            "call_back": 0,
-            "stock_available": 0,
-            "not_interested": 0,
-        },
-    ]
+    crm_role_slugs = {"crm_executive", "telecaller"}
+    crm_users = db.scalars(
+        select(User)
+        .join(UserRoleAssignment, UserRoleAssignment.user_id == User.id)
+        .join(Role, Role.id == UserRoleAssignment.role_id)
+        .where(
+            User.organization_id == org_id,
+            Role.slug.in_(crm_role_slugs),
+            User.is_active == True,
+        )
+    ).all()
+
+    # Extract telecaller name from notes field: "Punched by Telecaller CRM (<uid>)"
+    def _resolve_telecaller(order: Order) -> str:
+        if order.notes and "Punched by Telecaller CRM (" in order.notes:
+            uid = order.notes.split("Punched by Telecaller CRM (")[-1].split(")")[0].strip()
+            if uid in uid_to_name:
+                return uid_to_name[uid]
+        # Fallback: check if any registered telecaller name appears in notes or delivery_notes
+        combined_notes = f"{order.notes or ''} {order.delivery_notes or ''}".lower()
+        for u in crm_users:
+            if u.full_name and u.full_name.lower() in combined_notes:
+                return u.full_name
+        return "Direct / Other"
+
+    # Aggregate: name -> {count, total}
+    telecaller_sales: dict[str, dict] = {}
+    for o in crm_orders:
+        name = _resolve_telecaller(o)
+        if name not in telecaller_sales:
+            telecaller_sales[name] = {"order_count": 0, "order_total": 0.0}
+        telecaller_sales[name]["order_count"] += 1
+        telecaller_sales[name]["order_total"] += float(o.total_amount)
+
+    # Seed every registered telecaller with 0 so they always appear
+    registered_names: dict[str, dict] = {}
+    for u in crm_users:
+        if u.full_name not in registered_names:
+            registered_names[u.full_name] = {"order_count": 0, "order_total": 0.0}
+    # Merge real order data on top (only include Direct / Other if it actually has orders)
+    for name, stats in telecaller_sales.items():
+        registered_names[name] = stats
 
     sale_report = [
         {
-            "sl": 1,
-            "name": "Pushpa Patil",
-            "order_count": pushpa_count,
-            "order_total": round(pushpa_total),
-        },
+            "sl": idx + 1,
+            "name": name,
+            "order_count": stats["order_count"],
+            "order_total": round(stats["order_total"]),
+        }
+        for idx, (name, stats) in enumerate(registered_names.items())
+    ]
+
+    # Telecaller report (call outcomes) — dynamic when CallLog is wired;
+    # for now 0s per person (no hardcoded fallbacks)
+    telecaller_report = [
         {
-            "sl": 2,
-            "name": "Dhruthi A S",
-            "order_count": 2,
-            "order_total": 11620,
-        },
-        {
-            "sl": 3,
-            "name": "Mahalaxmi Hiremath",
-            "order_count": 0,
-            "order_total": 0,
-        },
+            "sl": idx + 1,
+            "name": name,
+            "not_reachable": 0,
+            "shop_closed": 0,
+            "call_back": 0,
+            "stock_available": 0,
+            "not_interested": 0,
+        }
+        for idx, name in enumerate(registered_names.keys())
     ]
 
     total_orders = sum(int(r["order_count"]) for r in sale_report)
@@ -3938,7 +4003,7 @@ def get_crm_orders_status(
     ist = ZoneInfo("Asia/Kolkata")
     
     conditions = [Order.organization_id == org_id]
-    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
+    order_date_expr = func.coalesce(Order.order_date, func.cast(func.timezone("Asia/Kolkata", Order.created_at), Date))
     if start_date:
         try:
             s_d = datetime.strptime(start_date.strip(), "%Y-%m-%d").date()
