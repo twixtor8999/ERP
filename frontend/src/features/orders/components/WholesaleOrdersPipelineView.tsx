@@ -2593,7 +2593,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
                       <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{o.source}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-3">
+                        <select
+                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
+                          className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          {availableVehicleOptions.map((veh) => (
+                            <option key={veh} value={veh}>
+                              {veh}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
@@ -2819,7 +2831,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-3">
+                        <select
+                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
+                          className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          {availableVehicleOptions.map((veh) => (
+                            <option key={veh} value={veh}>
+                              {veh}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
