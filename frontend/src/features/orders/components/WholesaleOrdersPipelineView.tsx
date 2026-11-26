@@ -12,6 +12,7 @@ import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/t
 import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
 import { useAuthStore } from "@/stores/auth.store";
 import { getStoredVehicles } from "@/features/vehicles/data/mockVehicles";
+import { downloadExcelXlsx } from "@/lib/utilities/excelExport";
 import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
@@ -1489,7 +1490,7 @@ export function WholesaleOrdersPipelineView() {
 
   const drilldownTotalAmt = drilldownOrders.reduce((sum, o) => sum + o.total, 0);
 
-  // Real CSV / Excel / PDF Export Handler
+  // Real Excel (.xlsx) & PDF Export Handler
   const handleExportCSV = (type = "Customer") => {
     setShowExportMenu(false);
 
@@ -1502,20 +1503,6 @@ export function WholesaleOrdersPipelineView() {
       toast.error("No orders available in current view to export");
       return;
     }
-
-    const downloadCsv = (filename: string, headers: string[], rows: Array<Array<string | number>>) => {
-      const escapeCell = (val: string | number) => `"${String(val ?? "").replace(/"/g, '""')}"`;
-      const csv = [headers.map(escapeCell).join(","), ...rows.map((r) => r.map(escapeCell).join(","))].join("\n");
-      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    };
 
     if (type === "Dispatch PDF") {
       const itemMap = new Map<string, { name: string; unit: string; qty: number; amount: number }>();
@@ -1564,12 +1551,16 @@ export function WholesaleOrdersPipelineView() {
         it.ordersCount,
         it.amount,
       ]);
-      downloadCsv(
-        `${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.csv`,
+      const totalQty = Array.from(itemMap.values()).reduce((s, it) => s + it.qty, 0);
+      const totalAmt = Array.from(itemMap.values()).reduce((s, it) => s + it.amount, 0);
+      downloadExcelXlsx(
+        `${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.xlsx`,
+        `${type} Report`,
         ["Sl", "Item Name", "Unit", "Total Qty", "Orders Count", "Total Amount (INR)"],
-        rows
+        rows,
+        ["Total", `${rows.length} items`, "", totalQty, exportList.length, totalAmt]
       );
-      toast.success(`Downloaded ${type} CSV (${rows.length} items)`);
+      toast.success(`Downloaded ${type} Excel (.xlsx · ${rows.length} items)`);
       return;
     }
 
@@ -1585,15 +1576,18 @@ export function WholesaleOrdersPipelineView() {
       o.source,
       o.orderDate,
       o.vehicleNo || "",
-      o.total,
+      Number(o.total) || 0,
       o.stage,
     ]);
-    downloadCsv(
-      `Orders_${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.csv`,
+    const grandTotal = exportList.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    downloadExcelXlsx(
+      `Orders_${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.xlsx`,
+      `Orders ${type}`,
       ["Sl", "Invoice No", "Order No", "Customer", "Shop", "Village", "Route", "Created By", "Source", "Order Date", "Vehicle No", "Total (INR)", "Stage"],
-      rows
+      rows,
+      ["Total", "", `${rows.length} orders`, "", "", "", "", "", "", "", "", grandTotal, ""]
     );
-    toast.success(`Downloaded ${type} report (${rows.length} orders)`);
+    toast.success(`Downloaded ${type} Excel (.xlsx · ${rows.length} orders)`);
   };
 
   if (viewingOrder && viewingOrder.stage === "delivery") {

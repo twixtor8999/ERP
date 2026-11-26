@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Search, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
+import { downloadExcelXlsx } from "@/lib/utilities/excelExport";
 import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 
 interface CrmStaffMember {
@@ -804,21 +805,20 @@ export function BusinessDashboardView() {
     const totalSalesSum = sourceRows.reduce((s, r) => s + parseInt(r.sales.replace(/,/g, "") || "0", 10), 0);
 
     const handleExportSales = () => {
-      const csv = [
-        "Order,Date,Customer,Village,Sales",
-        ...sourceRows.map(
-          (r) =>
-            `"${r.id}","${r.date}","${r.customer}","${r.village}","${r.sales}"`
-        ),
-      ].join("\n");
-      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `sales_${activeStaff.name.replace(/\s+/g, "_")}_${fromDate}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      downloadExcelXlsx(
+        `sales_${activeStaff.name.replace(/\s+/g, "_")}_${fromDate}.xlsx`,
+        `Sales ${activeStaff.name}`,
+        ["Order", "Date", "Customer", "Village", "Sales (INR)"],
+        sourceRows.map((r) => [
+          r.id,
+          r.date,
+          r.customer,
+          r.village,
+          parseInt(r.sales.replace(/,/g, "") || "0", 10),
+        ]),
+        ["Total", `${sourceRows.length} order(s)`, "", "", totalSalesSum]
+      );
+      toast.success("Downloaded Excel sheet (.xlsx)");
     };
 
     return (
@@ -1083,19 +1083,21 @@ export function BusinessDashboardView() {
     );
 
     const handleExportReturns = () => {
-      const csv = [
-        "Order,Customer,Village,Item,Qty,Amount",
-        ...staffReturns.rows.map(
-          (r) =>
-            `"${r.order}","${r.customer}","${r.village}","${r.item}",${r.qty},"${r.amount}"`
-        ),
-      ].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `sales_returns_${activeStaff.name.replace(/\s+/g, "_")}_2026-11-21.csv`;
-      a.click();
+      downloadExcelXlsx(
+        `sales_returns_${activeStaff.name.replace(/\s+/g, "_")}_${fromDate}.xlsx`,
+        `Returns ${activeStaff.name}`,
+        ["Order", "Customer", "Village", "Item", "Qty", "Amount (INR)"],
+        staffReturns.rows.map((r) => [
+          r.order,
+          r.customer,
+          r.village,
+          r.item,
+          Number(r.qty) || 0,
+          parseInt(String(r.amount).replace(/,/g, "") || "0", 10),
+        ]),
+        ["Total", "", "", "", staffReturns.totalQty, parseInt(String(staffReturns.totalAmount).replace(/,/g, "") || "0", 10)]
+      );
+      toast.success("Downloaded Excel sheet (.xlsx)");
     };
 
     return (
