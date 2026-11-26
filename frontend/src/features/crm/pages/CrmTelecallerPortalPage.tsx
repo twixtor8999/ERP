@@ -520,6 +520,27 @@ type CrmSubView =
   | "profile"
   | "new-customer";
 
+function PunchDurationCounter({ baseSeconds, active }: { baseSeconds: number; active: boolean }) {
+  const [elapsed, setElapsed] = useState(baseSeconds);
+
+  useEffect(() => {
+    setElapsed(baseSeconds);
+  }, [baseSeconds]);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  const h = Math.floor(elapsed / 3600).toString().padStart(2, "0");
+  const m = Math.floor((elapsed % 3600) / 60).toString().padStart(2, "0");
+  const s = Math.floor(elapsed % 60).toString().padStart(2, "0");
+  return <>{`${h}h ${m}m ${s}s`}</>;
+}
+
 export function CrmTelecallerPortalPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -590,6 +611,9 @@ export function CrmTelecallerPortalPage() {
   const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
   const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>(getInitialCallingCustomers);
+  const [callingsDisplayLimit, setCallingsDisplayLimit] = useState<number>(100);
+  const [customersDisplayLimit, setCustomersDisplayLimit] = useState<number>(100);
+  const callingsFetchedRef = useRef(false);
 
   // Catalog for Order Pad & SKU List (Initialized from real products matching Image 3)
   const [catalog, setCatalog] = useState<ProductItem[]>(() => {
@@ -982,23 +1006,6 @@ export function CrmTelecallerPortalPage() {
     return 0;
   });
 
-  useEffect(() => {
-    let timer: any;
-    if (attendancePunched) {
-      timer = setInterval(() => {
-        setPunchSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [attendancePunched]);
-
-  const formatPunchDuration = (secs: number) => {
-    const h = Math.floor(secs / 3600).toString().padStart(2, "0");
-    const m = Math.floor((secs % 3600) / 60).toString().padStart(2, "0");
-    const s = Math.floor(secs % 60).toString().padStart(2, "0");
-    return `${h}h ${m}m ${s}s`;
-  };
-
   const getTimeGreeting = () => {
     const hr = new Date().getHours();
     if (hr < 12) return "Good morning,";
@@ -1056,10 +1063,10 @@ export function CrmTelecallerPortalPage() {
   }, [activeView]);
 
   useEffect(() => {
-    loadDashboardData();
+    loadDashboardData(true);
     checkAttendanceStatus();
 
-    // Auto-sync every 30s with automatic 12:00 AM midnight daily reset
+    // Auto-sync summary & daily rollover every 30s without re-fetching 2,500 customer records
     const syncInterval = setInterval(() => {
       const todayIso = getTodayIsoDate();
 
@@ -1099,13 +1106,12 @@ export function CrmTelecallerPortalPage() {
           setAttendanceTime("");
           setPunchSeconds(0);
 
-          loadDashboardData();
           return todayIso;
         }
         return prevDate;
       });
 
-      loadDashboardData();
+      loadDashboardData(false);
     }, 30000);
 
     return () => clearInterval(syncInterval);
@@ -1114,46 +1120,52 @@ export function CrmTelecallerPortalPage() {
   // When switching to place-order or targets, immediately refresh live catalog
   useEffect(() => {
     if (activeView === "place-order" || activeView === "targets" || activeView === "order-status") {
-      loadDashboardData();
+      loadDashboardData(false);
       if (activeView === "order-status") {
         loadOrderStatus();
       }
     }
   }, [activeView]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (refreshCallings = false) => {
     try {
+      const shouldFetchCallings = refreshCallings || !callingsFetchedRef.current;
       const [sumRes, incRes, callRes, prodRes] = await Promise.all([
         apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
         apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
-        apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500"),
+        shouldFetchCallings
+          ? apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500")
+          : Promise.resolve(null),
         apiClient.get<any[]>("/api/v1/admin/products"),
       ]);
 
       setSummary(sumRes.data);
       setIncentiveProducts(incRes.data);
-      const apiRoutes = callRes.data && callRes.data.routes ? callRes.data.routes : [];
-      if (apiRoutes.length > 0) {
-        const mergedRoutes = Array.from(new Set(["All Routes", "Bijapur", ...apiRoutes]));
-        setRoutes(mergedRoutes);
-      }
-
-      // Preload all 2,169 real authoritative customers and merge with any backend customers
-      const apiCusts = (callRes.data && callRes.data.customers) || [];
-      const initialCusts = getInitialCallingCustomers();
-      const custMap = new Map<string, CallingCustomer>();
-      for (const ic of initialCusts) {
-        custMap.set(ic.id, ic);
-      }
-      for (const ac of apiCusts) {
-        if (custMap.has(ac.id)) {
-          const old = custMap.get(ac.id)!;
-          custMap.set(ac.id, { ...old, ...ac });
-        } else {
-          custMap.set(ac.id, ac);
+      if (callRes && callRes.data) {
+        callingsFetchedRef.current = true;
+        const apiRoutes = callRes.data.routes || [];
+        if (apiRoutes.length > 0) {
+          const mergedRoutes = Array.from(new Set(["All Routes", "Bijapur", ...apiRoutes]));
+          setRoutes(mergedRoutes);
         }
+
+        // Preload all 2,169 real authoritative customers and merge with any backend customers
+        const apiCusts = callRes.data.customers || [];
+        const initialCusts = getInitialCallingCustomers();
+        const custMap = new Map<string, CallingCustomer>();
+        for (const ic of initialCusts) {
+          custMap.set(ic.id, ic);
+        }
+        for (const ac of apiCusts) {
+          if (custMap.has(ac.id)) {
+            const old = custMap.get(ac.id)!;
+            custMap.set(ac.id, { ...old, ...ac });
+          } else {
+            custMap.set(ac.id, ac);
+          }
+        }
+        setCallingCustomers(Array.from(custMap.values()));
       }
-      setCallingCustomers(Array.from(custMap.values()));
 
       // Normalize live SKU products & variants from Super Admin (using Selling Price)
       const flattenedProducts: ProductItem[] = [];
@@ -1661,6 +1673,11 @@ export function CrmTelecallerPortalPage() {
       return matchRoute && matchDay && matchKey && matchVillage && matchSearch;
     });
   }, [callingCustomers, selectedRoute, selectedBeatDay, selectedVillageKey, selectedVillage, callingSearch]);
+
+  // Reset callings visible cap whenever filter criteria change
+  useEffect(() => {
+    setCallingsDisplayLimit(100);
+  }, [selectedRoute, selectedBeatDay, selectedVillageKey, selectedVillage, callingSearch]);
 
   const filteredCustomers = callingCustomers;
 
@@ -3371,7 +3388,7 @@ export function CrmTelecallerPortalPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/80 bg-[#0a1733] text-slate-200">
-                      {filteredCallings.map((c, idx) => (
+                      {filteredCallings.slice(0, callingsDisplayLimit).map((c, idx) => (
                         <tr key={c.id} className="hover:bg-slate-900/60 transition-colors">
                           <td className="py-3.5 px-3 text-center font-mono text-blue-400 font-bold">{idx + 1}</td>
                           <td className="py-3.5 px-3">
@@ -3406,6 +3423,19 @@ export function CrmTelecallerPortalPage() {
                           </td>
                         </tr>
                       ))}
+                      {filteredCallings.length > callingsDisplayLimit && (
+                        <tr>
+                          <td colSpan={7} className="py-3 px-4 text-center bg-slate-900/80 border-t border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => setCallingsDisplayLimit((prev) => prev + 100)}
+                              className="px-4 py-1.5 rounded-lg bg-[#2563eb] hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors"
+                            >
+                              Show more ({Math.min(callingsDisplayLimit, filteredCallings.length)} of {filteredCallings.length} shown)
+                            </button>
+                          </td>
+                        </tr>
+                      )}
                       {filteredCallings.length === 0 && (
                         <tr>
                           <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-medium">
@@ -5807,7 +5837,7 @@ export function CrmTelecallerPortalPage() {
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 text-center">
                       <span className="text-[10px] text-slate-400 block font-semibold">Active Duty</span>
-                      <span className="font-black text-slate-900 text-sm font-mono">{formatPunchDuration(punchSeconds)}</span>
+                      <span className="font-black text-slate-900 text-sm font-mono"><PunchDurationCounter baseSeconds={punchSeconds} active={attendancePunched} /></span>
                     </div>
                   </div>
                 </div>
@@ -5838,7 +5868,7 @@ export function CrmTelecallerPortalPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {filteredCustomers.map((c, idx) => {
+                        {filteredCustomers.slice(0, customersDisplayLimit).map((c, idx) => {
                           const hasUdhaar = c.current_balance > 0;
                           const mapUrl =
                             c.google_map_url ||
@@ -5948,6 +5978,19 @@ export function CrmTelecallerPortalPage() {
                         })}
                       </tbody>
                       <tfoot>
+                        {filteredCustomers.length > customersDisplayLimit && (
+                          <tr className="bg-slate-50/70 border-t border-slate-200">
+                            <td colSpan={10} className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setCustomersDisplayLimit((prev) => prev + 100)}
+                                className="px-4 py-1.5 rounded-lg bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold cursor-pointer transition-colors"
+                              >
+                                Show next 100 ({Math.min(customersDisplayLimit, filteredCustomers.length)} of {filteredCustomers.length} stores shown)
+                              </button>
+                            </td>
+                          </tr>
+                        )}
                         <tr className="bg-slate-50 border-t border-slate-200 text-xs font-bold text-slate-700">
                           <td colSpan={7} className="py-2.5 px-3">
                             Total Stores: {filteredCustomers.length} Registered Kirana Shops
