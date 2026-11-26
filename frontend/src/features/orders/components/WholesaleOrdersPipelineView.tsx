@@ -829,7 +829,7 @@ export function WholesaleOrdersPipelineView() {
     }
   }, []);
 
-  const lastStorageSignatureRef = useRef<string>("");
+  const lastStorageMapRef = useRef<Map<string, string>>(new Map());
 
   // Sync real-time orders directly from local storage only when raw payloads changed
   const syncOrdersFromStorage = useCallback((force = false) => {
@@ -843,18 +843,20 @@ export function WholesaleOrdersPipelineView() {
           relevantKeys.push(key);
         }
       }
-      relevantKeys.sort();
-      const signature = relevantKeys
-        .map((k) => {
-          const val = localStorage.getItem(k) || "";
-          return `${k}:${val.length}:${val.slice(0, 64)}:${val.slice(-64)}`;
-        })
-        .join("|");
+      const nextRaw = new Map<string, string>();
+      let unchanged = !force && relevantKeys.length === lastStorageMapRef.current.size;
+      for (const k of relevantKeys) {
+        const val = localStorage.getItem(k) || "";
+        nextRaw.set(k, val);
+        if (unchanged && lastStorageMapRef.current.get(k) !== val) {
+          unchanged = false;
+        }
+      }
 
-      if (!force && signature === lastStorageSignatureRef.current) {
+      if (unchanged) {
         return;
       }
-      lastStorageSignatureRef.current = signature;
+      lastStorageMapRef.current = nextRaw;
 
       // 1. Read crm_wholesale_pipeline_orders
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");

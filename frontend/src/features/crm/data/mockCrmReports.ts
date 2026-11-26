@@ -305,8 +305,44 @@ export function getAllTelecallers(): Array<{ id: string; name: string; phone: st
 // All recognized CRM telecallers in Siddeshwar Enterprises (only telecallers)
 export const ALL_CRM_STAFF_BASE = INITIAL_CRM_STAFF_LIST;
 
+let _crmOrdersCacheRaw = new Map<string, string>();
+let _crmOrdersCacheData: CrmOrderRecord[] = [];
+
 // Helper: Get all orders across local storage (pipeline, CRM reports, master orders, and initial)
+// Cached by exact raw localStorage string equality so unchanged repeated calls return in <0.05ms.
 export function getAllCrmOrders(): CrmOrderRecord[] {
+  let nextRawMap: Map<string, string> | null = null;
+  if (typeof window !== "undefined") {
+    try {
+      const relevantKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key === "crm_wholesale_pipeline_orders" ||
+            key.startsWith("crm_reports_") ||
+            key === "crm_orders_master")
+        ) {
+          relevantKeys.push(key);
+        }
+      }
+      nextRawMap = new Map<string, string>();
+      let matchesCache =
+        _crmOrdersCacheData.length > 0 && relevantKeys.length === _crmOrdersCacheRaw.size;
+      for (const k of relevantKeys) {
+        const v = localStorage.getItem(k) || "";
+        nextRawMap.set(k, v);
+        if (matchesCache && _crmOrdersCacheRaw.get(k) !== v) {
+          matchesCache = false;
+        }
+      }
+      if (matchesCache) {
+        return _crmOrdersCacheData;
+      }
+      _crmOrdersCacheRaw = nextRawMap;
+    } catch {}
+  }
+
   const map = new Map<string, CrmOrderRecord>();
 
   // 1. Initial CRM Demo Orders
@@ -413,12 +449,18 @@ export function getAllCrmOrders(): CrmOrderRecord[] {
     }
   } catch {}
 
-  return Array.from(map.values());
+  const result = Array.from(map.values());
+  _crmOrdersCacheData = result;
+  return result;
 }
 
 // Helper: Filter orders by date range
-export function getOrdersInDateRange(fromDate: string, toDate: string): CrmOrderRecord[] {
-  const all = getAllCrmOrders();
+export function getOrdersInDateRange(
+  fromDate: string,
+  toDate: string,
+  preloadedOrders?: CrmOrderRecord[]
+): CrmOrderRecord[] {
+  const all = preloadedOrders || getAllCrmOrders();
   const fIso = normalizeDateToIso(fromDate);
   const tIso = normalizeDateToIso(toDate);
 
@@ -431,8 +473,12 @@ export function getOrdersInDateRange(fromDate: string, toDate: string): CrmOrder
 }
 
 // Helper: Aggregate staff performance for a given date range
-export function getStaffMetricsInDateRange(fromDate: string, toDate: string): CrmStaffMember[] {
-  const rangeOrders = getOrdersInDateRange(fromDate, toDate);
+export function getStaffMetricsInDateRange(
+  fromDate: string,
+  toDate: string,
+  preloadedRangeOrders?: CrmOrderRecord[]
+): CrmStaffMember[] {
+  const rangeOrders = preloadedRangeOrders || getOrdersInDateRange(fromDate, toDate);
   const activeTelecallers = getAllTelecallers();
 
   return activeTelecallers.map((base) => {

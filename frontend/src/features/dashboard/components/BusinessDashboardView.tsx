@@ -302,10 +302,10 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
     const from = fDate || today;
     const to = tDate || today;
 
-    const telecallers = getAllTelecallers();
-    const metrics = getStaffMetricsInDateRange(from, to);
-    const rangeOrders = getOrdersInDateRange(from, to);
     const allOrders = getAllCrmOrders();
+    const telecallers = getAllTelecallers();
+    const rangeOrders = getOrdersInDateRange(from, to, allOrders);
+    const metrics = getStaffMetricsInDateRange(from, to, rangeOrders);
 
     return telecallers.map((st, index) => {
       const metric = metrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
@@ -387,12 +387,19 @@ export function BusinessDashboardView() {
   const [staffList, setStaffList] = useState<CrmStaffMember[]>(() => getDynamicStaffList());
 
   useEffect(() => {
-    const refresh = () => setStaffList(getDynamicStaffList(fromDate, toDate));
-    window.addEventListener("storage", refresh);
-    window.addEventListener("focus", refresh);
+    let lastFocusRefresh = 0;
+    const refreshFromStorage = () => setStaffList(getDynamicStaffList(fromDate, toDate));
+    const refreshOnFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusRefresh < 10000) return;
+      lastFocusRefresh = now;
+      setStaffList(getDynamicStaffList(fromDate, toDate));
+    };
+    window.addEventListener("storage", refreshFromStorage);
+    window.addEventListener("focus", refreshOnFocus);
     return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", refreshFromStorage);
+      window.removeEventListener("focus", refreshOnFocus);
     };
   }, [fromDate, toDate]);
 
@@ -415,10 +422,7 @@ export function BusinessDashboardView() {
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<StaffSalesRecord | null>(null);
-  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(() => {
-    const initialList = getDynamicStaffList();
-    return initialList[0] || DEFAULT_STAFF[0]!;
-  });
+  const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(() => staffList[0] || DEFAULT_STAFF[0]!);
   const [searchQuery, setSearchQuery] = useState("");
 
   // -------------------------------------------------------------

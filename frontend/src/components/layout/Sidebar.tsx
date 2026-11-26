@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
@@ -12,6 +12,12 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const orgDisplayName = useMemo(() => {
+    const cfg = getInvoiceTemplateConfig();
+    const name = user?.organizationName || cfg.companyName || "SIDDESHWAR ENT...";
+    return name.length > 16 ? name.slice(0, 15) + "..." : name;
+  }, [user?.organizationName]);
 
   const isProfileActive = location.pathname === "/profile" || location.pathname === "/my-profile";
 
@@ -58,11 +64,7 @@ export function Sidebar() {
             {/* Organization Tag wrapped in rounded pill box container */}
             <div className="w-full bg-[#203254] hover:bg-[#253b63] border border-[#2c4470] rounded-xl px-3 py-2 text-center shadow-xs transition">
               <span className="text-[13px] font-black tracking-wide text-white uppercase truncate block">
-                {(() => {
-                  const cfg = getInvoiceTemplateConfig();
-                  const name = user?.organizationName || cfg.companyName || "SIDDESHWAR ENT...";
-                  return name.length > 16 ? name.slice(0, 15) + "..." : name;
-                })()}
+                {orgDisplayName}
               </span>
             </div>
 
