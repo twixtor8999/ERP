@@ -1120,6 +1120,32 @@ export function CrmTelecallerPortalPage() {
   }, [activeView]);
 
   useEffect(() => {
+    // Purge any stale 26/11 orders cache for Pushpa Patil if erased
+    try {
+      const ordersToPurge = new Set(["ORD-0496", "ORD-0497", "ORD-0498"]);
+      const pipeRaw = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (pipeRaw) {
+        const parsed = JSON.parse(pipeRaw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((p) => !ordersToPurge.has(p.orderNo));
+          if (filtered.length !== parsed.length) {
+            localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(filtered));
+          }
+        }
+      }
+      const masterRaw = localStorage.getItem("crm_orders_master");
+      if (masterRaw) {
+        const parsed = JSON.parse(masterRaw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((m) => !ordersToPurge.has(m.order_number || m.orderNo));
+          if (filtered.length !== parsed.length) {
+            localStorage.setItem("crm_orders_master", JSON.stringify(filtered));
+          }
+        }
+      }
+      sessionStorage.removeItem("crm_reports_2026-11-26");
+    } catch {}
+
     loadDashboardData(true);
     checkAttendanceStatus();
 
