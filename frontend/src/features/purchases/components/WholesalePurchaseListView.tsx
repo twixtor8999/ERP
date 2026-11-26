@@ -7,6 +7,7 @@ import {
   Download,
   Bot,
   FileText,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -215,45 +216,46 @@ export function WholesalePurchaseListView() {
                   Total Items
                 </th>
                 <th className="py-2.5 px-4 border-r border-blue-400/40 text-right w-36">Total</th>
-                <th className="py-2.5 px-4 text-center w-36">Approval</th>
+                <th className="py-2.5 px-4 border-r border-blue-400/40 text-center w-32">Approval</th>
+                <th className="py-2.5 px-4 text-center w-28">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {filteredPurchases.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                  <td colSpan={8} className="py-12 text-center text-slate-400 italic">
                     No purchases in this range.
                   </td>
                 </tr>
               ) : (
                 filteredPurchases.map((p, idx) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={p.id}
+                    onClick={() => setSelectedPurchase(p)}
+                    className="hover:bg-blue-50/60 transition-colors cursor-pointer group"
+                  >
                     <td className="py-2.5 px-3 border-r border-slate-100 text-center text-slate-400">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-slate-800">
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-slate-800 whitespace-nowrap">
                       {p.date}
                     </td>
-                    <td className="py-2.5 px-4 border-r border-slate-100 font-bold text-slate-900">
+                    <td className="py-2.5 px-4 border-r border-slate-100 font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
                       {p.vendorName}
                     </td>
-                    <td className="py-2.5 px-4 border-r border-slate-100 font-mono font-medium text-blue-700">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPurchase(p)}
-                        className="hover:underline flex items-center gap-1"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
+                    <td className="py-2.5 px-4 border-r border-slate-100 font-mono font-medium text-slate-700">
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
                         {p.invoiceNo}
-                      </button>
+                      </span>
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-100 text-center font-bold">
                       {p.totalItems}
                     </td>
-                    <td className="py-2.5 px-4 border-r border-slate-100 text-right font-black text-slate-900">
+                    <td className="py-2.5 px-4 border-r border-slate-100 text-right font-black text-slate-900 font-mono">
                       ₹{p.totalAmount.toLocaleString()}
                     </td>
-                    <td className="py-2.5 px-4 text-center">
+                    <td className="py-2.5 px-4 border-r border-slate-100 text-center">
                       {p.status === "approved" ? (
                         <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 rounded">
                           Approved
@@ -261,12 +263,28 @@ export function WholesalePurchaseListView() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleApprove(p.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApprove(p.id);
+                          }}
                           className="px-2.5 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded transition-colors"
                         >
                           Approve
                         </button>
                       )}
+                    </td>
+                    <td className="py-2.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPurchase(p);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-white bg-[#0f2d59] hover:bg-blue-900 rounded shadow-2xs transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))
