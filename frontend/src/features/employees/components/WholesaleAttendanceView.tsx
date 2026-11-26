@@ -55,8 +55,10 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
   const [todayStr, setTodayStr] = useState<string>(getLocalTodayIso);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getLocalTodayIso().slice(0, 7));
 
-  // Auto-rollover at 12:00 AM midnight
+  // Auto-rollover at 12:00 AM midnight & sync admin overrides
   useEffect(() => {
+    const syncAttendance = () => setAttendance(getStoredAttendance());
+    window.addEventListener('attendance_updated', syncAttendance);
     const timer = setInterval(() => {
       const next = getLocalTodayIso();
       setTodayStr((prev) => {
@@ -67,7 +69,10 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
         return prev;
       });
     }, 30000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('attendance_updated', syncAttendance);
+    };
   }, []);
 
   // Long-press state
@@ -115,6 +120,9 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
   const todayStatus = useMemo(() => {
     if (isSunday(todayStr)) return 'Week off';
     if (HOLIDAYS_2026[todayStr]) return `Holiday (${HOLIDAYS_2026[todayStr]})`;
+    if (todayRecord?.ov === 'P') return 'Present (Admin)';
+    if (todayRecord?.ov === 'HD') return 'Half Day (Admin)';
+    if (todayRecord?.ov === 'A') return 'Absent (Admin)';
     if (!todayRecord || !todayRecord.inT) return 'Not marked';
     if (!todayRecord.outT) return 'Checked in';
     // Calculate if Present or Half day
@@ -153,6 +161,16 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
         present++;
         hrs = 8;
         totalMinutes += 480;
+      } else if (rec && rec.ov === 'HD') {
+        code = 'HD';
+        label = 'Half Day (Admin Override)';
+        halfDay++;
+        hrs = 4;
+        totalMinutes += 240;
+      } else if (rec && rec.ov === 'A') {
+        code = 'A';
+        label = 'Absent (Admin Override)';
+        absent++;
       } else if (rec && rec.inT) {
         if (rec.outT) {
           const diff = getMinutesDiff(rec.inT, rec.outT);

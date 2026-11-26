@@ -48,14 +48,13 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
   const [employees] = useState<Employee[]>(() => getStoredEmployees());
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => getStoredAttendance());
   const [salaries, setSalaries] = useState<SalaryRecord[]>(() => getStoredSalaries());
-  const [selectedMonth, setSelectedMonth] = useState('2026-11');
-  const [showHolidays, setShowHolidays] = useState(false);
-
   // Today string dynamically defaulting to current real ISO date
   const todayStr = (() => {
     const d = new Date();
     return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
   })();
+  const [selectedMonth, setSelectedMonth] = useState(() => todayStr.slice(0, 7));
+  const [showHolidays, setShowHolidays] = useState(false);
 
   // Modal State for Attendance Override (tap H or A -> P*)
   const [fixModal, setFixModal] = useState<{
@@ -229,6 +228,8 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
   const handleSaveFix = () => {
     if (!fixModal) return;
     const { emp, date, record } = fixModal;
+    const selectEl = document.getElementById('modal-attendance-status-select') as HTMLSelectElement | null;
+    const nextOv = (selectEl?.value || 'P') as 'P' | 'HD' | 'A';
 
     let updated: AttendanceRecord[];
     if (record) {
@@ -236,7 +237,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
         a.id === record.id
           ? {
               ...a,
-              ov: 'P',
+              ov: nextOv,
               ovWas: a.ovWas || fixModal.currentCode,
               ovBy: 'Vijaykumar Shantagiri',
               ovDate: todayStr,
@@ -249,7 +250,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
         id: Date.now(),
         emp: emp.id,
         date,
-        ov: 'P',
+        ov: nextOv,
         ovWas: fixModal.currentCode,
         ovBy: 'Vijaykumar Shantagiri',
         ovDate: todayStr,
@@ -260,7 +261,9 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
 
     setAttendance(updated);
     saveStoredAttendance(updated);
-    toast.success(`Marked Present (P*) for ${emp.name} on ${date}`);
+    window.dispatchEvent(new Event('attendance_updated'));
+    const labelMap = { P: 'Present (P*)', HD: 'Half Day (HD)', A: 'Absent (A)' };
+    toast.success(`Marked ${labelMap[nextOv]} for ${emp.name} on ${date}`);
     setFixModal(null);
   };
 
@@ -797,9 +800,9 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleSaveFix}
-                  className="px-4 py-1.5 bg-navy-900 text-white rounded-lg text-xs font-semibold hover:bg-navy-800 cursor-pointer"
+                  className="px-4 py-1.5 bg-[#0d1b4c] hover:bg-[#132038] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
                 >
-                  Save as Present (P*)
+                  Save Attendance
                 </button>
               )}
             </div>
