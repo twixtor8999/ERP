@@ -6,24 +6,12 @@ import { SidebarNav } from "./SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
 import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
 import { useNavigate } from "react-router-dom";
-import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState("");
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-
-  const [syncTime, setSyncTime] = useState(() => getIstTimeString());
-
-  useEffect(() => {
-    const updateTime = () => {
-      setSyncTime(getIstTimeString());
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 10000);
-    return () => clearInterval(interval);
-  }, [isOpen]);
 
   // Prevent background document scrolling and dragging when mobile drawer is open
   useEffect(() => {
@@ -158,13 +146,6 @@ export function MobileNav() {
             >
               Logout
             </button>
-          </div>
-
-          <div className="pt-0.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Synced {syncTime || "12:26 pm"}</span>
-            </span>
           </div>
         </div>
       </div>

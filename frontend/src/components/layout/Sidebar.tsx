@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { SidebarNav } from "@/components/navigation/SidebarNav";
 import { useAuthStore } from "@/stores/auth.store";
 import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
 import { cn } from "@/lib/utilities/cn";
-import { getIstTimeString } from "@/lib/utilities/istTime";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -15,18 +14,6 @@ export function Sidebar() {
   const location = useLocation();
 
   const isProfileActive = location.pathname === "/profile" || location.pathname === "/my-profile";
-
-  // Current time formatted in Indian Standard Time (IST) for the live synced pill
-  const [syncTime, setSyncTime] = useState(() => getIstTimeString());
-
-  useEffect(() => {
-    const updateTime = () => {
-      setSyncTime(getIstTimeString());
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   const userInitials = (user?.fullName || "Vijaykumar Shantagiri")
     .split(" ")
@@ -167,14 +154,6 @@ export function Sidebar() {
               >
                 Logout
               </button>
-            </div>
-
-            {/* Live Synced Status Pill */}
-            <div className="pt-0.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Synced {syncTime || "12:26 pm"}</span>
-              </span>
             </div>
           </>
         ) : (

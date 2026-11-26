@@ -533,7 +533,6 @@ export function CrmTelecallerPortalPage() {
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // If URL explicitly requests Callings run-sheet, render 1:1 Callings view
   if (viewParam === "callings") {
@@ -1012,24 +1011,17 @@ export function CrmTelecallerPortalPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Sync Timestamp
-  const [syncTime, setSyncTime] = useState("");
-
   // Auto-scroll to top smoothly whenever sub-view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activeView]);
 
   useEffect(() => {
-    const now = new Date();
-    setSyncTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     loadDashboardData();
     checkAttendanceStatus();
 
     // Auto-sync every 30s with automatic 12:00 AM midnight daily reset
     const syncInterval = setInterval(() => {
-      const tick = new Date();
-      setSyncTime(tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       const todayIso = getTodayIsoDate();
 
       // Check if midnight passed into a new day!
@@ -1060,7 +1052,7 @@ export function CrmTelecallerPortalPage() {
             incentive_today: 0,
             my_orders: [],
             visited_customers: [],
-            last_seen: `${getTodayDisplayDate()}, ${tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
+            last_seen: `${getTodayDisplayDate()}, ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
           });
 
           // Attendance is NOT marked at midnight; resets to unpunched state
@@ -1092,7 +1084,6 @@ export function CrmTelecallerPortalPage() {
 
   const loadDashboardData = async () => {
     try {
-      setLoading(true);
       const [sumRes, incRes, callRes, prodRes] = await Promise.all([
         apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
         apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
@@ -1239,8 +1230,6 @@ export function CrmTelecallerPortalPage() {
     } catch {
       // Graceful fallback to cached/offline telemetry without intrusive toast alerts
       setCallingCustomers((prev) => (prev && prev.length > 0 ? prev : getInitialCallingCustomers()));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -2393,12 +2382,6 @@ export function CrmTelecallerPortalPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0d1b4c] via-[#0f3aa8] to-[#eef1f8] py-0 sm:py-6 px-0 sm:px-4 flex justify-center items-start select-none antialiased font-sans relative">
-      {/* Floating Synced Badge matching Screenshot on bottom-left */}
-      <div className="fixed left-4 bottom-4 z-30 flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-slate-200 text-xs font-semibold text-slate-700">
-        <span className={`w-2 h-2 rounded-full ${loading ? "bg-amber-400 animate-spin" : "bg-emerald-500 animate-pulse"}`} />
-        <span>{loading ? "Syncing..." : `Synced ${syncTime || "09:02 pm"}`}</span>
-      </div>
-
       {/* Main Responsive Card Container (Expanded for Laptop/Desktop View) */}
       <div className="w-full max-w-[98%] 2xl:max-w-[1780px] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-screen sm:min-h-0 sm:mb-12 border border-slate-200/60 transition-all">
         {/* Card Header matching Screenshot */}
@@ -3235,12 +3218,6 @@ export function CrmTelecallerPortalPage() {
                       <p className="text-[10px] text-slate-400 font-medium">Password, details</p>
                     </div>
                   </button>
-                </div>
-
-                {/* Floating Synced Pill matching screenshot */}
-                <div className="fixed left-4 bottom-5 z-30 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/90 backdrop-blur-xs text-emerald-700 text-xs font-bold border border-emerald-200 shadow-md">
-                  <span className="text-[10px]">▲</span>
-                  <span>Synced {syncTime || "04:37 pm"}</span>
                 </div>
               </div>
             )}
@@ -6643,14 +6620,6 @@ export function CrmTelecallerPortalPage() {
       {showCelebration && (
         <FireworksOverlay onComplete={() => setShowCelebration(false)} />
       )}
-
-      {/* Synced footer indicator badge (Exact match to screenshots) */}
-      <div className="fixed bottom-3 left-3 z-20">
-        <span className="text-[9px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-900/85 text-white backdrop-blur-xs shadow-sm flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Synced {syncTime}
-        </span>
-      </div>
     </div>
   );
 }
