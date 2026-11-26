@@ -1022,9 +1022,9 @@ export function WholesaleOrdersPipelineView() {
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
 
-      // 1. Stage Check: In wholesale distribution, newly placed orders from CRM (stage "placed" or "packing") are packed first
+      // 1. Stage Check: In wholesale distribution, Packing keeps today's packed & moved-to-invoice orders visible with status button
       const matchesStage = targetStage === "packing"
-        ? (o.stage === "packing" || o.stage === "placed")
+        ? ["packing", "placed", "invoice", "dispatch", "delivery", "completed"].includes(o.stage)
         : (o.stage === targetStage);
 
       // 2. Search query filter
@@ -2473,12 +2473,18 @@ export function WholesaleOrdersPipelineView() {
                               >
                                 Print
                               </button>
-                              <button
-                                onClick={() => handleMoveToInvoice(o.id)}
-                                className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                              >
-                                Move to invoice
-                              </button>
+                              {["invoice", "dispatch", "delivery", "completed"].includes(o.stage) ? (
+                                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs select-none whitespace-nowrap">
+                                  ✓ Moved to invoice
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleMoveToInvoice(o.id)}
+                                  className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                                >
+                                  Move to invoice
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
