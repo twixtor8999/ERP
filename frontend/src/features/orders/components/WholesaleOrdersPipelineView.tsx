@@ -693,6 +693,22 @@ const VEHICLES_LIST = [
   "KA28B1092",
 ];
 
+function stripRoleSuffix(name?: string): string {
+  return (name || "Staff").replace(/\s*\([^)]*\)\s*$/g, "").trim();
+}
+
+function normalizePipelineOrder(o: PipelineOrder): PipelineOrder {
+  const rawCreator = o.createdBy || "";
+  const isAdminPlaced =
+    /\((super admin|admin|owner|business owner)\)/i.test(rawCreator) ||
+    o.source === "Admin";
+  return {
+    ...o,
+    createdBy: stripRoleSuffix(rawCreator),
+    source: isAdminPlaced ? "Store" : o.source,
+  };
+}
+
 export function WholesaleOrdersPipelineView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -702,7 +718,7 @@ export function WholesaleOrdersPipelineView() {
   const activeTab = rawTab.toLowerCase().replace(/[^a-z]/g, "");
 
   const [orders, setOrders] = useState<PipelineOrder[]>(() => {
-    // Check if any real-time orders stored in local cache from CRM
+    // Check if any real-time orders stored in local cache from CRM / Store
     if (typeof window !== "undefined") {
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
       if (storedPipeline) {
@@ -710,7 +726,7 @@ export function WholesaleOrdersPipelineView() {
           const parsed = JSON.parse(storedPipeline);
           if (Array.isArray(parsed) && parsed.length > 0) {
             // Ensure newly added authoritative orders (like ORD-1690) are always merged in
-            const map = new Map(parsed.map((o: PipelineOrder) => [o.orderNo, o]));
+            const map = new Map(parsed.map((o: PipelineOrder) => [o.orderNo, normalizePipelineOrder(o)]));
             for (const initO of INITIAL_PIPELINE_ORDERS) {
               if (!map.has(initO.orderNo)) {
                 map.set(initO.orderNo, initO);
@@ -768,8 +784,8 @@ export function WholesaleOrdersPipelineView() {
               shopName: bo.shop_name || existing?.shopName || "Store",
               village: bo.village || existing?.village || "Bijapur",
               route: bo.route || existing?.route || "Bijapur Route",
-              createdBy: bo.created_by || existing?.createdBy || "Pushpa Patil",
-              source: bo.source || "CRM",
+              createdBy: stripRoleSuffix(bo.created_by || existing?.createdBy || "Pushpa Patil"),
+              source: bo.source === "Admin" ? "Store" : (bo.source || existing?.source || "CRM"),
               orderDate: bo.order_date || existing?.orderDate || "24-11-2026",
               orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",
               vehicleNo: existing?.vehicleNo || "KA28AA6256",
@@ -843,7 +859,7 @@ export function WholesaleOrdersPipelineView() {
                     shopName: mo.shop_name || mo.shopName || "Kirana Store",
                     village: mo.village || "Bijapur",
                     route: mo.route || "Bijapur Route",
-                    createdBy: mo.telecaller_name || mo.createdBy || "Pushpa Patil",
+                    createdBy: stripRoleSuffix(mo.telecaller_name || mo.createdBy || "Pushpa Patil"),
                     source: "CRM",
                     orderDate: mo.order_date || mo.orderDate || "24-11-2026",
                     orderTime: mo.order_placed ? (mo.order_placed.split(" ")[1] || "10:30 am") : (mo.orderTime || "10:30 am"),
@@ -882,7 +898,7 @@ export function WholesaleOrdersPipelineView() {
 
         // 2. Authoritative pipeline orders from local storage
         for (const po of pipelineOrders) {
-          orderMap.set(po.orderNo, po);
+          orderMap.set(po.orderNo, normalizePipelineOrder(po));
         }
 
         // 3. Prior state orders
@@ -1146,7 +1162,6 @@ export function WholesaleOrdersPipelineView() {
     // Notify backend in background for real-time CRM Order Status sync
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", invoice_no: invNum }).catch(() => {});
     setViewingOrder(null);
-    switchTab("invoice");
   };
 
   const handlePrintPackingSlip = (order: PipelineOrder) => {
@@ -1849,7 +1864,6 @@ export function WholesaleOrdersPipelineView() {
               onClick={() => {
                 handleMoveToInvoice(viewingOrder.id);
                 setViewingOrder(null);
-                switchTab("invoice");
               }}
               className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             >
