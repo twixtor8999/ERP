@@ -802,24 +802,23 @@ export function BusinessDashboardView() {
     );
 
     const totalSalesSum = sourceRows.reduce((s, r) => s + parseInt(r.sales.replace(/,/g, "") || "0", 10), 0);
-    const totalCostSum = sourceRows.reduce((s, r) => s + parseInt(r.cost.replace(/,/g, "") || "0", 10), 0);
-    const totalProfitSum = totalSalesSum - totalCostSum;
-    const overallMarginStr = totalSalesSum > 0 ? `${((totalProfitSum / totalSalesSum) * 100).toFixed(1)}%` : "0.0%";
 
     const handleExportSales = () => {
       const csv = [
-        "Order,Date,Customer,Village,Sales,Cost,Profit,Margin",
+        "Order,Date,Customer,Village,Sales",
         ...sourceRows.map(
           (r) =>
-            `"${r.id}","${r.date}","${r.customer}","${r.village}","${r.sales}","${r.cost}","${r.profit}","${r.margin}"`
+            `"${r.id}","${r.date}","${r.customer}","${r.village}","${r.sales}"`
         ),
       ].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `sales_${activeStaff.name.replace(/\s+/g, "_")}_${fromDate}.csv`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
     };
 
     return (
@@ -870,16 +869,13 @@ export function BusinessDashboardView() {
                   <th className="py-2.5 px-3 text-left">Customer</th>
                   <th className="py-2.5 px-3 text-left">Village</th>
                   <th className="py-2.5 px-3 text-right">Sales</th>
-                  <th className="py-2.5 px-3 text-right">Cost</th>
-                  <th className="py-2.5 px-3 text-right">Profit</th>
-                  <th className="py-2.5 px-3 text-right">Margin</th>
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                    <td colSpan={6} className="py-8 text-center text-xs text-slate-400 font-semibold">
                       0 orders recorded in these dates.
                     </td>
                   </tr>
@@ -891,9 +887,6 @@ export function BusinessDashboardView() {
                       <td className="py-2.5 px-3 font-bold text-slate-900">{row.customer}</td>
                       <td className="py-2.5 px-3 text-slate-600">{row.village}</td>
                       <td className="py-2.5 px-3 text-right font-black text-[#059669]">{row.sales}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-600">{row.cost}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-900">{row.profit}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-600">{row.margin}</td>
                       <td className="py-2.5 px-3 text-center">
                         <button
                           onClick={() => setSelectedSalesOrder(row)}
@@ -911,9 +904,6 @@ export function BusinessDashboardView() {
                     {sourceRows.length} order(s)
                   </td>
                   <td className="py-2.5 px-3 text-right text-[#059669]">{totalSalesSum.toLocaleString("en-IN")}</td>
-                  <td className="py-2.5 px-3 text-right">{totalCostSum.toLocaleString("en-IN")}</td>
-                  <td className="py-2.5 px-3 text-right">{totalProfitSum.toLocaleString("en-IN")}</td>
-                  <td className="py-2.5 px-3 text-right">{overallMarginStr}</td>
                   <td className="py-2.5 px-3"></td>
                 </tr>
               </tbody>

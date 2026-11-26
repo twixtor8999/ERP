@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
-import { printThermalSlip } from "@/lib/utilities/thermalPrint";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
 import { useAuthStore } from "@/stores/auth.store";
+import { getStoredVehicles } from "@/features/vehicles/data/mockVehicles";
 import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
@@ -711,7 +711,7 @@ function normalizePipelineOrder(o: PipelineOrder): PipelineOrder {
 
 export function WholesaleOrdersPipelineView() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // Active sub-tab: "packing" | "invoice" | "dispatch" | "delivery" | "report"
   const rawTab = searchParams.get("tab") || "packing";
@@ -1010,13 +1010,6 @@ export function WholesaleOrdersPipelineView() {
   const [deliveryPaymentType, setDeliveryPaymentType] = useState<"Cash" | "QR" | "Split">("Cash");
   const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
 
-  // Switch sub-tab helper
-  const switchTab = (tabName: string) => {
-    setSearchParams({ tab: tabName });
-    setSelectedOrderIds(new Set());
-    setPageSearch("");
-  };
-
   // Filtered orders for the current stage
   const currentStageOrders = useMemo(() => {
     let targetStage: PipelineOrder["stage"] = "packing";
@@ -1192,7 +1185,7 @@ export function WholesaleOrdersPipelineView() {
     });
   };
 
-  const handleDuplicatePrint = (order: PipelineOrder) => {
+  const handleDuplicatePrint = (order: PipelineOrder, isDuplicate = true) => {
     const taxOrder: TaxInvoiceOrder = {
       orderNo: order.orderNo,
       invoiceNo: order.invoiceNo || "INV-469",
@@ -1203,15 +1196,15 @@ export function WholesaleOrdersPipelineView() {
       customerShop: order.shopName,
       customerVillage: order.village,
       customerVillageKn: order.village === "Bijapur (Rural)" ? "ಬಿಜಾಪುರ" : undefined,
-      customerPhone: order.phone || "8105690356",
-      customerLandmark: "Madina Nagar",
+      customerPhone: order.phone || "",
+      customerLandmark: "",
       customerTaluka: "Vijayapura",
       customerDistrict: "Vijayapura",
       customerRoute: order.route,
       customerGstin: "N/A",
-      vehicleNo: order.vehicleNo || "KA28AB3425",
-      createdBy: order.createdBy,
-      creatorPhone: "9916801495",
+      vehicleNo: order.vehicleNo || "KA28AA6256",
+      createdBy: stripRoleSuffix(order.createdBy),
+      creatorPhone: "",
       items: order.items.map((i) => {
         let nameKn: string | undefined;
         const hsn = "96190030";
@@ -1235,13 +1228,97 @@ export function WholesaleOrdersPipelineView() {
       total: order.total,
     };
 
-    openTaxInvoiceWindow(taxOrder, true);
+    openTaxInvoiceWindow(taxOrder, isDuplicate);
+  };
+
+  const availableVehicleOptions = useMemo(() => {
+    const vSet = new Set<string>(VEHICLES_LIST.filter((v) => v !== "Select vehicle"));
+    try {
+      getStoredVehicles().forEach((v) => {
+        if (v.no) vSet.add(v.no.trim());
+      });
+    } catch {}
+    orders.forEach((o) => {
+      if (o.vehicleNo) vSet.add(o.vehicleNo.trim());
+    });
+    return Array.from(vSet).filter(Boolean);
+  }, [orders]);
+
+  const handleUpdateOrderVehicle = (orderId: string, vehicleNo: string) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => (o.id === orderId ? { ...o, vehicleNo } : o));
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    toast.success(`Vehicle updated to ${vehicleNo}`);
+  };
+
+  const handleBackToInvoice = (orderId: string) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
+        if (o.id === orderId) {
+          toast.success(`Order ${o.orderNo} moved back to Invoice`);
+          const historyEntry: OrderHistoryItem = {
+            when: new Date().toISOString().replace("T", " ").substring(0, 16),
+            from: "Dispatch",
+            to: "Invoice",
+            by: stripRoleSuffix(useAuthStore.getState().user?.fullName || "Admin"),
+            where: "invoice",
+          };
+          return {
+            ...o,
+            stage: "invoice" as const,
+            status: "invoiced",
+            history: [...(o.history || []), historyEntry],
+          };
+        }
+        return o;
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice" }).catch(() => {});
+    setViewingOrder(null);
+  };
+
+  const handleBackToDispatch = (orderId: string) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
+        if (o.id === orderId) {
+          toast.success(`Order ${o.orderNo} moved back to Dispatch`);
+          const historyEntry: OrderHistoryItem = {
+            when: new Date().toISOString().replace("T", " ").substring(0, 16),
+            from: "Delivery",
+            to: "Dispatch",
+            by: stripRoleSuffix(useAuthStore.getState().user?.fullName || "Admin"),
+            where: "dispatch",
+          };
+          return {
+            ...o,
+            stage: "dispatch" as const,
+            status: "dispatched",
+            history: [...(o.history || []), historyEntry],
+          };
+        }
+        return o;
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
+    setViewingOrder(null);
   };
 
   const handlePrintAndDispatch = (orderId: string) => {
     const orderToPrint = orders.find((o) => o.id === orderId);
     if (orderToPrint) {
-      printThermalSlip(orderToPrint);
+      handleDuplicatePrint(orderToPrint, false);
     }
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
@@ -1252,7 +1329,7 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Invoice ${o.invoiceNo || o.orderNo} Dispatched!`, {
-            description: `Printed thermal slip & moved to 3) Dispatch tab`,
+            description: `Opened Tax Invoice print view & moved order to 3) Dispatch`,
           });
           return {
             ...o,
@@ -1269,7 +1346,6 @@ export function WholesaleOrdersPipelineView() {
     });
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
     setViewingOrder(null);
-    switchTab("dispatch");
   };
 
   const handleMoveToDelivery = (orderId: string) => {
@@ -1282,7 +1358,7 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Moved to Delivery!`, {
-            description: `Ready in 4) Delivery tab. Select vehicle before marking delivered.`,
+            description: `Ready in 4) Delivery tab.`,
           });
           return {
             ...o,
@@ -1299,7 +1375,6 @@ export function WholesaleOrdersPipelineView() {
     });
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
     setViewingOrder(null);
-    switchTab("delivery");
   };
 
   const handleMarkDelivered = (orderId: string) => {
@@ -1336,7 +1411,6 @@ export function WholesaleOrdersPipelineView() {
     });
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "completed", vehicle_no: assignedVehicle }).catch(() => {});
     setViewingOrder(null);
-    switchTab("report");
   };
 
   const handleCancelOrder = (orderId: string, reason: string) => {
@@ -1415,12 +1489,111 @@ export function WholesaleOrdersPipelineView() {
 
   const drilldownTotalAmt = drilldownOrders.reduce((sum, o) => sum + o.total, 0);
 
-  // Export CSV
+  // Real CSV / Excel / PDF Export Handler
   const handleExportCSV = (type = "Customer") => {
     setShowExportMenu(false);
-    toast.success(`Exporting ${type} Wise Excel Sheet...`, {
-      description: `Downloaded report for ${fromDate} to ${toDate}`,
-    });
+
+    const exportList =
+      activeTab.includes("rep") && reportDrilldown
+        ? drilldownOrders
+        : currentStageOrders;
+
+    if (exportList.length === 0) {
+      toast.error("No orders available in current view to export");
+      return;
+    }
+
+    const downloadCsv = (filename: string, headers: string[], rows: Array<Array<string | number>>) => {
+      const escapeCell = (val: string | number) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+      const csv = [headers.map(escapeCell).join(","), ...rows.map((r) => r.map(escapeCell).join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    };
+
+    if (type === "Dispatch PDF") {
+      const itemMap = new Map<string, { name: string; unit: string; qty: number; amount: number }>();
+      exportList.forEach((o) => {
+        o.items.forEach((it) => {
+          const key = it.name;
+          const prev = itemMap.get(key) || { name: it.name, unit: it.unit || "Unit", qty: 0, amount: 0 };
+          prev.qty += Number(it.qty) || 0;
+          prev.amount += Number(it.amount ?? it.qty * it.price) || 0;
+          itemMap.set(key, prev);
+        });
+      });
+      const rowsHtml = Array.from(itemMap.values())
+        .map(
+          (it, idx) =>
+            `<tr><td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${idx + 1}</td><td style="border:1px solid #cbd5e1;padding:6px;font-weight:600;">${it.name}</td><td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${it.qty} ${it.unit}</td><td style="border:1px solid #cbd5e1;padding:6px;text-align:right;">₹${it.amount.toLocaleString("en-IN")}</td></tr>`
+        )
+        .join("");
+      const win = window.open("", "_blank");
+      if (win) {
+        win.document.write(
+          `<!doctype html><html><head><title>Dispatch_Items_${fromDate}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#1d4ed8;color:#fff;padding:8px;text-align:left;border:1px solid #1e40af}</style></head><body><h2>Dispatch Summary (${fromDate} to ${toDate})</h2><p>Orders: ${exportList.length} · Total: ₹${exportList.reduce((s, o) => s + o.total, 0).toLocaleString("en-IN")}</p><button onclick="window.print()" style="padding:8px 16px;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-bottom:10px;">Print / Save PDF</button><table><thead><tr><th style="width:45px;text-align:center;">#</th><th>Item Name</th><th style="text-align:center;">Total Qty</th><th style="text-align:right;">Amount</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
+        );
+        win.document.close();
+      }
+      toast.success("Opened Dispatch Items PDF preview");
+      return;
+    }
+
+    if (type === "Item" || type === "Dispatch Excel") {
+      const itemMap = new Map<string, { name: string; unit: string; qty: number; ordersCount: number; amount: number }>();
+      exportList.forEach((o) => {
+        o.items.forEach((it) => {
+          const prev = itemMap.get(it.name) || { name: it.name, unit: it.unit || "Unit", qty: 0, ordersCount: 0, amount: 0 };
+          prev.qty += Number(it.qty) || 0;
+          prev.ordersCount += 1;
+          prev.amount += Number(it.amount ?? it.qty * it.price) || 0;
+          itemMap.set(it.name, prev);
+        });
+      });
+      const rows = Array.from(itemMap.values()).map((it, idx) => [
+        idx + 1,
+        it.name,
+        it.unit,
+        it.qty,
+        it.ordersCount,
+        it.amount,
+      ]);
+      downloadCsv(
+        `${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.csv`,
+        ["Sl", "Item Name", "Unit", "Total Qty", "Orders Count", "Total Amount (INR)"],
+        rows
+      );
+      toast.success(`Downloaded ${type} CSV (${rows.length} items)`);
+      return;
+    }
+
+    const rows = exportList.map((o, idx) => [
+      idx + 1,
+      o.invoiceNo || "",
+      o.orderNo,
+      o.customerName,
+      o.shopName,
+      o.village,
+      o.route,
+      stripRoleSuffix(o.createdBy),
+      o.source,
+      o.orderDate,
+      o.vehicleNo || "",
+      o.total,
+      o.stage,
+    ]);
+    downloadCsv(
+      `Orders_${type.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.csv`,
+      ["Sl", "Invoice No", "Order No", "Customer", "Shop", "Village", "Route", "Created By", "Source", "Order Date", "Vehicle No", "Total (INR)", "Stage"],
+      rows
+    );
+    toast.success(`Downloaded ${type} report (${rows.length} orders)`);
   };
 
   if (viewingOrder && viewingOrder.stage === "delivery") {
@@ -1483,18 +1656,21 @@ export function WholesaleOrdersPipelineView() {
       const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
       const timestampStr = `${dStr} ${timeStr}`;
 
-      setOrders(prev =>
-        prev.map(o =>
+      setOrders(prev => {
+        const updated = prev.map(o =>
           o.id === viewingOrder.id
-            ? { ...o, stage: "completed", vehicleNo: assignedVehicle, balance: 0, deliveredAt: timestampStr }
+            ? { ...o, stage: "completed" as const, vehicleNo: assignedVehicle, balance: 0, deliveredAt: timestampStr }
             : o
-        )
-      );
+        );
+        try {
+          localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
         description: `Assigned vehicle ${assignedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType})`,
       });
       setViewingOrder(null);
-      switchTab("report");
     };
 
     return (
@@ -1688,6 +1864,13 @@ export function WholesaleOrdersPipelineView() {
             </button>
 
             <button
+              onClick={() => handleBackToDispatch(viewingOrder.id)}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              Back to Dispatch
+            </button>
+
+            <button
               onClick={() => handleDuplicatePrint(viewingOrder)}
               className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
@@ -1747,27 +1930,29 @@ export function WholesaleOrdersPipelineView() {
           {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy}
         </p>
 
-        {/* 3 KPI Summary Cards matching Image 2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 my-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-            <span className="text-[11px] text-slate-500 font-medium block">Total</span>
-            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
-              {viewingOrder.total.toLocaleString("en-IN")}
-            </span>
+        {/* 3 KPI Summary Cards (hidden on Invoice View per client request) */}
+        {viewingOrder.stage !== 'invoice' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 my-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+              <span className="text-[11px] text-slate-500 font-medium block">Total</span>
+              <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
+                {viewingOrder.total.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+              <span className="text-[11px] text-slate-500 font-medium block">Items</span>
+              <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
+                {viewingOrder.items.length}
+              </span>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+              <span className="text-[11px] text-slate-500 font-medium block">Qty</span>
+              <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
+                {totalQty}
+              </span>
+            </div>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-            <span className="text-[11px] text-slate-500 font-medium block">Items</span>
-            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
-              {viewingOrder.items.length}
-            </span>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-            <span className="text-[11px] text-slate-500 font-medium block">Qty</span>
-            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono mt-0.5 block">
-              {totalQty}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* FMCG Items Table with Solid Blue Header */}
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
@@ -1837,18 +2022,14 @@ export function WholesaleOrdersPipelineView() {
             </button>
           )}
 
-          <button
-            onClick={() => {
-              if (viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed') {
-                handlePrintPackingSlip(viewingOrder);
-              } else {
-                handleDuplicatePrint(viewingOrder);
-              }
-            }}
-            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-          >
-            <span>{viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed' ? 'Print packed items' : 'Print'}</span>
-          </button>
+          {(viewingOrder.stage === 'packing' || viewingOrder.stage === 'placed') && (
+            <button
+              onClick={() => handlePrintPackingSlip(viewingOrder)}
+              className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+            >
+              <span>Print packed items</span>
+            </button>
+          )}
 
           {['placed', 'packing'].includes(viewingOrder.stage) && (
             <button
@@ -1884,29 +2065,43 @@ export function WholesaleOrdersPipelineView() {
           )}
 
           {viewingOrder.stage === 'dispatch' && (
-            <button
-              onClick={() => {
-                handleMoveToDelivery(viewingOrder.id);
-                setViewingOrder(null);
-                switchTab("delivery");
-              }}
-              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
-            >
-              Move to Delivery
-            </button>
+            <>
+              <button
+                onClick={() => handleBackToInvoice(viewingOrder.id)}
+                className="px-5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              >
+                Back to Invoice
+              </button>
+              <button
+                onClick={() => {
+                  handleMoveToDelivery(viewingOrder.id);
+                  setViewingOrder(null);
+                }}
+                className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+              >
+                Move to Delivery
+              </button>
+            </>
           )}
 
           {viewingOrder.stage === 'delivery' && (
-            <button
-              onClick={() => {
-                handleMarkDelivered(viewingOrder.id);
-                setViewingOrder(null);
-                switchTab("completed");
-              }}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
-            >
-              Mark delivered
-            </button>
+            <>
+              <button
+                onClick={() => handleBackToDispatch(viewingOrder.id)}
+                className="px-5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              >
+                Back to Dispatch
+              </button>
+              <button
+                onClick={() => {
+                  handleMarkDelivered(viewingOrder.id);
+                  setViewingOrder(null);
+                }}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+              >
+                Mark delivered
+              </button>
+            </>
           )}
         </div>
 
@@ -2451,7 +2646,7 @@ export function WholesaleOrdersPipelineView() {
                   <th className="py-2.5 px-3 text-right">Balance</th>
                   <th className="py-2.5 px-2 text-center">View</th>
                   <th className="py-2.5 px-2 text-center">Duplicate Invoice</th>
-                  <th className="py-2.5 px-3 text-right">Move to Delivery</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
@@ -2470,7 +2665,19 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-900 font-bold">{o.customerName}</td>
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
-                      <td className="py-3 px-3 font-mono text-slate-800">{o.vehicleNo || "KA28AA6256"}</td>
+                      <td className="py-3 px-3">
+                        <select
+                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
+                          className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          {availableVehicleOptions.map((veh) => (
+                            <option key={veh} value={veh}>
+                              {veh}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
                         ₹{o.total.toLocaleString("en-IN")}
                       </td>
@@ -2494,12 +2701,20 @@ export function WholesaleOrdersPipelineView() {
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleMoveToDelivery(o.id)}
-                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                        >
-                          Move to Delivery
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <button
+                            onClick={() => handleBackToInvoice(o.id)}
+                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                          >
+                            Back to Invoice
+                          </button>
+                          <button
+                            onClick={() => handleMoveToDelivery(o.id)}
+                            className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                          >
+                            Move to Delivery
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -2590,8 +2805,14 @@ export function WholesaleOrdersPipelineView() {
                             Duplicate Invoice
                           </button>
                           <button
+                            onClick={() => handleBackToDispatch(o.id)}
+                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                          >
+                            Back to Dispatch
+                          </button>
+                          <button
                             onClick={() => setViewingOrder(o)}
-                            className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
+                            className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
                           >
                             Mark delivered
                           </button>
