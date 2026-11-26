@@ -1023,10 +1023,17 @@ export function WholesaleOrdersPipelineView() {
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
 
-      // 1. Stage Check: In wholesale distribution, Packing keeps today's packed & moved-to-invoice orders visible with status button
-      const matchesStage = targetStage === "packing"
-        ? ["packing", "placed", "invoice", "dispatch", "delivery", "completed"].includes(o.stage)
-        : (o.stage === targetStage);
+      // 1. Stage Check: Each pipeline tab retains orders that have progressed forward so admins see the green "✓ Moved..." confirmation button on the row while the order also appears in the next stage tab.
+      const matchesStage =
+        targetStage === "packing"
+          ? ["packing", "placed", "invoice", "dispatch", "delivery", "completed"].includes(o.stage)
+          : targetStage === "invoice"
+          ? ["invoice", "dispatch", "delivery", "completed"].includes(o.stage)
+          : targetStage === "dispatch"
+          ? ["dispatch", "delivery", "completed"].includes(o.stage)
+          : targetStage === "delivery"
+          ? ["delivery", "completed"].includes(o.stage)
+          : (o.stage === targetStage);
 
       // 2. Search query filter
       const matchSearch =
@@ -2468,9 +2475,13 @@ export function WholesaleOrdersPipelineView() {
                                 Print
                               </button>
                               {["invoice", "dispatch", "delivery", "completed"].includes(o.stage) ? (
-                                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs select-none whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
+                                >
                                   ✓ Moved to invoice
-                                </span>
+                                </button>
                               ) : (
                                 <button
                                   onClick={() => handleMoveToInvoice(o.id)}
@@ -2603,12 +2614,22 @@ export function WholesaleOrdersPipelineView() {
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => handlePrintAndDispatch(o.id)}
-                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                        >
-                          Print & Dispatch
-                        </button>
+                        {["dispatch", "delivery", "completed"].includes(o.stage) ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
+                          >
+                            ✓ Moved to dispatch
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handlePrintAndDispatch(o.id)}
+                            className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                          >
+                            Print & Dispatch
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -2702,18 +2723,30 @@ export function WholesaleOrdersPipelineView() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          <button
-                            onClick={() => handleBackToInvoice(o.id)}
-                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                          >
-                            Back to Invoice
-                          </button>
-                          <button
-                            onClick={() => handleMoveToDelivery(o.id)}
-                            className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                          >
-                            Move to Delivery
-                          </button>
+                          {o.stage === "dispatch" && (
+                            <button
+                              onClick={() => handleBackToInvoice(o.id)}
+                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                            >
+                              Back to Invoice
+                            </button>
+                          )}
+                          {["delivery", "completed"].includes(o.stage) ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
+                            >
+                              ✓ Moved to delivery
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleMoveToDelivery(o.id)}
+                              className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                            >
+                              Move to Delivery
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2804,18 +2837,30 @@ export function WholesaleOrdersPipelineView() {
                           >
                             Duplicate Invoice
                           </button>
-                          <button
-                            onClick={() => handleBackToDispatch(o.id)}
-                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                          >
-                            Back to Dispatch
-                          </button>
-                          <button
-                            onClick={() => setViewingOrder(o)}
-                            className="bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                          >
-                            Mark delivered
-                          </button>
+                          {o.stage === "delivery" && (
+                            <button
+                              onClick={() => handleBackToDispatch(o.id)}
+                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                            >
+                              Back to Dispatch
+                            </button>
+                          )}
+                          {o.stage === "completed" ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
+                            >
+                              ✓ Delivered
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setViewingOrder(o)}
+                              className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
+                            >
+                              Mark delivered
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
