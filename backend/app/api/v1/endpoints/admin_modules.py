@@ -3698,13 +3698,16 @@ def get_crm_telecaller_reports(
     ) or 0
 
     # Orders in date range
+    order_conditions = [Order.organization_id == org_id]
+    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
+    if s_date:
+        order_conditions.append(order_date_expr >= s_date)
+    if e_date:
+        order_conditions.append(order_date_expr <= e_date)
+
     order_stmt = (
         select(Order)
-        .where(
-            Order.organization_id == org_id,
-            func.coalesce(Order.order_date, func.cast(Order.created_at, Date)) >= s_date,
-            func.coalesce(Order.order_date, func.cast(Order.created_at, Date)) <= e_date,
-        )
+        .where(*order_conditions)
         .order_by(Order.order_number.desc(), Order.created_at.desc())
     )
     orders = db.scalars(order_stmt).all()
