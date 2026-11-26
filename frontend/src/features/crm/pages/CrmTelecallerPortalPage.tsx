@@ -38,7 +38,12 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
-import { getStaffMetricsInDateRange, getAllTelecallers } from "../data/mockCrmReports";
+import {
+  getStaffMetricsInDateRange,
+  getAllTelecallers,
+  getOrdersInDateRange,
+  type CrmOrderRecord,
+} from "../data/mockCrmReports";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -810,25 +815,61 @@ export function CrmTelecallerPortalPage() {
   const [reportStartDate, setReportStartDate] = useState<string>(getTodayIsoDate);
   const [reportEndDate, setReportEndDate] = useState<string>(getTodayIsoDate);
   const [showVisitedModal, setShowVisitedModal] = useState<boolean>(false);
-  const [reportData, setReportData] = useState<CrmReportData>(() => {
-    const todayIso = getTodayIsoDate();
-    const stored = typeof window !== "undefined" ? sessionStorage.getItem(`crm_reports_${todayIso}`) : null;
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {}
-    }
+  // Helper: compute authoritative personal report data directly from real CRM orders
+  const computePersonalReportFromOrders = (sDate: string, eDate: string, staffTargetName = userName): CrmReportData => {
+    const rangeOrders = getOrdersInDateRange(sDate, eDate);
+    const myOrdersRaw = rangeOrders.filter(
+      (o: CrmOrderRecord) =>
+        o.staffName.toLowerCase() === staffTargetName.toLowerCase() &&
+        o.status !== "cancelled"
+    );
+
+    const sortedOrders = [...myOrdersRaw].sort((a, b) => {
+      const numA = parseInt((a.orderNo || "").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt((b.orderNo || "").replace(/\D/g, ""), 10) || 0;
+      return numB - numA;
+    });
+
+    const totalOrders = sortedOrders.length;
+    const orderTotal = sortedOrders.reduce((sum, o) => sum + o.total, 0);
+
+    const mappedMyOrders = sortedOrders.map((o) => ({
+      id: o.id,
+      order_number: o.orderNo,
+      order_date: o.orderDate,
+      customer_name: o.customerName,
+      customer_phone: o.customerPhone,
+      shop_name: o.shopName,
+      village: o.village,
+      route: o.route,
+      telecaller_name: o.staffName,
+      total_amount: o.total,
+      status: o.status.toUpperCase(),
+      order_placed: o.placedTimestamp || `${o.orderDate} 10:00 am`,
+      packed_confirmed: "—",
+      dispatched: "—",
+      out_for_delivery: "—",
+      delivered: "—",
+      items: o.items || [],
+    }));
+
     return {
       customer_created: 0,
       customer_visited: 0,
-      total_orders: 0,
-      order_total: 0,
+      total_orders: totalOrders,
+      order_total: orderTotal,
       unbilled_customers: 1958,
       incentive_today: 0,
-      my_orders: [],
+      my_orders: mappedMyOrders as any,
       visited_customers: [],
       last_seen: `${getTodayDisplayDate()}, ${getNowTimeStr()}`,
     };
+  };
+
+  const [reportData, setReportData] = useState<CrmReportData>(() => {
+    const todayIso = getTodayIsoDate();
+    const computed = computePersonalReportFromOrders(todayIso, todayIso, "Pushpa Patil");
+    return computed;
   });
 
   // Team CRM Report state initialized dynamically
@@ -1289,47 +1330,30 @@ export function CrmTelecallerPortalPage() {
         setOrdersList(sortedOrders);
       }
     } catch {
-      // Offline / fallback handling:
-      const todayIso = getTodayIsoDate();
-      if (sDate === todayIso && eDate === todayIso) {
-        // Today's fresh report check from session cache
-        const stored = typeof window !== "undefined" ? sessionStorage.getItem(`crm_reports_${todayIso}`) : null;
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            setReportData(parsed);
-            if (parsed.my_orders && Array.isArray(parsed.my_orders)) {
-              setOrdersList(parsed.my_orders.map((mo: any) => ({
-                id: mo.id || `ord-${Math.random()}`,
-                order_number: mo.order_number,
-                order_date: todayIso,
-                customer_name: mo.customer_name,
-                customer_phone: mo.customer_phone || "",
-                total_amount: mo.total_amount || 0,
-                status: mo.status || "PLACED",
-                order_placed: mo.order_placed || todayIso,
-                packed_confirmed: mo.packed_confirmed || "—",
-                dispatched: mo.dispatched || "—",
-                out_for_delivery: mo.out_for_delivery || "—",
-                delivered: mo.delivered || "—",
-                payment_method: "CASH",
-                payment_status: "UNPAID",
-              })));
-            } else {
-              setOrdersList([]);
-            }
-            return;
-          } catch {}
-        }
-        setReportData((prev) => ({
-          ...prev,
-          customer_created: prev.customer_created ?? 0,
-          customer_visited: prev.customer_visited ?? 0,
-          total_orders: prev.total_orders ?? 0,
-          order_total: prev.order_total ?? 0,
-          unbilled_customers: prev.unbilled_customers ?? 1958,
-          incentive_today: prev.incentive_today ?? 0,
-        }));
+      // Offline / fallback handling: Compute dynamically from authoritative CRM orders
+      const fallbackReport = computePersonalReportFromOrders(sDate, eDate, userName);
+      setReportData(fallbackReport);
+
+      if (fallbackReport.my_orders && Array.isArray(fallbackReport.my_orders)) {
+        setOrdersList(
+          fallbackReport.my_orders.map((mo: any) => ({
+            id: mo.id || `ord-${Math.random()}`,
+            order_number: mo.order_number,
+            order_date: mo.order_date,
+            customer_name: mo.customer_name,
+            customer_phone: mo.customer_phone || "",
+            total_amount: mo.total_amount || 0,
+            status: mo.status || "PLACED",
+            order_placed: mo.order_placed || sDate,
+            packed_confirmed: mo.packed_confirmed || "—",
+            dispatched: mo.dispatched || "—",
+            out_for_delivery: mo.out_for_delivery || "—",
+            delivered: mo.delivered || "—",
+            payment_method: "CASH",
+            payment_status: "UNPAID",
+          }))
+        );
+      } else {
         setOrdersList([]);
       }
     }
