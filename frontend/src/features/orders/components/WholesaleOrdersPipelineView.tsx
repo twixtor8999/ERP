@@ -1302,6 +1302,7 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "invoice" as const,
             status: "invoiced",
+            deliveredAt: undefined,
             history: [...(o.history || []), historyEntry],
           };
         }
@@ -1309,6 +1310,7 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
       } catch {}
       return updated;
     });
@@ -1332,6 +1334,7 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "dispatch" as const,
             status: "dispatched",
+            deliveredAt: undefined,
             history: [...(o.history || []), historyEntry],
           };
         }
@@ -1339,11 +1342,40 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
       } catch {}
       return updated;
     });
     apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
     setViewingOrder(null);
+  };
+
+  const handleUpdateInvoiceItemQty = (orderId: string, itemIdx: number, nextQty: number) => {
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
+        if (o.id !== orderId) return o;
+        const newItems = nextQty <= 0
+          ? o.items.filter((_, idx) => idx !== itemIdx)
+          : o.items.map((it, idx) => {
+              if (idx !== itemIdx) return it;
+              const rate = (it as any).rate ?? it.price;
+              return { ...it, qty: nextQty, amount: nextQty * rate };
+            });
+        if (newItems.length === 0) {
+          toast.error("Invoice must have at least one item");
+          return o;
+        }
+        const newTotal = newItems.reduce((sum, it) => sum + ((it as any).amount ?? it.qty * ((it as any).rate ?? it.price)), 0);
+        const updatedOrder = { ...o, items: newItems, total: newTotal, balance: o.balance > 0 ? newTotal : 0 };
+        setViewingOrder(updatedOrder);
+        return updatedOrder;
+      });
+      try {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+      } catch {}
+      return updated;
+    });
   };
 
   const handlePrintAndDispatch = (orderId: string) => {
@@ -2001,7 +2033,16 @@ export function WholesaleOrdersPipelineView() {
                     <tr key={idx} className="hover:bg-slate-50/50">
                       <td className="py-2.5 px-3 text-center text-slate-500">{idx + 1}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-800">{it.name}</td>
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-800">{it.qty}</td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-800">
+                        {viewingOrder.stage === "invoice" ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <button type="button" onClick={() => handleUpdateInvoiceItemQty(viewingOrder.id, idx, it.qty - 1)} className="w-5 h-5 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold leading-none cursor-pointer">-</button>
+                            <span className="min-w-[20px] text-center">{it.qty}</span>
+                            <button type="button" onClick={() => handleUpdateInvoiceItemQty(viewingOrder.id, idx, it.qty + 1)} className="w-5 h-5 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold leading-none cursor-pointer">+</button>
+                            <button type="button" onClick={() => handleUpdateInvoiceItemQty(viewingOrder.id, idx, 0)} className="ml-1 text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer">Remove</button>
+                          </div>
+                        ) : it.qty}
+                      </td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                         {rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
@@ -2758,7 +2799,7 @@ export function WholesaleOrdersPipelineView() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          {o.stage === "dispatch" && (
+                          {["dispatch", "delivery", "completed"].includes(o.stage) && (
                             <button
                               onClick={() => handleBackToInvoice(o.id)}
                               className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
@@ -2884,7 +2925,7 @@ export function WholesaleOrdersPipelineView() {
                           >
                             Duplicate Invoice
                           </button>
-                          {o.stage === "delivery" && (
+                          {["delivery", "completed"].includes(o.stage) && (
                             <button
                               onClick={() => handleBackToDispatch(o.id)}
                               className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
