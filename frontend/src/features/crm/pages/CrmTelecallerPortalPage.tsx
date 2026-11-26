@@ -526,6 +526,7 @@ type CrmSubView =
   | "callings"
   | "place-order"
   | "customers"
+  | "unbilled-customers"
   | "targets"
   | "incentive-scheme"
   | "sku-list"
@@ -2507,11 +2508,15 @@ export function CrmTelecallerPortalPage() {
                 {activeView !== "home" && (
                   <button
                     onClick={() => {
-                      if (activeView === "team-reports") setActiveView("reports");
+                      if (activeView === "team-reports" || activeView === "unbilled-customers") setActiveView("reports");
                       else setActiveView("home");
                     }}
                     className="p-1 rounded-lg hover:bg-blue-800 text-white transition-colors cursor-pointer"
-                    title={activeView === "team-reports" ? "Back to CRM Report" : "Back to Home"}
+                    title={
+                      activeView === "team-reports" || activeView === "unbilled-customers"
+                        ? "Back to CRM Report"
+                        : "Back to Home"
+                    }
                   >
                     <ArrowLeft className="w-5 h-5 text-white" />
                   </button>
@@ -2541,9 +2546,11 @@ export function CrmTelecallerPortalPage() {
                                   ? "Incentive Schemes"
                                   : activeView === "new-customer"
                                     ? "New Customer"
-                                    : activeView === "customers"
-                                      ? "Customer List"
-                                      : activeView === "profile"
+                                    : activeView === "unbilled-customers"
+                                      ? "Unbilled To Bill Customers"
+                                      : activeView === "customers"
+                                        ? "Customer List"
+                                        : activeView === "profile"
                                         ? "My Profile"
                                         : activeView === "place-order"
                                           ? "Place Order"
@@ -4887,7 +4894,10 @@ export function CrmTelecallerPortalPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setActiveView("customers")}
+                    onClick={() => {
+                      setCustomersDisplayLimit(50);
+                      setActiveView("unbilled-customers");
+                    }}
                     className="text-xs text-amber-900/80 font-bold hover:underline mt-1 cursor-pointer inline-block"
                   >
                     View ›
@@ -5878,8 +5888,25 @@ export function CrmTelecallerPortalPage() {
             {/* ======================================================== */}
             {/* VIEW: CUSTOMERS LIST (VILLAGE STORE DIRECTORY & KHATA)   */}
             {/* ======================================================== */}
-            {activeView === "customers" && (
+            {(activeView === "customers" || activeView === "unbilled-customers") && (
               <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
+                {activeView === "unbilled-customers" && (
+                  <div className="bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-extrabold text-slate-900">Unbilled To Bill Customers</h2>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5">
+                        {userName} · {reportStartDate ? reportStartDate.split("-").reverse().join("-") : "26-11-2026"} to {reportEndDate ? reportEndDate.split("-").reverse().join("-") : "26-11-2026"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveView("reports")}
+                      className="px-3 py-1.5 rounded-full bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
                 {/* High-Density Excel Spreadsheet Table */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                   <div className="overflow-x-auto">
