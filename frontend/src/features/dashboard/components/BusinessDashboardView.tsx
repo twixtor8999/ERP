@@ -667,28 +667,6 @@ export function BusinessDashboardView() {
             </p>
           </div>
 
-          {/* 3 Summary KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
-              <span className="block text-[11px] font-semibold text-slate-500">Total</span>
-              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
-                ₹{totalOrderAmt.toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
-              <span className="block text-[11px] font-semibold text-slate-500">Items</span>
-              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
-                {rawItems.length}
-              </span>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
-              <span className="block text-[11px] font-semibold text-slate-500">Qty</span>
-              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
-                {totalOrderQty}
-              </span>
-            </div>
-          </div>
-
           {/* Order Items Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
