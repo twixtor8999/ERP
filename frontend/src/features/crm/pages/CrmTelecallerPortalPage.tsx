@@ -628,7 +628,7 @@ export function CrmTelecallerPortalPage() {
   const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>(getInitialCallingCustomers);
   const [callingsDisplayLimit, setCallingsDisplayLimit] = useState<number>(100);
-  const [customersDisplayLimit, setCustomersDisplayLimit] = useState<number>(100);
+  const [customersDisplayLimit, setCustomersDisplayLimit] = useState<number>(50);
   const callingsFetchedRef = useRef(false);
 
   // Catalog for Order Pad & SKU List (Initialized from real products matching Image 3)
@@ -1144,45 +1144,59 @@ export function CrmTelecallerPortalPage() {
   }, [activeView]);
 
   const loadDashboardData = async (refreshCallings = false) => {
-    try {
-      const shouldFetchCallings = refreshCallings || !callingsFetchedRef.current;
-      const [sumRes, incRes, callRes, prodRes] = await Promise.all([
-        apiClient.get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary"),
-        apiClient.get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products"),
-        shouldFetchCallings
-          ? apiClient.get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500")
-          : Promise.resolve(null),
-        apiClient.get<any[]>("/api/v1/admin/products"),
-      ]);
+    const shouldFetchCallings = refreshCallings || !callingsFetchedRef.current;
 
-      setSummary(sumRes.data);
-      setIncentiveProducts(incRes.data);
-      if (callRes && callRes.data) {
-        callingsFetchedRef.current = true;
-        const apiRoutes = callRes.data.routes || [];
-        if (apiRoutes.length > 0) {
-          const mergedRoutes = Array.from(new Set(["All Routes", "Bijapur", ...apiRoutes]));
-          setRoutes(mergedRoutes);
-        }
+    apiClient
+      .get<TelecallerSummary>("/api/v1/admin/crm/telecaller/summary")
+      .then((res) => {
+        if (res.data) setSummary(res.data);
+      })
+      .catch(() => {});
 
-        // Preload all 2,169 real authoritative customers and merge with any backend customers
-        const apiCusts = callRes.data.customers || [];
-        const initialCusts = getInitialCallingCustomers();
-        const custMap = new Map<string, CallingCustomer>();
-        for (const ic of initialCusts) {
-          custMap.set(ic.id, ic);
-        }
-        for (const ac of apiCusts) {
-          const sanitizedAc = { ...ac, village: cleanVillageName(ac.village) };
-          if (custMap.has(ac.id)) {
-            const old = custMap.get(ac.id)!;
-            custMap.set(ac.id, { ...old, ...sanitizedAc });
-          } else {
-            custMap.set(ac.id, sanitizedAc);
+    apiClient
+      .get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products")
+      .then((res) => {
+        if (res.data) setIncentiveProducts(res.data);
+      })
+      .catch(() => {});
+
+    if (shouldFetchCallings) {
+      apiClient
+        .get<{ routes: string[]; customers: CallingCustomer[] }>("/api/v1/admin/crm/callings?limit=2500")
+        .then((callRes) => {
+          if (!callRes?.data) return;
+          callingsFetchedRef.current = true;
+          const apiRoutes = callRes.data.routes || [];
+          if (apiRoutes.length > 0) {
+            const mergedRoutes = Array.from(new Set(["All Routes", "Bijapur", ...apiRoutes]));
+            setRoutes(mergedRoutes);
           }
-        }
-        setCallingCustomers(Array.from(custMap.values()));
-      }
+
+          // Preload all 2,169 real authoritative customers and merge with any backend customers
+          const apiCusts = callRes.data.customers || [];
+          const initialCusts = getInitialCallingCustomers();
+          const custMap = new Map<string, CallingCustomer>();
+          for (const ic of initialCusts) {
+            custMap.set(ic.id, ic);
+          }
+          for (const ac of apiCusts) {
+            const sanitizedAc = { ...ac, village: cleanVillageName(ac.village) };
+            if (custMap.has(ac.id)) {
+              const old = custMap.get(ac.id)!;
+              custMap.set(ac.id, { ...old, ...sanitizedAc });
+            } else {
+              custMap.set(ac.id, sanitizedAc);
+            }
+          }
+          setCallingCustomers(Array.from(custMap.values()));
+        })
+        .catch(() => {
+          setCallingCustomers((prev) => (prev && prev.length > 0 ? prev : getInitialCallingCustomers()));
+        });
+    }
+
+    try {
+      const prodRes = await apiClient.get<any[]>("/api/v1/admin/products");
 
       // Normalize live SKU products & variants from Super Admin (using Selling Price)
       const flattenedProducts: ProductItem[] = [];
