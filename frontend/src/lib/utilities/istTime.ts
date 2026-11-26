@@ -71,7 +71,7 @@ export function getIstDisplayDate(d: Date = new Date()): string {
  * React hook that returns dynamic, real-time Indian Standard Time (IST)
  * automatically updating every second.
  */
-export function useIstLiveClock(intervalMs: number = 1000) {
+export function useIstLiveClock(intervalMs: number = 15000) {
   const [clock, setClock] = useState(() => ({
     time: getIstTimeString(),
     dateStr: getIstDateString(),
@@ -81,14 +81,16 @@ export function useIstLiveClock(intervalMs: number = 1000) {
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      setClock({
-        time: getIstTimeString(now),
-        dateStr: getIstDateString(now),
-        displayDate: getIstDisplayDate(now),
-      });
+      const nextTime = getIstTimeString(now);
+      const nextDateStr = getIstDateString(now);
+      const nextDisplayDate = getIstDisplayDate(now);
+      setClock((prev) =>
+        prev.time === nextTime && prev.dateStr === nextDateStr && prev.displayDate === nextDisplayDate
+          ? prev
+          : { time: nextTime, dateStr: nextDateStr, displayDate: nextDisplayDate }
+      );
     };
 
-    tick();
     const interval = setInterval(tick, intervalMs);
     return () => clearInterval(interval);
   }, [intervalMs]);

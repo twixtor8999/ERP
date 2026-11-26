@@ -28,10 +28,21 @@ if (typeof window !== "undefined") {
   document.addEventListener("change", (e) => enforceMaxToday(e.target), true);
   document.addEventListener("input", (e) => enforceMaxToday(e.target), true);
 
-  // Periodic safeguard for newly mounted date inputs
-  setInterval(() => {
+  // Debounced observer for newly mounted date inputs instead of scanning DOM every second
+  let rafId = 0;
+  const syncDateInputs = () => {
+    rafId = 0;
     document.querySelectorAll<HTMLInputElement>('input[type="date"]').forEach(enforceMaxToday);
-  }, 1000);
+  };
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.addedNodes.length > 0) {
+        if (!rafId) rafId = window.requestAnimationFrame(syncDateInputs);
+        break;
+      }
+    }
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
 const rootElement = document.getElementById("root");

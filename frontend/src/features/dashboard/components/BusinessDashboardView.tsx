@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Search, Award } from "lucide-react";
 import { toast } from "sonner";
-import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
+import { getIstDateString } from "@/lib/utilities/istTime";
+import { IstLiveClockText } from "@/lib/utilities/IstLiveClockText";
 import { downloadExcelXlsx } from "@/lib/utilities/excelExport";
 import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 
@@ -378,8 +379,6 @@ type SubViewType = "none" | "sales" | "villages" | "callings" | "returns" | "obs
 
 export function BusinessDashboardView() {
   const navigate = useNavigate();
-  // Dynamic Live Indian Standard Time (IST) Clock & Date
-  const liveClock = useIstLiveClock(1000);
 
   const [fromDate, setFromDate] = useState(() => getIstDateString());
   const [toDate, setToDate] = useState(() => getIstDateString());
@@ -399,7 +398,7 @@ export function BusinessDashboardView() {
 
   const handleDateFilterSubmit = () => {
     if (fromDate === toDate) {
-      if (fromDate === liveClock.dateStr) {
+      if (fromDate === getIstDateString()) {
         setDisplaySubtitle("Today");
       } else {
         setDisplaySubtitle(`Date: ${fromDate}`);
@@ -1321,7 +1320,7 @@ export function BusinessDashboardView() {
 
           <div className="flex items-center gap-2">
             <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs font-mono" title="Live Indian Standard Time (IST)">
-              {liveClock.time}
+              <IstLiveClockText />
             </div>
           </div>
         </div>

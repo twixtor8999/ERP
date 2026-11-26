@@ -1,62 +1,39 @@
+import React, { Suspense, lazy } from "react";
 import { createBrowserRouter, Navigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
-import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { HomePage } from "@/features/dashboard/pages/HomePage";
 import { NotFoundPage } from "@/components/feedback/NotFound";
 import { StoreLayout } from "@/features/store/components/StoreLayout";
-import { StoreCatalogPage } from "@/features/store/pages/StoreCatalogPage";
-import { ProductDetailPage } from "@/features/store/pages/ProductDetailPage";
-import { CartPage } from "@/features/store/pages/CartPage";
-import { CheckoutPage } from "@/features/store/pages/CheckoutPage";
-import { CustomerOrderHistoryPage } from "@/features/store/pages/CustomerOrderHistoryPage";
-import { OrderTrackingPage } from "@/features/store/pages/OrderTrackingPage";
-import { CustomerAddressesPage } from "@/features/store/pages/CustomerAddressesPage";
-import { CustomerLoginPage } from "@/features/store/pages/CustomerLoginPage";
-import { CustomerRegisterPage } from "@/features/store/pages/CustomerRegisterPage";
-import { StoreOrdersAdminPage } from "@/features/orders/pages/StoreOrdersAdminPage";
-import { DeliveryStaffDashboardPage } from "@/features/orders/pages/DeliveryStaffDashboardPage";
-import { PosBillingPage } from "@/features/billing/pages/PosBillingPage";
-import { CallingsRunSheetView } from "@/features/crm/components/CallingsRunSheetView";
-import { InventoryManagementPage } from "@/features/inventory/pages/InventoryManagementPage";
-import { StockSplitPage } from "@/features/stock-split";
-import { PhotoStoragePage } from "@/features/storage/pages/PhotoStoragePage";
-import { DeletedRecordsPage } from "@/features/deleted-records";
-import { DenominationReportPage } from "@/features/settlements/pages/DenominationReportPage";
-import { HsnGstMasterPage } from "@/features/hsn-gst";
-import { RollManagementPage } from "@/features/rolls";
-import { SuperStockAuditPage } from "@/features/inventory/pages/SuperStockAuditPage";
-import { SettlementsPage } from "@/features/settlements/pages/SettlementsPage";
-import { ReportsPage } from "@/features/reports/pages/ReportsPage";
-import { PaymentsManagementPage } from "@/features/payments/pages/PaymentsManagementPage";
-import { ProductsCatalogPage } from "@/features/products/pages/ProductsCatalogPage";
-import { BranchesPage } from "@/features/branches/pages/BranchesPage";
-import { UsersManagementPage } from "@/features/users/pages/UsersManagementPage";
-import { RolesManagementPage } from "@/features/roles/pages/RolesManagementPage";
-import { OrganizationPage } from "@/features/organization/pages/OrganizationPage";
-import { AccountsLedgerPage } from "@/features/accounts/pages/AccountsLedgerPage";
-import { CustomersPage } from "@/features/customers/pages/CustomersPage";
-import { CrmReportsPage } from "@/features/crm/pages/CrmReportsPage";
-import { CrmTelecallerPortalPage } from "@/features/crm/pages/CrmTelecallerPortalPage";
-import { AuditLogsPage } from "@/features/audit_logs/pages/AuditLogsPage";
-import { EmployeesPage } from "@/features/employees/pages/EmployeesPage";
-import { IncentivesPage } from "@/features/incentives/pages/IncentivesPage";
-import { CaReportsPage } from "@/features/ca-reports/pages/CaReportsPage";
-import { PnlPage } from "@/features/pnl";
-import { SubscriptionPlansPage } from "@/features/plans/pages/SubscriptionPlansPage";
-import { PlanUpgradeCheckoutPage } from "@/features/plans/pages/PlanUpgradeCheckoutPage";
-import { MyProfilePage } from "@/features/profile/pages/MyProfilePage";
-import { SystemSettingsPage } from "@/features/settings/pages/SystemSettingsPage";
-import { CustomInvoiceTemplatePage } from "@/features/settings";
-import { VehiclesPage } from "@/features/vehicles/pages/VehiclesPage";
-import { ExpensesPage } from "@/features/expenses/pages/ExpensesPage";
-import { SuppliersPage } from "@/features/suppliers/pages/SuppliersPage";
-import { PurchasesPage } from "@/features/purchases/pages/PurchasesPage";
-import { DuplicateCheckPage } from "@/features/crm/pages/DuplicateCheckPage";
-import { B2bPage } from "@/features/b2b/pages/B2bPage";
-
 import { useAuthStore } from "@/stores/auth.store";
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[45vh]">
+      <div className="w-7 h-7 rounded-full border-[3px] border-slate-200 border-t-[#132038] animate-spin" />
+    </div>
+  );
+}
+
+function lazyPage<K extends string, T extends Record<K, React.ComponentType<any>>>(
+  loader: () => Promise<T>,
+  exportName: K
+) {
+  const LazyComp = lazy(() =>
+    loader().then((mod) => ({ default: mod[exportName] as React.ComponentType<any> }))
+  );
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <LazyComp />
+    </Suspense>
+  );
+}
+
+const LazyCrmTelecallerPortal = lazyPage(
+  () => import("@/features/crm/pages/CrmTelecallerPortalPage"),
+  "CrmTelecallerPortalPage"
+);
 
 function CrmRouteResolver() {
   const [searchParams] = useSearchParams();
@@ -70,7 +47,7 @@ function CrmRouteResolver() {
     const tab = searchParams.get("tab") || "dashboard";
     return <Navigate to={`/crm-report?tab=${tab}`} replace />;
   }
-  return <CrmTelecallerPortalPage />;
+  return LazyCrmTelecallerPortal;
 }
 
 function RoleBasedHomeRedirect() {
@@ -97,40 +74,40 @@ export const router = createBrowserRouter([
     path: "/shop",
     element: <StoreLayout />,
     children: [
-      { index: true, element: <StoreCatalogPage /> },
-      { path: "product/:id", element: <ProductDetailPage /> },
+      { index: true, element: lazyPage(() => import("@/features/store/pages/StoreCatalogPage"), "StoreCatalogPage") },
+      { path: "product/:id", element: lazyPage(() => import("@/features/store/pages/ProductDetailPage"), "ProductDetailPage") },
     ],
   },
   {
     path: "/cart",
     element: <StoreLayout />,
-    children: [{ index: true, element: <CartPage /> }],
+    children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/CartPage"), "CartPage") }],
   },
   {
     path: "/checkout",
     element: <StoreLayout />,
-    children: [{ index: true, element: <CheckoutPage /> }],
+    children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/CheckoutPage"), "CheckoutPage") }],
   },
   {
     path: "/account",
     element: <StoreLayout />,
     children: [
-      { path: "orders", element: <CustomerOrderHistoryPage /> },
-      { path: "addresses", element: <CustomerAddressesPage /> },
+      { path: "orders", element: lazyPage(() => import("@/features/store/pages/CustomerOrderHistoryPage"), "CustomerOrderHistoryPage") },
+      { path: "addresses", element: lazyPage(() => import("@/features/store/pages/CustomerAddressesPage"), "CustomerAddressesPage") },
     ],
   },
   {
     path: "/orders/:orderId",
     element: <StoreLayout />,
-    children: [{ index: true, element: <OrderTrackingPage /> }],
+    children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/OrderTrackingPage"), "OrderTrackingPage") }],
   },
   {
     path: "/customer/login",
-    element: <CustomerLoginPage />,
+    element: lazyPage(() => import("@/features/store/pages/CustomerLoginPage"), "CustomerLoginPage"),
   },
   {
     path: "/customer/register",
-    element: <CustomerRegisterPage />,
+    element: lazyPage(() => import("@/features/store/pages/CustomerRegisterPage"), "CustomerRegisterPage"),
   },
 
   // Internal ERP Routes
@@ -172,19 +149,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "dashboard",
-        element: <DashboardPage />,
+        element: lazyPage(() => import("@/features/dashboard/pages/DashboardPage"), "DashboardPage"),
       },
       {
         path: "dashboard/:roleView",
-        element: <DashboardPage />,
+        element: lazyPage(() => import("@/features/dashboard/pages/DashboardPage"), "DashboardPage"),
       },
       {
         path: "billing",
-        element: <PosBillingPage />,
+        element: lazyPage(() => import("@/features/billing/pages/PosBillingPage"), "PosBillingPage"),
       },
       {
         path: "pos",
-        element: <PosBillingPage />,
+        element: lazyPage(() => import("@/features/billing/pages/PosBillingPage"), "PosBillingPage"),
       },
       {
         path: "place-order",
@@ -192,7 +169,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "callings",
-        element: <CallingsRunSheetView />,
+        element: lazyPage(() => import("@/features/crm/components/CallingsRunSheetView"), "CallingsRunSheetView"),
       },
       {
         path: "pos-billing",
@@ -200,23 +177,23 @@ export const router = createBrowserRouter([
       },
       {
         path: "orders",
-        element: <StoreOrdersAdminPage />,
+        element: lazyPage(() => import("@/features/orders/pages/StoreOrdersAdminPage"), "StoreOrdersAdminPage"),
       },
       {
         path: "deliveries",
-        element: <DeliveryStaffDashboardPage />,
+        element: lazyPage(() => import("@/features/orders/pages/DeliveryStaffDashboardPage"), "DeliveryStaffDashboardPage"),
       },
       {
         path: "crm-report",
-        element: <CrmReportsPage />,
+        element: lazyPage(() => import("@/features/crm/pages/CrmReportsPage"), "CrmReportsPage"),
       },
       {
         path: "b2b",
-        element: <B2bPage />,
+        element: lazyPage(() => import("@/features/b2b/pages/B2bPage"), "B2bPage"),
       },
       {
         path: "customers",
-        element: <CustomersPage />,
+        element: lazyPage(() => import("@/features/customers/pages/CustomersPage"), "CustomersPage"),
       },
       {
         path: "route-planner",
@@ -224,31 +201,31 @@ export const router = createBrowserRouter([
       },
       {
         path: "duplicate-check",
-        element: <DuplicateCheckPage />,
+        element: lazyPage(() => import("@/features/crm/pages/DuplicateCheckPage"), "DuplicateCheckPage"),
       },
       {
         path: "products",
-        element: <ProductsCatalogPage />,
+        element: lazyPage(() => import("@/features/products/pages/ProductsCatalogPage"), "ProductsCatalogPage"),
       },
       {
         path: "inventory",
-        element: <InventoryManagementPage />,
+        element: lazyPage(() => import("@/features/inventory/pages/InventoryManagementPage"), "InventoryManagementPage"),
       },
       {
         path: "stock-split",
-        element: <StockSplitPage />,
+        element: lazyPage(() => import("@/features/stock-split"), "StockSplitPage"),
       },
       {
         path: "purchases",
-        element: <PurchasesPage />,
+        element: lazyPage(() => import("@/features/purchases/pages/PurchasesPage"), "PurchasesPage"),
       },
       {
         path: "suppliers",
-        element: <SuppliersPage />,
+        element: lazyPage(() => import("@/features/suppliers/pages/SuppliersPage"), "SuppliersPage"),
       },
       {
         path: "payments",
-        element: <PaymentsManagementPage />,
+        element: lazyPage(() => import("@/features/payments/pages/PaymentsManagementPage"), "PaymentsManagementPage"),
       },
       {
         path: "sales-vs-collection",
@@ -256,7 +233,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "settlements",
-        element: <SettlementsPage />,
+        element: lazyPage(() => import("@/features/settlements/pages/SettlementsPage"), "SettlementsPage"),
       },
       {
         path: "settlement",
@@ -264,23 +241,23 @@ export const router = createBrowserRouter([
       },
       {
         path: "accounts",
-        element: <AccountsLedgerPage />,
+        element: lazyPage(() => import("@/features/accounts/pages/AccountsLedgerPage"), "AccountsLedgerPage"),
       },
       {
         path: "expenses",
-        element: <ExpensesPage />,
+        element: lazyPage(() => import("@/features/expenses/pages/ExpensesPage"), "ExpensesPage"),
       },
       {
         path: "reports",
-        element: <ReportsPage />,
+        element: lazyPage(() => import("@/features/reports/pages/ReportsPage"), "ReportsPage"),
       },
       {
         path: "ca-reports",
-        element: <CaReportsPage />,
+        element: lazyPage(() => import("@/features/ca-reports/pages/CaReportsPage"), "CaReportsPage"),
       },
       {
         path: "p-and-l",
-        element: <PnlPage />,
+        element: lazyPage(() => import("@/features/pnl"), "PnlPage"),
       },
       {
         path: "pnl",
@@ -288,15 +265,15 @@ export const router = createBrowserRouter([
       },
       {
         path: "employees",
-        element: <EmployeesPage />,
+        element: lazyPage(() => import("@/features/employees/pages/EmployeesPage"), "EmployeesPage"),
       },
       {
         path: "incentives",
-        element: <IncentivesPage />,
+        element: lazyPage(() => import("@/features/incentives/pages/IncentivesPage"), "IncentivesPage"),
       },
       {
         path: "vehicles",
-        element: <VehiclesPage />,
+        element: lazyPage(() => import("@/features/vehicles/pages/VehiclesPage"), "VehiclesPage"),
       },
       {
         path: "transport",
@@ -304,31 +281,31 @@ export const router = createBrowserRouter([
       },
       {
         path: "organization",
-        element: <OrganizationPage />,
+        element: lazyPage(() => import("@/features/organization/pages/OrganizationPage"), "OrganizationPage"),
       },
       {
         path: "branches",
-        element: <BranchesPage />,
+        element: lazyPage(() => import("@/features/branches/pages/BranchesPage"), "BranchesPage"),
       },
       {
         path: "users",
-        element: <UsersManagementPage />,
+        element: lazyPage(() => import("@/features/users/pages/UsersManagementPage"), "UsersManagementPage"),
       },
       {
         path: "roles",
-        element: <RolesManagementPage />,
+        element: lazyPage(() => import("@/features/roles/pages/RolesManagementPage"), "RolesManagementPage"),
       },
       {
         path: "plans-billing",
-        element: <SubscriptionPlansPage />,
+        element: lazyPage(() => import("@/features/plans/pages/SubscriptionPlansPage"), "SubscriptionPlansPage"),
       },
       {
         path: "plans-billing/upgrade",
-        element: <PlanUpgradeCheckoutPage />,
+        element: lazyPage(() => import("@/features/plans/pages/PlanUpgradeCheckoutPage"), "PlanUpgradeCheckoutPage"),
       },
       {
         path: "plans-billing/checkout",
-        element: <PlanUpgradeCheckoutPage />,
+        element: lazyPage(() => import("@/features/plans/pages/PlanUpgradeCheckoutPage"), "PlanUpgradeCheckoutPage"),
       },
       {
         path: "plans",
@@ -336,7 +313,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "profile",
-        element: <MyProfilePage />,
+        element: lazyPage(() => import("@/features/profile/pages/MyProfilePage"), "MyProfilePage"),
       },
       {
         path: "my-profile",
@@ -344,19 +321,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "audit-logs",
-        element: <AuditLogsPage />,
+        element: lazyPage(() => import("@/features/audit_logs/pages/AuditLogsPage"), "AuditLogsPage"),
       },
       {
         path: "settings",
-        element: <SystemSettingsPage />,
+        element: lazyPage(() => import("@/features/settings/pages/SystemSettingsPage"), "SystemSettingsPage"),
       },
       {
         path: "custom-invoice",
-        element: <CustomInvoiceTemplatePage />,
+        element: lazyPage(() => import("@/features/settings"), "CustomInvoiceTemplatePage"),
       },
       {
         path: "photos-storage",
-        element: <PhotoStoragePage />,
+        element: lazyPage(() => import("@/features/storage/pages/PhotoStoragePage"), "PhotoStoragePage"),
       },
       {
         path: "storage",
@@ -364,7 +341,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "deleted-records",
-        element: <DeletedRecordsPage />,
+        element: lazyPage(() => import("@/features/deleted-records"), "DeletedRecordsPage"),
       },
       {
         path: "trash",
@@ -372,15 +349,15 @@ export const router = createBrowserRouter([
       },
       {
         path: "denomination-report",
-        element: <DenominationReportPage />,
+        element: lazyPage(() => import("@/features/settlements/pages/DenominationReportPage"), "DenominationReportPage"),
       },
       {
         path: "hsn-gst",
-        element: <HsnGstMasterPage />,
+        element: lazyPage(() => import("@/features/hsn-gst"), "HsnGstMasterPage"),
       },
       {
         path: "roll-management",
-        element: <RollManagementPage />,
+        element: lazyPage(() => import("@/features/rolls"), "RollManagementPage"),
       },
       {
         path: "rolls",
@@ -388,7 +365,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "super-stock-audit",
-        element: <SuperStockAuditPage />,
+        element: lazyPage(() => import("@/features/inventory/pages/SuperStockAuditPage"), "SuperStockAuditPage"),
       },
       {
         path: "super-audit",
@@ -401,4 +378,3 @@ export const router = createBrowserRouter([
     element: <NotFoundPage />,
   },
 ]);
-

@@ -4,11 +4,11 @@ import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkuProducts, type SkuProduct } from "../data/mockProducts";
 import { getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
-import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
+import { getIstDateString } from "@/lib/utilities/istTime";
+import { IstLiveClockText } from "@/lib/utilities/IstLiveClockText";
 
 export function WholesaleCategoryWiseSalesView() {
   const navigate = useNavigate();
-  const liveClock = useIstLiveClock(1000);
   const today = getIstDateString();
   const [fromDate, setFromDate] = useState(() => today);
   const [toDate, setToDate] = useState(() => today);
@@ -182,7 +182,7 @@ export function WholesaleCategoryWiseSalesView() {
         <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
           <span>Sales in the selected dates by category, with today's stock.</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-          <span>Live · updated {liveClock.time}</span>
+          <span>Live · updated <IstLiveClockText /></span>
         </p>
       </div>
 

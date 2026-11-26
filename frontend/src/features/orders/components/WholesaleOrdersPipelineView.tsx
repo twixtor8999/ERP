@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -829,11 +829,33 @@ export function WholesaleOrdersPipelineView() {
     }
   }, []);
 
-  // Sync real-time orders directly from local storage across browser tabs
-  const syncOrdersFromStorage = useCallback(() => {
+  const lastStorageSignatureRef = useRef<string>("");
+
+  // Sync real-time orders directly from local storage only when raw payloads changed
+  const syncOrdersFromStorage = useCallback((force = false) => {
     if (typeof window === "undefined") return;
 
     try {
+      const relevantKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key === "crm_wholesale_pipeline_orders" || key.startsWith("crm_reports_") || key === "crm_orders_master")) {
+          relevantKeys.push(key);
+        }
+      }
+      relevantKeys.sort();
+      const signature = relevantKeys
+        .map((k) => {
+          const val = localStorage.getItem(k) || "";
+          return `${k}:${val.length}:${val.slice(0, 64)}:${val.slice(-64)}`;
+        })
+        .join("|");
+
+      if (!force && signature === lastStorageSignatureRef.current) {
+        return;
+      }
+      lastStorageSignatureRef.current = signature;
+
       // 1. Read crm_wholesale_pipeline_orders
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
       const pipelineOrders: PipelineOrder[] = storedPipeline ? JSON.parse(storedPipeline) : [];
@@ -842,9 +864,8 @@ export function WholesaleOrdersPipelineView() {
       const reportOrders: PipelineOrder[] = [];
 
       try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith("crm_reports_") || key === "crm_orders_master")) {
+        for (const key of relevantKeys) {
+          if (key.startsWith("crm_reports_") || key === "crm_orders_master") {
             const raw = localStorage.getItem(key);
             if (raw) {
               const parsed = JSON.parse(raw);
@@ -925,10 +946,10 @@ export function WholesaleOrdersPipelineView() {
     } catch {}
   }, []);
 
-  // Fetch on mount, listen to storage events, and poll every 2.5 seconds
+  // Fetch on mount, listen to storage events, and check lazily every 15 seconds (skips work if unchanged)
   useEffect(() => {
     fetchLiveOrders();
-    syncOrdersFromStorage();
+    syncOrdersFromStorage(true);
 
     const handleStorageChange = (e: StorageEvent) => {
       if (
@@ -936,19 +957,19 @@ export function WholesaleOrdersPipelineView() {
         (e.key && e.key.startsWith("crm_reports_")) ||
         e.key === "crm_orders_master"
       ) {
-        syncOrdersFromStorage();
+        syncOrdersFromStorage(true);
       }
     };
 
     const handleCustomCrmOrder = () => {
-      syncOrdersFromStorage();
+      syncOrdersFromStorage(true);
     };
 
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("crm_order_placed", handleCustomCrmOrder);
     const interval = setInterval(() => {
-      syncOrdersFromStorage();
-    }, 2500);
+      syncOrdersFromStorage(false);
+    }, 15000);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
