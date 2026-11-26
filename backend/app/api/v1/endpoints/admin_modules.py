@@ -3097,6 +3097,8 @@ class QuickOrderItemPayload(BaseModel):
 
 class QuickOrderPayload(BaseModel):
     customer_id: str
+    customer_name: str | None = None
+    customer_phone: str | None = None
     items: list[QuickOrderItemPayload]
     payment_method: str = "CASH"
     paid_amount: Decimal = Decimal("0.00")
@@ -3539,21 +3541,69 @@ def place_crm_quick_order(
     branch_id = current_user.active_branch_id or (
         current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
     )
+    if not branch_id:
+        branch_id = db.scalar(select(Branch.id).where(Branch.organization_id == org_id))
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="No branch configured for organization")
 
     customer = db.scalar(
         select(Customer).where(Customer.id == payload.customer_id, Customer.organization_id == org_id)
     )
+    if not customer and payload.customer_phone:
+        clean_phone = "".join(ch for ch in payload.customer_phone if ch.isdigit())[-10:]
+        if clean_phone:
+            customer = db.scalar(
+                select(Customer).where(
+                    Customer.organization_id == org_id,
+                    Customer.phone.ilike(f"%{clean_phone}"),
+                )
+            )
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
-    # Order count
-    count = db.scalar(select(func.count(Order.id)).where(Order.organization_id == org_id)) or 0
-    order_no = f"ORD-{count + 1:04d}"
-    inv_no = f"INV-{count + 1:04d}"
+    # Generate collision-proof sequential order_number & invoice_number
+    # (safe even after order deletions)
+    existing_ord_nums = db.scalars(
+        select(Order.order_number).where(Order.organization_id == org_id)
+    ).all()
+    max_ord = 0
+    for onum in existing_ord_nums:
+        digits = "".join(ch for ch in (onum or "") if ch.isdigit())
+        if digits:
+            max_ord = max(max_ord, int(digits))
+    next_ord_seq = max_ord + 1
+    while db.scalar(
+        select(Order.id).where(
+            Order.organization_id == org_id,
+            Order.order_number == f"ORD-{next_ord_seq:04d}",
+        )
+    ):
+        next_ord_seq += 1
+    order_no = f"ORD-{next_ord_seq:04d}"
+
+    existing_inv_nums = db.scalars(
+        select(Invoice.invoice_number).where(Invoice.organization_id == org_id)
+    ).all()
+    max_inv = 0
+    for inum in existing_inv_nums:
+        digits = "".join(ch for ch in (inum or "") if ch.isdigit())
+        if digits:
+            max_inv = max(max_inv, int(digits))
+    next_inv_seq = max(max_inv + 1, next_ord_seq)
+    while db.scalar(
+        select(Invoice.id).where(
+            Invoice.organization_id == org_id,
+            Invoice.invoice_number == f"INV-{next_inv_seq:04d}",
+        )
+    ):
+        next_inv_seq += 1
+    inv_no = f"INV-{next_inv_seq:04d}"
+
     # Use IST date so orders placed at 10 PM IST show as today, not tomorrow UTC
+    now_utc = datetime.now(UTC)
     today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
 
     subtotal = Decimal("0.00")
@@ -3571,6 +3621,7 @@ def place_crm_quick_order(
         customer_id=customer.id,
         order_number=order_no,
         order_date=today,
+        placed_at=now_utc,
         status="CONFIRMED",
         order_type="TELECALLER_CRM",
         subtotal=subtotal,
@@ -3662,6 +3713,7 @@ def place_crm_quick_order(
 
     return {
         "success": True,
+        "id": order.id,
         "message": f"Order {order_no} placed successfully!",
         "order_number": order_no,
         "invoice_number": inv_no,

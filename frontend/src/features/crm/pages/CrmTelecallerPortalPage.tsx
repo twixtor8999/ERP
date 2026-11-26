@@ -2256,23 +2256,21 @@ export function CrmTelecallerPortalPage() {
       const staffName = user?.fullName || (user as any)?.name || "Pushpa Patil";
       const deliveryNotes = orderRemarks.trim() || `Punched via Telecaller CRM by ${staffName}`;
 
-      let orderNum = `ORD-${Math.floor(1660 + Math.random() * 40)}`;
-      let invoiceNum = `INV-${Math.floor(400 + Math.random() * 99)}`;
-      let orderId = `ord-${Date.now()}`;
+      const res = await apiClient.post("/api/v1/admin/crm/quick-order", {
+        customer_id: orderCustomer.id,
+        customer_name: orderCustomer.display_name || orderCustomer.name,
+        customer_phone: orderCustomer.phone || "",
+        items: payloadItems,
+        payment_method: orderPayMethod,
+        paid_amount: orderPayMethod === "CREDIT" ? 0 : parseFloat(orderPaidAmount) || calculatedOrderTotal,
+        delivery_notes: deliveryNotes,
+      });
 
-      try {
-        const res = await apiClient.post("/api/v1/admin/crm/quick-order", {
-          customer_id: orderCustomer.id,
-          items: payloadItems,
-          payment_method: orderPayMethod,
-          paid_amount: orderPayMethod === "CREDIT" ? 0 : parseFloat(orderPaidAmount) || calculatedOrderTotal,
-          delivery_notes: deliveryNotes,
-        });
-        if (res.data?.id) orderId = res.data.id;
-        if (res.data?.order_number) orderNum = res.data.order_number;
-        if (res.data?.invoice_number) invoiceNum = res.data.invoice_number;
-      } catch {
-        // Backend offline / mock fallback: process order smoothly locally
+      const orderId = res.data?.id || `ord-${Date.now()}`;
+      const orderNum = res.data?.order_number;
+      const invoiceNum = res.data?.invoice_number;
+      if (!orderNum) {
+        throw new Error("Order was not confirmed by server.");
       }
 
       toast.success("Order Placed Successfully!", {
@@ -2431,8 +2429,12 @@ export function CrmTelecallerPortalPage() {
       setActiveView("reports");
       loadDashboardData(false);
       loadReportsAndOrders();
-    } catch {
-      toast.error("Failed to place order.");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to place order. Please try again.";
+      toast.error(msg);
     } finally {
       setIsPlacingOrder(false);
     }
