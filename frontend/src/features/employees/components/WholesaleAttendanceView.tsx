@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   ArrowLeft,
   Clock,
@@ -47,13 +47,28 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
   });
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => getStoredAttendance());
   const [salaries] = useState<SalaryRecord[]>(() => getStoredSalaries());
-  const [selectedMonth, setSelectedMonth] = useState('2026-11');
-
-  // Today string dynamically defaulting to current real ISO date
-  const todayStr = (() => {
+  const getLocalTodayIso = () => {
     const d = new Date();
     return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-  })();
+  };
+
+  const [todayStr, setTodayStr] = useState<string>(getLocalTodayIso);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getLocalTodayIso().slice(0, 7));
+
+  // Auto-rollover at 12:00 AM midnight
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = getLocalTodayIso();
+      setTodayStr((prev) => {
+        if (prev !== next) {
+          setSelectedMonth(next.slice(0, 7));
+          return next;
+        }
+        return prev;
+      });
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Long-press state
   const [holdProgress, setHoldProgress] = useState(0); // 0 to 100%
@@ -325,7 +340,7 @@ export const WholesaleAttendanceView: React.FC<Props> = ({ onBack, onOpenSalaryS
         <div className="flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-bold text-navy-950 flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-600" />
-            <span>Today · 22-11-2026</span>
+            <span>Today · {todayStr.split('-').reverse().join('-')}</span>
           </h2>
           <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
             {todayStatus}
