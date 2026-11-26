@@ -147,31 +147,17 @@ export function PlaceOrderWholesaleView() {
   // Active Customer selected to place order for
   const [activeCustomerForOrder, setActiveCustomerForOrder] = useState<CustomerOption | null>(null);
 
-  // Real Customer Orders State (for ORDER HISTORY and OPEN ORDER)
+  // Customer Orders State (for ORDER HISTORY and OPEN ORDER) — loads persisted Admin/POS orders + baseline dataset
   const [allOrders, setAllOrders] = useState<CustomerOrderRecord[]>(() => {
-    const list: CustomerOrderRecord[] = [
-      {
-        id: "ord-1682",
-        orderNo: "ORD-1682",
-        customerId: "1792946086190293",
-        date: "24-11-2026",
-        at: "2026-11-24T19:44:00.000Z",
-        status: "placed",
-        createdBy: "Pushpa Patil",
-        items: [
-          {
-            skuId: "1794579615417490",
-            name: "BUMTUM BABY DIAPER 10 RS ( S1 4-8KG 1PANS PKT )",
-            qty: 1,
-            price: 7,
-            amount: 7,
-          },
-        ],
-        total: 7,
-      },
-      ...(realCustomerOrders as CustomerOrderRecord[]),
-    ];
-    return list;
+    let saved: CustomerOrderRecord[] = [];
+    try {
+      const raw = localStorage.getItem("pos_wholesale_placed_orders");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) saved = parsed;
+      }
+    } catch {}
+    return [...saved, ...(realCustomerOrders as CustomerOrderRecord[])];
   });
 
   // Product Catalog
@@ -217,17 +203,14 @@ export function PlaceOrderWholesaleView() {
     }
   }, [customerParam, customersList]);
 
-  // Orders for current active customer
+  // Orders for current active customer (strictly matched by customerId)
   const customerOrders = useMemo(() => {
     if (!activeCustomerForOrder) return [];
     const custId = String(activeCustomerForOrder.id);
-    const custName = (activeCustomerForOrder.name || "").toLowerCase();
     return allOrders
       .filter((o) => {
         if (o.status === "cancelled") return false;
-        if (String(o.customerId) === custId) return true;
-        if (custName.includes("arun") && (o.orderNo === "ORD-1682" || o.orderNo === "ORD-1630")) return true;
-        return false;
+        return String(o.customerId) === custId;
       })
       .sort((a, b) => (b.at || b.date).localeCompare(a.at || a.date));
   }, [allOrders, activeCustomerForOrder]);
@@ -261,11 +244,7 @@ export function PlaceOrderWholesaleView() {
 
     const matches = customersList.filter((c) => {
       const matchSearch = q
-        ? [c.name, c.shop, c.phone, c.village, c.route, c.kn]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q)
+        ? (c.name || "").toLowerCase().includes(q)
         : true;
 
       const matchBeat = selectedBeat
@@ -374,14 +353,17 @@ export function PlaceOrderWholesaleView() {
     });
 
     const currentUser = useAuthStore.getState().user;
-    const creatorName = currentUser?.fullName ? `${currentUser.fullName} (${currentUser.role ? currentUser.role.replace(/_/g, " ") : "Staff"})` : "Admin";
-    const staffName = currentUser?.fullName || "Staff";
+    const roleLower = (currentUser?.role || "").toLowerCase();
+    const isCrmUser = roleLower.includes("crm") || roleLower.includes("telecaller");
+    const orderSource = isCrmUser ? "CRM" : "Admin";
+    const staffName = currentUser?.fullName || (isCrmUser ? "CRM Staff" : "Admin");
+    const creatorName = staffName;
 
     const newOrderRecord: CustomerOrderRecord = {
       id: String(Date.now()),
       orderNo: orderNo,
       customerId: String(activeCustomerForOrder?.id || ""),
-      date: new Date().toISOString().split("T")[0] || "2026-11-24",
+      date: new Date().toISOString().split("T")[0] || "2026-11-26",
       at: new Date().toISOString(),
       status: "placed",
       createdBy: creatorName,
@@ -391,6 +373,14 @@ export function PlaceOrderWholesaleView() {
     };
 
     setAllOrders((prev) => [newOrderRecord, ...prev]);
+    try {
+      const raw = localStorage.getItem("pos_wholesale_placed_orders");
+      const existing: CustomerOrderRecord[] = raw ? JSON.parse(raw) : [];
+      localStorage.setItem(
+        "pos_wholesale_placed_orders",
+        JSON.stringify([newOrderRecord, ...existing.filter((o) => o.orderNo !== orderNo)])
+      );
+    } catch {}
 
     // Also immediately sync to Wholesale Pipeline Orders in localStorage so Packing tab updates in real time!
     try {
@@ -404,8 +394,8 @@ export function PlaceOrderWholesaleView() {
         village: activeCustomerForOrder?.village || "Bijapur",
         route: (activeCustomerForOrder as any)?.route || "Bijapur Route",
         createdBy: creatorName,
-        source: "CRM",
-        orderDate: new Date().toISOString().split("T")[0] || "24-11-2026",
+        source: orderSource,
+        orderDate: new Date().toISOString().split("T")[0] || "26-11-2026",
         orderTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase(),
         phone: activeCustomerForOrder?.phone || "",
         total: cartTotal,
@@ -485,16 +475,10 @@ export function PlaceOrderWholesaleView() {
       return inStockProducts;
     }
     const q = itemSearchQuery.trim().toLowerCase();
-    return allProducts
-      .filter((p) =>
-        [p.name, p.kannadaName, p.unit, p.packBadge, p.cat, p.hsn]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(q)
-      )
+    return inStockProducts
+      .filter((p) => (p.name || "").toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allProducts, inStockProducts, itemSearchQuery]);
+  }, [inStockProducts, itemSearchQuery]);
 
   // Cart items list for "In cart" section at top
   const inCartProducts = useMemo(() => {
@@ -616,7 +600,7 @@ export function PlaceOrderWholesaleView() {
               {customerTitle}
             </p>
             <p className="text-xs text-slate-500 font-medium">
-              {viewingOrderDetails.date} · Order taken by {viewingOrderDetails.createdBy || "Pushpa Patil"} · {viewingOrderDetails.status}
+              {viewingOrderDetails.date} · Order taken by {viewingOrderDetails.createdBy || "Admin"} · {viewingOrderDetails.status}
             </p>
           </div>
 
@@ -890,7 +874,7 @@ export function PlaceOrderWholesaleView() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search by name, local name, HSN, category"
+                placeholder="Search item by name"
                 value={itemSearchQuery}
                 onChange={(e) => {
                   setItemSearchQuery(e.target.value);
@@ -1199,7 +1183,7 @@ export function PlaceOrderWholesaleView() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search customer by name, number, shop, village"
+              placeholder="Search customer by name"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-4 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs font-medium"
@@ -1228,7 +1212,7 @@ export function PlaceOrderWholesaleView() {
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">Search a customer</h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Type the name, mobile number, shop or village to place an order.
+                  Type the customer name to place an order.
                 </p>
               </div>
             </div>
@@ -1240,7 +1224,7 @@ export function PlaceOrderWholesaleView() {
               </div>
               <h2 className="text-base font-extrabold text-slate-900">No matching customer found</h2>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Try searching with a different name, village or phone number.
+                Try searching with a different customer name.
               </p>
               <button
                 onClick={() => setShowAddCustomerModal(true)}
