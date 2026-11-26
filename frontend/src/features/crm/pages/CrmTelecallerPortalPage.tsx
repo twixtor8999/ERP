@@ -362,6 +362,22 @@ interface CallingCustomer {
   };
 }
 
+const cleanVillageName = (raw?: string): string => {
+  const v = (raw || "").trim();
+  if (!v) return "Vijayapura";
+  const qMatch = v.match(/query=([^&]+)/i);
+  if (qMatch && qMatch[1]) {
+    try {
+      const decoded = decodeURIComponent(qMatch[1].replace(/\+/g, " ")).split(",")[0]?.trim();
+      if (decoded) return decoded;
+    } catch {}
+  }
+  if (/https?:\/\/|\.com\/|maps\/search/i.test(v)) {
+    return "Vijayapura";
+  }
+  return v;
+};
+
 const getInitialCallingCustomers = (): CallingCustomer[] => {
   return (realCustomersData as any[]).map((c, i) => {
     const name = c.name || "";
@@ -376,7 +392,7 @@ const getInitialCallingCustomers = (): CallingCustomer[] => {
       display_name: name,
       phone: c.phone || "",
       customer_code: `CUST-${String(i + 1).padStart(4, "0")}`,
-      village: c.village || "",
+      village: cleanVillageName(c.village),
       taluka: c.taluka || "Vijayapura",
       district: c.district || "Vijayapura",
       pincode: c.pincode || "586101",
@@ -1157,11 +1173,12 @@ export function CrmTelecallerPortalPage() {
           custMap.set(ic.id, ic);
         }
         for (const ac of apiCusts) {
+          const sanitizedAc = { ...ac, village: cleanVillageName(ac.village) };
           if (custMap.has(ac.id)) {
             const old = custMap.get(ac.id)!;
-            custMap.set(ac.id, { ...old, ...ac });
+            custMap.set(ac.id, { ...old, ...sanitizedAc });
           } else {
-            custMap.set(ac.id, ac);
+            custMap.set(ac.id, sanitizedAc);
           }
         }
         setCallingCustomers(Array.from(custMap.values()));
@@ -5905,8 +5922,11 @@ export function CrmTelecallerPortalPage() {
                                 </a>
                               </td>
                               <td className="py-2.5 px-3">
-                                <span className="font-semibold text-slate-800 bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/50 text-[11px]">
-                                  {c.village || "Vijayapura"}
+                                <span
+                                  title={cleanVillageName(c.village)}
+                                  className="inline-block max-w-[160px] truncate align-middle font-semibold text-slate-800 bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/50 text-[11px]"
+                                >
+                                  {cleanVillageName(c.village)}
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-slate-600">

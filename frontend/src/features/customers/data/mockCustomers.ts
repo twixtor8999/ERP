@@ -908,7 +908,7 @@ export const INITIAL_CUSTOMERS: CustomerRecord[] = [
     "state": "Karnataka",
     "district": "Vijayapura",
     "taluka": "Vijayapura",
-    "village": "Hegae.com/maps/search/?api=1&query=Hegadihal%2C%20Vijayapura%2C%20Vijayapura%2C%20Karnataka%2C%20586108",
+    "village": "Hegadihal",
     "villageKn": "\u0cb9\u0cc6\u0c97\u0ccd\u0ca1\u0cbf\u0caf\u0cbe\u0cb2\u0ccd",
     "villageKey": "V1",
     "pincode": "",

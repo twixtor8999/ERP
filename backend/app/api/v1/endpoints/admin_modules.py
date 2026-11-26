@@ -3423,10 +3423,14 @@ def get_crm_callings_sheet(
             route_assigned = city_raw or "Bijapur"
         all_routes_set.add(route_assigned)
 
-        # Village (normalized from address_line1)
+        # Village (normalized from address_line1; strip leaked Google Maps URLs)
         v_raw = (addr.address_line1 if addr and addr.address_line1 else "Bijapur (Rural)").strip()
-        if "http" in v_raw or "maps" in v_raw:
-            v_raw = v_raw.split(",")[0].strip()
+        if "http" in v_raw.lower() or "maps" in v_raw.lower() or ".com" in v_raw.lower():
+            if "query=" in v_raw:
+                q_part = urllib.parse.unquote_plus(v_raw.split("query=", 1)[1].split("&", 1)[0])
+                v_raw = q_part.split(",")[0].strip()
+            else:
+                v_raw = v_raw.split(",")[0].strip()
         village_name = v_raw or "Bijapur (Rural)"
 
         # Village Key (from address_line2 or landmark)
