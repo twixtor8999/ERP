@@ -3108,15 +3108,18 @@ def get_crm_telecaller_summary(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    today = datetime.now(UTC).date()
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
     org_id = current_user.organization_id
+
+    # Order date expression covering both order_date and created_at
+    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
 
     # Count today's orders
     orders_today_count = db.scalar(
         select(func.count(Order.id))
         .where(
             Order.organization_id == org_id,
-            Order.order_date == today,
+            order_date_expr == today,
         )
     ) or 0
 
@@ -3124,7 +3127,7 @@ def get_crm_telecaller_summary(
         select(func.sum(Order.total_amount))
         .where(
             Order.organization_id == org_id,
-            Order.order_date == today,
+            order_date_expr == today,
         )
     ) or Decimal("0.00")
 
@@ -3935,16 +3938,17 @@ def get_crm_orders_status(
     ist = ZoneInfo("Asia/Kolkata")
     
     conditions = [Order.organization_id == org_id]
+    order_date_expr = func.coalesce(Order.order_date, func.cast(Order.created_at, Date))
     if start_date:
         try:
-            s_d = datetime.strptime(start_date, "%Y-%m-%d").date()
-            conditions.append(Order.order_date >= s_d)
+            s_d = datetime.strptime(start_date.strip(), "%Y-%m-%d").date()
+            conditions.append(order_date_expr >= s_d)
         except ValueError:
             pass
     if end_date:
         try:
-            e_d = datetime.strptime(end_date, "%Y-%m-%d").date()
-            conditions.append(Order.order_date <= e_d)
+            e_d = datetime.strptime(end_date.strip(), "%Y-%m-%d").date()
+            conditions.append(order_date_expr <= e_d)
         except ValueError:
             pass
 
