@@ -590,8 +590,6 @@ export function CrmTelecallerPortalPage() {
   const [selectedVillageKey, setSelectedVillageKey] = useState<string>("Nil");
   const [callingSearch, setCallingSearch] = useState<string>("");
   const [callingCustomers, setCallingCustomers] = useState<CallingCustomer[]>(getInitialCallingCustomers);
-  const [customerSearch, setCustomerSearch] = useState<string>("");
-  const [customerRouteFilter, setCustomerRouteFilter] = useState<string>("All Routes");
 
   // Catalog for Order Pad & SKU List (Initialized from real products matching Image 3)
   const [catalog, setCatalog] = useState<ProductItem[]>(() => {
@@ -1664,23 +1662,7 @@ export function CrmTelecallerPortalPage() {
     });
   }, [callingCustomers, selectedRoute, selectedBeatDay, selectedVillageKey, selectedVillage, callingSearch]);
 
-  // Filter Customer Directory
-  const filteredCustomers = useMemo(() => {
-    return callingCustomers.filter((c) => {
-      const matchRoute = customerRouteFilter === "All Routes" || !c.route || c.route === customerRouteFilter;
-      const term = customerSearch.toLowerCase().trim();
-      const matchSearch =
-        !term ||
-        c.shop_name?.toLowerCase().includes(term) ||
-        c.display_name?.toLowerCase().includes(term) ||
-        c.name?.toLowerCase().includes(term) ||
-        c.phone?.includes(term) ||
-        c.village?.toLowerCase().includes(term) ||
-        c.taluka?.toLowerCase().includes(term) ||
-        c.pincode?.includes(term);
-      return matchRoute && matchSearch;
-    });
-  }, [callingCustomers, customerRouteFilter, customerSearch]);
+  const filteredCustomers = callingCustomers;
 
   // Filter Customers for Place Order Customer Selection Screen (Matches reference photo)
   const filteredOrderCustomers = useMemo(() => {
@@ -5837,65 +5819,6 @@ export function CrmTelecallerPortalPage() {
             {/* ======================================================== */}
             {activeView === "customers" && (
               <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-blue-900" />
-                        <span>Village Store Directory & Customer Khata Matrix</span>
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        All registered Kirana stores, villages, routes, Google Maps navigation & outstanding Udhaar.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => exportToExcel(filteredCustomers, "Siddeshwar_Customer_Village_Directory")}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
-                        title="Download Customer Directory as Excel / CSV"
-                      >
-                        <Download className="w-3.5 h-3.5 text-emerald-200" />
-                        <span>Export Excel</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveView("new-customer")}
-                        className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Store</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <Input
-                      type="text"
-                      placeholder="Search by shop name, owner, 10-digit mobile, village, taluka, or pincode..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="pl-9 h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
-                    />
-                  </div>
-
-                  {/* Route Selector Pills */}
-                  <div className="flex flex-wrap gap-1.5 pb-1">
-                    {routes.map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => setCustomerRouteFilter(r)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${customerRouteFilter === r
-                          ? "bg-blue-900 text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                          }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* High-Density Excel Spreadsheet Table */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                   <div className="overflow-x-auto">
