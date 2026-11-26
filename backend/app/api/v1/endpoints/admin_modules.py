@@ -1935,6 +1935,10 @@ def create_admin_employee(
                         role_id=role_obj.id,
                         organization_id=org_id,
                         branch_id=branch_id,
+                        assigned_by=current_user.user_id,
+                        is_active=True,
+                        is_primary=True,
+                        status="ACTIVE",
                     )
                 )
 

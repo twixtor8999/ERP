@@ -1096,13 +1096,6 @@ export function BusinessDashboardView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/employees?tab=list&action=new')}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Create new employee or staff"
-            >
-              <span>+ New Staff</span>
-            </button>
             <div className="bg-[#0f172a] text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide shadow-2xs font-mono" title="Live Indian Standard Time (IST)">
               {liveClock.time}
             </div>

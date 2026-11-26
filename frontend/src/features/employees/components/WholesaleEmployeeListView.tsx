@@ -15,8 +15,22 @@ import {
   saveStoredEmployees,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/api/client';
 import { WholesaleEmployeeDocumentsView } from './WholesaleEmployeeDocumentsView';
 import { WholesaleEmployeeFormView } from './WholesaleEmployeeFormView';
+
+const ROLE_SLUG_MAP: Record<string, string> = {
+  Owner: 'business_owner',
+  Admin: 'super_admin',
+  Manager: 'branch_manager',
+  Billing: 'cashier',
+  CRM: 'crm_executive',
+  Sales: 'sales_executive',
+  Packer: 'inventory_manager',
+  Driver: 'employee',
+  Helper: 'employee',
+  Accountant: 'accountant',
+};
 
 interface Props {
   onBack?: () => void;
@@ -131,7 +145,7 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
       <WholesaleEmployeeFormView
         editingEmployee={editingId ? employees.find((e) => e.id === editingId) || null : null}
         onBack={() => setShowModal(false)}
-        onSave={(savedEmp) => {
+        onSave={async (savedEmp, loginPassword) => {
           if (editingId) {
             const updated = employees.map((emp) => (emp.id === editingId ? savedEmp : emp));
             setEmployees(updated);
@@ -144,11 +158,47 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
                 return match && match[1] ? Math.max(max, parseInt(match[1], 10)) : max;
               }, 0) + 1;
             const nextCode = `EMP-${String(nextCodeNum).padStart(4, '0')}`;
-            const newEmp = { ...savedEmp, code: nextCode };
+
+            const nameParts = savedEmp.name.trim().split(/\s+/);
+            const firstName = nameParts[0] || savedEmp.name.trim();
+            const lastName = nameParts.slice(1).join(' ');
+            const hasLoginAccess = savedEmp.role !== 'No login access';
+            const roleSlug = ROLE_SLUG_MAP[savedEmp.role] || 'employee';
+
+            let resolvedCode = nextCode;
+            try {
+              const res = await apiClient.post('/admin/employees', {
+                first_name: firstName,
+                last_name: lastName || null,
+                phone: savedEmp.ph,
+                role: roleSlug,
+                designation: savedEmp.des,
+                salary_type: 'MONTHLY',
+                base_salary: savedEmp.sal,
+                create_login_account: hasLoginAccess,
+                initial_password: loginPassword || '123456',
+              });
+              if (res.data?.employee_code) {
+                resolvedCode = res.data.employee_code;
+              }
+              toast.success(
+                hasLoginAccess
+                  ? `${savedEmp.name} created (${resolvedCode}) — Login enabled on ${savedEmp.ph} (${savedEmp.role})`
+                  : `Employee ${savedEmp.name} created (${resolvedCode})`
+              );
+            } catch (err: any) {
+              const detail = err?.response?.data?.detail;
+              toast.warning(
+                detail
+                  ? `Saved locally, backend login notice: ${detail}`
+                  : `Employee ${savedEmp.name} saved locally (${resolvedCode})`
+              );
+            }
+
+            const newEmp = { ...savedEmp, code: resolvedCode };
             const updated = [...employees, newEmp];
             setEmployees(updated);
             saveStoredEmployees(updated);
-            toast.success(`Employee ${newEmp.name} created (${newEmp.code})`);
           }
           setShowModal(false);
         }}

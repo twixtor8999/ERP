@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Save, UserCheck, Building2, FileCheck2 } from 'lucide-react';
+import { ArrowLeft, Save, UserCheck, Building2, FileCheck2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { Employee } from '../data/mockEmployees';
 import { toast } from 'sonner';
 
 interface Props {
   editingEmployee?: Employee | null;
   onBack: () => void;
-  onSave: (employee: Employee) => void;
+  onSave: (employee: Employee, loginPassword?: string) => void | Promise<void>;
 }
 
 const DESIGNATIONS = [
@@ -63,11 +63,14 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
   const [formAcno, setFormAcno] = useState(editingEmployee?.acno || '');
   const [formIfsc, setFormIfsc] = useState(editingEmployee?.ifsc || '');
   const [formRole, setFormRole] = useState(editingEmployee?.role || 'Sales');
+  const [formPassword, setFormPassword] = useState('123456');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formDocs, setFormDocs] = useState<{ ph?: boolean; adh?: boolean; pan?: boolean; pb?: boolean }>(
     editingEmployee?.docs || { ph: false, adh: false, pan: false, pb: false }
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
       toast.error('Enter employee name');
@@ -75,6 +78,10 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
     }
     if (!/^\d{10}$/.test(formPh.trim())) {
       toast.error('Contact no must be a valid 10-digit mobile');
+      return;
+    }
+    if (!isEditing && formRole !== 'No login access' && formPassword.trim().length < 6) {
+      toast.error('Login password must be at least 6 characters');
       return;
     }
     if (!formSal || Number(formSal) <= 0) {
@@ -112,7 +119,12 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
       added: editingEmployee?.added || new Date().toISOString().slice(0, 10),
     };
 
-    onSave(payload);
+    try {
+      setIsSaving(true);
+      await onSave(payload, formRole !== 'No login access' ? formPassword.trim() : undefined);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -252,7 +264,7 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                   Access Role (Permissions) *
                 </label>
@@ -268,6 +280,58 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
                   ))}
                 </select>
               </div>
+
+              {formRole !== 'No login access' && !isEditing && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Login Password (min 6 chars) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      minLength={6}
+                      required
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      placeholder="Set login password (default: 123456)"
+                      className="w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {formRole !== 'No login access' && (
+                <div className="sm:col-span-2 bg-blue-50/70 border border-blue-200 rounded-lg p-3 flex items-start gap-2.5 text-xs text-blue-950">
+                  <KeyRound className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <div className="font-bold">
+                      System Login Access Enabled ({formRole})
+                    </div>
+                    <p className="text-[11px] text-blue-800">
+                      This staff member can log in using mobile number{' '}
+                      <span className="font-mono font-bold">{formPh || '10-digit mobile'}</span>
+                      {!isEditing && (
+                        <>
+                          {' '}and the password above.{' '}
+                        </>
+                      )}
+                      {formRole === 'CRM'
+                        ? 'CRM users automatically open the CRM Telecaller portal.'
+                        : formRole === 'Billing'
+                        ? 'Billing users automatically open the POS Billing counter.'
+                        : 'Permissions are assigned automatically based on the selected Access Role.'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -378,9 +442,10 @@ export const WholesaleEmployeeFormView: React.FC<Props> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-xs font-bold text-white bg-navy-900 hover:bg-navy-800 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+              disabled={isSaving}
+              className="px-6 py-2.5 text-xs font-bold text-white bg-navy-900 hover:bg-navy-800 disabled:opacity-60 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Save className="w-4 h-4" /> {isEditing ? 'Save Employee Changes' : 'Create Employee'}
+              <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : isEditing ? 'Save Employee Changes' : 'Create Employee'}
             </button>
           </div>
         </form>
