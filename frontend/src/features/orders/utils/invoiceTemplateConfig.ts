@@ -70,7 +70,8 @@ export function saveInvoiceTemplateConfig(config: Partial<InvoiceTemplateConfig>
 export function generateThermalReceiptHtml(
   order: TaxInvoiceOrder,
   widthMm: 80 | 58 = 80,
-  config?: InvoiceTemplateConfig
+  config?: InvoiceTemplateConfig,
+  autoPrint = true
 ): string {
   const cfg = config || getInvoiceTemplateConfig();
   const widthPx = widthMm === 80 ? 302 : 219;
@@ -251,9 +252,23 @@ export function generateThermalReceiptHtml(
   </div>
 
   <script>
-    setTimeout(function() {
+${autoPrint ? `    var printed = false;
+    function triggerAutoPrint() {
+      if (printed) return;
+      printed = true;
       try { window.focus(); } catch(e) {}
-    }, 150);
+      try { window.print(); } catch(e) {}
+    }
+    if (document.readyState === 'complete') {
+      setTimeout(triggerAutoPrint, 250);
+    } else {
+      window.addEventListener('load', function() {
+        setTimeout(triggerAutoPrint, 250);
+      });
+      setTimeout(triggerAutoPrint, 900);
+    }` : `    setTimeout(function() {
+      try { window.focus(); } catch(e) {}
+    }, 150);`}
   </script>
 </body>
 </html>`;

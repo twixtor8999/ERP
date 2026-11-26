@@ -317,7 +317,8 @@ export function generateTaxInvoiceInnerHtml(
 export function generateTaxInvoiceDocument(
   order: TaxInvoiceOrder,
   isDuplicate = true,
-  config?: InvoiceTemplateConfig
+  config?: InvoiceTemplateConfig,
+  autoPrint = true
 ): string {
   const docTitle = `${order.invoiceNo || order.orderNo || "INV-469"}${isDuplicate ? "_duplicate" : ""}`;
   const innerHtml = generateTaxInvoiceInnerHtml(order, isDuplicate, config);
@@ -499,9 +500,23 @@ export function generateTaxInvoiceDocument(
         if (bar) bar.style.display = 'flex';
       }
     }
-    setTimeout(function() {
+${autoPrint ? `    var printed = false;
+    function triggerAutoPrint() {
+      if (printed) return;
+      printed = true;
       try { window.focus(); } catch(e) {}
-    }, 150);
+      try { window.print(); } catch(e) {}
+    }
+    if (document.readyState === 'complete') {
+      setTimeout(triggerAutoPrint, 250);
+    } else {
+      window.addEventListener('load', function() {
+        setTimeout(triggerAutoPrint, 250);
+      });
+      setTimeout(triggerAutoPrint, 900);
+    }` : `    setTimeout(function() {
+      try { window.focus(); } catch(e) {}
+    }, 150);`}
   </script>
 </body>
 </html>`;
@@ -521,7 +536,8 @@ export function openTaxInvoiceWindow(
   order: TaxInvoiceOrder,
   isDuplicate = true,
   formatOverride?: InvoiceFormat,
-  config?: InvoiceTemplateConfig
+  config?: InvoiceTemplateConfig,
+  autoPrint = true
 ): boolean {
   try {
     const effectiveConfig = config || getInvoiceTemplateConfig();
@@ -532,19 +548,19 @@ export function openTaxInvoiceWindow(
 
     if (effectiveFormat === "slip_80") {
       // PDF Format 1: Exact Bilingual 80mm Slip Tax Invoice
-      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig);
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig, autoPrint);
     } else if (effectiveFormat === "thermal_80") {
-      doc = generateThermalReceiptHtml(order, 80, effectiveConfig);
+      doc = generateThermalReceiptHtml(order, 80, effectiveConfig, autoPrint);
     } else if (effectiveFormat === "thermal_58") {
-      doc = generateThermalReceiptHtml(order, 58, effectiveConfig);
+      doc = generateThermalReceiptHtml(order, 58, effectiveConfig, autoPrint);
     } else if (effectiveFormat === "a5") {
       // Generate A5 style by modifying page style in the standard invoice document
-      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig).replace(
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig, autoPrint).replace(
         "@page { size: A4 portrait;",
         "@page { size: A5 landscape;"
       );
     } else {
-      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig);
+      doc = generateTaxInvoiceDocument(order, isDuplicate, effectiveConfig, autoPrint);
     }
 
     // 1. First attempt: Direct window.open with document.write

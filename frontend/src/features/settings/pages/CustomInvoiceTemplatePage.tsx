@@ -186,7 +186,7 @@ export function CustomInvoiceTemplatePage() {
       return;
     }
 
-    const ok = openTaxInvoiceWindow(previewTaxOrder, true, config.paperSize, config);
+    const ok = openTaxInvoiceWindow(previewTaxOrder, true, config.paperSize, config, false);
     if (ok) {
       toast.success(`Launched test print preview for ${config.paperSize.toUpperCase()}`);
     } else {
