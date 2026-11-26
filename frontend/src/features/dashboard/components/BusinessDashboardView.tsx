@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, Search, Plus, Award } from "lucide-react";
+import { ArrowLeft, ChevronDown, Search, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useIstLiveClock, getIstDateString } from "@/lib/utilities/istTime";
 import { getAllTelecallers, getStaffMetricsInDateRange, getAllCrmOrders, getOrdersInDateRange, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
@@ -1301,23 +1301,6 @@ export function BusinessDashboardView() {
               </div>
             </div>
           ))}
-
-          {/* Quick Add Staff / Employee Card */}
-          <div
-            onClick={() => navigate('/employees?tab=list&action=new')}
-            className="w-[200px] min-w-[200px] bg-slate-50 hover:bg-blue-50/50 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-xs group shrink-0"
-            title="Click to create a new employee or staff member"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors mb-2.5 shadow-2xs">
-              <Plus className="w-6 h-6" />
-            </div>
-            <span className="font-extrabold text-xs text-slate-800 group-hover:text-blue-700">
-              + Create Employee
-            </span>
-            <span className="text-[11px] text-slate-500 mt-0.5">
-              Add staff & role
-            </span>
-          </div>
         </div>
 
         {/* 2. Middle Row: 5 Operational KPI Stat Cards */}
