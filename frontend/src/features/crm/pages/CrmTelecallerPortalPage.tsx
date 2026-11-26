@@ -945,11 +945,17 @@ export function CrmTelecallerPortalPage() {
     };
   };
 
-  const [reportData, setReportData] = useState<CrmReportData>(() => {
-    const todayIso = getTodayIsoDate();
-    const computed = computePersonalReportFromOrders(todayIso, todayIso, "Pushpa Patil");
-    return computed;
-  });
+  const [reportData, setReportData] = useState<CrmReportData>(() => ({
+    customer_created: 0,
+    customer_visited: 0,
+    total_orders: 0,
+    order_total: 0,
+    unbilled_customers: 1958,
+    incentive_today: 0,
+    my_orders: [],
+    visited_customers: [],
+    last_seen: `${getTodayDisplayDate()}, ${getNowTimeStr()}`,
+  }));
 
   // Team CRM Report state initialized dynamically
   const [teamActiveTab, setTeamActiveTab] = useState<"CRM" | "APP">("CRM");
@@ -1120,14 +1126,19 @@ export function CrmTelecallerPortalPage() {
   }, [activeView]);
 
   useEffect(() => {
-    // Purge any stale 26/11 orders cache for Pushpa Patil if erased
+    // Purge any stale deleted 26/11 orders or fake ORD-1660..1699 fallback orders from browser storage
     try {
       const ordersToPurge = new Set(["ORD-0496", "ORD-0497", "ORD-0498"]);
+      const isFakeFallbackOrder = (orderNo?: string) => {
+        if (!orderNo) return false;
+        if (ordersToPurge.has(orderNo)) return true;
+        return /^ORD-16[6-9]\d$/.test(orderNo);
+      };
       const pipeRaw = localStorage.getItem("crm_wholesale_pipeline_orders");
       if (pipeRaw) {
         const parsed = JSON.parse(pipeRaw);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((p) => !ordersToPurge.has(p.orderNo));
+          const filtered = parsed.filter((p) => !isFakeFallbackOrder(p.orderNo));
           if (filtered.length !== parsed.length) {
             localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(filtered));
           }
@@ -1137,13 +1148,14 @@ export function CrmTelecallerPortalPage() {
       if (masterRaw) {
         const parsed = JSON.parse(masterRaw);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((m) => !ordersToPurge.has(m.order_number || m.orderNo));
+          const filtered = parsed.filter((m) => !isFakeFallbackOrder(m.order_number || m.orderNo));
           if (filtered.length !== parsed.length) {
             localStorage.setItem("crm_orders_master", JSON.stringify(filtered));
           }
         }
       }
       sessionStorage.removeItem("crm_reports_2026-11-26");
+      sessionStorage.removeItem(`crm_reports_${getTodayIsoDate()}`);
     } catch {}
 
     loadDashboardData(true);

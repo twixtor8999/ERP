@@ -449,7 +449,10 @@ export function getAllCrmOrders(): CrmOrderRecord[] {
     }
   } catch {}
 
-  const result = Array.from(map.values());
+  const purgedOrderNos = new Set(["ORD-0496", "ORD-0497", "ORD-0498"]);
+  const result = Array.from(map.values()).filter(
+    (o) => !purgedOrderNos.has(o.orderNo) && !/^ORD-16[6-9]\d$/.test(o.orderNo || "")
+  );
   _crmOrdersCacheData = result;
   return result;
 }
