@@ -414,6 +414,7 @@ export function BusinessDashboardView() {
 
   // Sub-view navigation state matching separate links on card
   const [currentView, setCurrentView] = useState<SubViewType>("none");
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<StaffSalesRecord | null>(null);
   const [activeStaff, setActiveStaff] = useState<CrmStaffMember>(() => {
     const initialList = getDynamicStaffList();
     return initialList[0] || DEFAULT_STAFF[0]!;
@@ -541,13 +542,258 @@ export function BusinessDashboardView() {
   const uniqueRoutesCount = topRoutes.length;
 
   // -------------------------------------------------------------
-  // SUB-VIEW 1: Sales by [Staff Name] (Dynamic per staff member)
+  // SUB-VIEW 1: Sales by [Staff Name] + Separate Inline Order Detail Page
   // -------------------------------------------------------------
   if (currentView === "sales") {
     const staffData = getStaffData(activeStaff);
-    const staffSales = staffData.sales;
+    const liveStaffOrders = rangeOrders.filter(
+      (o) => o.staffName.toLowerCase() === activeStaff.name.toLowerCase()
+    );
 
-    const filteredRows = staffSales.rows.filter((r) =>
+    const liveRows: StaffSalesRecord[] = liveStaffOrders.map((o) => {
+      const salesNum = Number(o.total) || 0;
+      const costNum = Math.round(salesNum * 0.8);
+      const profitNum = salesNum - costNum;
+      const marginStr = salesNum > 0 ? `${((profitNum / salesNum) * 100).toFixed(1)}%` : "0.0%";
+      return {
+        id: o.orderNo,
+        date: o.orderDate,
+        customer: o.customerName,
+        village: o.village || "—",
+        sales: salesNum.toLocaleString("en-IN"),
+        cost: costNum.toLocaleString("en-IN"),
+        profit: profitNum.toLocaleString("en-IN"),
+        margin: marginStr,
+      };
+    });
+
+    const sourceRows = liveRows.length > 0 ? liveRows : staffData.sales.rows;
+
+    // Separate Inline Page: Order Detail & Item Wise Profit (stays inside Dashboard tab!)
+    if (selectedSalesOrder) {
+      const matchedCrmOrder = getAllCrmOrders().find(
+        (o) => o.orderNo === selectedSalesOrder.id || o.id === selectedSalesOrder.id
+      );
+
+      let matchedPipelineOrder: any = null;
+      try {
+        const rawPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+        if (rawPipeline) {
+          const parsed = JSON.parse(rawPipeline);
+          if (Array.isArray(parsed)) {
+            matchedPipelineOrder = parsed.find((p: any) => p.orderNo === selectedSalesOrder.id);
+          }
+        }
+      } catch {}
+
+      const rawItems: Array<{ name: string; qty: number; rate: number; gstPct: number; amount: number }> =
+        matchedCrmOrder && matchedCrmOrder.items.length > 0
+          ? matchedCrmOrder.items.map((it) => ({
+              name: it.name,
+              qty: Number(it.qty) || 1,
+              rate: Number(it.price) || 0,
+              gstPct: 5,
+              amount: (Number(it.qty) || 1) * (Number(it.price) || 0),
+            }))
+          : matchedPipelineOrder && Array.isArray(matchedPipelineOrder.items) && matchedPipelineOrder.items.length > 0
+          ? matchedPipelineOrder.items.map((it: any) => {
+              const qty = Number(it.qty) || 1;
+              const rate = Number(it.rate ?? it.price) || 0;
+              const gstParsed = parseFloat(String(it.gst || "5").replace("%", "")) || 0;
+              return {
+                name: it.name || "Item",
+                qty,
+                rate,
+                gstPct: gstParsed,
+                amount: Number(it.amount) || qty * rate,
+              };
+            })
+          : [
+              {
+                name: `Wholesale Order ${selectedSalesOrder.id} (${selectedSalesOrder.customer})`,
+                qty: 1,
+                rate: parseInt(selectedSalesOrder.sales.replace(/,/g, "") || "0", 10),
+                gstPct: 5,
+                amount: parseInt(selectedSalesOrder.sales.replace(/,/g, "") || "0", 10),
+              },
+            ];
+
+      const totalOrderAmt = rawItems.reduce((s, it) => s + it.amount, 0);
+      const totalOrderQty = rawItems.reduce((s, it) => s + it.qty, 0);
+      const orderCostTotal = parseInt(selectedSalesOrder.cost.replace(/,/g, "") || "0", 10);
+      const costRatio = totalOrderAmt > 0 && orderCostTotal > 0 ? orderCostTotal / totalOrderAmt : 0.8;
+
+      const profitRows = rawItems.map((it) => {
+        const taxable = it.gstPct > 0 ? Math.round(it.amount / (1 + it.gstPct / 100)) : it.amount;
+        const cost = Math.round(it.amount * costRatio);
+        const profit = it.amount - cost;
+        const margin = it.amount > 0 ? ((profit / it.amount) * 100).toFixed(1) : "0.0";
+        return { ...it, taxable, cost, profit, margin };
+      });
+
+      const totalTaxable = profitRows.reduce((s, r) => s + r.taxable, 0);
+      const totalCost = profitRows.reduce((s, r) => s + r.cost, 0);
+      const totalProfit = totalOrderAmt - totalCost;
+      const totalMargin = totalOrderAmt > 0 ? ((totalProfit / totalOrderAmt) * 100).toFixed(1) : "0.0";
+
+      const invLabel = matchedPipelineOrder?.invoiceNo ? ` · ${matchedPipelineOrder.invoiceNo}` : "";
+      const statusLabel = matchedCrmOrder?.status || matchedPipelineOrder?.status || matchedPipelineOrder?.stage || "completed";
+      const vehicleLabel = matchedPipelineOrder?.vehicleNo ? ` · Vehicle ${matchedPipelineOrder.vehicleNo}` : "";
+
+      return (
+        <div className="space-y-4 font-sans antialiased text-[#0f172a]">
+          <div>
+            <button
+              onClick={() => setSelectedSalesOrder(null)}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 px-3.5 py-1 rounded-full text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          </div>
+
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black text-[#1e293b] tracking-tight">
+                {selectedSalesOrder.id}{invLabel}
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white capitalize">
+                {statusLabel}
+              </span>
+            </div>
+            <p className="text-xs font-medium text-slate-500 mt-1">
+              {selectedSalesOrder.customer}, {selectedSalesOrder.village} · {selectedSalesOrder.date} · taken by {activeStaff.name}{vehicleLabel} · Total ₹{totalOrderAmt.toLocaleString("en-IN")}
+            </p>
+          </div>
+
+          {/* 3 Summary KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+              <span className="block text-[11px] font-semibold text-slate-500">Total</span>
+              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
+                ₹{totalOrderAmt.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+              <span className="block text-[11px] font-semibold text-slate-500">Items</span>
+              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
+                {rawItems.length}
+              </span>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+              <span className="block text-[11px] font-semibold text-slate-500">Qty</span>
+              <span className="block text-xl font-black text-slate-900 mt-0.5 font-mono">
+                {totalOrderQty}
+              </span>
+            </div>
+          </div>
+
+          {/* Order Items Table */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                    <th className="py-2.5 px-3 text-left w-12">Sl</th>
+                    <th className="py-2.5 px-3 text-left">Item</th>
+                    <th className="py-2.5 px-3 text-center">Qty</th>
+                    <th className="py-2.5 px-3 text-right">Rate</th>
+                    <th className="py-2.5 px-3 text-center">GST</th>
+                    <th className="py-2.5 px-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-semibold">
+                  {rawItems.map((it, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 text-slate-500">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">{it.name}</td>
+                      <td className="py-2.5 px-3 text-center font-mono">{it.qty}</td>
+                      <td className="py-2.5 px-3 text-right font-mono">
+                        {it.rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">{it.gstPct}%</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                        {it.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200">
+                    <td className="py-2.5 px-3"></td>
+                    <td className="py-2.5 px-3">Total</td>
+                    <td className="py-2.5 px-3 text-center font-mono">{totalOrderQty}</td>
+                    <td className="py-2.5 px-3"></td>
+                    <td className="py-2.5 px-3"></td>
+                    <td className="py-2.5 px-3 text-right font-mono">
+                      {totalOrderAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Item Wise Profit Table */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-black text-[#1e293b]">Item Wise Profit</h2>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                      <th className="py-2.5 px-3 text-left">Item</th>
+                      <th className="py-2.5 px-3 text-center">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Sales (incl. GST)</th>
+                      <th className="py-2.5 px-3 text-right">Profit</th>
+                      <th className="py-2.5 px-3 text-right">Margin</th>
+                      <th className="py-2.5 px-3 text-right">Taxable</th>
+                      <th className="py-2.5 px-3 text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold">
+                    {profitRows.map((pr, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{pr.name}</td>
+                        <td className="py-2.5 px-3 text-center font-mono">{pr.qty}</td>
+                        <td className="py-2.5 px-3 text-right font-mono">{pr.amount.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#059669]">
+                          {pr.profit.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono">{pr.margin}%</td>
+                        <td className="py-2.5 px-3 text-right font-mono">{pr.taxable.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 text-right font-mono">{pr.cost.toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200">
+                      <td className="py-2.5 px-3">Total</td>
+                      <td className="py-2.5 px-3 text-center font-mono">{totalOrderQty}</td>
+                      <td className="py-2.5 px-3 text-right font-mono">{totalOrderAmt.toLocaleString("en-IN")}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-[#059669]">
+                        {totalProfit.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">{totalMargin}%</td>
+                      <td className="py-2.5 px-3 text-right font-mono">{totalTaxable.toLocaleString("en-IN")}</td>
+                      <td className="py-2.5 px-3 text-right font-mono">{totalCost.toLocaleString("en-IN")}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom-right Close Button */}
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => setSelectedSalesOrder(null)}
+              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-5 py-1.5 rounded-full shadow-2xs cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const filteredRows = sourceRows.filter((r) =>
       searchQuery
         ? r.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
           r.village.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -555,10 +801,15 @@ export function BusinessDashboardView() {
         : true
     );
 
+    const totalSalesSum = sourceRows.reduce((s, r) => s + parseInt(r.sales.replace(/,/g, "") || "0", 10), 0);
+    const totalCostSum = sourceRows.reduce((s, r) => s + parseInt(r.cost.replace(/,/g, "") || "0", 10), 0);
+    const totalProfitSum = totalSalesSum - totalCostSum;
+    const overallMarginStr = totalSalesSum > 0 ? `${((totalProfitSum / totalSalesSum) * 100).toFixed(1)}%` : "0.0%";
+
     const handleExportSales = () => {
       const csv = [
         "Order,Date,Customer,Village,Sales,Cost,Profit,Margin",
-        ...staffSales.rows.map(
+        ...sourceRows.map(
           (r) =>
             `"${r.id}","${r.date}","${r.customer}","${r.village}","${r.sales}","${r.cost}","${r.profit}","${r.margin}"`
         ),
@@ -567,7 +818,7 @@ export function BusinessDashboardView() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sales_${activeStaff.name.replace(/\s+/g, "_")}_2026-11-22.csv`;
+      a.download = `sales_${activeStaff.name.replace(/\s+/g, "_")}_${fromDate}.csv`;
       a.click();
     };
 
@@ -576,6 +827,7 @@ export function BusinessDashboardView() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => {
+              setSelectedSalesOrder(null);
               setCurrentView("none");
               setSearchQuery("");
             }}
@@ -609,62 +861,64 @@ export function BusinessDashboardView() {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
-                <th className="py-2.5 px-3 text-left">Order</th>
-                <th className="py-2.5 px-3 text-left">Date</th>
-                <th className="py-2.5 px-3 text-left">Customer</th>
-                <th className="py-2.5 px-3 text-left">Village</th>
-                <th className="py-2.5 px-3 text-right">Sales</th>
-                <th className="py-2.5 px-3 text-right">Cost</th>
-                <th className="py-2.5 px-3 text-right">Profit</th>
-                <th className="py-2.5 px-3 text-right">Margin</th>
-                <th className="py-2.5 px-3 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold">
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-xs text-slate-400 font-semibold">
-                    0 orders recorded in these dates.
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
+                  <th className="py-2.5 px-3 text-left">Order</th>
+                  <th className="py-2.5 px-3 text-left">Date</th>
+                  <th className="py-2.5 px-3 text-left">Customer</th>
+                  <th className="py-2.5 px-3 text-left">Village</th>
+                  <th className="py-2.5 px-3 text-right">Sales</th>
+                  <th className="py-2.5 px-3 text-right">Cost</th>
+                  <th className="py-2.5 px-3 text-right">Profit</th>
+                  <th className="py-2.5 px-3 text-right">Margin</th>
+                  <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
-              ) : (
-                filteredRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-3 font-bold text-blue-600">{row.id}</td>
-                    <td className="py-2.5 px-3 text-slate-600">{row.date}</td>
-                    <td className="py-2.5 px-3 font-bold text-slate-900">{row.customer}</td>
-                    <td className="py-2.5 px-3 text-slate-600">{row.village}</td>
-                    <td className="py-2.5 px-3 text-right font-black text-[#059669]">{row.sales}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-600">{row.cost}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-900">{row.profit}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-600">{row.margin}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <button
-                        onClick={() => navigate(`/orders?no=${row.id}`)}
-                        className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs"
-                      >
-                        Open
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold">
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-xs text-slate-400 font-semibold">
+                      0 orders recorded in these dates.
                     </td>
                   </tr>
-                ))
-              )}
-              <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
-                <td className="py-2.5 px-3">Total</td>
-                <td className="py-2.5 px-3" colSpan={3}>
-                  {staffSales.totalOrders} order(s)
-                </td>
-                <td className="py-2.5 px-3 text-right text-[#059669]">{staffSales.totalSales}</td>
-                <td className="py-2.5 px-3 text-right">{staffSales.totalCost}</td>
-                <td className="py-2.5 px-3 text-right">{staffSales.totalProfit}</td>
-                <td className="py-2.5 px-3 text-right">{staffSales.margin}</td>
-                <td className="py-2.5 px-3"></td>
-              </tr>
-            </tbody>
-          </table>
+                ) : (
+                  filteredRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-blue-600">{row.id}</td>
+                      <td className="py-2.5 px-3 text-slate-600">{row.date}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">{row.customer}</td>
+                      <td className="py-2.5 px-3 text-slate-600">{row.village}</td>
+                      <td className="py-2.5 px-3 text-right font-black text-[#059669]">{row.sales}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-600">{row.cost}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-900">{row.profit}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-600">{row.margin}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          onClick={() => setSelectedSalesOrder(row)}
+                          className="bg-[#132038] hover:bg-[#1c2e4f] text-white text-[11px] font-bold px-3 py-1 rounded-md shadow-2xs cursor-pointer"
+                        >
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+                <tr className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200">
+                  <td className="py-2.5 px-3">Total</td>
+                  <td className="py-2.5 px-3" colSpan={3}>
+                    {sourceRows.length} order(s)
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-[#059669]">{totalSalesSum.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right">{totalCostSum.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right">{totalProfitSum.toLocaleString("en-IN")}</td>
+                  <td className="py-2.5 px-3 text-right">{overallMarginStr}</td>
+                  <td className="py-2.5 px-3"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
