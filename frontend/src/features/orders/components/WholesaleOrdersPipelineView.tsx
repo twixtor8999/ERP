@@ -2722,14 +2722,13 @@ export function WholesaleOrdersPipelineView() {
                   <th className="py-2.5 px-3 text-right">Total</th>
                   <th className="py-2.5 px-3 text-right">Balance</th>
                   <th className="py-2.5 px-2 text-center">View</th>
-                  <th className="py-2.5 px-2 text-center">Duplicate Invoice</th>
                   <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {currentStageOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-8 text-center text-slate-400 font-bold">
+                    <td colSpan={11} className="py-8 text-center text-slate-400 font-bold">
                       No dispatched orders ready to go out.
                     </td>
                   </tr>
@@ -2767,14 +2766,6 @@ export function WholesaleOrdersPipelineView() {
                           className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           View
-                        </button>
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        <button
-                          onClick={() => handleDuplicatePrint(o)}
-                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
-                        >
-                          Duplicate Invoice
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">
@@ -2891,20 +2882,6 @@ export function WholesaleOrdersPipelineView() {
                           >
                             View
                           </button>
-                          <button
-                            onClick={() => handleDuplicatePrint(o)}
-                            className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer"
-                          >
-                            Duplicate Invoice
-                          </button>
-                          {["delivery", "completed"].includes(o.stage) && (
-                            <button
-                              onClick={() => handleBackToDispatch(o.id)}
-                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                            >
-                              Back to Dispatch
-                            </button>
-                          )}
                           {o.stage === "completed" ? (
                             <button
                               type="button"
