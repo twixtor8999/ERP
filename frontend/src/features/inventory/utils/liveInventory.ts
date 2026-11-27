@@ -366,45 +366,82 @@ function buildDaySkuMaps(skus: InventorySku[]): DaySkuMaps {
 }
 
 /**
- * Compute Realtime Inventory rows using ONLY today's orders, purchases, returns, and splits.
+ * Compute Realtime Inventory rows with CUMULATIVE running balance across ALL dates up to today.
+ * Opening = initial backup opening + all movements from ALL past days up to today.
  */
 export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string): LiveRealtimeSku[] {
   const maps = buildDaySkuMaps(skus);
   const adj = getManualAdjustments();
 
+  // Collect all dates across all movement buckets that are <= today, sort ascending
+  const allDatesSet = new Set<string>();
+  for (const bucket of [
+    maps.purchase,
+    maps.purchaseReturn,
+    maps.sales,
+    maps.salesReturn,
+    maps.splitIn,
+    maps.splitOut,
+    maps.punchPending,
+    maps.orderCancel,
+  ]) {
+    for (const d of Object.keys(bucket)) {
+      if (d <= todayIso) allDatesSet.add(d);
+    }
+  }
+  allDatesSet.add(todayIso);
+  const allDatesSorted = Array.from(allDatesSet).sort();
+
   return skus.map((s) => {
     const k = normalizeNameKey(s.name);
-    const purchase = maps.purchase[todayIso]?.[k] || 0;
-    const purchaseReturn = maps.purchaseReturn[todayIso]?.[k] || 0;
-    const sales = maps.sales[todayIso]?.[k] || 0;
-    const salesReturn = maps.salesReturn[todayIso]?.[k] || 0;
-    const splitIn = maps.splitIn[todayIso]?.[k] || 0;
-    const splitOut = maps.splitOut[todayIso]?.[k] || 0;
-    const punchOrders = maps.punchPending[todayIso]?.[k] || 0;
-    const orderCancel = maps.orderCancel[todayIso]?.[k] || 0;
 
-    const baseClosing = Math.max(0, s.opening + purchase - purchaseReturn - sales + salesReturn + splitIn - splitOut);
-    const delta = adj[`${todayIso}_${s.id}`] || 0;
-    const closing = Math.max(0, baseClosing + delta);
+    // Build running cumulative balance across all days up to today
+    let runningBalance = s.opening;
+    let todayPurchase = 0, todayPurchaseReturn = 0, todaySales = 0, todaySalesReturn = 0;
+    let todaySplitIn = 0, todaySplitOut = 0, todayPunch = 0, todayCancel = 0;
+
+    for (const d of allDatesSorted) {
+      const pQty = maps.purchase[d]?.[k] || 0;
+      const pReturn = maps.purchaseReturn[d]?.[k] || 0;
+      const sQty = maps.sales[d]?.[k] || 0;
+      const sReturn = maps.salesReturn[d]?.[k] || 0;
+      const spIn = maps.splitIn[d]?.[k] || 0;
+      const spOut = maps.splitOut[d]?.[k] || 0;
+      const delta = adj[`${d}_${s.id}`] || 0;
+
+      runningBalance = Math.max(0, runningBalance + pQty - pReturn - sQty + sReturn + spIn - spOut + delta);
+
+      if (d === todayIso) {
+        todayPurchase = pQty;
+        todayPurchaseReturn = pReturn;
+        todaySales = sQty;
+        todaySalesReturn = sReturn;
+        todaySplitIn = spIn;
+        todaySplitOut = spOut;
+        todayPunch = maps.punchPending[d]?.[k] || 0;
+        todayCancel = maps.orderCancel[d]?.[k] || 0;
+      }
+    }
 
     return {
       ...s,
-      purchase,
-      purchaseReturn,
-      sales,
-      salesReturn,
-      splitIn,
-      splitOut,
-      punchOrders,
-      orderCancel,
-      baseClosing,
-      closing,
+      purchase: todayPurchase,
+      purchaseReturn: todayPurchaseReturn,
+      sales: todaySales,
+      salesReturn: todaySalesReturn,
+      splitIn: todaySplitIn,
+      splitOut: todaySplitOut,
+      punchOrders: todayPunch,
+      orderCancel: todayCancel,
+      baseClosing: runningBalance,
+      closing: runningBalance,
     };
   });
 }
 
 /**
- * Compute date-wise Stock Movement rows using real formulas across the selected range.
+ * Compute date-wise Stock Movement rows with PROPER running balance.
+ * Opening of each day = closing of previous day (cumulative from initial backup opening).
  */
 export function computeStockMovementRows(
   skus: InventorySku[],
@@ -420,35 +457,43 @@ export function computeStockMovementRows(
   const start = fromDate || todayIso;
   const end = toDate || todayIso;
 
-  const dateSet = new Set<string>([end]);
-  if (start !== end) {
-    dateSet.add(start);
-    for (const bucket of [
-      maps.purchase,
-      maps.purchaseReturn,
-      maps.sales,
-      maps.salesReturn,
-      maps.splitIn,
-      maps.splitOut,
-      maps.punchPending,
-      maps.orderCancel,
-    ]) {
-      for (const d of Object.keys(bucket)) {
-        if (d >= start && d <= end) dateSet.add(d);
-      }
+  // Collect ALL dates from ALL movement buckets (not just within range)
+  // so we can compute the correct running balance before the selected range
+  const allDatesSet = new Set<string>();
+  for (const bucket of [
+    maps.purchase,
+    maps.purchaseReturn,
+    maps.sales,
+    maps.salesReturn,
+    maps.splitIn,
+    maps.splitOut,
+    maps.punchPending,
+    maps.orderCancel,
+  ]) {
+    for (const d of Object.keys(bucket)) {
+      allDatesSet.add(d);
     }
   }
+  // Always include start and end dates
+  allDatesSet.add(start);
+  allDatesSet.add(end);
 
-  const sortedDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
+  // Sort ALL dates ascending to build running balance correctly
+  const allDatesSorted = Array.from(allDatesSet).sort();
+
   const q = searchQuery.toLowerCase().trim();
   const rows: StockMovementRow[] = [];
 
-  for (const d of sortedDates) {
-    for (const s of skus) {
-      if (selectedSkuId !== "all" && s.id !== selectedSkuId) continue;
-      if (q && !s.name.toLowerCase().includes(q) && !s.code.toLowerCase().includes(q)) continue;
+  for (const s of skus) {
+    if (selectedSkuId !== "all" && s.id !== selectedSkuId) continue;
+    if (q && !s.name.toLowerCase().includes(q) && !s.code.toLowerCase().includes(q)) continue;
 
-      const k = normalizeNameKey(s.name);
+    const k = normalizeNameKey(s.name);
+
+    // Running balance starts at backup opening stock
+    let runningBalance = s.opening;
+
+    for (const d of allDatesSorted) {
       const pQty = maps.purchase[d]?.[k] || 0;
       const pReturn = maps.purchaseReturn[d]?.[k] || 0;
       const sQty = maps.sales[d]?.[k] || 0;
@@ -457,37 +502,45 @@ export function computeStockMovementRows(
       const spOut = maps.splitOut[d]?.[k] || 0;
       const punch = maps.punchPending[d]?.[k] || 0;
       const cancel = maps.orderCancel[d]?.[k] || 0;
+      const delta = adj[`${d}_${s.id}`] || 0;
+
+      const openingForDay = runningBalance;
+      const closingForDay = Math.max(0, openingForDay + pQty - pReturn - sQty + sReturn + spIn - spOut + delta);
+
+      // Always update running balance (even for days outside the selected range)
+      runningBalance = closingForDay;
+
+      // Only emit rows within the selected date range
+      if (d < start || d > end) continue;
 
       const isLatestDay = d === end;
       const hasActivity = pQty > 0 || sQty > 0 || pReturn > 0 || sReturn > 0 || spIn > 0 || spOut > 0 || punch > 0 || cancel > 0;
 
       if (selectedSkuId !== "all" || isLatestDay || hasActivity) {
-        const delta = adj[`${d}_${s.id}`] || 0;
-        const closing = Math.max(0, s.opening + pQty - pReturn - sQty + sReturn + spIn - spOut + delta);
-        const stockValue = closing * s.cost;
-        const available = closing - punch;
-
         rows.push({
           date: d,
           skuId: s.id,
           skuName: s.name,
-          opening: s.opening,
+          opening: openingForDay,
           purchase: pQty,
           purchaseReturn: pReturn,
           sales: sQty,
           salesReturn: sReturn,
           splitIn: spIn,
           splitOut: spOut,
-          closing,
+          closing: closingForDay,
           cost: s.cost,
-          stockValue,
+          stockValue: closingForDay * s.cost,
           punchOrders: punch,
           orderCancel: cancel,
-          available,
+          available: closingForDay - punch,
         });
       }
     }
   }
+
+  // Sort descending by date then by SKU name
+  rows.sort((a, b) => b.date.localeCompare(a.date) || a.skuName.localeCompare(b.skuName));
 
   return rows;
 }
