@@ -104,7 +104,12 @@ export function Sidebar() {
       </div>
 
       {/* Nav Items List with Hidden Scrollbar */}
-      <div className="flex-1 overflow-y-auto px-2.5 py-1.5 overscroll-contain no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto py-1.5 overscroll-contain no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          collapsed ? "px-1" : "px-2.5"
+        )}
+      >
         <SidebarNav searchQuery={menuSearch} isCollapsed={collapsed} />
       </div>
 

@@ -1,8 +1,76 @@
 import { useState, useEffect, useRef } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  ChevronDown,
+  ChevronRight,
+  Home,
+  LayoutDashboard,
+  ShoppingCart,
+  PhoneCall,
+  ClipboardList,
+  Wallet,
+  BarChart3,
+  BookOpen,
+  QrCode,
+  Building2,
+  Users,
+  Truck,
+  PackagePlus,
+  LineChart,
+  Receipt,
+  Boxes,
+  Scissors,
+  Tag,
+  UserCog,
+  Award,
+  FileText,
+  FileSpreadsheet,
+  TrendingUp,
+  CreditCard,
+  CopyCheck,
+  Image as ImageIcon,
+  Printer,
+  Trash2,
+  Percent,
+  ShieldCheck,
+  CircleDot,
+  type LucideIcon,
+} from "lucide-react";
 import { navigationItems, type NavItem } from "@/config/navigation.config";
 import { cn } from "@/lib/utilities/cn";
+
+const NAV_ICON_MAP: Record<string, LucideIcon> = {
+  "Home Page": Home,
+  Dashboard: LayoutDashboard,
+  "Place Order": ShoppingCart,
+  Callings: PhoneCall,
+  Orders: ClipboardList,
+  Settlement: Wallet,
+  "Sales vs Collection": BarChart3,
+  Accounts: BookOpen,
+  "QR Payments": QrCode,
+  B2B: Building2,
+  Customer: Users,
+  Vehicle: Truck,
+  Purchase: PackagePlus,
+  "CRM Report": LineChart,
+  Expenses: Receipt,
+  Inventory: Boxes,
+  "Stock Split": Scissors,
+  "SKU's": Tag,
+  Employees: UserCog,
+  "Incentive Scheme": Award,
+  Reports: FileText,
+  "CA Reports": FileSpreadsheet,
+  "P & L": TrendingUp,
+  "Plans & Billing": CreditCard,
+  "Duplicate Check": CopyCheck,
+  "ಫೋಟೋಗಳು → Storage": ImageIcon,
+  "Custom Invoice": Printer,
+  "Deleted Records": Trash2,
+  "HSN & GST": Percent,
+  "Roll Management": ShieldCheck,
+};
 
 interface SidebarNavProps {
   onItemClick?: () => void;
@@ -10,8 +78,9 @@ interface SidebarNavProps {
   isCollapsed?: boolean;
 }
 
-export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
+export function SidebarNav({ onItemClick, searchQuery = "", isCollapsed = false }: SidebarNavProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const currentSearch = location.search;
   const fullUrl = `${currentPath}${currentSearch}`;
@@ -249,6 +318,45 @@ export function SidebarNav({ onItemClick, searchQuery = "" }: SidebarNavProps) {
     if (item.children?.some((c) => c.title.toLowerCase().includes(query))) return true;
     return false;
   });
+
+  if (isCollapsed) {
+    return (
+      <nav className="flex flex-col items-center gap-1.5 py-1">
+        {navigationItems.map((item) => {
+          const Icon = NAV_ICON_MAP[item.title] || CircleDot;
+          const isParentActive =
+            item.children && item.children.length > 0
+              ? currentPath.startsWith(item.href) || item.children.some((c) => isItemActive(c))
+              : isItemActive(item);
+          const targetHref =
+            item.href ||
+            item.children?.find((c) => c.href && !c.href.startsWith("#"))?.href ||
+            "/dashboard";
+
+          return (
+            <button
+              key={item.title}
+              type="button"
+              title={item.title}
+              aria-label={item.title}
+              onClick={() => {
+                navigate(targetHref);
+                onItemClick?.();
+              }}
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0",
+                isParentActive
+                  ? "bg-[#f59e0b] text-slate-950 shadow-sm"
+                  : "text-slate-300 hover:text-white hover:bg-[#22385c]"
+              )}
+            >
+              <Icon className="w-[18px] h-[18px]" />
+            </button>
+          );
+        })}
+      </nav>
+    );
+  }
 
   return (
     <nav className="space-y-1 px-1">
