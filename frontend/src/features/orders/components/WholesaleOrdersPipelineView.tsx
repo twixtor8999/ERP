@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Search,
@@ -724,6 +724,7 @@ function normalizePipelineOrder(o: PipelineOrder): PipelineOrder {
 
 export function WholesaleOrdersPipelineView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   // Active sub-tab: "packing" | "invoice" | "dispatch" | "delivery" | "report"
@@ -779,6 +780,7 @@ export function WholesaleOrdersPipelineView() {
             let stage: PipelineOrder["stage"] = "packing";
             const sUpper = (bo.status || "").toUpperCase();
             if (sUpper === "DELIVERED") stage = "completed";
+            else if (sUpper === "RETURNED") stage = "return";
             else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
             else if (sUpper === "DISPATCHED") stage = "dispatch";
             else if (sUpper === "INVOICED" || sUpper === "INVOICE") stage = "invoice";
@@ -798,7 +800,7 @@ export function WholesaleOrdersPipelineView() {
               source: bo.source === "Admin" ? "Store" : (bo.source || existing?.source || "CRM"),
               orderDate: bo.order_date || existing?.orderDate || "24-11-2026",
               orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",
-              vehicleNo: existing?.vehicleNo || "KA28AA6256",
+              vehicleNo: existing?.vehicleNo || bo.vehicle_no || "KA28AA6256",
               total: typeof bo.total_amount === "number" ? bo.total_amount : existing?.total || 0,
               balance: bo.payment_status === "PAID" ? 0 : typeof bo.total_amount === "number" ? bo.total_amount : existing?.balance || 0,
               stage: stage,
@@ -1054,6 +1056,15 @@ export function WholesaleOrdersPipelineView() {
   const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
   const [deliveryPaymentType, setDeliveryPaymentType] = useState<"Cash" | "QR" | "Split">("Cash");
   const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
+
+  // Immediately exit any open order/drilldown view when switching Orders tabs from sidebar
+  useEffect(() => {
+    setViewingOrder(null);
+    setCancellingOrder(null);
+    setCancelReason("");
+    setReportDrilldown(null);
+    setShowExportMenu(false);
+  }, [rawTab, location.key]);
 
   // Filtered orders for the current stage
   const currentStageOrders = useMemo(() => {
@@ -1444,14 +1455,18 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
           toast.success(`Order ${o.orderNo} Delivered & Settled!`, {
-            description: `Assigned vehicle ${assignedVehicle}. Moved to 5) Orders Report.`,
+            description: `Assigned vehicle ${assignedVehicle}. Moved to Vehicle Settlement & 5) Orders Report.`,
           });
           return {
             ...o,
             stage: "completed" as const,
+            status: "delivered",
             vehicleNo: assignedVehicle,
             balance: 0,
             deliveredAt: timestampStr,
+            paymentMode: o.paymentMode || "Cash",
+            cashPaid: typeof o.cashPaid === "number" ? o.cashPaid : (o.total || 0),
+            qrPaid: typeof o.qrPaid === "number" ? o.qrPaid : 0,
           };
         }
         return o;
@@ -1720,12 +1735,14 @@ export function WholesaleOrdersPipelineView() {
           ? 0
           : Number(deliveryQrAmount || 0);
 
+      const nextStage = (isFullReturn ? "return" : "completed") as PipelineOrder["stage"];
       setOrders(prev => {
         const updated = prev.map(o =>
           o.id === viewingOrder.id
             ? {
                 ...o,
-                stage: (isFullReturn ? "return" : "completed") as PipelineOrder["stage"],
+                stage: nextStage,
+                status: isFullReturn ? "returned" : "delivered",
                 vehicleNo: assignedVehicle,
                 balance: 0,
                 deliveredAt: timestampStr,
@@ -1744,8 +1761,18 @@ export function WholesaleOrdersPipelineView() {
         } catch {}
         return updated;
       });
+      apiClient
+        .post(`/api/v1/admin/crm/orders/${viewingOrder.id}/stage`, {
+          stage: nextStage,
+          vehicle_no: assignedVehicle,
+          payment_mode: deliveryPaymentType,
+          cash_paid: calculatedCashAmount,
+          qr_paid: qrPaid,
+          return_amount: returnedAmount,
+        })
+        .catch(() => {});
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
-        description: `Assigned vehicle ${assignedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType})`,
+        description: `Assigned vehicle ${assignedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType}) · Moved to Vehicle Settlement.`,
       });
       setViewingOrder(null);
     };
@@ -2183,54 +2210,6 @@ export function WholesaleOrdersPipelineView() {
           )}
         </div>
 
-        {/* Order history section matching Reference Image 2 */}
-        {(() => {
-          const orderHistory: OrderHistoryItem[] =
-            viewingOrder.history && viewingOrder.history.length > 0
-              ? viewingOrder.history
-              : [
-                  {
-                    when: "2026-11-23 17:42",
-                    from: "Placed",
-                    to: "Packed",
-                    by: useAuthStore.getState().user?.fullName || "Staff",
-                    where: "pack",
-                  },
-                ];
-
-          return (
-            <div className="mt-8 space-y-2.5">
-              <h3 className="text-sm font-extrabold text-slate-900">Order history</h3>
-              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead>
-                      <tr className="bg-[#2f6fe4] text-white font-semibold whitespace-nowrap">
-                        <th className="py-2.5 px-3">When</th>
-                        <th className="py-2.5 px-3">From</th>
-                        <th className="py-2.5 px-3">To</th>
-                        <th className="py-2.5 px-3">By</th>
-                        <th className="py-2.5 px-3">Where</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {orderHistory.map((h, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 whitespace-nowrap">
-                          <td className="py-2.5 px-3 text-slate-700 font-mono">{h.when}</td>
-                          <td className="py-2.5 px-3 text-slate-800">{h.from}</td>
-                          <td className="py-2.5 px-3 text-slate-800">{h.to}</td>
-                          <td className="py-2.5 px-3 text-slate-800">{h.by}</td>
-                          <td className="py-2.5 px-3 text-slate-600">{h.where}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
         {/* Cancellation Reason Modal */}
         {cancellingOrder && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
@@ -2637,14 +2616,13 @@ export function WholesaleOrdersPipelineView() {
                   <th className="py-2.5 px-3 text-left">Vehicle No</th>
                   <th className="py-2.5 px-3 text-right">Total</th>
                   <th className="py-2.5 px-2 text-center">View</th>
-                  <th className="py-2.5 px-2 text-center">Duplicate Print</th>
                   <th className="py-2.5 px-3 text-right">Print & Dispatch</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 {currentStageOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="py-8 text-center text-slate-400 font-bold">
+                    <td colSpan={13} className="py-8 text-center text-slate-400 font-bold">
                       No invoiced orders ready. Move orders from Packing to create invoices.
                     </td>
                   </tr>
@@ -2689,14 +2667,6 @@ export function WholesaleOrdersPipelineView() {
                           className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
                         >
                           View
-                        </button>
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        <button
-                          onClick={() => handleDuplicatePrint(o)}
-                          className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-2xs cursor-pointer"
-                        >
-                          Duplicate Print
                         </button>
                       </td>
                       <td className="py-3 px-3 text-right">

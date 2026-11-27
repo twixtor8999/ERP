@@ -4267,6 +4267,14 @@ def get_crm_orders_status(
                 else datetime.now(ist).date().isoformat()
             )
         )
+        # Extract persisted assigned vehicle tag if present in delivery_notes
+        parsed_vehicle_no = None
+        if o.delivery_notes and "[VEH:" in o.delivery_notes:
+            try:
+                parsed_vehicle_no = o.delivery_notes.split("[VEH:", 1)[1].split("]", 1)[0].strip() or None
+            except Exception:
+                parsed_vehicle_no = None
+
         results.append({
             "id": o.id,
             "order_number": disp_order_no,
@@ -4279,6 +4287,7 @@ def get_crm_orders_status(
             "route": raw_route or "Bijapur",
             "created_by": created_by_name,
             "source": "CRM" if o.order_type == "TELECALLER_CRM" else "STORE",
+            "vehicle_no": parsed_vehicle_no,
             "total_amount": float(o.total_amount or 0),
             "status": o.status,
             "order_placed": placed_str,
@@ -4295,10 +4304,14 @@ def get_crm_orders_status(
 
 
 class UpdateCrmOrderStagePayload(BaseModel):
-    stage: str # "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "cancelled"
+    stage: str # "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "return" | "cancelled"
     invoice_no: str | None = None
     vehicle_no: str | None = None
     cancel_reason: str | None = None
+    payment_mode: str | None = None
+    cash_paid: float | None = None
+    qr_paid: float | None = None
+    return_amount: float | None = None
 
 
 @router.post("/crm/orders/{order_id}/stage")
@@ -4323,6 +4336,18 @@ def update_crm_order_stage(
     stage = payload.stage.lower()
 
     if order:
+        if payload.vehicle_no and payload.vehicle_no.strip():
+            veh = payload.vehicle_no.strip()
+            existing_notes = order.delivery_notes or ""
+            # Replace any prior [VEH:...] tag cleanly without dropping other notes
+            if "[VEH:" in existing_notes:
+                prefix, rest = existing_notes.split("[VEH:", 1)
+                suffix = rest.split("]", 1)[1] if "]" in rest else ""
+                cleaned = f"{prefix.strip()} {suffix.strip()}".strip()
+            else:
+                cleaned = existing_notes.strip()
+            order.delivery_notes = f"{cleaned} [VEH:{veh}]".strip() if cleaned else f"[VEH:{veh}]"
+
         if stage in ("packing", "placed"):
             order.status = "CONFIRMED"
         elif stage == "invoice":
@@ -4339,6 +4364,13 @@ def update_crm_order_stage(
             order.status = "DELIVERED"
             order.delivered_at = now_utc
             order.payment_status = "PAID"
+            if payload.payment_mode:
+                pm_upper = payload.payment_mode.strip().upper()
+                order.payment_method = "QR" if pm_upper == "QR" else ("CASH_AND_QR" if "SPLIT" in pm_upper or ("CASH" in pm_upper and "QR" in pm_upper) else "CASH")
+        elif stage == "return":
+            order.status = "RETURNED"
+            order.delivered_at = now_utc
+            order.delivery_failure_reason = "Full return at delivery"
         elif stage == "cancelled":
             order.status = "CANCELLED"
             order.cancelled_at = now_utc

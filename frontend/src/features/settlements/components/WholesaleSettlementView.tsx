@@ -1,11 +1,102 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
 import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
+
+function isDeliveredPipelineOrder(po: any): boolean {
+  if (!po) return false;
+  const stage = String(po.stage || "").toLowerCase();
+  const status = String(po.status || "").toLowerCase();
+  if (stage === "completed" || status === "delivered" || status === "completed") return true;
+  if ((stage === "return" || status === "returned") && Boolean(po.deliveredAt || po.returnAmount)) return true;
+  return false;
+}
+
+function summarizeDeliveredGroup(orders: any[], oldReturn = 0, bankPayment = 0) {
+  let invoiceAmt = 0;
+  let fullReturn = 0;
+  let partialReturn = 0;
+  let qrPayment = 0;
+  let cashReceived = 0;
+
+  for (const o of orders) {
+    const total = Number(o.total) || 0;
+    const isFullRet = o.stage === "return" || String(o.status || "").toLowerCase() === "returned";
+    const explicitRet = Number(o.returnAmount) || 0;
+    const ret = isFullRet && explicitRet === 0 ? total : explicitRet;
+
+    invoiceAmt += total;
+    if (ret >= total && total > 0) {
+      fullReturn += ret;
+    } else if (ret > 0) {
+      partialReturn += ret;
+    }
+
+    const netOrder = Math.max(0, total - ret);
+    const pm = String(o.paymentMode || o.paymentMethod || "").toLowerCase();
+    if (typeof o.cashPaid === "number" || typeof o.qrPaid === "number") {
+      qrPayment += Number(o.qrPaid) || 0;
+      cashReceived += Number(o.cashPaid) || 0;
+    } else if (pm === "qr" || pm === "upi" || pm === "online") {
+      qrPayment += netOrder;
+    } else {
+      cashReceived += netOrder;
+    }
+  }
+
+  const netAmt = Math.max(0, invoiceAmt - fullReturn - partialReturn - oldReturn);
+  if (qrPayment === 0 && cashReceived === 0 && netAmt > 0) {
+    cashReceived = Math.max(0, netAmt - bankPayment);
+  }
+  return { invoiceAmt, fullReturn, partialReturn, netAmt, qrPayment, cashReceived };
+}
+
+function mapPipelineOrdersToInvoiceOrders(orders: any[], fallbackDate: string): SettlementInvoiceOrder[] {
+  return orders.map((po: any, idx: number) => {
+    const total = Number(po.total) || 0;
+    const isFullRet = po.stage === "return" || String(po.status || "").toLowerCase() === "returned";
+    const explicitRet = Number(po.returnAmount) || 0;
+    const returnAmount = isFullRet && explicitRet === 0 ? total : explicitRet;
+    const netOrder = Math.max(0, total - returnAmount);
+    const pm = String(po.paymentMode || po.paymentMethod || "").toLowerCase();
+    const qr = typeof po.qrPaid === "number" ? po.qrPaid : (pm === "qr" || pm === "upi" || pm === "online" ? netOrder : 0);
+    const cash = typeof po.cashPaid === "number" ? po.cashPaid : Math.max(0, netOrder - qr);
+
+    return {
+      sl: idx + 1,
+      invoiceNo: po.invoiceNo || (po.orderNo ? String(po.orderNo).replace("ORD-", "INV-") : `INV-${idx + 1}`),
+      orderNo: po.orderNo || `ORD-${idx + 1}`,
+      customerName: po.customerName || po.shopName || "Customer",
+      shopName: po.shopName,
+      village: po.village || "Bijapur",
+      phone: po.phone,
+      route: po.route,
+      createdBy: po.createdBy || "Staff",
+      orderDate: po.orderDate || fallbackDate,
+      orderTime: po.orderTime,
+      vehicleNo: po.vehicleNo || "KA28AA6256",
+      invoiceAmount: total,
+      returnAmount,
+      qr,
+      cash,
+      status: isFullRet ? "returned" : "completed",
+      items: Array.isArray(po.items)
+        ? po.items.map((it: any) => ({
+            name: it.name || it.product_name || "Item",
+            qty: Number(it.qty || it.quantity || 1),
+            price: Number(it.rate ?? it.price ?? it.unit_price ?? 0),
+            gst: typeof it.gst === "number" ? it.gst : parseFloat(String(it.gst || "5")) || 5,
+            amount: Number(it.amount ?? (Number(it.qty || 1) * Number(it.rate ?? it.price ?? 0))),
+          }))
+        : [],
+    };
+  });
+}
 
 export interface SettlementRow {
   sl: number;
@@ -459,6 +550,13 @@ const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 
 export function WholesaleSettlementView() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    setSelectedVehicleSettlement(null);
+    setSelectedInvoiceOrder(null);
+    setShowExportMenu(false);
+  }, [location.key, location.search]);
 
   // Date range defaulting dynamically to today's date (IST)
   const todayStr = getIstDateString();
@@ -499,6 +597,81 @@ export function WholesaleSettlementView() {
     return INITIAL_SETTLEMENTS;
   });
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [pipelineRevision, setPipelineRevision] = useState(0);
+
+  const syncDeliveredFromBackend = useCallback(async () => {
+    try {
+      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=200");
+      if (!Array.isArray(res.data) || res.data.length === 0) return;
+
+      const raw = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const parsed = raw ? JSON.parse(raw) : [];
+      const existingList: any[] = Array.isArray(parsed) ? parsed : [];
+      const byOrderNo = new Map<string, any>(existingList.map((o: any) => [o.orderNo, o]));
+      let changed = false;
+
+      for (const bo of res.data) {
+        const sUpper = String(bo.status || "").toUpperCase();
+        if (sUpper !== "DELIVERED" && sUpper !== "RETURNED") continue;
+
+        const orderNo = bo.order_number || `ORD-${bo.id}`;
+        const existing = byOrderNo.get(orderNo);
+        const targetStage = sUpper === "RETURNED" ? "return" : "completed";
+        const targetStatus = sUpper === "RETURNED" ? "returned" : "delivered";
+
+        if (!existing || existing.stage !== targetStage || (!existing.deliveredAt && bo.delivered && bo.delivered !== "—")) {
+          changed = true;
+          byOrderNo.set(orderNo, {
+            ...(existing || {}),
+            id: bo.id || existing?.id || `ord-${orderNo}`,
+            orderNo,
+            invoiceNo: existing?.invoiceNo || bo.invoice_number || orderNo.replace("ORD-", "INV-"),
+            customerName: existing?.customerName || bo.customer_name || "Customer",
+            shopName: existing?.shopName || bo.shop_name || "Store",
+            village: existing?.village || bo.village || "Bijapur",
+            route: existing?.route || bo.route || "Bijapur",
+            createdBy: existing?.createdBy || bo.created_by || "Staff",
+            orderDate: existing?.orderDate || bo.order_date || todayStr,
+            orderTime: existing?.orderTime || "10:00 am",
+            vehicleNo: existing?.vehicleNo || bo.vehicle_no || "KA28AA6256",
+            total: typeof existing?.total === "number" ? existing.total : Number(bo.total_amount || 0),
+            balance: 0,
+            stage: targetStage,
+            status: targetStatus,
+            deliveredAt: existing?.deliveredAt || (bo.delivered && bo.delivered !== "—" ? bo.delivered : bo.order_date || todayStr),
+            paymentMode: existing?.paymentMode || (bo.payment_method === "QR" ? "QR" : "Cash"),
+            items: existing?.items || (Array.isArray(bo.items) ? bo.items : []),
+          });
+        }
+      }
+
+      if (changed) {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(Array.from(byOrderNo.values())));
+        setPipelineRevision((r) => r + 1);
+      }
+    } catch {
+      // Fallback to localStorage data cleanly
+    }
+  }, [todayStr]);
+
+  useEffect(() => {
+    const bump = () => setPipelineRevision((r) => r + 1);
+    const onFocus = () => {
+      bump();
+      void syncDeliveredFromBackend();
+    };
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", onFocus);
+    void syncDeliveredFromBackend();
+    return () => {
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncDeliveredFromBackend]);
 
   const handleDuplicatePrint = (order: SettlementInvoiceOrder) => {
     const taxOrder: TaxInvoiceOrder = {
@@ -657,63 +830,93 @@ export function WholesaleSettlementView() {
     });
   };
 
+  // Group delivered/returned pipeline orders by `${dateIso}_${vehicleNo}`
+  const deliveredOrdersByGroup = useMemo(() => {
+    const deliveredGroups: Record<string, any[]> = {};
+    if (typeof window === "undefined") return deliveredGroups;
+
+    try {
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const pipelineOrders = storedPipeline ? JSON.parse(storedPipeline) : [];
+      if (Array.isArray(pipelineOrders)) {
+        for (const po of pipelineOrders) {
+          if (!isDeliveredPipelineOrder(po)) continue;
+          const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate) || todayStr;
+          const veh: string = (po.vehicleNo && String(po.vehicleNo).trim()) || "KA28AA6256";
+          const key = `${dateIso}_${veh}`;
+          if (!deliveredGroups[key]) deliveredGroups[key] = [];
+          deliveredGroups[key].push(po);
+        }
+      }
+    } catch {}
+    return deliveredGroups;
+  }, [todayStr, pipelineRevision]);
+
   // Build live settlements by combining saved settlements with real delivered orders from pipeline
   const allSettlements: SettlementRow[] = useMemo(() => {
-    const list: SettlementRow[] = [...settlements];
-    const existingVehDates = new Set(list.map((r: SettlementRow) => `${r.date}_${r.vehicleNumber}`));
+    const savedByKey = new Map<string, SettlementRow>();
+    const list: SettlementRow[] = [];
 
-    if (typeof window !== "undefined") {
-      try {
-        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
-        if (storedPipeline) {
-          const pipelineOrders = JSON.parse(storedPipeline);
-          if (Array.isArray(pipelineOrders)) {
-            // Group completed/delivered orders by date & vehicle (skipping undated/unsettled pipeline rows)
-            const deliveredGroups: Record<string, any[]> = {};
-            for (const po of pipelineOrders) {
-              if (po.stage === "completed" || (po.status && po.status.toLowerCase() === "delivered")) {
-                const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate);
-                if (!dateIso) continue;
-                const veh: string = po.vehicleNo || "KA28AA6256";
-                const key = `${dateIso}_${veh}`;
-                if (!deliveredGroups[key]) deliveredGroups[key] = [];
-                deliveredGroups[key].push(po);
-              }
-            }
-
-            // Create or merge live settlement rows for each delivered vehicle
-            Object.entries(deliveredGroups).forEach(([key, orders]) => {
-              if (!existingVehDates.has(key)) {
-                existingVehDates.add(key);
-                const [dIso, veh] = key.split("_");
-                const totalAmt = orders.reduce((acc: number, o: any) => acc + (Number(o.total) || 0), 0);
-                list.unshift({
-                  sl: list.length + 1,
-                  date: dIso || todayStr,
-                  vehicleNumber: veh || "KA28AA6256",
-                  driverName: veh === "KA28AA6256" ? "Arun Patil" : "Ramesh Biradar",
-                  noOfOrders: orders.length,
-                  invoiceAmt: totalAmt,
-                  fullReturn: 0,
-                  partialReturn: 0,
-                  oldReturn: 0,
-                  netAmt: totalAmt,
-                  qrPayment: 0,
-                  cashReceived: totalAmt,
-                  countedCash: null,
-                  diff: null,
-                  denominations: null,
-                  remarks: `Live delivery settlement (${orders.length} order(s))`,
-                  enteredBy: useAuthStore.getState().user?.fullName || "Settlement Officer",
-                });
-              }
-            });
-          }
-        }
-      } catch (e) {}
+    for (const row of settlements) {
+      const key = `${row.date || todayStr}_${row.vehicleNumber}`;
+      savedByKey.set(key, row);
     }
-    return list;
-  }, [settlements, todayStr]);
+
+    const handledKeys = new Set<string>();
+
+    // First, add or merge live pipeline delivered vehicle groups so new Mark delivered orders always appear
+    Object.entries(deliveredOrdersByGroup).forEach(([key, orders]) => {
+      const [dIso, veh] = key.split("_");
+      const saved = savedByKey.get(key);
+      const isLiveSavedRow = saved && ((saved.remarks || "").startsWith("Live delivery settlement") || orders.length >= saved.noOfOrders);
+
+      if (saved && !isLiveSavedRow) {
+        // Keep historical multi-order saved batch row as-is
+        return;
+      }
+
+      handledKeys.add(key);
+      const oldReturn = saved?.oldReturn || 0;
+      const bankPayment = saved?.bankPayment || 0;
+      const totals = summarizeDeliveredGroup(orders, oldReturn, bankPayment);
+      const qrPayment = totals.qrPayment > 0 ? totals.qrPayment : (saved?.qrPayment || 0);
+      const cashReceived = totals.qrPayment > 0 ? totals.cashReceived : Math.max(0, totals.netAmt - qrPayment - bankPayment);
+      const countedCash = saved?.countedCash ?? null;
+      const diff = countedCash != null ? countedCash + qrPayment + bankPayment - totals.netAmt : null;
+
+      list.push({
+        sl: list.length + 1,
+        date: dIso || todayStr,
+        vehicleNumber: veh || "KA28AA6256",
+        driverName: saved?.driverName || (veh === "KA28AA6256" ? "Arun Patil" : "Ramesh Biradar"),
+        noOfOrders: orders.length,
+        invoiceAmt: totals.invoiceAmt,
+        fullReturn: totals.fullReturn,
+        partialReturn: totals.partialReturn,
+        oldReturn,
+        netAmt: totals.netAmt,
+        qrPayment,
+        bankPayment,
+        cashReceived,
+        countedCash,
+        diff,
+        denominations: saved?.denominations ?? null,
+        remarks: saved?.remarks || `Live delivery settlement (${orders.length} order(s))`,
+        enteredBy: saved?.enteredBy || useAuthStore.getState().user?.fullName || "Settlement Officer",
+      });
+    });
+
+    // Append saved/historical settlement rows not overridden by live pipeline orders
+    for (const row of settlements) {
+      const key = `${row.date || todayStr}_${row.vehicleNumber}`;
+      if (!handledKeys.has(key)) {
+        list.push(row);
+      }
+    }
+
+    // Re-number serials cleanly so keys are always unique
+    return list.map((row, idx) => ({ ...row, sl: idx + 1 }));
+  }, [settlements, deliveredOrdersByGroup, todayStr]);
 
   // Filtered rows (normalize date formats and reject undated rows when filtered)
   const filteredRows: SettlementRow[] = allSettlements.filter((r: SettlementRow) => {
@@ -854,7 +1057,14 @@ export function WholesaleSettlementView() {
   }
 
   if (selectedVehicleSettlement) {
-    const vehicleOrders = KA28AB3425_SETTLEMENT_ORDERS;
+    const groupKey = `${selectedVehicleSettlement.date || todayStr}_${selectedVehicleSettlement.vehicleNumber}`;
+    const liveGroupOrders = deliveredOrdersByGroup[groupKey] || [];
+    const vehicleOrders: SettlementInvoiceOrder[] =
+      liveGroupOrders.length > 0
+        ? mapPipelineOrdersToInvoiceOrders(liveGroupOrders, selectedVehicleSettlement.date || todayStr)
+        : selectedVehicleSettlement.vehicleNumber === "KA28AB3425"
+        ? KA28AB3425_SETTLEMENT_ORDERS
+        : [];
     return (
       <div className="space-y-4 font-sans antialiased text-[#0f172a] pb-10">
         {/* Top Header matching Image 8 */}
@@ -1093,7 +1303,7 @@ export function WholesaleSettlementView() {
               </tr>
             ) : (
               filteredRows.map((r) => (
-                <tr key={r.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                <tr key={`${r.date || "na"}_${r.vehicleNumber}_${r.sl}`} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
                   <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
                   <td className="py-3 px-3">
                     <div className="font-bold text-slate-900 font-mono">{r.vehicleNumber}</div>
