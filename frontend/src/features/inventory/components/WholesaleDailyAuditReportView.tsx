@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
@@ -10,14 +10,51 @@ import {
   type AuditLine,
 } from "../data/mockInventory";
 import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
+import { getIstDateString, normalizeDateToIso } from "@/lib/utilities/istTime";
+import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
 
 export function WholesaleDailyAuditReportView() {
   const navigate = useNavigate();
-  const [savedAudits] = useState<SavedAudit[]>(() => getStoredSavedAudits());
+  const todayIso = getIstDateString();
+  const [savedAudits, setSavedAudits] = useState<SavedAudit[]>(() => getStoredSavedAudits());
   const [selectedAuditId, setSelectedAuditId] = useState<string>(""); // "" represents Live
+  const [dataRevision, setDataRevision] = useState(0);
 
-  const skus = useMemo(() => getStoredSkus(), []);
-  const auditDraft = useMemo(() => getStoredAuditDraft(), []);
+  const syncReport = useCallback(async () => {
+    setSavedAudits(getStoredSavedAudits());
+    await fetchAndMergeCrmPipelineOrders(todayIso);
+    setDataRevision((r) => r + 1);
+  }, [todayIso]);
+
+  useEffect(() => {
+    const bump = () => {
+      setSavedAudits(getStoredSavedAudits());
+      setDataRevision((r) => r + 1);
+    };
+    const onFocus = () => void syncReport();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("inventory_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", onFocus);
+    void syncReport();
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("inventory_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncReport]);
+
+  const skus = useMemo(() => {
+    void dataRevision;
+    return computeLiveRealtimeSkus(getStoredSkus(), todayIso);
+  }, [todayIso, dataRevision]);
+  const auditDraft = useMemo(() => {
+    void dataRevision;
+    return getStoredAuditDraft();
+  }, [dataRevision]);
 
   // Compute live lines or selected saved audit lines
   const currentLines = useMemo<AuditLine[]>(() => {
@@ -79,15 +116,18 @@ export function WholesaleDailyAuditReportView() {
     };
 
     const shrinkage = grand.diffAmt;
+    const selectedAudit = selectedAuditId ? savedAudits.find((a) => a.id === selectedAuditId) : null;
     const crmOrders = getAllCrmOrders();
-    const liveNetSales = crmOrders.reduce((sum, o) => sum + o.total, 0);
-    const netSales = liveNetSales > 0 ? liveNetSales : 28697;
+    const liveNetSales = crmOrders
+      .filter((o) => o.status !== "cancelled" && normalizeDateToIso(o.orderDate) === todayIso)
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const netSales = selectedAudit ? selectedAudit.netSales : liveNetSales;
     const invClosingVal = grand.closeVal;
     const shrinkOnClose = invClosingVal > 0 ? ((shrinkage / invClosingVal) * 100).toFixed(2) + "%" : "0%";
     const shrinkOnSales = netSales > 0 ? ((shrinkage / netSales) * 100).toFixed(2) + "%" : "0%";
 
     return { groups, grand, shrinkage, netSales, invClosingVal, shrinkOnClose, shrinkOnSales };
-  }, [currentLines]);
+  }, [currentLines, selectedAuditId, savedAudits, todayIso, dataRevision]);
 
   const handleExport = () => {
     const csvRows = [

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -13,19 +13,56 @@ import {
   type SavedAudit,
   type AuditLine,
 } from "../data/mockInventory";
+import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
+import { getIstDateString, getIstDisplayDate, getIstTimeString, normalizeDateToIso } from "@/lib/utilities/istTime";
+import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
 
 export function WholesaleDailyStockAuditView() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const auditorName = user?.fullName || "Auditor / Staff";
   const auditorRole = user?.role ? user.role.replace(/_/g, " ") : "Owner";
+  const todayIso = getIstDateString();
 
-  const [skus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [rawSkus, setRawSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [dataRevision, setDataRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [draftCounts, setDraftCounts] = useState<Record<number, number | string>>(() =>
     getStoredAuditDraft()
   );
-  const [savedTime, setSavedTime] = useState("03:14 pm");
+  const [savedTime, setSavedTime] = useState(() => getIstTimeString());
+
+  const syncAuditData = useCallback(async () => {
+    setRawSkus(getStoredSkus());
+    await fetchAndMergeCrmPipelineOrders(todayIso);
+    setDataRevision((r) => r + 1);
+  }, [todayIso]);
+
+  useEffect(() => {
+    const bump = () => {
+      setRawSkus(getStoredSkus());
+      setDataRevision((r) => r + 1);
+    };
+    const onFocus = () => void syncAuditData();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("inventory_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", onFocus);
+    void syncAuditData();
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("inventory_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncAuditData]);
+
+  const skus = useMemo(() => {
+    void dataRevision;
+    return computeLiveRealtimeSkus(rawSkus, todayIso);
+  }, [rawSkus, todayIso, dataRevision]);
 
   // Sorted: SKUs with closing stock first, zero stock last
   const sortedSkus = useMemo(() => {
@@ -96,22 +133,26 @@ export function WholesaleDailyStockAuditView() {
       };
     });
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todaySalesTotal = getAllCrmOrders()
+      .filter((o) => o.status !== "cancelled" && normalizeDateToIso(o.orderDate) === todayIso)
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
     const newAudit: SavedAudit = {
       id: "AUD-" + Date.now().toString(36).toUpperCase(),
-      date: todayStr,
-      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      date: getIstDisplayDate(),
+      time: getIstTimeString(),
       auditor: auditorName,
       role: auditorRole,
       status: "saved",
       lines,
-      netSales: 28697,
+      netSales: todaySalesTotal,
       inventoryClosingValue: skus.reduce((a, b) => a + b.closing * b.cost, 0),
     };
 
     const existing = getStoredSavedAudits();
     const updatedAudits = [newAudit, ...existing];
     saveStoredSavedAudits(updatedAudits);
+    window.dispatchEvent(new Event("inventory_updated"));
 
     toast.success("Daily stock audit submitted & saved successfully!");
     navigate("/inventory?tab=report");
@@ -145,7 +186,7 @@ export function WholesaleDailyStockAuditView() {
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-900">New audit · 22 Nov 2026</span>
+            <span className="text-sm font-bold text-slate-900">New audit · {getIstDisplayDate()}</span>
             <span className="text-xs text-slate-400">|</span>
             <span className="text-xs text-slate-600">
               Auditor: <b className="text-slate-800">{auditorName}</b>

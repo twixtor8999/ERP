@@ -1,56 +1,28 @@
 import { SuperAuditItem, ApprovedSuperAuditReport } from '../types/superAudit';
-import { PNL_SKUS } from '@/features/pnl/data/mockPnlData';
+import { getStoredSkus } from './mockInventory';
+import { computeLiveRealtimeSkus } from '../utils/liveInventory';
+import { getIstDateString } from '@/lib/utilities/istTime';
 
 export function getInitialSuperAuditItems(): SuperAuditItem[] {
-  return PNL_SKUS.slice(0, 40).map((s) => {
-    const bookStock = s.stock ?? 25;
-    // Pre-populate some as counted to match realistic warehouse audit
-    const physicalStock = bookStock;
-    return {
-      skuId: s.id,
-      skuName: s.name,
-      category: s.cat || 'General FMCG',
-      unit: s.uom || 'Unit',
-      grnCost: s.cost || 50,
-      bookStock,
-      physicalStock,
-      varianceQty: 0,
-      varianceValue: 0,
-    };
-  });
+  const todayIso = getIstDateString();
+  const liveSkus = computeLiveRealtimeSkus(getStoredSkus(), todayIso);
+  return liveSkus.map((s) => ({
+    skuId: s.id,
+    skuName: s.name,
+    category: s.category || 'General FMCG',
+    unit: 'Unit',
+    grnCost: s.cost || 0,
+    bookStock: s.closing,
+    physicalStock: s.closing,
+    varianceQty: 0,
+    varianceValue: 0,
+  }));
 }
 
-export const INITIAL_SUPER_AUDIT_HISTORY: ApprovedSuperAuditReport[] = [
-  {
-    id: 'SUP-AUD-2026-11-20',
-    auditDate: '20-11-2026',
-    auditorName: 'Vijaykumar Shantagiri (Owner)',
-    totalSkusCounted: 40,
-    matchingSkus: 37,
-    shortageSkus: 2,
-    surplusSkus: 1,
-    netVarianceQty: -3,
-    netVarianceValue: -420,
-    status: 'approved',
-    approvedAt: '20-11-2026 09:30 PM',
-  },
-  {
-    id: 'SUP-AUD-2026-10-31',
-    auditDate: '31-10-2026',
-    auditorName: 'Vijaykumar Shantagiri (Owner)',
-    totalSkusCounted: 38,
-    matchingSkus: 35,
-    shortageSkus: 3,
-    surplusSkus: 0,
-    netVarianceQty: -5,
-    netVarianceValue: -680,
-    status: 'approved',
-    approvedAt: '31-10-2026 08:45 PM',
-  },
-];
+export const INITIAL_SUPER_AUDIT_HISTORY: ApprovedSuperAuditReport[] = [];
 
-const AUDIT_STORAGE_KEY = 'erp_super_stock_audit_live';
-const HISTORY_STORAGE_KEY = 'erp_super_stock_audit_history';
+const AUDIT_STORAGE_KEY = 'erp_super_stock_audit_live_v2';
+const HISTORY_STORAGE_KEY = 'erp_super_stock_audit_history_v2';
 
 export function getStoredSuperAuditItems(): SuperAuditItem[] {
   if (typeof window === 'undefined') return getInitialSuperAuditItems();
