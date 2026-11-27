@@ -5004,7 +5004,7 @@ def get_realtime_inventory(
         .order_by(Product.name)
     ).all()
 
-    categories = {c.id: c.name for c in db.scalars(select(Category).where(Category.organization_id == org_id)).all()}
+    categories = {c.id: c.name for c in db.scalars(select(ProductCategory).where(ProductCategory.organization_id == org_id)).all()}
     balances = {
         sb.product_variant_id: sb
         for sb in db.scalars(select(StockBalance).where(StockBalance.organization_id == org_id)).all()
@@ -5052,7 +5052,7 @@ def get_realtime_inventory(
             "baseClosing": round(closing, 2),
             "cost": round(cost, 2),
             "price": round(price, 2),
-            "minStock": int(v.reorder_level or 10),
+            "minStock": int(getattr(v, "reorder_level", None) or getattr(p, "reorder_level", None) or 10),
             "punchOrders": round(punch, 2),
             "orderCancel": round(cancel, 2),
             "available": round(closing - punch, 2),
