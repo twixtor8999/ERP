@@ -6,6 +6,31 @@ import "@/styles/globals.css";
 import "@/styles/theme.css";
 import "@/styles/responsive.css";
 
+// ─────────────────────────────────────────────────────────────────
+// STARTUP: Clear all stale inventory localStorage keys from old builds.
+// Every time we bump the key version (v1→v2→v3→v4), old stale data
+// must be wiped so the user always gets fresh backup data.
+// ─────────────────────────────────────────────────────────────────
+if (typeof window !== "undefined") {
+  const staleInventoryKeys = [
+    "erp_wholesale_inventory_skus",
+    "ai_smart_bazar_inventory_skus_v1",
+    "ai_smart_bazar_inventory_skus_v2",
+    "ai_smart_bazar_inventory_skus_v3",
+    // Also clear old audit/punch keys from pre-backup era
+    "erp_wholesale_audit_draft",
+    "erp_wholesale_saved_audits",
+    "erp_wholesale_super_audits",
+    "ai_smart_bazar_saved_audits_v1",
+    "ai_smart_bazar_saved_audits_v2",
+    "ai_smart_bazar_audit_draft_v1",
+    "ai_smart_bazar_audit_draft_v2",
+  ];
+  for (const k of staleInventoryKeys) {
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
+  }
+}
+
 // Global restriction: Never allow future dates in any date picker across the ERP
 if (typeof window !== "undefined") {
   // Recover seamlessly when a new deployment replaces hashed lazy chunks while a tab is open

@@ -4912,14 +4912,57 @@ export const INITIAL_PUNCH_ORDERS: PunchOrderItem[] = [
   },
 ];
 
-const INVENTORY_SKU_KEY = "ai_smart_bazar_inventory_skus_v3";
+const INVENTORY_SKU_KEY = "ai_smart_bazar_inventory_skus_v4";
 const PUNCH_ORDERS_KEY = "ai_smart_bazar_punch_orders_v2";
 const SAVED_AUDITS_KEY = "ai_smart_bazar_saved_audits_v3";
 const AUDIT_DRAFT_KEY = "ai_smart_bazar_audit_draft_v3";
 const SUPER_AUDITS_KEY = "ai_smart_bazar_super_stock_audits_v3";
 
+// Migrate / clean up old versioned keys so stale data never blocks real backup data
+function _migrateAndSeedInventory(): InventorySku[] {
+  // Remove old stale keys from previous builds
+  const oldKeys = [
+    "erp_wholesale_inventory_skus",
+    "ai_smart_bazar_inventory_skus_v1",
+    "ai_smart_bazar_inventory_skus_v2",
+    "ai_smart_bazar_inventory_skus_v3",
+  ];
+  for (const k of oldKeys) {
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
+  }
+
+  // Seed fresh from backup constant (254 SKUs)
+  localStorage.setItem(INVENTORY_SKU_KEY, JSON.stringify(INITIAL_INVENTORY_SKUS));
+  return INITIAL_INVENTORY_SKUS;
+}
+
+let _skuSeeded = false;
+
 export function getStoredSkus(): InventorySku[] {
   try {
+    // On first call per session, check if the v4 key exists with valid data
+    if (!_skuSeeded) {
+      _skuSeeded = true;
+      const raw = localStorage.getItem(INVENTORY_SKU_KEY);
+      if (!raw) {
+        // Fresh browser or key doesn't exist → seed from backup
+        return _migrateAndSeedInventory();
+      }
+      const parsed = JSON.parse(raw) as InventorySku[];
+      // Validate count: backup has exactly 254 SKUs
+      // If stored data has fewer than 200 items, it's corrupted/old → reseed
+      if (!Array.isArray(parsed) || parsed.length < 200) {
+        return _migrateAndSeedInventory();
+      }
+      // Also validate that opening values are real (not all zeros from pre-backup era)
+      const totalOpening = parsed.reduce((sum, s) => sum + (s.opening || 0), 0);
+      if (totalOpening < 100) {
+        // All zeros means old schema before backup was loaded → reseed
+        return _migrateAndSeedInventory();
+      }
+      return parsed;
+    }
+
     const raw = localStorage.getItem(INVENTORY_SKU_KEY);
     if (!raw) {
       localStorage.setItem(INVENTORY_SKU_KEY, JSON.stringify(INITIAL_INVENTORY_SKUS));
