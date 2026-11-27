@@ -44,6 +44,11 @@ import {
   getOrdersInDateRange,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
+import {
+  getStoredAttendance,
+  saveStoredAttendance,
+  getStoredEmployees,
+} from "@/features/employees/data/mockEmployees";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -1026,8 +1031,25 @@ export function CrmTelecallerPortalPage() {
   const aadhaarFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Attendance state & Live Duty Timer (Daily fresh status - resets at 12:00 AM midnight)
+  const getCentralStaffRecord = (): { inT?: string; outT?: string; ov?: string } | null => {
+    if (typeof window === "undefined") return null;
+    const todayIso = getTodayIsoDate();
+    try {
+      const records = getStoredAttendance();
+      const emps = getStoredEmployees();
+      const pushpa = emps.find((e) => e.name.toLowerCase().includes("pushpa")) || emps[4];
+      const empId = pushpa?.id || 1792851929338774;
+      const rec = records.find((r) => r.emp === empId && r.date === todayIso);
+      return rec || null;
+    } catch {
+      return null;
+    }
+  };
+
   const [attendancePunched, setAttendancePunched] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
+    const central = getCentralStaffRecord();
+    if (central?.inT) return true;
     const todayIso = getTodayIsoDate();
     const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
     if (stored) {
@@ -1039,8 +1061,25 @@ export function CrmTelecallerPortalPage() {
     return false;
   });
 
+  const [attendanceCheckedOut, setAttendanceCheckedOut] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const central = getCentralStaffRecord();
+    if (central?.outT) return true;
+    const todayIso = getTodayIsoDate();
+    const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return Boolean(parsed.checkedOut);
+      } catch {}
+    }
+    return false;
+  });
+
   const [attendanceTime, setAttendanceTime] = useState<string>(() => {
     if (typeof window === "undefined") return "";
+    const central = getCentralStaffRecord();
+    if (central?.inT) return central.inT;
     const todayIso = getTodayIsoDate();
     const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
     if (stored) {
@@ -1052,22 +1091,49 @@ export function CrmTelecallerPortalPage() {
     return "";
   });
 
-  const [attendanceDaysPresent, setAttendanceDaysPresent] = useState(22);
-  const [isPunchingAtt, setIsPunchingAtt] = useState(false);
-  const [punchSeconds, setPunchSeconds] = useState<number>(() => {
-    if (typeof window === "undefined") return 0;
+  const [checkOutTime, setCheckOutTime] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const central = getCentralStaffRecord();
+    if (central?.outT) return central.outT;
     const todayIso = getTodayIsoDate();
     const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (parsed.timestamp) {
+        return parsed.outTime || "";
+      } catch {}
+    }
+    return "";
+  });
+
+  const [attendanceDaysPresent, setAttendanceDaysPresent] = useState(22);
+  const [punchSeconds, setPunchSeconds] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const central = getCentralStaffRecord();
+    if (central?.inT && !central?.outT) {
+      const [h, m] = central.inT.split(":").map(Number);
+      const now = new Date();
+      const inDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 0, m || 0, 0);
+      return Math.max(0, Math.floor((Date.now() - inDate.getTime()) / 1000));
+    }
+    const todayIso = getTodayIsoDate();
+    const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.timestamp && !parsed.checkedOut) {
           return Math.max(0, Math.floor((Date.now() - parsed.timestamp) / 1000));
         }
       } catch {}
     }
     return 0;
   });
+
+  // 5-Second Hold State for Attendance Check-In / Check-Out
+  const [attHoldProgress, setAttHoldProgress] = useState(0);
+  const [isAttHolding, setIsAttHolding] = useState(false);
+  const attHoldStartRef = useRef<number | null>(null);
+  const attAnimFrameRef = useRef<number | null>(null);
 
   const getTimeGreeting = () => {
     const hr = new Date().getHours();
@@ -1198,7 +1264,9 @@ export function CrmTelecallerPortalPage() {
 
           // Attendance is NOT marked at midnight; resets to unpunched state
           setAttendancePunched(false);
+          setAttendanceCheckedOut(false);
           setAttendanceTime("");
+          setCheckOutTime("");
           setPunchSeconds(0);
 
           return todayIso;
@@ -1663,6 +1731,15 @@ export function CrmTelecallerPortalPage() {
 
   const checkAttendanceStatus = async () => {
     try {
+      const central = getCentralStaffRecord();
+      if (central?.inT) {
+        setAttendancePunched(true);
+        setAttendanceTime(central.inT);
+        if (central.outT) {
+          setAttendanceCheckedOut(true);
+          setCheckOutTime(central.outT);
+        }
+      }
       const res = await apiClient.get<{
         is_punched: boolean;
         check_in_time: string | null;
@@ -1689,46 +1766,106 @@ export function CrmTelecallerPortalPage() {
     }
   };
 
-  const handlePunchAttendance = async () => {
-    setIsPunchingAtt(true);
+  const HOLD_DURATION_MS = 5000;
+
+  const startAttHolding = (action: "in" | "out") => {
+    if (action === "in" && attendancePunched) return;
+    if (action === "out" && (!attendancePunched || attendanceCheckedOut)) return;
+    setIsAttHolding(true);
+    attHoldStartRef.current = Date.now();
+
+    const tick = () => {
+      if (!attHoldStartRef.current) return;
+      const elapsed = Date.now() - attHoldStartRef.current;
+      const progress = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100);
+      setAttHoldProgress(progress);
+
+      if (progress >= 100) {
+        completeAttAction(action);
+        cancelAttHolding();
+      } else {
+        attAnimFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    attAnimFrameRef.current = requestAnimationFrame(tick);
+  };
+
+  const cancelAttHolding = () => {
+    if (attAnimFrameRef.current) {
+      cancelAnimationFrame(attAnimFrameRef.current);
+      attAnimFrameRef.current = null;
+    }
+    attHoldStartRef.current = null;
+    setIsAttHolding(false);
+    setAttHoldProgress(0);
+  };
+
+  const completeAttAction = async (action: "in" | "out") => {
     const todayIso = getTodayIsoDate();
-    const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const currentTime = `${hh}:${mm}`;
     const punchTimestamp = Date.now();
 
+    // 1. Sync to Central Attendance storage so Admin Attendance & List see it immediately
     try {
-      const res = await apiClient.post<{
-        success: boolean;
-        check_in_time: string;
-        message: string;
-      }>("/api/v1/admin/crm/punch-attendance");
+      const emps = getStoredEmployees();
+      const pushpa = emps.find((e) => e.name.toLowerCase().includes("pushpa")) || emps[4];
+      const empId = pushpa?.id || 1792851929338774;
+      const allAtt = getStoredAttendance();
+      const existingIdx = allAtt.findIndex((a) => a.emp === empId && a.date === todayIso);
+
+      if (action === "in") {
+        if (existingIdx >= 0) {
+          const rec = allAtt[existingIdx];
+          if (rec) rec.inT = currentTime;
+        } else {
+          allAtt.push({ id: Date.now(), emp: empId, date: todayIso, inT: currentTime });
+        }
+      } else {
+        if (existingIdx >= 0) {
+          const rec = allAtt[existingIdx];
+          if (rec) rec.outT = currentTime;
+        } else {
+          allAtt.push({ id: Date.now(), emp: empId, date: todayIso, inT: attendanceTime || currentTime, outT: currentTime });
+        }
+      }
+      saveStoredAttendance(allAtt);
+      window.dispatchEvent(new Event("attendance_updated"));
+    } catch (e) {
+      console.error("Failed to sync central attendance", e);
+    }
+
+    if (action === "in") {
       setAttendancePunched(true);
-      const cTime = res.data.check_in_time || nowTime;
-      setAttendanceTime(cTime);
+      setAttendanceTime(currentTime);
       setPunchSeconds(0);
       try {
         localStorage.setItem(
           `crm_attendance_${todayIso}`,
-          JSON.stringify({ punched: true, time: cTime, timestamp: punchTimestamp })
+          JSON.stringify({ punched: true, checkedOut: false, time: currentTime, timestamp: punchTimestamp })
         );
       } catch {}
-      toast.success("Attendance Recorded!", {
-        description: res.data.message || `Check-in recorded at ${cTime}`,
+      apiClient.post("/api/v1/admin/crm/punch-attendance").catch(() => {});
+      toast.success("Check-In Recorded!", {
+        description: `Check-in recorded at ${currentTime} for ${userName}`,
       });
-    } catch {
-      setAttendancePunched(true);
-      setAttendanceTime(nowTime);
-      setPunchSeconds(0);
+    } else {
+      setAttendanceCheckedOut(true);
+      setCheckOutTime(currentTime);
       try {
+        const stored = localStorage.getItem(`crm_attendance_${todayIso}`);
+        const parsed = stored ? JSON.parse(stored) : {};
         localStorage.setItem(
           `crm_attendance_${todayIso}`,
-          JSON.stringify({ punched: true, time: nowTime, timestamp: punchTimestamp })
+          JSON.stringify({ ...parsed, checkedOut: true, outTime: currentTime })
         );
       } catch {}
-      toast.success("Attendance Recorded!", {
-        description: `Check-in recorded at ${nowTime}`,
+      toast.success("Check-Out Recorded!", {
+        description: `Check-out recorded at ${currentTime} for ${userName}`,
       });
-    } finally {
-      setIsPunchingAtt(false);
     }
   };
 
@@ -5968,7 +6105,7 @@ export function CrmTelecallerPortalPage() {
             {/* ======================================================== */}
             {activeView === "attendance" && (
               <div className="p-4 sm:p-5 space-y-4 max-w-4xl mx-auto">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4 max-w-md mx-auto">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-5 max-w-lg mx-auto">
                   <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                     <Clock className="w-8 h-8" />
                   </div>
@@ -5980,31 +6117,111 @@ export function CrmTelecallerPortalPage() {
                     </p>
                   </div>
 
-                  {attendancePunched ? (
-                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold space-y-1">
-                      <Check className="w-6 h-6 mx-auto text-emerald-600" />
-                      <p className="font-bold text-sm">Checked In (Present)</p>
-                      <p className="text-[11px] text-emerald-700 font-mono">Timestamp: {attendanceTime}</p>
-                      <p className="text-[10px] text-emerald-600">Hub: Vijayapura Main Depot</p>
+                  {/* 4 Stat Boxes (Check In, Check Out, Work Hours, Status) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">Check In</span>
+                      <span className="font-black text-slate-900 text-sm mt-0.5">
+                        {attendanceTime || "—"}
+                      </span>
                     </div>
-                  ) : (
-                    <Button
-                      onClick={handlePunchAttendance}
-                      disabled={isPunchingAtt}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl cursor-pointer active:scale-95"
-                    >
-                      {isPunchingAtt ? "Recording..." : "Punch Daily Check-In"}
-                    </Button>
-                  )}
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">Check Out</span>
+                      <span className="font-black text-slate-900 text-sm mt-0.5">
+                        {checkOutTime || "—"}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">Work Hours</span>
+                      <span className="font-black text-slate-900 text-sm mt-0.5 font-mono">
+                        {attendanceCheckedOut ? (
+                          "Completed"
+                        ) : attendancePunched ? (
+                          <PunchDurationCounter baseSeconds={punchSeconds} active={true} />
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase">Status</span>
+                      <span
+                        className={`font-black text-xs mt-0.5 px-2 py-0.5 rounded-full ${
+                          attendanceCheckedOut
+                            ? "bg-slate-100 text-slate-700"
+                            : attendancePunched
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {attendanceCheckedOut
+                          ? "Checked Out"
+                          : attendancePunched
+                          ? "Checked in"
+                          : "Not marked"}
+                      </span>
+                    </div>
+                  </div>
 
+                  {/* 5-Second Hold Button */}
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onMouseDown={() => startAttHolding(!attendancePunched ? "in" : "out")}
+                      onMouseUp={cancelAttHolding}
+                      onMouseLeave={cancelAttHolding}
+                      onTouchStart={() => startAttHolding(!attendancePunched ? "in" : "out")}
+                      onTouchEnd={cancelAttHolding}
+                      disabled={attendancePunched && attendanceCheckedOut}
+                      className={`relative overflow-hidden w-full max-w-xs mx-auto py-3.5 px-6 rounded-2xl font-bold text-sm text-white shadow-md transition-all select-none cursor-pointer flex items-center justify-center gap-2 ${
+                        attendancePunched && attendanceCheckedOut
+                          ? "bg-slate-300 cursor-not-allowed text-slate-600"
+                          : !attendancePunched
+                          ? "bg-emerald-600 hover:bg-emerald-700 active:scale-95"
+                          : "bg-red-600 hover:bg-red-700 active:scale-95"
+                      }`}
+                    >
+                      {/* Hold Fill Progress Bar */}
+                      {isAttHolding && (
+                        <div
+                          className="absolute inset-y-0 left-0 bg-white/35 transition-all pointer-events-none"
+                          style={{ width: `${attHoldProgress}%` }}
+                        />
+                      )}
+                      {/* Status indicator dot */}
+                      {!attendanceCheckedOut && (
+                        <span
+                          className={`w-3 h-3 rounded-full ${
+                            !attendancePunched ? "bg-emerald-300 animate-pulse" : "bg-red-300 animate-pulse"
+                          }`}
+                        />
+                      )}
+                      <span className="relative z-10 font-bold">
+                        {isAttHolding
+                          ? `Holding... ${Math.round(attHoldProgress)}%`
+                          : !attendancePunched
+                          ? "Hold 5 sec to Check in"
+                          : !attendanceCheckedOut
+                          ? "Hold 5 sec to Check out"
+                          : "Attendance Completed"}
+                      </span>
+                    </button>
+                    <p className="text-[11px] text-slate-400">
+                      {attendancePunched && attendanceCheckedOut
+                        ? "Both check-in and check-out marked for today."
+                        : "Keep your finger on the button until it fills (5 seconds)."}
+                    </p>
+                  </div>
+
+                  {/* Additional info footer */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
                     <div className="p-2.5 rounded-xl bg-slate-50 text-center">
                       <span className="text-[10px] text-slate-400 block font-semibold">Days Present</span>
                       <span className="font-black text-slate-900 text-sm">{attendanceDaysPresent} Days</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-                      <span className="text-[10px] text-slate-400 block font-semibold">Active Duty</span>
-                      <span className="font-black text-slate-900 text-sm font-mono"><PunchDurationCounter baseSeconds={punchSeconds} active={attendancePunched} /></span>
+                      <span className="text-[10px] text-slate-400 block font-semibold">Hub Location</span>
+                      <span className="font-black text-slate-900 text-xs truncate block">Vijayapura Main Depot</span>
                     </div>
                   </div>
                 </div>
