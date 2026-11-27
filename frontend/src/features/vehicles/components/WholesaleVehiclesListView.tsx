@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Plus, Eye, Phone } from "lucide-react";
 import { toast } from "sonner";
 import {
   getStoredVehicles,
   saveStoredVehicles,
+  loadVehiclesFromApi,
   type VehicleRecord,
 } from "../data/mockVehicles";
 import { WholesaleVehicleDetailEditView } from "./WholesaleVehicleDetailEditView";
@@ -14,6 +15,12 @@ export function WholesaleVehiclesListView() {
   const [vehicles, setVehicles] = useState<VehicleRecord[]>(() => getStoredVehicles());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleRecord | null>(null);
+
+  useEffect(() => {
+    loadVehiclesFromApi().then((data) => {
+      if (data && data.length > 0) setVehicles(data);
+    }).catch(() => { /* keep local */ });
+  }, []);
 
   const filteredVehicles = useMemo(() => {
     if (!searchQuery.trim()) return vehicles;

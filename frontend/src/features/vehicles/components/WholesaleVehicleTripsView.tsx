@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   getStoredTrips,
   saveStoredTrips,
+  loadTripsFromApi,
   type VehicleTripRecord,
 } from "../data/mockVehicles";
 import { WholesaleVehicleTripDetailEditView } from "./WholesaleVehicleTripDetailEditView";
@@ -28,8 +29,11 @@ export function WholesaleVehicleTripsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTripToEdit, setSelectedTripToEdit] = useState<VehicleTripRecord | null>(null);
 
-  // Sync trips from storage when trips are created or updated
+  // Sync trips from Railway backend + storage when trips are created or updated
   useEffect(() => {
+    loadTripsFromApi().then((data) => {
+      if (data && data.length > 0) setTrips(data);
+    }).catch(() => { /* keep local */ });
     const handleTripsUpdated = () => {
       setTrips(getStoredTrips());
     };

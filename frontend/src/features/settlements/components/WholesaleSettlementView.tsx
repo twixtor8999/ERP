@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { fetchSettlements, saveSettlementToApi } from "@/lib/api/apiService";
 import { useAuthStore } from "@/stores/auth.store";
 import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
@@ -602,6 +603,34 @@ export function WholesaleSettlementView() {
 
   const syncDeliveredFromBackend = useCallback(async () => {
     try {
+      // Load saved settlements from Railway DB
+      const dbSettlements = await fetchSettlements();
+      if (dbSettlements.length > 0) {
+        setSettlements((prev) => {
+          const next = [...prev];
+          for (const ds of dbSettlements) {
+            let meta: any = {};
+            try { meta = ds.notes ? JSON.parse(ds.notes) : {}; } catch {}
+            const veh = meta.vehicleNumber || "KA28AA6256";
+            const idx = next.findIndex((r) => r.date === ds.settlement_date && r.vehicleNumber === veh);
+            if (idx >= 0) {
+              const cur = next[idx]!;
+              next[idx] = {
+                ...cur,
+                countedCash: ds.cash_sales,
+                qrPayment: ds.upi_sales,
+                bankPayment: ds.card_sales,
+                diff: ds.discrepancy,
+                denominations: meta.denominations || cur.denominations,
+                remarks: meta.remarks || cur.remarks,
+                enteredBy: meta.enteredBy || cur.enteredBy,
+              };
+            }
+          }
+          return next;
+        });
+      }
+
       const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=200");
       if (!Array.isArray(res.data) || res.data.length === 0) return;
 
@@ -810,7 +839,25 @@ export function WholesaleSettlementView() {
       })`,
     });
 
-    // Save to localStorage so Sales vs Collection and Denomination Report pick it up immediately
+    // Persist to Railway PostgreSQL backend
+    void saveSettlementToApi({
+      settlement_date: savedRow.date || todayStr,
+      cash_sales: calculatedCountedCash,
+      card_sales: denomBank,
+      upi_sales: denomQR,
+      expected_total: savedRow.netAmt,
+      actual_total: calculatedCountedCash + denomQR + denomBank,
+      discrepancy: cashDiscrepancy,
+      status: "SUBMITTED",
+      notes: JSON.stringify({
+        vehicleNumber: savedRow.vehicleNumber,
+        remarks: savedRow.remarks,
+        denominations: savedRow.denominations,
+        enteredBy: savedRow.enteredBy,
+      }),
+    });
+
+    // Save to localStorage cache so Sales vs Collection and Denomination Report pick it up immediately
     try {
       localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
       window.dispatchEvent(new Event("storage"));

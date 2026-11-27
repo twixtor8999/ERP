@@ -544,3 +544,107 @@ export function saveStoredDieselRates(list: DieselRateRecord[]): void {
     console.error("Failed to save diesel rates", err);
   }
 }
+
+// ─── API-FIRST LOADERS ────────────────────────────────────────────────────────
+import { fetchVehicles as _fetchVehicles, fetchTrips as _fetchTrips, createTrip as _createTrip } from "@/lib/api/apiService";
+
+export async function loadVehiclesFromApi(): Promise<VehicleRecord[]> {
+  try {
+    const apiData = await _fetchVehicles();
+    if (!apiData || apiData.length === 0) return getStoredVehicles();
+    // Skip hardcoded backend demo vehicles if real local vehicles exist
+    const realApi = apiData.filter((v: any) => v.id !== "veh-01" && v.id !== "veh-02");
+    if (realApi.length === 0) return getStoredVehicles();
+    const mapped: VehicleRecord[] = realApi.map((v: any) => ({
+      id: v.id as unknown as number,
+      no: v.vehicle_number || "",
+      brand: v.make || "Mahindra",
+      type: v.vehicle_type || "Pickup",
+      model: v.model || "",
+      own: v.branch_name || "Owner",
+      addr: "Bijapur",
+      oph: "",
+      insx: "2027-05-07",
+      createdAt: new Date().toISOString().slice(0, 10),
+    }));
+    const existing = getStoredVehicles();
+    const apiNos = new Set(mapped.map((m) => m.no.toUpperCase()));
+    const merged = [...mapped, ...existing.filter((e) => !apiNos.has(e.no.toUpperCase()))];
+    saveStoredVehicles(merged);
+    return merged;
+  } catch {
+    return getStoredVehicles();
+  }
+}
+
+export async function loadTripsFromApi(): Promise<VehicleTripRecord[]> {
+  try {
+    const apiData = await _fetchTrips();
+    if (!apiData || apiData.length === 0) return getStoredTrips();
+    const mapped: VehicleTripRecord[] = apiData.map((t: any) => {
+      const vehNo = String(t.vehicle_name || "").split(" ")[0] || "KA28AA6256";
+      const startKm = Number(t.start_odometer) || 0;
+      const endKm = Number(t.end_odometer) || startKm;
+      const fuel = Number(t.fuel_expense) || 0;
+      const toll = Number(t.toll_expense) || 0;
+      const fixedRent = Number(t.driver_allowance) || 1400;
+      const invAmt = Number(t.total_invoice_amount) || 0;
+      return {
+        id: t.id as unknown as number,
+        date: t.trip_date ? String(t.trip_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        vehId: 0,
+        vehNo,
+        model: t.vehicle_name || "",
+        ordersCount: Number(t.total_stops) || (Array.isArray(t.stops) ? t.stops.length : 0),
+        orderValue: invAmt,
+        invoiceAmt: invAmt,
+        returns: 0,
+        netSales: invAmt,
+        startKm,
+        endKm,
+        totalKm: Math.max(0, endKm - startKm),
+        fixedRent,
+        dieselCost: fuel,
+        tollCost: toll,
+        otherCost: 0,
+        totalRent: fixedRent + fuel + toll,
+        status: String(t.status || "").toUpperCase() === "COMPLETED" ? "closed" : "in_progress",
+        orders: Array.isArray(t.stops)
+          ? t.stops.map((s: any) => ({
+              id: s.id || 0,
+              no: s.invoice_number || "",
+              custName: s.customer_name || "",
+              amount: Number(s.amount_to_collect) || 0,
+            }))
+          : [],
+      };
+    });
+    const existing = getStoredTrips();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
+    saveStoredTrips(merged);
+    return merged;
+  } catch {
+    return getStoredTrips();
+  }
+}
+
+export async function createTripInApi(trip: VehicleTripRecord): Promise<VehicleTripRecord> {
+  try {
+    const res = await _createTrip({
+      vehicle_id: String(trip.vehId || trip.vehNo),
+      route_name: trip.vehNo,
+      trip_date: trip.date,
+      start_odometer: trip.startKm,
+      stops: trip.orders.map((o) => ({
+        customer_name: o.custName || "Customer",
+        invoice_number: o.no,
+        amount_to_collect: o.amount,
+      })),
+    });
+    if (res?.id) {
+      return { ...trip, id: res.id as unknown as number };
+    }
+  } catch { /* fallback to local */ }
+  return trip;
+}

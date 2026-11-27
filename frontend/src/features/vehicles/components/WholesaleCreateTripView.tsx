@@ -17,6 +17,7 @@ import {
   getStoredVehicles,
   getStoredTrips,
   saveStoredTrips,
+  createTripInApi,
   type VehicleTripRecord,
 } from "../data/mockVehicles";
 
@@ -188,9 +189,16 @@ export function WholesaleCreateTripView() {
       })),
     };
 
-    // 1. Save new trip
+    // 1. Save new trip to Railway backend + local cache
     const currentTrips = getStoredTrips();
     saveStoredTrips([newTrip, ...currentTrips]);
+    void createTripInApi(newTrip).then((saved) => {
+      if (saved.id !== newTrip.id) {
+        const latest = getStoredTrips().map((t) => (t.id === newTrip.id ? saved : t));
+        saveStoredTrips(latest);
+        window.dispatchEvent(new Event("vehicle_trips_updated"));
+      }
+    });
 
     // 2. Advance pipeline orders to "dispatch" with assigned vehicle
     try {

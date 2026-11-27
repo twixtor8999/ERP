@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth.store";
 import { FireworksOverlay } from "@/features/crm/components/FireworksOverlay";
 import realCustomersData from "@/data/realCustomers.json";
@@ -375,6 +376,22 @@ export function PlaceOrderWholesaleView() {
     };
 
     setAllOrders((prev) => [newOrderRecord, ...prev]);
+
+    // Persist to Railway PostgreSQL backend
+    void apiClient.post("/api/v1/admin/crm/quick-order", {
+      customer_id: String(activeCustomerForOrder?.id || ""),
+      customer_name: activeCustomerForOrder?.name || "Customer",
+      customer_phone: activeCustomerForOrder?.phone || "",
+      items: newItems.map((it) => ({
+        variant_id: String(it.skuId),
+        quantity: it.qty,
+        unit_price: it.price,
+      })),
+      payment_method: "CASH",
+      paid_amount: 0,
+      delivery_notes: deliveryRemarks.trim() || undefined,
+    }).catch(() => { /* keep local fallback if offline or non-UUID variant */ });
+
     try {
       const raw = localStorage.getItem("pos_wholesale_placed_orders");
       const existing: CustomerOrderRecord[] = raw ? JSON.parse(raw) : [];

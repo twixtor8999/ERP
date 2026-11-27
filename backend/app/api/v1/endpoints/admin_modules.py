@@ -4746,4 +4746,112 @@ def get_crm_attendance_status(
     }
 
 
+# ---------------------------------------------------------------------------
+# 22. Settlements (Daily Vehicle / Cashier Cash Reconciliation)
+# ---------------------------------------------------------------------------
+
+
+class SaveSettlementPayload(BaseModel):
+    settlement_date: str
+    cash_sales: Decimal = Decimal("0.00")
+    card_sales: Decimal = Decimal("0.00")
+    upi_sales: Decimal = Decimal("0.00")
+    expected_total: Decimal = Decimal("0.00")
+    actual_total: Decimal = Decimal("0.00")
+    discrepancy: Decimal = Decimal("0.00")
+    status: str = "SUBMITTED"
+    notes: str | None = None
+
+
+@router.get("/settlements")
+def list_admin_settlements(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    rows = db.scalars(
+        select(Settlement)
+        .where(Settlement.organization_id == current_user.organization_id)
+        .order_by(Settlement.settlement_date.desc(), Settlement.created_at.desc())
+        .limit(200)
+    ).all()
+
+    return [
+        {
+            "id": s.id,
+            "settlement_date": s.settlement_date.isoformat(),
+            "opening_cash": float(s.opening_cash),
+            "cash_sales": float(s.cash_sales),
+            "card_sales": float(s.card_sales),
+            "upi_sales": float(s.upi_sales),
+            "expected_total": float(s.expected_total),
+            "actual_total": float(s.actual_total),
+            "discrepancy": float(s.discrepancy),
+            "status": s.status,
+            "notes": s.notes,
+        }
+        for s in rows
+    ]
+
+
+@router.post("/settlements", status_code=status.HTTP_201_CREATED)
+def save_admin_settlement(
+    payload: SaveSettlementPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    org_id = current_user.organization_id
+    branch_id = current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+    if not branch_id:
+        first_b = db.scalar(select(Branch).where(Branch.organization_id == org_id))
+        branch_id = first_b.id if first_b else None
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="No branch configured for organization")
+
+    s_date = date.fromisoformat(payload.settlement_date[:10])
+    existing = db.scalar(
+        select(Settlement).where(
+            Settlement.branch_id == branch_id,
+            Settlement.cashier_id == current_user.user_id,
+            Settlement.settlement_date == s_date,
+        )
+    )
+
+    if existing:
+        existing.cash_sales = payload.cash_sales
+        existing.card_sales = payload.card_sales
+        existing.upi_sales = payload.upi_sales
+        existing.expected_total = payload.expected_total
+        existing.actual_total = payload.actual_total
+        existing.discrepancy = payload.discrepancy
+        existing.status = payload.status
+        existing.notes = payload.notes
+        db.commit()
+        db.refresh(existing)
+        return {"id": existing.id, "settlement_date": existing.settlement_date.isoformat(), "status": existing.status}
+
+    settlement = Settlement(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=branch_id,
+        cashier_id=current_user.user_id,
+        settlement_date=s_date,
+        opening_cash=Decimal("0.00"),
+        cash_sales=payload.cash_sales,
+        card_sales=payload.card_sales,
+        upi_sales=payload.upi_sales,
+        expected_total=payload.expected_total,
+        actual_total=payload.actual_total,
+        discrepancy=payload.discrepancy,
+        status=payload.status,
+        notes=payload.notes,
+    )
+    db.add(settlement)
+    db.commit()
+    db.refresh(settlement)
+    return {"id": settlement.id, "settlement_date": settlement.settlement_date.isoformat(), "status": settlement.status}
+
+
+
 

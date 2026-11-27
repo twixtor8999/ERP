@@ -328,6 +328,76 @@ export async function fetchTrips(dateFrom?: string, dateTo?: string): Promise<Ap
   }
 }
 
+export async function createTrip(payload: {
+  vehicle_id: string;
+  driver_id?: string;
+  route_name: string;
+  trip_date?: string;
+  start_odometer?: number;
+  notes?: string;
+  stops: Array<{
+    customer_name: string;
+    customer_phone?: string;
+    delivery_address?: string;
+    invoice_number?: string;
+    amount_to_collect: number;
+  }>;
+}): Promise<{ id: string; trip_number: string } | null> {
+  try {
+    const res = await apiClient.post("/api/v1/admin/trips", payload);
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
+// ─── SETTLEMENTS ─────────────────────────────────────────────────────────────
+const LS_SETTLEMENTS_CACHE = "erp_api_settlements_cache_v1";
+
+export interface ApiSettlement {
+  id: string;
+  settlement_date: string;
+  opening_cash: number;
+  cash_sales: number;
+  card_sales: number;
+  upi_sales: number;
+  expected_total: number;
+  actual_total: number;
+  discrepancy: number;
+  status: string;
+  notes?: string;
+}
+
+export async function fetchSettlements(): Promise<ApiSettlement[]> {
+  try {
+    const res = await apiClient.get<ApiSettlement[]>("/api/v1/admin/settlements");
+    const data = Array.isArray(res.data) ? res.data : [];
+    lsSet(LS_SETTLEMENTS_CACHE, data);
+    return data;
+  } catch {
+    return ls<ApiSettlement[]>(LS_SETTLEMENTS_CACHE, []);
+  }
+}
+
+export async function saveSettlementToApi(payload: {
+  settlement_date: string;
+  cash_sales: number;
+  card_sales: number;
+  upi_sales: number;
+  expected_total: number;
+  actual_total: number;
+  discrepancy: number;
+  status?: string;
+  notes?: string;
+}): Promise<{ id: string; settlement_date: string; status: string } | null> {
+  try {
+    const res = await apiClient.post("/api/v1/admin/settlements", payload);
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
 // ─── CRM ORDERS (most critical) ──────────────────────────────────────────────
 const LS_CRM_ORDERS = "crm_wholesale_pipeline_orders";
 const LS_CRM_MASTER = "crm_orders_master";
