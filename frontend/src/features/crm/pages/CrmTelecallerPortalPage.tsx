@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CallingsRunSheetView } from "../components/CallingsRunSheetView";
 import { FireworksOverlay } from "../components/FireworksOverlay";
+import { getIstDateString, getIstDisplayDate, isDateInRange } from "@/lib/utilities/istTime";
 import {
   Phone,
   ShoppingCart,
@@ -317,25 +318,13 @@ const getIncentiveTag = (name: string, incProducts: IncentiveProduct[]): { amoun
   return null;
 };
 
-const getTodayIsoDate = (): string => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const getTodayIsoDate = (): string => getIstDateString();
 
 const getTodayDayName = (): string => {
-  return new Date().toLocaleDateString("en-US", { weekday: "long" });
+  return new Date().toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "long" });
 };
 
-const getTodayDisplayDate = (): string => {
-  const d = new Date();
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-};
+const getTodayDisplayDate = (): string => getIstDisplayDate();
 
 const getNowTimeStr = (): string => {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
@@ -1528,10 +1517,32 @@ export function CrmTelecallerPortalPage() {
 
         const totalAmount = mergedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount || o.total) || 0), 0);
 
+        const backendVisited = Array.isArray(repRes.data.visited_customers) ? repRes.data.visited_customers : [];
+        const visitedByKey = new Map<string, any>();
+        for (const vc of backendVisited) {
+          visitedByKey.set(vc.id || vc.phone || vc.name, vc);
+        }
+        for (const mo of localOrders) {
+          const k = (mo as any).customer_phone || mo.customer_name;
+          if (k && !visitedByKey.has(k)) {
+            visitedByKey.set(k, {
+              id: (mo as any).id || k,
+              name: mo.customer_name,
+              shop_name: (mo as any).shop_name || "Kirana Store",
+              village: (mo as any).village || "Bijapur",
+              phone: (mo as any).customer_phone || "",
+              orders_count: 1,
+            });
+          }
+        }
+        const mergedVisited = Array.from(visitedByKey.values());
+
         const reportWithSortedOrders: CrmReportData = {
           ...repRes.data,
           total_orders: mergedOrders.length,
           order_total: totalAmount,
+          customer_visited: Math.max(repRes.data.customer_visited || 0, mergedVisited.length),
+          visited_customers: mergedVisited,
           incentive_today: repRes.data.incentive_today ?? repRes.data.incentive ?? 0,
           my_orders: mergedOrders,
         };
@@ -1666,16 +1677,26 @@ export function CrmTelecallerPortalPage() {
     }));
 
     try {
-      const res = await apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`);
+      const res = await apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=250`);
       if (Array.isArray(res.data)) {
-        const sorted = [...res.data].sort((a, b) => {
+        const ordMap = new Map<string, CrmOrder>();
+        for (const lo of localConvertedList) {
+          if (lo.order_number) ordMap.set(lo.order_number, lo);
+        }
+        for (const bo of res.data) {
+          if (bo.order_number) {
+            const prev = ordMap.get(bo.order_number);
+            ordMap.set(bo.order_number, prev ? { ...prev, ...bo } : bo);
+          }
+        }
+        const merged = Array.from(ordMap.values()).sort((a, b) => {
           const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
           const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
           return numB - numA;
         });
-        setOrdersList(sorted);
+        setOrdersList(merged);
         if (showToast) {
-          toast.success(`Loaded ${sorted.length} orders`);
+          toast.success(`Loaded ${merged.length} orders`);
         }
         return;
       }
@@ -2070,36 +2091,18 @@ export function CrmTelecallerPortalPage() {
 
   // Filter Order Status
   const filteredOrders = useMemo(() => {
-    const extractIsoDate = (dStr?: string): string => {
-      if (!dStr) return "";
-      const str = dStr.trim();
-      const isoMatch = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
-        return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
-      }
-      const inMatch = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (inMatch && inMatch[1] && inMatch[2] && inMatch[3]) {
-        return `${inMatch[3]}-${inMatch[2].padStart(2, "0")}-${inMatch[1].padStart(2, "0")}`;
-      }
-      return "";
-    };
-
     return ordersList.filter((o) => {
       const q = orderStatusSearch.toLowerCase().trim();
       const matchQ =
         !q ||
         o.order_number?.toLowerCase().includes(q) ||
         o.customer_name?.toLowerCase().includes(q) ||
-        o.customer_phone?.toLowerCase().includes(q);
+        o.customer_phone?.includes(q);
 
       if (q && matchQ) return true;
+      if (!matchQ) return false;
 
-      const orderIso = extractIsoDate(o.order_date || o.order_placed);
-      const matchDate =
-        (!appliedStatusStartDate || !orderIso || orderIso >= appliedStatusStartDate) &&
-        (!appliedStatusEndDate || !orderIso || orderIso <= appliedStatusEndDate);
-
-      return matchDate && matchQ;
+      return isDateInRange(o.order_date || o.order_placed, appliedStatusStartDate, appliedStatusEndDate);
     });
   }, [ordersList, appliedStatusStartDate, appliedStatusEndDate, orderStatusSearch]);
 
@@ -2450,9 +2453,10 @@ export function CrmTelecallerPortalPage() {
         order_value_today: prev.order_value_today + calculatedOrderTotal,
       }));
 
-      const nowD = new Date();
-      const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
-      const placedTimeStr = `${dStr} ${nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      const todayIst = getTodayIsoDate();
+      const dStr = todayIst.split("-").reverse().join("-");
+      const nowTime = getNowTimeStr();
+      const placedTimeStr = `${dStr} ${nowTime}`;
 
       // Build items directly from current cart
       const savedItems: CrmOrderItem[] = Object.entries(orderItems)
@@ -2506,7 +2510,7 @@ export function CrmTelecallerPortalPage() {
           createdBy: staffName,
           source: "CRM",
           orderDate: dStr,
-          orderTime: nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase(),
+          orderTime: nowTime,
           phone: orderCustomer.phone || "",
           total: calculatedOrderTotal,
           balance: 0,
@@ -2514,7 +2518,7 @@ export function CrmTelecallerPortalPage() {
           status: "packed",
           history: [
             {
-              when: `${nowD.toISOString().slice(0, 10)} ${nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              when: `${todayIst} ${nowTime}`,
               from: "Placed",
               to: "Packed",
               by: staffName,
@@ -2577,7 +2581,7 @@ export function CrmTelecallerPortalPage() {
           customer_visited: updatedVisited.length,
           my_orders: [newOrder, ...(prev.my_orders || [])],
           visited_customers: updatedVisited,
-          last_order: `${nowD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase()}`,
+          last_order: `${getTodayDisplayDate()}, ${nowTime}`,
         };
 
         try {
@@ -2587,6 +2591,12 @@ export function CrmTelecallerPortalPage() {
         return updatedReport;
       });
 
+      setReportStartDate(todayIst);
+      setReportEndDate(todayIst);
+      setOrderStatusStartDate(todayIst);
+      setOrderStatusEndDate(todayIst);
+      setAppliedStatusStartDate(todayIst);
+      setAppliedStatusEndDate(todayIst);
       setOrderItems({});
       setOrderRemarks("");
       setIsInCartView(false);
@@ -2595,7 +2605,7 @@ export function CrmTelecallerPortalPage() {
       setShowCelebration(true);
       setActiveView("reports");
       loadDashboardData(false);
-      loadReportsAndOrders();
+      loadReportsAndOrders(todayIst, todayIst);
     } catch (err: any) {
       const msg =
         err?.response?.data?.detail ||

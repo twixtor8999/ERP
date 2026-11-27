@@ -266,7 +266,8 @@ export function normalizeDateToIso(dStr?: string): string {
 }
 
 import { getStoredEmployees, type Employee } from "@/features/employees/data/mockEmployees";
-import { isDateInRange } from "@/lib/utilities/istTime";
+import { apiClient } from "@/lib/api/client";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 // Base telecallers list
 export const INITIAL_CRM_STAFF_LIST = [
@@ -563,4 +564,124 @@ export function getStaffMetricsInDateRange(
       },
     };
   });
+}
+
+let _lastBackendCrmSyncAt = 0;
+let _inflightBackendCrmSync: Promise<CrmOrderRecord[]> | null = null;
+
+/**
+ * Fetch live CRM & Storefront orders from PostgreSQL (`/api/v1/admin/crm/orders`),
+ * merge them cleanly into `crm_wholesale_pipeline_orders` without overwriting local unsynced edits,
+ * invalidate the CRM order read cache, and return the fresh unified CrmOrderRecord list.
+ */
+export async function syncBackendCrmOrders(force = false): Promise<CrmOrderRecord[]> {
+  if (typeof window === "undefined") return [];
+  const now = Date.now();
+  if (!force && _inflightBackendCrmSync) return _inflightBackendCrmSync;
+  if (!force && now - _lastBackendCrmSyncAt < 4000) {
+    return getAllCrmOrders();
+  }
+
+  _inflightBackendCrmSync = (async () => {
+    try {
+      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=250");
+      _lastBackendCrmSyncAt = Date.now();
+
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        let existingPipeline: any[] = [];
+        try {
+          const raw = localStorage.getItem("crm_wholesale_pipeline_orders");
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) existingPipeline = parsed;
+        } catch {}
+
+        const prevMap = new Map<string, any>(
+          existingPipeline.map((o: any) => [o.orderNo, o])
+        );
+        const merged: any[] = [];
+
+        for (const bo of res.data) {
+          const orderNo = bo.order_number || `ORD-${bo.id}`;
+          const existing = prevMap.get(orderNo);
+          const sUpper = String(bo.status || "").toUpperCase();
+          let stage = existing?.stage || "packing";
+          if (sUpper === "DELIVERED") stage = "completed";
+          else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
+          else if (sUpper === "DISPATCHED") stage = "dispatch";
+          else if (sUpper === "INVOICED" || sUpper === "INVOICE" || sUpper === "PACKED") stage = "invoice";
+          else if (sUpper === "CANCELLED") stage = "cancelled";
+
+          merged.push({
+            id: bo.id || existing?.id || `ord-${orderNo}`,
+            orderNo,
+            invoiceNo: existing?.invoiceNo || bo.invoice_number || undefined,
+            customerName: bo.customer_name || existing?.customerName || "Customer",
+            shopName: bo.shop_name || existing?.shopName || "Store",
+            village: bo.village || existing?.village || "Bijapur",
+            route: bo.route || existing?.route || "Bijapur Route",
+            createdBy: (bo.created_by || existing?.createdBy || "Pushpa Patil")
+              .replace(/\s*\([^)]*\)\s*$/g, "")
+              .trim(),
+            source: bo.source === "Admin" ? "Store" : bo.source || existing?.source || "CRM",
+            orderDate: bo.order_date || existing?.orderDate || getIstDateString(),
+            orderTime:
+              bo.order_placed && bo.order_placed !== "—"
+                ? bo.order_placed.split(" ").slice(1).join(" ") || "10:00 am"
+                : existing?.orderTime || "10:00 am",
+            vehicleNo: existing?.vehicleNo || "KA28AA6256",
+            total: typeof bo.total_amount === "number" ? bo.total_amount : existing?.total || 0,
+            balance:
+              bo.payment_status === "PAID"
+                ? 0
+                : typeof bo.total_amount === "number"
+                ? bo.total_amount
+                : existing?.balance || 0,
+            paymentMode: bo.payment_method || existing?.paymentMode || "Cash",
+            stage,
+            status: bo.status || existing?.status,
+            phone: bo.customer_phone || existing?.phone,
+            packedConfirmedAt:
+              bo.packed_confirmed && bo.packed_confirmed !== "—"
+                ? bo.packed_confirmed
+                : existing?.packedConfirmedAt,
+            dispatchedAt:
+              bo.dispatched && bo.dispatched !== "—" ? bo.dispatched : existing?.dispatchedAt,
+            outForDeliveryAt:
+              bo.out_for_delivery && bo.out_for_delivery !== "—"
+                ? bo.out_for_delivery
+                : existing?.outForDeliveryAt,
+            deliveredAt:
+              bo.delivered && bo.delivered !== "—" ? bo.delivered : existing?.deliveredAt,
+            items:
+              Array.isArray(bo.items) && bo.items.length > 0
+                ? bo.items.map((it: any) => ({
+                    name: it.product_name,
+                    unit: "Unit",
+                    qty: it.quantity,
+                    price: it.unit_price,
+                    rate: it.unit_price,
+                    gst: "5%",
+                    amount: it.total_amount,
+                  }))
+                : existing?.items || [],
+            history: existing?.history || [],
+          });
+          prevMap.delete(orderNo);
+        }
+
+        const nextPipeline = [...merged, ...Array.from(prevMap.values())];
+        try {
+          localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(nextPipeline));
+        } catch {}
+        _crmOrdersCacheRaw = new Map<string, string>();
+      }
+    } catch {
+      // Offline / unauthenticated fallback keeps cached orders
+    } finally {
+      _inflightBackendCrmSync = null;
+    }
+    return getAllCrmOrders();
+  })();
+
+  return _inflightBackendCrmSync;
 }

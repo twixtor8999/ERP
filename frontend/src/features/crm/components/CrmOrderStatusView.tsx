@@ -1,20 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
   getOrdersInDateRange,
+  syncBackendCrmOrders,
   type CrmOrderRecord,
 } from "../data/mockCrmReports";
 import { CrmOrderStatusDetailView } from "./CrmOrderStatusDetailView";
+import { getIstDateString } from "@/lib/utilities/istTime";
 
 export function CrmOrderStatusView() {
   const navigate = useNavigate();
 
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  const todayIso = getIstDateString();
 
   const [fromDate, setFromDate] = useState("2026-11-20");
   const [toDate, setToDate] = useState(todayIso);
@@ -22,10 +21,29 @@ export function CrmOrderStatusView() {
   const [appliedTo, setAppliedTo] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<CrmOrderRecord | null>(null);
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    const syncNow = () => {
+      syncBackendCrmOrders().then(() => setRevision((v) => v + 1));
+    };
+    const bump = () => setRevision((v) => v + 1);
+    syncNow();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", syncNow);
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", syncNow);
+    };
+  }, []);
 
   const orders = useMemo(() => {
     return getOrdersInDateRange(appliedFrom, appliedTo);
-  }, [appliedFrom, appliedTo]);
+  }, [appliedFrom, appliedTo, revision]);
 
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders;
@@ -53,8 +71,13 @@ export function CrmOrderStatusView() {
 
   const handleSubmitDate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (fromDate && toDate && fromDate > toDate) {
+      toast.error("From date cannot be after To date");
+      return;
+    }
     setAppliedFrom(fromDate);
     setAppliedTo(toDate);
+    syncBackendCrmOrders(true).then(() => setRevision((v) => v + 1));
     toast.success(`Order status loaded for ${fromDate} to ${toDate}`);
   };
 

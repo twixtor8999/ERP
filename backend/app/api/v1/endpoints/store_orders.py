@@ -4,6 +4,7 @@ import random
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -358,6 +359,7 @@ def place_order(
     order_id = generate_uuid()
     order_number = _generate_order_number(db, ctx.organization_id)
     now_utc = datetime.now(UTC)
+    today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
 
     order = Order(
         id=order_id,
@@ -365,7 +367,7 @@ def place_order(
         branch_id=branch_id,
         customer_id=ctx.customer_id,
         order_number=order_number,
-        order_date=now_utc.date(),
+        order_date=today_ist,
         status="PENDING",
         order_type="STOREFRONT",
         subtotal=subtotal,

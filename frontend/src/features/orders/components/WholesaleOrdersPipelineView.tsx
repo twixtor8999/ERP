@@ -804,6 +804,18 @@ export function WholesaleOrdersPipelineView() {
               stage: stage,
               status: bo.status || existing?.status,
               phone: bo.customer_phone || existing?.phone,
+              packedConfirmedAt:
+                bo.packed_confirmed && bo.packed_confirmed !== "—"
+                  ? bo.packed_confirmed
+                  : existing?.packedConfirmedAt,
+              dispatchedAt:
+                bo.dispatched && bo.dispatched !== "—" ? bo.dispatched : existing?.dispatchedAt,
+              outForDeliveryAt:
+                bo.out_for_delivery && bo.out_for_delivery !== "—"
+                  ? bo.out_for_delivery
+                  : existing?.outForDeliveryAt,
+              deliveredAt:
+                bo.delivered && bo.delivered !== "—" ? bo.delivered : existing?.deliveredAt,
               items: (bo.items && bo.items.length > 0)
                 ? bo.items.map((it: any) => ({
                     name: it.product_name,

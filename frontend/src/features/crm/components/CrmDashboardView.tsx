@@ -1,28 +1,46 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   getStaffMetricsInDateRange,
+  syncBackendCrmOrders,
 } from "../data/mockCrmReports";
+import { getIstDateString } from "@/lib/utilities/istTime";
 
 export function CrmDashboardView() {
   const navigate = useNavigate();
 
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  const todayIso = getIstDateString();
 
   const [fromDate, setFromDate] = useState("2026-11-20");
   const [toDate, setToDate] = useState(todayIso);
   const [appliedFrom, setAppliedFrom] = useState("2026-11-20");
   const [appliedTo, setAppliedTo] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    const syncNow = () => {
+      syncBackendCrmOrders().then(() => setRevision((v) => v + 1));
+    };
+    const bump = () => setRevision((v) => v + 1);
+    syncNow();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", syncNow);
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", syncNow);
+    };
+  }, []);
 
   const staff = useMemo(() => {
     return getStaffMetricsInDateRange(appliedFrom, appliedTo);
-  }, [appliedFrom, appliedTo]);
+  }, [appliedFrom, appliedTo, revision]);
 
   // Telecallers who either placed orders or are active team telecallers
   const activeStaff = useMemo(() => {
@@ -59,8 +77,13 @@ export function CrmDashboardView() {
 
   const handleSubmitDate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (fromDate && toDate && fromDate > toDate) {
+      toast.error("From date cannot be after To date");
+      return;
+    }
     setAppliedFrom(fromDate);
     setAppliedTo(toDate);
+    syncBackendCrmOrders(true).then(() => setRevision((v) => v + 1));
     toast.success(`Data loaded for ${fromDate} to ${toDate}`);
   };
 

@@ -3559,7 +3559,29 @@ def place_crm_quick_order(
                 )
             )
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        if payload.customer_name and payload.customer_name.strip():
+            clean_phone = "".join(ch for ch in (payload.customer_phone or "") if ch.isdigit())[-10:]
+            if not clean_phone:
+                clean_phone = f"99{int(datetime.now(UTC).timestamp()) % 100000000:08d}"
+            c_name = payload.customer_name.strip()
+            customer = Customer(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                customer_code=f"CUST-{int(datetime.now(UTC).timestamp()) % 100000:05d}",
+                customer_type="RETAIL",
+                company_name=c_name,
+                first_name=c_name,
+                display_name=c_name,
+                phone=clean_phone,
+                email=f"customer_{clean_phone}@siddeshwar.in",
+                credit_limit=Decimal("50000.00"),
+                current_balance=Decimal("0.00"),
+                is_active=True,
+            )
+            db.add(customer)
+            db.flush()
+        else:
+            raise HTTPException(status_code=404, detail="Customer not found")
 
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item")
@@ -3758,8 +3780,11 @@ def get_crm_telecaller_reports(
         )
     ) or 0
 
-    # Orders in date range
-    order_conditions = [Order.organization_id == org_id]
+    # Orders in date range (exclude cancelled orders from active totals)
+    order_conditions = [
+        Order.organization_id == org_id,
+        func.upper(func.coalesce(Order.status, "")) != "CANCELLED",
+    ]
     order_date_expr = func.coalesce(Order.order_date, func.cast(func.timezone("Asia/Kolkata", Order.created_at), Date))
     if s_date:
         order_conditions.append(order_date_expr >= s_date)
@@ -3769,7 +3794,7 @@ def get_crm_telecaller_reports(
     order_stmt = (
         select(Order)
         .where(*order_conditions)
-        .order_by(Order.order_number.desc(), Order.created_at.desc())
+        .order_by(Order.created_at.desc())
     )
     orders = db.scalars(order_stmt).all()
 
@@ -3798,9 +3823,10 @@ def get_crm_telecaller_reports(
     ) or 293
     unbilled_customers = 1961 if 1900 <= (tot_customers - billed_cust_count) <= 2254 else (tot_customers - billed_cust_count)
 
-    # Preload customer names for orders
+    # Preload customer names & phones for orders
     cust_ids = [o.customer_id for o in orders if o.customer_id]
     customers_map = {}
+    customer_phones_map = {}
     if cust_ids:
         for c in db.scalars(select(Customer).where(Customer.id.in_(cust_ids))).all():
             full = f"{c.first_name} {c.last_name or ''}".strip()
@@ -3811,6 +3837,12 @@ def get_crm_telecaller_reports(
                 if person_part:
                     disp = person_part
             customers_map[c.id] = disp.title()
+            customer_phones_map[c.id] = c.phone or ""
+
+    uid_to_name_rep: dict[str, str] = {
+        u.id: u.full_name
+        for u in db.scalars(select(User).where(User.organization_id == org_id)).all()
+    }
 
     ist = ZoneInfo("Asia/Kolkata")
     my_orders = []
@@ -3823,13 +3855,36 @@ def get_crm_telecaller_reports(
             o_date = dt_ist.date()
         else:
             o_date = today
+
+        telecaller_name = "Pushpa Patil"
+        if o.notes and "Punched by Telecaller CRM (" in o.notes:
+            uid = o.notes.split("Punched by Telecaller CRM (")[-1].split(")")[0].strip()
+            telecaller_name = uid_to_name_rep.get(uid) or uid_to_name_rep.get(uid.strip()) or "Pushpa Patil"
+        elif o.order_type != "TELECALLER_CRM":
+            telecaller_name = "Storefront"
+
+        def _fmt_dt(dt_val: datetime | None) -> str:
+            if not dt_val:
+                return "—"
+            d_ist = dt_val.astimezone(ist) if dt_val.tzinfo else dt_val.replace(tzinfo=UTC).astimezone(ist)
+            return d_ist.strftime("%d-%m-%Y %H:%M")
+
         my_orders.append({
             "id": o.id,
-            "order_number": o.order_number,
+            "order_number": (o.order_number or "").replace("-B", ""),
             "order_date": o_date.strftime("%d-%m-%Y"),
             "customer_name": c_name,
+            "customer_phone": o.shipping_phone or customer_phones_map.get(o.customer_id, ""),
+            "telecaller_name": telecaller_name,
             "total_amount": float(o.total_amount),
             "status": (o.status or "PLACED").upper(),
+            "order_placed": _fmt_dt(o.placed_at or o.created_at),
+            "packed_confirmed": _fmt_dt(o.packed_at or o.confirmed_at),
+            "dispatched": _fmt_dt(o.dispatched_at),
+            "out_for_delivery": _fmt_dt(o.delivery_started_at),
+            "delivered": _fmt_dt(o.delivered_at),
+            "payment_method": o.payment_method or "CASH",
+            "payment_status": o.payment_status or "UNPAID",
         })
 
     # Calculate incentive earnings for orders in the selected date range
@@ -4078,9 +4133,30 @@ def get_crm_orders_status(
 
     orders = db.scalars(stmt).all()
     cust_ids = [o.customer_id for o in orders if o.customer_id]
-    custs = {c.id: c for c in db.scalars(select(Customer).where(Customer.id.in_(cust_ids))).all()} if cust_ids else {}
+    custs = (
+        {
+            c.id: c
+            for c in db.scalars(
+                select(Customer)
+                .options(joinedload(Customer.addresses))
+                .where(Customer.id.in_(cust_ids))
+            )
+            .unique()
+            .all()
+        }
+        if cust_ids
+        else {}
+    )
 
     order_ids = [o.id for o in orders]
+    inv_by_order: dict[str, str] = {}
+    if order_ids:
+        for oid, inv_no in db.execute(
+            select(Invoice.order_id, Invoice.invoice_number).where(Invoice.order_id.in_(order_ids))
+        ).all():
+            if oid and inv_no:
+                inv_by_order[oid] = inv_no
+
     all_items = db.scalars(select(OrderItem).where(OrderItem.order_id.in_(order_ids))).all() if order_ids else []
     items_by_order: dict[str, list[dict[str, Any]]] = {}
     for it in all_items:
@@ -4152,26 +4228,46 @@ def get_crm_orders_status(
             if q not in disp_order_no.lower() and q not in contact_person.lower() and q not in (o.shipping_phone or "").lower():
                 continue
 
-        created_by_name = "Pushpa Patil"
+        created_by_name = "Pushpa Patil" if o.order_type == "TELECALLER_CRM" else "Storefront"
         if o.delivery_notes and "Punched via Telecaller CRM by " in o.delivery_notes:
-            created_by_name = o.delivery_notes.split("Punched via Telecaller CRM by ")[-1].strip() or "Pushpa Patil"
+            created_by_name = o.delivery_notes.split("Punched via Telecaller CRM by ")[-1].strip() or created_by_name
         elif o.notes and "Punched by Telecaller CRM (" in o.notes:
-            raw_uid = o.notes.replace("Punched by Telecaller CRM (", "").replace(")", "").strip()
+            raw_uid = o.notes.split("Punched by Telecaller CRM (")[-1].split(")")[0].strip()
             resolved = users_name_map.get(raw_uid)
             if resolved:
                 created_by_name = resolved
             elif raw_uid and "-" not in raw_uid and len(raw_uid) < 40:
                 created_by_name = raw_uid
 
+        addr = c.addresses[0] if (c and hasattr(c, "addresses") and c.addresses) else None
+        raw_vil = (
+            (addr.address_line1 if addr and addr.address_line1 else None)
+            or (c.city if c and c.city else None)
+            or o.shipping_address_line1
+            or "Bijapur"
+        ).strip()
+        if "http" in raw_vil.lower() or "maps" in raw_vil.lower():
+            if "query=" in raw_vil:
+                raw_vil = urllib.parse.unquote_plus(raw_vil.split("query=", 1)[1].split("&", 1)[0]).split(",")[0].strip()
+            else:
+                raw_vil = raw_vil.split(",")[0].strip()
+        raw_route = (
+            (addr.city if addr and addr.city else None)
+            or (c.state if c and c.state else None)
+            or o.shipping_city
+            or "Bijapur"
+        ).strip()
+
         results.append({
             "id": o.id,
             "order_number": disp_order_no,
-            "order_date": o.order_date.isoformat() if o.order_date else o.created_at.date().isoformat(),
+            "invoice_number": inv_by_order.get(o.id),
+            "order_date": o.order_date.isoformat() if o.order_date else o.created_at.astimezone(ist).date().isoformat(),
             "customer_name": contact_person,
             "customer_phone": o.shipping_phone or (c.phone if c else "-"),
             "shop_name": (c.company_name or c.display_name or "Retail Store") if c else "Retail Store",
-            "village": (c.city or "Bijapur") if c else "Bijapur",
-            "route": (c.state or "Bijapur Route") if c else "Bijapur Route",
+            "village": raw_vil or "Bijapur",
+            "route": raw_route or "Bijapur",
             "created_by": created_by_name,
             "source": "CRM" if o.order_type == "TELECALLER_CRM" else "STORE",
             "total_amount": float(o.total_amount),
