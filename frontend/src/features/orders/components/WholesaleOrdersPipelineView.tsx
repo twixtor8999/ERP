@@ -1685,7 +1685,7 @@ export function WholesaleOrdersPipelineView() {
         ...prev,
         [idx]: {
           qty: safeQty,
-          reason: prev[idx]?.reason || (safeQty > 0 ? "Shop Close" : "")
+          reason: safeQty > 0 ? (prev[idx]?.reason || "") : ""
         }
       }));
     };
@@ -1703,10 +1703,10 @@ export function WholesaleOrdersPipelineView() {
     const handleFullReturn = () => {
       const full: Record<number, { qty: number; reason: string }> = {};
       viewingOrder.items.forEach((it, idx) => {
-        full[idx] = { qty: it.qty, reason: "Shop Close" };
+        full[idx] = { qty: it.qty, reason: itemReturns[idx]?.reason || "" };
       });
       setItemReturns(full);
-      toast.info("Full return applied. Reason set to 'Shop Close'.");
+      toast.info("Full return applied. Please select a return reason from the dropdown.");
     };
 
     const handleCompleteDelivery = () => {
