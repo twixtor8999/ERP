@@ -266,6 +266,7 @@ export function normalizeDateToIso(dStr?: string): string {
 }
 
 import { getStoredEmployees, type Employee } from "@/features/employees/data/mockEmployees";
+import { isDateInRange } from "@/lib/utilities/istTime";
 
 // Base telecallers list
 export const INITIAL_CRM_STAFF_LIST = [
@@ -464,15 +465,8 @@ export function getOrdersInDateRange(
   preloadedOrders?: CrmOrderRecord[]
 ): CrmOrderRecord[] {
   const all = preloadedOrders || getAllCrmOrders();
-  const fIso = normalizeDateToIso(fromDate);
-  const tIso = normalizeDateToIso(toDate);
 
-  return all.filter((o) => {
-    const oIso = normalizeDateToIso(o.orderDate);
-    if (fIso && oIso < fIso) return false;
-    if (tIso && oIso > tIso) return false;
-    return true;
-  });
+  return all.filter((o) => isDateInRange(o.orderDate, fromDate, toDate));
 }
 
 // Helper: Aggregate staff performance for a given date range
