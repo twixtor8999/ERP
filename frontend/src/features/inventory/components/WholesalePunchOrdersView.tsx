@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Eye, X } from "lucide-react";
+import { ArrowLeft, Search, Eye } from "lucide-react";
 import {
   INITIAL_PUNCH_ORDERS,
   getStoredSkus,
@@ -128,6 +128,125 @@ export function WholesalePunchOrdersView() {
       { qty: 0, available: 0 }
     );
   }, [filteredSummaries]);
+
+  if (selectedSkuSummary) {
+    const totalPendingQty = selectedSkuSummary.orders.reduce((a, b) => a + b.qty, 0);
+    const totalAmount = selectedSkuSummary.orders.reduce((a, b) => a + b.qty * b.rate, 0);
+
+    return (
+      <div className="space-y-4 pb-12">
+        {/* Top Bar with Back Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+          <button
+            onClick={() => setSelectedSkuSummary(null)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white text-xs font-semibold rounded shadow-sm transition cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
+
+          <span className="text-xs text-slate-500 font-medium">
+            Total orders: <b className="text-slate-800">{selectedSkuSummary.orders.length}</b>
+          </span>
+        </div>
+
+        {/* Page Heading */}
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0f2d59]">{selectedSkuSummary.skuName}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Pending qty <b>{selectedSkuSummary.qty}</b> · Available qty{" "}
+            <b className={selectedSkuSummary.availableQty < 0 ? "text-rose-600" : "text-emerald-700"}>
+              {selectedSkuSummary.availableQty}
+            </b>{" "}
+            · Stock now <b>{selectedSkuSummary.stockNow}</b>
+          </p>
+        </div>
+
+        {/* Dedicated Order Breakdown Table */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-[#1e40af] text-white uppercase text-[11px] tracking-wider font-semibold">
+                <tr>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50 w-10 text-center">Sl</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50">Order No</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50">Customer Name</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50">Village</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50">Order Date</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50 text-right">Qty</th>
+                  <th className="py-2.5 px-3 border-r border-blue-700/50 text-right">Amount</th>
+                  <th className="py-2.5 px-3 text-center">Delivery Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-800">
+                {selectedSkuSummary.orders.map((o, idx) => (
+                  <tr key={o.orderId} className="hover:bg-slate-50 transition">
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-center text-slate-400">
+                      {idx + 1}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-semibold text-slate-800">
+                      {o.orderNo}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 font-medium">
+                      {o.customerName}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-slate-600">
+                      {o.village}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-slate-500 whitespace-nowrap">
+                      {o.orderDate}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-right font-bold text-amber-700">
+                      {o.qty}
+                    </td>
+                    <td className="py-2.5 px-3 border-r border-slate-100 text-right font-medium whitespace-nowrap">
+                      ₹{(o.qty * o.rate).toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${
+                          o.status === "placed"
+                            ? "bg-blue-100 text-blue-800"
+                            : o.status === "packed"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        {o.status === "placed" ? "Order placed" : o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-100/90 font-bold border-t-2 border-slate-300">
+                <tr>
+                  <td colSpan={5} className="py-2.5 px-3 text-right">
+                    Total:
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-amber-700">
+                    {totalPendingQty}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-slate-900 whitespace-nowrap">
+                    ₹{totalAmount.toLocaleString("en-IN")}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={() => setSelectedSkuSummary(null)}
+            className="px-5 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded text-xs font-semibold transition cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-12">
@@ -262,112 +381,6 @@ export function WholesalePunchOrdersView() {
           </table>
         </div>
       </div>
-
-      {/* Order Breakdown Modal */}
-      {selectedSkuSummary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="bg-[#0f2d59] px-4 py-3 text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">{selectedSkuSummary.skuName}</h3>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  Pending qty {selectedSkuSummary.qty} · Available qty {selectedSkuSummary.availableQty} ·
-                  Stock now {selectedSkuSummary.stockNow}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedSkuSummary(null)}
-                className="text-slate-300 hover:text-white transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#1e40af] text-white uppercase text-[10px] tracking-wider font-semibold">
-                  <tr>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50 w-8 text-center">Sl</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50">Order No</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50">Customer Name</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50">Village</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50">Order Date</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50 text-right">Qty</th>
-                    <th className="py-2 px-2.5 border-r border-blue-700/50 text-right">Amount</th>
-                    <th className="py-2 px-2.5 text-center">Delivery Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {selectedSkuSummary.orders.map((o, idx) => (
-                    <tr key={o.orderId} className="hover:bg-slate-50 transition">
-                      <td className="py-2 px-2.5 border-r border-slate-100 text-center text-slate-400">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 font-semibold text-slate-800">
-                        {o.orderNo}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 font-medium">
-                        {o.customerName}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 text-slate-600">
-                        {o.village}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 text-slate-500 whitespace-nowrap">
-                        {o.orderDate}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 text-right font-bold text-amber-700">
-                        {o.qty}
-                      </td>
-                      <td className="py-2 px-2.5 border-r border-slate-100 text-right font-medium whitespace-nowrap">
-                        ₹{(o.qty * o.rate).toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2 px-2.5 text-center">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${
-                            o.status === "placed"
-                              ? "bg-blue-100 text-blue-800"
-                              : o.status === "packed"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-purple-100 text-purple-800"
-                          }`}
-                        >
-                          {o.status === "placed" ? "Order placed" : o.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-100 font-bold border-t border-slate-300">
-                  <tr>
-                    <td colSpan={5} className="py-2 px-2.5 text-right">
-                      Total:
-                    </td>
-                    <td className="py-2 px-2.5 text-right text-amber-700">
-                      {selectedSkuSummary.orders.reduce((a, b) => a + b.qty, 0)}
-                    </td>
-                    <td className="py-2 px-2.5 text-right text-slate-900 whitespace-nowrap">
-                      ₹
-                      {selectedSkuSummary.orders
-                        .reduce((a, b) => a + b.qty * b.rate, 0)
-                        .toLocaleString("en-IN")}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-end">
-              <button
-                onClick={() => setSelectedSkuSummary(null)}
-                className="px-4 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded text-xs font-semibold transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
