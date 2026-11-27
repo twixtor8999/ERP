@@ -21,7 +21,26 @@ export interface CustomerCartRow {
   items: CustomerCartItem[];
 }
 
-const STORAGE_B2B_CARTS = "erp_b2b_customer_carts";
+const STORAGE_B2B_CARTS = "erp_b2b_customer_carts_v2";
+
+const INITIAL_BACKUP_CARTS: CustomerCartRow[] = [
+  {
+    sl: 1,
+    customerId: "1792946086855293",
+    customerName: "Shivanand H Kudagi (Kudagi Store)",
+    villageName: "Muttagi",
+    noOfItems: 1,
+    totalAmount: 2150,
+    items: [
+      {
+        skuId: "113",
+        itemName: "Wholesale B2B Catalog Item #113",
+        qty: 1,
+        price: 2150,
+      },
+    ],
+  },
+];
 
 export function WholesaleCustomerCartsView() {
   const navigate = useNavigate();
@@ -34,8 +53,9 @@ export function WholesaleCustomerCartsView() {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
       }
+      localStorage.setItem(STORAGE_B2B_CARTS, JSON.stringify(INITIAL_BACKUP_CARTS));
     } catch {}
-    return [];
+    return INITIAL_BACKUP_CARTS;
   });
 
   const [selectedCart, setSelectedCart] = useState<CustomerCartRow | null>(null);

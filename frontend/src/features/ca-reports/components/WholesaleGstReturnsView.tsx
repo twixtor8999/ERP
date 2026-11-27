@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Download, Printer, Search, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
+import { computeGstReturnData } from '../data/mockCaReports';
 import { toast } from 'sonner';
 
 interface Props {
@@ -26,15 +27,27 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
   const companyName = user?.organizationName || cfg.companyName || 'My Wholesale Distribution';
   const companyGstin = cfg.gstin || '29ABCDE1234F1Z5';
 
-  const isNov = returnMonth === '2026-11';
-  const periodLabel = returnType === '9' ? financialYear : (isNov ? 'November 2026' : 'October 2026');
-  const dueDateLabel = returnType === '1' 
-    ? (isNov ? '11-12-2026' : '11-11-2026') 
-    : returnType === '2' 
-    ? 'Generated on the portal on the 14th — match these bills before filing GSTR-3B' 
-    : returnType === '3b' 
-    ? (isNov ? '20-12-2026' : '20-11-2026') 
+  const gstData = useMemo(
+    () => computeGstReturnData(returnMonth, financialYear),
+    [returnMonth, financialYear]
+  );
+
+  const periodLabel =
+    returnType === '9'
+      ? financialYear
+      : new Date(`${returnMonth}-01T00:00:00`).toLocaleDateString('en-IN', {
+          month: 'long',
+          year: 'numeric',
+        });
+  const dueDateLabel = returnType === '1'
+    ? '11th of next month'
+    : returnType === '2'
+    ? 'Generated on the portal on the 14th — match these bills before filing GSTR-3B'
+    : returnType === '3b'
+    ? '20th of next month'
     : '31-12-2026';
+
+  const fmtRs = (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`;
 
   // Subtitles per GSTR tab matching screenshots 1-4
   const SUBTITLES: Record<string, string> = {
@@ -245,27 +258,27 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Taxable value</span>
-              <b className="text-base font-bold text-teal-800">{isNov ? '₹17,45,280' : '₹0'}</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr1.taxableValue)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">IGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr1.igst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">CGST</span>
-              <b className="text-base font-bold text-teal-800">{isNov ? '₹43,632' : '₹0'}</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr1.cgst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">SGST</span>
-              <b className="text-base font-bold text-teal-800">{isNov ? '₹43,632' : '₹0'}</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr1.sgst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Invoices</span>
-              <b className="text-base font-bold text-teal-800">{isNov ? '512' : '0'}</b>
+              <b className="text-base font-bold text-teal-800">{gstData.gstr1.invoicesCount}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Credit notes</span>
-              <b className="text-base font-bold text-teal-800">{isNov ? '153' : '0'}</b>
+              <b className="text-base font-bold text-teal-800">{gstData.gstr1.creditNotesCount}</b>
             </div>
           </>
         )}
@@ -274,27 +287,27 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Purchases taxable</span>
-              <b className="text-base font-bold text-teal-800">₹23,140</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr2.purchasesTaxable)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">ITC IGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr2.itcIgst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">ITC CGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr2.itcCgst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">ITC SGST</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr2.itcSgst)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Net ITC (after returns)</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr2.netItc)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5">
               <span className="text-xs text-slate-600 block">Bills</span>
-              <b className="text-base font-bold text-teal-800">1</b>
+              <b className="text-base font-bold text-teal-800">{gstData.gstr2.billsCount}</b>
             </div>
           </>
         )}
@@ -303,19 +316,19 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Output tax</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr3b.outputTax)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Net ITC</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr3b.netItc)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Pay in cash</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr3b.payInCash)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">ITC carried forward</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr3b.itcCarriedForward)}</b>
             </div>
           </>
         )}
@@ -324,19 +337,19 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Turnover (4N + 5)</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr9.turnover)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Output tax</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr9.outputTax)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">ITC availed</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr9.itcAvailed)}</b>
             </div>
             <div className="bg-teal-50/50 border border-teal-200/60 rounded-xl p-2.5 sm:col-span-1.5">
               <span className="text-xs text-slate-600 block">Paid in cash</span>
-              <b className="text-base font-bold text-teal-800">₹0</b>
+              <b className="text-base font-bold text-teal-800">{fmtRs(gstData.gstr9.paidInCash)}</b>
             </div>
           </>
         )}
@@ -345,7 +358,7 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
       {/* Status banner */}
       <div className="bg-amber-50/70 border border-amber-200 rounded-lg px-3 py-2 text-xs flex items-center gap-2 text-amber-900 font-medium">
         <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-        <span>No problems found in this period</span>
+        <span>Computed directly from live orders, purchase bills &amp; SKU HSN rates for {periodLabel}</span>
       </div>
 
       {/* Return Table Content Section */}
@@ -354,13 +367,44 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
             <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <span className="font-bold text-xs text-slate-800">
-                4A · B2B invoices Customers with GSTIN — one row per invoice and rate
+                4A · B2B invoices Customers with GSTIN — one row per invoice
               </span>
-              <span className="text-xs text-slate-500">0 row(s) · sheet &quot;b2b&quot;</span>
+              <span className="text-xs text-slate-500">{gstData.gstr1.b2bRows.length} row(s) · sheet &quot;b2b&quot;</span>
             </div>
-            <div className="p-6 text-center text-xs text-slate-500">
-              Nothing in this period.
-            </div>
+            {gstData.gstr1.b2bRows.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                All {gstData.gstr1.invoicesCount} invoice(s) in {periodLabel} are B2C / unregistered retail shops (reported in B2CS summary).
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#1e40af] text-white font-semibold">
+                    <tr>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Invoice No</th>
+                      <th className="py-2 px-3">Customer</th>
+                      <th className="py-2 px-3">GSTIN</th>
+                      <th className="py-2 px-3 text-right">Taxable</th>
+                      <th className="py-2 px-3 text-right">Tax</th>
+                      <th className="py-2 px-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {gstData.gstr1.b2bRows.map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-mono">{r.date}</td>
+                        <td className="py-2 px-3 font-mono font-bold">{r.invoiceNo}</td>
+                        <td className="py-2 px-3">{r.customer}</td>
+                        <td className="py-2 px-3 font-mono">{r.gstin}</td>
+                        <td className="py-2 px-3 text-right font-mono">₹{r.taxable.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-3 text-right font-mono">₹{r.tax.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-3 text-right font-mono font-bold">₹{r.total.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -368,9 +412,9 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
             <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <span className="font-bold text-xs text-slate-800">
-                ITC summary by rate From bills of vendors with GSTIN — check each bill appears in GSTR-2B on the portal
+                ITC summary by rate From purchase bills — match each bill in GSTR-2B
               </span>
-              <span className="text-xs text-slate-500">3 row(s)</span>
+              <span className="text-xs text-slate-500">{gstData.gstr2.rateRows.length} row(s)</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -385,14 +429,20 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  <tr className="hover:bg-slate-50">
-                    <td className="py-2.5 px-4 font-bold">5%</td>
-                    <td className="py-2.5 px-4 font-mono">₹23,140</td>
-                    <td className="py-2.5 px-4 font-mono">₹0</td>
-                    <td className="py-2.5 px-4 font-mono">₹578.50</td>
-                    <td className="py-2.5 px-4 font-mono">₹578.50</td>
-                    <td className="py-2.5 px-4 font-mono font-bold text-teal-800">₹1,157</td>
-                  </tr>
+                  {gstData.gstr2.rateRows.length === 0 ? (
+                    <tr><td colSpan={6} className="py-6 text-center text-slate-500">No purchase bills in this month.</td></tr>
+                  ) : (
+                    gstData.gstr2.rateRows.map((rr) => (
+                      <tr key={rr.rate} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-4 font-bold">{rr.rate}</td>
+                        <td className="py-2.5 px-4 font-mono">₹{rr.taxable.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-4 font-mono">₹{rr.igst.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-4 font-mono">₹{rr.cgst.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-4 font-mono">₹{rr.sgst.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-4 font-mono font-bold text-teal-800">₹{rr.totalTax.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -403,7 +453,7 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
             <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <span className="font-bold text-xs text-slate-800">
-                3.1 · Outward and inward supplies liable to reverse charge Net of credit notes
+                3.1 · Outward and inward supplies liable to reverse charge
               </span>
               <span className="text-xs text-slate-500">5 row(s) · sheet &quot;3.1&quot;</span>
             </div>
@@ -422,10 +472,10 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
                 <tbody className="divide-y divide-slate-100 font-medium">
                   <tr className="hover:bg-slate-50">
                     <td className="py-2.5 px-4 text-slate-800">(a) Outward taxable supplies (other than zero rated, nil rated and exempted)</td>
-                    <td className="py-2.5 px-4 text-right font-mono">0.00</td>
-                    <td className="py-2.5 px-4 text-right font-mono">0.00</td>
-                    <td className="py-2.5 px-4 text-right font-mono">0.00</td>
-                    <td className="py-2.5 px-4 text-right font-mono">0.00</td>
+                    <td className="py-2.5 px-4 text-right font-mono">{gstData.gstr3b.taxableOutward.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-mono">{gstData.gstr3b.igst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-mono">{gstData.gstr3b.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-mono">{gstData.gstr3b.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="py-2.5 px-4 text-right font-mono">0.00</td>
                   </tr>
                   <tr className="hover:bg-slate-50">
@@ -470,12 +520,27 @@ export const WholesaleGstReturnsView: React.FC<Props> = ({
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
             <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <span className="font-bold text-xs text-slate-800">
-                Pt II · 4 · Outward supplies on which tax is payable
+                Pt II · Annual Return Summary ({financialYear})
               </span>
-              <span className="text-xs text-slate-500">10 row(s)</span>
+              <span className="text-xs text-slate-500">{gstData.gstr9.ordersCount} invoices</span>
             </div>
-            <div className="p-6 text-center text-xs text-slate-500">
-              No outward supplies recorded for the financial year.
+            <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div>
+                <div className="text-slate-500">Taxable Turnover</div>
+                <div className="font-bold text-slate-900 text-sm mt-0.5">{fmtRs(gstData.gstr9.turnover)}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Total Output Tax</div>
+                <div className="font-bold text-slate-900 text-sm mt-0.5">{fmtRs(gstData.gstr9.outputTax)}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Total ITC Availed</div>
+                <div className="font-bold text-slate-900 text-sm mt-0.5">{fmtRs(gstData.gstr9.itcAvailed)}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Net Tax Paid in Cash</div>
+                <div className="font-bold text-slate-900 text-sm mt-0.5">{fmtRs(gstData.gstr9.paidInCash)}</div>
+              </div>
             </div>
           </div>
         )}

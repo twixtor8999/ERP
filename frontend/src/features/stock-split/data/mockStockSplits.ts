@@ -1,4 +1,5 @@
 import { StockSplitRecord } from '../types';
+export type { StockSplitRecord };
 import {
   getStoredStockSplits as getInventoryStockSplits,
   saveStoredStockSplits as saveInventoryStockSplits,

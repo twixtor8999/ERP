@@ -3,52 +3,34 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkuProducts, type SkuProduct } from "../data/mockProducts";
-import { getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
-import { getIstDateString } from "@/lib/utilities/istTime";
+import { getAllMergedPnlOrders } from "@/features/pnl/data/pnlEngine";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 export function WholesaleSkuWiseMarginView() {
   const navigate = useNavigate();
   const today = getIstDateString();
-  const [fromDate, setFromDate] = useState(() => today);
+  const [fromDate, setFromDate] = useState(() => `${today.slice(0, 7)}-01`);
   const [toDate, setToDate] = useState(() => today);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [skus] = useState<SkuProduct[]>(() => getStoredSkuProducts());
 
-  // Compute margin per SKU dynamically based on actual orders in date range
+  // Compute margin per SKU dynamically from live + backup orders in date range
   const skuMarginRows = useMemo(() => {
-    const orders = getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
-    
-    // Aggregate item sales from orders
-    const itemSalesMap = new Map<string, number>();
+    const orders = getAllMergedPnlOrders().filter(
+      (o) => o.st !== "cancelled" && isDateInRange(o.dsp || o.date, fromDate, toDate)
+    );
+
+    const qtyBySkuId = new Map<string, number>();
     for (const ord of orders) {
-      if (Array.isArray(ord.items)) {
-        for (const it of ord.items) {
-          const name = (it.name || "").toLowerCase().trim();
-          const current = itemSalesMap.get(name) || 0;
-          itemSalesMap.set(name, current + (Number(it.qty) || 0));
-        }
+      for (const it of ord.items || []) {
+        const key = String(it.s);
+        qtyBySkuId.set(key, (qtyBySkuId.get(key) || 0) + (Number(it.q) || 0));
       }
     }
 
-    return skus.map((s, idx) => {
-      const cleanName = s.name.toLowerCase().trim();
-      let salesQty = itemSalesMap.get(cleanName) || 0;
-
-      // If no direct exact match, check partial match or graceful fallback
-      if (salesQty === 0) {
-        for (const [key, qty] of itemSalesMap.entries()) {
-          if (cleanName.includes(key) || key.includes(cleanName)) {
-            salesQty = qty;
-            break;
-          }
-        }
-      }
-
-      // If user selected an earlier date (e.g. 2026-11-22) that had simulated initial orders
-      if (orders.length > 0 && itemSalesMap.size === 0) {
-        salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][idx % 20] || 0;
-      }
+    return skus.map((s) => {
+      const salesQty = qtyBySkuId.get(String(s.id)) || 0;
 
       const gstFactor = 1 + (s.gst || 0) / 100;
       const salesAmtExclGst = Math.round(((salesQty * s.price) / gstFactor) * 100) / 100;

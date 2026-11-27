@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { AUDIT_DISCREPANCIES } from '../data/mockReportsData';
+import { computeAuditDiscrepancies } from '../data/mockReportsData';
 import { getIstDateString } from '@/lib/utilities/istTime';
 import { toast } from 'sonner';
 
@@ -17,17 +17,19 @@ export const WholesaleAiCrossCheckView: React.FC<Props> = ({ onBack }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
+  const discrepancies = useMemo(() => computeAuditDiscrepancies(), []);
+
   const errorCount = useMemo(() => {
-    return AUDIT_DISCREPANCIES.filter((d) => d.sev === 'Error').length;
-  }, []);
+    return discrepancies.filter((d) => d.sev === 'Error').length;
+  }, [discrepancies]);
 
   const warningCount = useMemo(() => {
-    return AUDIT_DISCREPANCIES.filter((d) => d.sev === 'Warning').length;
-  }, []);
+    return discrepancies.filter((d) => d.sev === 'Warning').length;
+  }, [discrepancies]);
 
   // Filtered rows
   const filtered = useMemo(() => {
-    let result = AUDIT_DISCREPANCIES;
+    let result = discrepancies;
 
     if (severityFilter !== 'all') {
       result = result.filter((d) => d.sev === severityFilter);
@@ -45,7 +47,7 @@ export const WholesaleAiCrossCheckView: React.FC<Props> = ({ onBack }) => {
     }
 
     return result;
-  }, [severityFilter, searchTerm]);
+  }, [discrepancies, severityFilter, searchTerm]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -165,7 +167,7 @@ export const WholesaleAiCrossCheckView: React.FC<Props> = ({ onBack }) => {
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
             }`}
           >
-            All ({AUDIT_DISCREPANCIES.length})
+            All ({discrepancies.length})
           </button>
 
           <button

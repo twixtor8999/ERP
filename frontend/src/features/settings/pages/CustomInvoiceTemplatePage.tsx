@@ -16,11 +16,10 @@ import {
   saveInvoiceTemplateConfig,
 } from '@/features/orders/utils/invoiceTemplateConfig';
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from '@/features/orders/utils/taxInvoicePrinter';
-import {
-  openPackingSlipWindow,
-  SAMPLE_PREVIEW_PACKING_ORDER,
-  PackingSlipOrderData,
-} from '@/features/orders/utils/packingSlipPrinter';
+import { openPackingSlipWindow, SAMPLE_PREVIEW_PACKING_ORDER, PackingSlipOrderData } from '@/features/orders/utils/packingSlipPrinter';
+import { getAllMergedPnlOrders } from '@/features/pnl/data/pnlEngine';
+import { getStoredCustomers } from '@/features/customers/data/mockCustomers';
+import { getStoredSkuProducts } from '@/features/products/data/mockProducts';
 import { toast } from 'sonner';
 
 // Sample order matching PDF 1 (INV-469 / ORD-1489)
@@ -85,16 +84,53 @@ export function CustomInvoiceTemplatePage() {
   const [config, setConfig] = useState<InvoiceTemplateConfig>(() => getInvoiceTemplateConfig());
   const [activeTab, setActiveTab] = useState<'invoice' | 'packing'>('invoice');
 
-  // Load real wholesale orders from localStorage if present
+  // Load real wholesale orders (live pipeline + backup master orders)
   const [pipelineOrders] = useState<any[]>(() => {
+    const custMap = new Map(getStoredCustomers().map((c) => [String(c.id), c]));
+    const skuMap = new Map(getStoredSkuProducts().map((s) => [String(s.id), s]));
+    let live: any[] = [];
     try {
       const raw = localStorage.getItem('crm_wholesale_pipeline_orders');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) live = parsed;
       }
     } catch {}
-    return [];
+    const backupMapped = getAllMergedPnlOrders()
+      .filter((o) => o.st !== 'cancelled')
+      .slice(0, 30)
+      .map((o) => {
+        const cust = custMap.get(String(o.cust));
+        const items = (o.items || []).map((it) => {
+          const sku = skuMap.get(String(it.s));
+          return {
+            name: sku?.name || 'Item',
+            nameKn: '',
+            hsn: sku?.hsn || '2106',
+            qty: it.q,
+            price: it.p,
+            gst: sku?.gst ?? 5,
+            total: it.q * it.p,
+          };
+        });
+        const total = items.reduce((s, x) => s + x.total, 0);
+        return {
+          id: o.id,
+          orderNo: o.no,
+          invoiceNo: o.inv || o.no,
+          orderDate: o.date,
+          customerName: o.custName,
+          customerShop: cust?.shop || o.custName,
+          customerVillage: cust?.village || '',
+          customerPhone: cust?.ph || '',
+          customerRoute: o.route || cust?.route || '',
+          vehicleNo: o.vehNo || 'KA28AA6256',
+          createdBy: o.by || 'Admin',
+          items,
+          total,
+        };
+      });
+    return [...live, ...backupMapped];
   });
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>('sample');

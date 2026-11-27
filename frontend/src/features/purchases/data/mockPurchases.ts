@@ -1974,27 +1974,306 @@ export interface AutoPoItem {
 
 export const INITIAL_AUTO_PO: AutoPoItem[] = [
   {
-    id: 1,
-    skuName: "Raag Gold Palm Oil 1Ltr 10Pcs Box",
-    stock: 0,
-    min: 20,
-    soldPerDay: 5.5,
-    suggestedQty: 30,
-    vendorId: 1794837977210071,
-    vendorName: "WAGHAJI TRADERS",
+    "id": 1792862514917293,
+    "skuName": "Vilmaa Femiluv Soft Pads - XL 280mm 1Pcs Pkt",
+    "stock": 1,
+    "min": 5,
+    "soldPerDay": 3.3,
+    "suggestedQty": 14,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
   },
   {
-    id: 2,
-    skuName: "Sugar S-30 50Kg Bag",
-    stock: 0,
-    min: 50,
-    soldPerDay: 12.0,
-    suggestedQty: 50,
-    vendorId: 1794417264296131,
-    vendorName: "SHA HIRACHAND DONGARCHAND & CO",
+    "id": 1793211755075131,
+    "skuName": "Sooji 10Kg Bag",
+    "stock": 1,
+    "min": 5,
+    "soldPerDay": 0.5,
+    "suggestedQty": 14,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514882293,
+    "skuName": "Glim Dishwash Soap 10Rs 60Pcs Box",
+    "stock": 3,
+    "min": 5,
+    "soldPerDay": 1.2,
+    "suggestedQty": 12,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1792862514743293,
+    "skuName": "Maida 50Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.3,
+    "suggestedQty": 15,
+    "vendorId": 1793705719341557,
+    "vendorName": "SHAH NARAYANMAL JERUPJI BAFNA"
+  },
+  {
+    "id": 1792862514864293,
+    "skuName": "Aramane Detergent Powder 500gm 30Pcs Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 1.0,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1794405193984490,
+    "skuName": "1/2 LTR WATER ( 24 PCS)",
+    "stock": 1,
+    "min": 5,
+    "soldPerDay": 0.8,
+    "suggestedQty": 14,
+    "vendorId": 1794417658639131,
+    "vendorName": "M/S SHRI GANESH FOODS"
+  },
+  {
+    "id": 1793211755113131,
+    "skuName": "Urad Dal 10Kg Bag",
+    "stock": 2,
+    "min": 5,
+    "soldPerDay": 0.5,
+    "suggestedQty": 13,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514738293,
+    "skuName": "Atta 5Kg 5Pcs Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.8,
+    "suggestedQty": 15,
+    "vendorId": 1793705719341557,
+    "vendorName": "SHAH NARAYANMAL JERUPJI BAFNA"
+  },
+  {
+    "id": 1792862514754293,
+    "skuName": "A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 2.2,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1793211755109131,
+    "skuName": "Toor Dal 10Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.3,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1794405056889490,
+    "skuName": "1 LTR WATER ( 12 PCS)",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 1.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417658639131,
+    "vendorName": "M/S SHRI GANESH FOODS"
+  },
+  {
+    "id": 1792862514877293,
+    "skuName": "Dove Daily Shine Shampoo 2Rs 960Pcs Box",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.1,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1792862514912293,
+    "skuName": "Surf Excel Detergent Soap 250gm 6Pcs Pkt",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.7,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1793211755094131,
+    "skuName": "Masoor Dal 10Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.4,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1793211755071131,
+    "skuName": "Gajaraj Kesar Sooji 50Kg Bag",
+    "stock": 5,
+    "min": 5,
+    "soldPerDay": 0.4,
+    "suggestedQty": 10,
+    "vendorId": 1793705719341557,
+    "vendorName": "SHAH NARAYANMAL JERUPJI BAFNA"
+  },
+  {
+    "id": 1793211755095131,
+    "skuName": "Masoor Dal 30Kg Bag",
+    "stock": 5,
+    "min": 5,
+    "soldPerDay": 0.1,
+    "suggestedQty": 10,
+    "vendorId": 1793705719341557,
+    "vendorName": "SHAH NARAYANMAL JERUPJI BAFNA"
+  },
+  {
+    "id": 1793211755081131,
+    "skuName": "Red Lable Tea Powder 100gm 6Pcs Pkt",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514897293,
+    "skuName": "Parachute Coconut oil 250ml 1Pcs Pkt",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514786293,
+    "skuName": "Marino Glucose Biscuit 4.5Rs 24Pcs Pkt",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514920293,
+    "skuName": "Wheel Detergent Powder 10Rs 60Pcs Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.9,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1793211755103131,
+    "skuName": "Paper Toor dal 30Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514756293,
+    "skuName": "Good Day Butter Biscuits 5Rs 180Pcs Box",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1793211755096131,
+    "skuName": "Moong Dal Fine 1Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514896293,
+    "skuName": "Parachute Coconut oil 175ml 100Pcs Box",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514887293,
+    "skuName": "Karthika Shampoo 1Rs 80pcs (4 Sheet Pkt)",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514869293,
+    "skuName": "Clinic Plus Shampoo 1Rs 64pcs (4 Sheet Pkt)",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514867293,
+    "skuName": "Chik Shampoo 1Rs 64pcs (4 Sheet Pkt)",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.0,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1793211755090131,
+    "skuName": "Gram Dal Fine 10Kg Bag",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.2,
+    "suggestedQty": 15,
+    "vendorId": 1794417264296131,
+    "vendorName": "SHA HIRACHAND DONGARCHAND & CO"
+  },
+  {
+    "id": 1792862514913293,
+    "skuName": "Surf Excel Detergent Soap 250gm 60Pcs Box",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.2,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
+  },
+  {
+    "id": 1792862514835293,
+    "skuName": "Ruchi Gold Palm Oil 15Ltr 1Tin Tin",
+    "stock": 0,
+    "min": 5,
+    "soldPerDay": 0.3,
+    "suggestedQty": 15,
+    "vendorId": 1793713846385357,
+    "vendorName": "VilCart Solutions Private Limited"
   }
 ];
-
 export function getStoredAutoPo(): AutoPoItem[] {
   return INITIAL_AUTO_PO;
 }

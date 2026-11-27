@@ -29,19 +29,19 @@ export const DEFAULT_INVOICE_CONFIG: InvoiceTemplateConfig = {
   documentType: "invoice",
   paperSize: "slip_80",
   companyName: "SIDDESHWAR ENTERPRISES",
-  address: "648/1 Flat No 28, Akashvani road, Vijayapura, Karnataka, 586101",
+  address: "648/1 Flat No 28 , Akashvani road , Vijayapura,Karnataka ,586101",
   gstin: "29FMEPK5524A1Z8",
   phone: "9880801735",
   title: "TAX INVOICE",
-  footerLine: "Thank you for your business. Visit again!",
-  termsAndConditions: "Goods once sold cannot be returned without original cash bill. Subject to Vijayapura jurisdiction.",
+  footerLine: "Thank you. Visit again.",
+  termsAndConditions: "",
   showCustomer: true,
   showVehicle: true,
   showHsn: true,
   showGstSplit: true,
 };
 
-const INVOICE_CONFIG_STORAGE_KEY = "pk_custom_invoice_config_v1";
+const INVOICE_CONFIG_STORAGE_KEY = "pk_custom_invoice_config_v2";
 
 export function getInvoiceTemplateConfig(): InvoiceTemplateConfig {
   try {

@@ -4,6 +4,7 @@ import { ArrowLeft, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { B2bOrderDetailView } from "./B2bOrderDetailView";
+import { PNL_ORDERS, PNL_SKUS, PNL_CUSTOMERS } from "@/features/pnl/data/mockPnlData";
 
 export interface B2bOrderRow {
   sl: number;
@@ -24,9 +25,11 @@ export function WholesaleB2bOrdersListView() {
   // Today's IST ISO date (YYYY-MM-DD)
   const todayIso = getIstDateString();
 
-  const [fromDate, setFromDate] = useState(todayIso);
+  // Default filter window covers recent active orders so live + backup orders appear cleanly
+  const defaultFrom = "2026-11-01";
+  const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(todayIso);
-  const [appliedFromDate, setAppliedFromDate] = useState(todayIso);
+  const [appliedFromDate, setAppliedFromDate] = useState(defaultFrom);
   const [appliedToDate, setAppliedToDate] = useState(todayIso);
   const [pageSearch, setPageSearch] = useState("");
 
@@ -36,15 +39,23 @@ export function WholesaleB2bOrdersListView() {
   // Helper to format date into YYYY-MM-DD
   const toIsoDate = (dStr: string): string => normalizeDateToIso(dStr);
 
-  // Sync real-time orders from pipeline
+  // Sync real-time orders from pipeline + backup master orders
   useEffect(() => {
     const syncOrders = () => {
       try {
+        const skuMap = new Map(PNL_SKUS.map((s) => [String(s.id), s.name]));
+        const custMap = new Map(PNL_CUSTOMERS.map((c) => [String(c.id), c]));
+
+        const liveOrders: B2bOrderRow[] = [];
+        const seenNos = new Set<string>();
+
         const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
         if (storedPipeline) {
           const pipeline = JSON.parse(storedPipeline);
           if (Array.isArray(pipeline)) {
-            const mapped: B2bOrderRow[] = pipeline.map((po: any, idx: number) => {
+            pipeline.forEach((po: any, idx: number) => {
+              const ordNo = po.orderNo || `ORD-${1000 + idx}`;
+              seenNos.add(ordNo.toLowerCase());
               const rawDate = (po.deliveredAt || po.orderDate || "").trim();
               const iso = toIsoDate(rawDate);
               const dParts = iso.split("-");
@@ -57,10 +68,10 @@ export function WholesaleB2bOrdersListView() {
               else if (stage === "invoice" || stage === "invoiced") status = "invoiced";
               else if (stage === "packed" || stage === "packing") status = "packed";
 
-              return {
+              liveOrders.push({
                 sl: idx + 1,
-                id: String(po.id || po.orderNo),
-                orderNo: po.orderNo || `ORD-${1000 + idx}`,
+                id: String(po.id || ordNo),
+                orderNo: ordNo,
                 invoiceNo: po.invoiceNo || (po.orderNo ? po.orderNo.replace("ORD-", "INV-") : undefined),
                 date: dmy,
                 customerName: po.customerName || po.shopName || "Customer",
@@ -74,11 +85,46 @@ export function WholesaleB2bOrdersListView() {
                       price: Number(it.price || it.rate || 0),
                     }))
                   : [],
-              };
+              });
             });
-            setOrders(mapped);
           }
         }
+
+        const backupMapped: B2bOrderRow[] = PNL_ORDERS.filter(
+          (po) => !seenNos.has((po.no || "").toLowerCase()) && po.st !== "cancelled"
+        ).map((po, idx) => {
+          const iso = toIsoDate(po.dsp || po.date || "");
+          const dParts = iso.split("-");
+          const dmy = dParts.length === 3 ? `${dParts[2]}-${dParts[1]}-${dParts[0]}` : iso;
+          const cust = custMap.get(String(po.cust));
+          const items = (po.items || []).map((it) => ({
+            name: skuMap.get(String(it.s)) || "Item",
+            qty: Number(it.q || 1),
+            price: Number(it.p || 0),
+          }));
+          const total = items.reduce((s, it) => s + it.qty * it.price, 0);
+          let status: B2bOrderRow["status"] = "placed";
+          if (po.st === "completed" || po.st === "delivered") status = "delivered";
+          else if (po.st === "dispatched") status = "dispatched";
+          else if (po.st === "invoiced") status = "invoiced";
+          else if (po.st === "packed") status = "packed";
+
+          return {
+            sl: liveOrders.length + idx + 1,
+            id: String(po.id),
+            orderNo: po.no,
+            invoiceNo: po.inv || undefined,
+            date: dmy,
+            customerName: po.custName || cust?.name || "Customer",
+            villageName: po.route || cust?.route || "Bijapur",
+            status,
+            total: Math.round(total),
+            items,
+          };
+        });
+
+        const combined = [...liveOrders, ...backupMapped].map((r, i) => ({ ...r, sl: i + 1 }));
+        setOrders(combined);
       } catch (e) {
         console.error("Failed to load pipeline orders in B2B Orders List", e);
       }

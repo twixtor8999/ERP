@@ -3,27 +3,28 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkuProducts, type SkuProduct } from "../data/mockProducts";
-import { getOrdersInDateRange } from "@/features/crm/data/mockCrmReports";
-import { getIstDateString } from "@/lib/utilities/istTime";
+import { getAllMergedPnlOrders } from "@/features/pnl/data/pnlEngine";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 import { IstLiveClockText } from "@/lib/utilities/IstLiveClockText";
 
 export function WholesaleCategoryWiseSalesView() {
   const navigate = useNavigate();
   const today = getIstDateString();
-  const [fromDate, setFromDate] = useState(() => today);
+  const [fromDate, setFromDate] = useState(() => `${today.slice(0, 7)}-01`);
   const [toDate, setToDate] = useState(() => today);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [skus] = useState<SkuProduct[]>(() => getStoredSkuProducts());
 
-  // Aggregate category wise data dynamically from orders in date range
+  // Aggregate category wise data dynamically from live + backup orders in date range
   const categoryRows = useMemo(() => {
-    const orders = getOrdersInDateRange(fromDate, toDate).filter((o) => o.status !== "cancelled");
-    
-    // Map SKU name to category
-    const skuToCategoryMap = new Map<string, string>();
+    const orders = getAllMergedPnlOrders().filter(
+      (o) => o.st !== "cancelled" && isDateInRange(o.dsp || o.date, fromDate, toDate)
+    );
+
+    const skuCatById = new Map<string, string>();
     skus.forEach((s) => {
-      skuToCategoryMap.set(s.name.toLowerCase().trim(), s.category || "Uncategorised");
+      skuCatById.set(String(s.id), s.category || "Uncategorised");
     });
 
     const map = new Map<string, { stockAmt: number; salesAmt: number }>();
@@ -37,41 +38,14 @@ export function WholesaleCategoryWiseSalesView() {
     });
 
     // Sum real sales by category from date-filtered orders
-    let hasRealSales = false;
     for (const ord of orders) {
-      if (Array.isArray(ord.items)) {
-        for (const it of ord.items) {
-          const cleanItemName = (it.name || "").toLowerCase().trim();
-          let cat = skuToCategoryMap.get(cleanItemName);
-          if (!cat) {
-            for (const [sName, sCat] of skuToCategoryMap.entries()) {
-              if (cleanItemName.includes(sName) || sName.includes(cleanItemName)) {
-                cat = sCat;
-                break;
-              }
-            }
-          }
-          cat = cat || "Uncategorised";
-          const itemAmt = Number(it.price) * Number(it.qty) || 0;
-          const existing = map.get(cat) || { stockAmt: 0, salesAmt: 0 };
-          existing.salesAmt += itemAmt;
-          map.set(cat, existing);
-          hasRealSales = true;
-        }
-      }
-    }
-
-    // If an earlier mock date is chosen and no dynamic orders exist, provide realistic activity
-    if (orders.length > 0 && !hasRealSales) {
-      skus.forEach((s, idx) => {
-        const cat = s.category || "Uncategorised";
+      for (const it of ord.items || []) {
+        const cat = skuCatById.get(String(it.s)) || "Uncategorised";
+        const itemAmt = Number(it.p) * Number(it.q) || 0;
         const existing = map.get(cat) || { stockAmt: 0, salesAmt: 0 };
-        const salesQty = [38, 18, 65, 15, 280, 140, 40, 450, 120, 20, 110, 45, 35, 22, 125, 50, 0, 0, 8, 12][
-          idx % 20
-        ] || 0;
-        existing.salesAmt += salesQty * s.price;
+        existing.salesAmt += itemAmt;
         map.set(cat, existing);
-      });
+      }
     }
 
     const totalSales = Array.from(map.values()).reduce((a, b) => a + b.salesAmt, 0);

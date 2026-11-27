@@ -424,60 +424,7 @@ export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
   }
 ];
 
-export const INITIAL_SALARY_SLIPS: SalaryRecord[] = [
-  {
-    id: 1,
-    emp: 1793045643265814,
-    mon: '2026-11',
-    st: 'approved',
-    days: 30,
-    amt: 45000,
-    pm: 'Bank Transfer',
-    acct: 'State Bank of India',
-    by: 'Admin',
-    date: '2026-11-20',
-    why: 'Monthly Payroll',
-  },
-  {
-    id: 2,
-    emp: 1792846587239903,
-    mon: '2026-11',
-    st: 'approved',
-    days: 30,
-    amt: 30000,
-    pm: 'Bank Transfer',
-    acct: 'HDFC Bank',
-    by: 'Admin',
-    date: '2026-11-20',
-    why: 'Monthly Payroll',
-  },
-  {
-    id: 3,
-    emp: 1792851929338774,
-    mon: '2026-11',
-    st: 'approved',
-    days: 28,
-    amt: 18000,
-    pm: 'Cash',
-    acct: 'Cash Drawer',
-    by: 'Admin',
-    date: '2026-11-20',
-    why: 'Monthly Payroll',
-  },
-  {
-    id: 4,
-    emp: 1792858567098803,
-    mon: '2026-11',
-    st: 'approved',
-    days: 28,
-    amt: 16000,
-    pm: 'Cash',
-    acct: 'Cash Drawer',
-    by: 'Admin',
-    date: '2026-11-20',
-    why: 'Monthly Payroll',
-  },
-];
+export const INITIAL_SALARY_SLIPS: SalaryRecord[] = [];
 
 export const INITIAL_OFFER_LETTERS: OfferLetterRecord[] = [
   {
@@ -526,7 +473,7 @@ export const INITIAL_OFFER_LETTERS: OfferLetterRecord[] = [
 
 const EMP_STORAGE_KEY = 'ai_smart_bazar_employees_v2';
 const ATT_STORAGE_KEY = 'ai_smart_bazar_attendance_v2';
-const SAL_STORAGE_KEY = 'ai_smart_bazar_salary_v2';
+const SAL_STORAGE_KEY = 'ai_smart_bazar_salary_v3';
 const OFF_STORAGE_KEY = 'ai_smart_bazar_offers_v2';
 
 export function getStoredEmployees(): Employee[] {

@@ -17,6 +17,7 @@ import {
   PNL_ROUTE_CRM_MAP,
 } from './mockPnlData';
 import { getAllCrmOrders } from '@/features/crm/data/mockCrmReports';
+import { getStoredExpenses } from '@/features/expenses/data/mockExpenses';
 
 // Lookup dictionaries
 const SKU_MAP = new Map<string | number, PnlSku>(
@@ -209,11 +210,26 @@ export function computePnlCore(fromDate: string, toDate: string): PnlCoreResult 
     }
   }
 
-  // Operating Expenses
+  // Operating Expenses (backup master + any newly added live expenses)
+  const seenExpIds = new Set(PNL_EXPENSES.map((e) => String(e.id)));
+  const extraLiveExpenses = getStoredExpenses()
+    .filter((e) => !seenExpIds.has(String(e.id)))
+    .map((e) => ({
+      id: e.id,
+      date: e.date,
+      cat: e.cat,
+      sub: e.sub,
+      amt: e.amt,
+      veh: 0,
+      trip: '',
+      note: e.remarks,
+    }));
+  const allExpenses = [...PNL_EXPENSES, ...extraLiveExpenses];
+
   const categoryExpenses: Record<string, number> = {};
   let otherExpenses = 0;
 
-  for (const exp of PNL_EXPENSES) {
+  for (const exp of allExpenses) {
     if (!inRange(exp.date)) continue;
     const amt = +(exp.amt || 0);
 

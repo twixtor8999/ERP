@@ -129,7 +129,7 @@ export const WholesaleRegisterView: React.FC<Props> = ({ reportId, onBack }) => 
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">{config.title}</h2>
           <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-            {config.subtitle}
+            {config.subtitle} · {filteredRows.length.toLocaleString('en-IN')} row(s)
           </p>
         </div>
 
