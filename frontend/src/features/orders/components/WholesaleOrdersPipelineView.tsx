@@ -2202,11 +2202,11 @@ export function WholesaleOrdersPipelineView() {
               onClick={handleFullReturn}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
-              <span>↶ Full Return</span>
+              <span>↶ Full Return (All Items)</span>
             </button>
           </div>
 
-          {/* Close, Duplicate Print, Mark delivered on the right */}
+          {/* Close, Duplicate Print, Mark delivered / Partial Return on the right */}
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setViewingOrder(null)}
@@ -2231,9 +2231,15 @@ export function WholesaleOrdersPipelineView() {
 
             <button
               onClick={handleCompleteDelivery}
-              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              className={`px-4 py-1.5 text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors ${
+                returnedAmount > 0 && returnedAmount < viewingOrder.total
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-[#132038] hover:bg-[#1c2e4f]"
+              }`}
             >
-              Mark delivered
+              {returnedAmount > 0 && returnedAmount < viewingOrder.total
+                ? "Partial Return & Deliver"
+                : "Mark delivered"}
             </button>
           </div>
         </div>
