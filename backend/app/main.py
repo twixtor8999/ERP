@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.constants import Environment
 from app.core.exceptions import register_exception_handlers
 from app.core.limiter import limiter
 from app.core.logging import logger, setup_logging
@@ -31,13 +32,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Shutting down {settings.APP_NAME} cleanly")
 
 
+is_prod = settings.APP_ENV == Environment.PRODUCTION
 app = FastAPI(
     title=settings.APP_NAME,
     description="Enterprise Multi-Branch ERP Web API for Siddeshwar Enterprises",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None if is_prod else "/redoc",
+    openapi_url=None if is_prod else "/openapi.json",
     lifespan=lifespan,
 )
 

@@ -62,7 +62,34 @@ from app.models import (
 from app.modules.payments.models import PaymentAllocation, PaymentMethod, PaymentTransaction
 from app.modules.payments.service import _generate_tx_number, _get_or_create_payment_method
 
-router = APIRouter(prefix="/admin", tags=["Enterprise Administration Modules"])
+def require_staff_user(current_user: AuthContext = Depends(get_current_user)) -> AuthContext:
+    """Block customer/external tokens from accessing any /admin/* endpoint."""
+    role = (current_user.role or "").strip().lower()
+    if role == "customer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Customer accounts cannot access internal staff or admin endpoints.",
+        )
+    return current_user
+
+
+def require_admin_user(current_user: AuthContext = Depends(get_current_user)) -> AuthContext:
+    """Strictly restrict admin-only data & endpoints to organization admins/owners."""
+    role = (current_user.role or "").strip().lower()
+    allowed_admin_roles = ("admin", "super_admin", "org_admin", "owner", "business_owner")
+    if not current_user.is_org_admin and role not in allowed_admin_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Administrator privileges required.",
+        )
+    return current_user
+
+
+router = APIRouter(
+    prefix="/admin",
+    tags=["Enterprise Administration Modules"],
+    dependencies=[Depends(require_staff_user)],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -837,7 +864,7 @@ def lookup_product_by_sku(
     }
 
 
-@router.get("/products/export")
+@router.get("/products/export", dependencies=[Depends(require_admin_user)])
 def export_product_catalog(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -939,7 +966,7 @@ class ImportProductBatchPayload(BaseModel):
     rows: list[ImportProductRow]
 
 
-@router.post("/products/import")
+@router.post("/products/import", dependencies=[Depends(require_admin_user)])
 def import_product_batch(
     payload: ImportProductBatchPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1094,7 +1121,7 @@ def list_product_categories(
     ]
 
 
-@router.post("/categories", status_code=status.HTTP_201_CREATED)
+@router.post("/categories", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_product_category(
     payload: CreateCategoryPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1116,7 +1143,7 @@ def create_product_category(
     return {"message": "Category created successfully", "category_id": cat.id}
 
 
-@router.put("/categories/{category_id}")
+@router.put("/categories/{category_id}", dependencies=[Depends(require_admin_user)])
 def update_product_category(
     category_id: str,
     payload: UpdateCategoryPayload,
@@ -1218,7 +1245,7 @@ def list_unit_conversions(
     ]
 
 
-@router.post("/unit-conversions", status_code=status.HTTP_201_CREATED)
+@router.post("/unit-conversions", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_unit_conversion(
     payload: CreateUnitConversionPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1252,7 +1279,7 @@ class CreateBranchPayload(BaseModel):
     gstin: str | None = None
 
 
-@router.get("/branches")
+@router.get("/branches", dependencies=[Depends(require_admin_user)])
 def list_admin_branches(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1280,7 +1307,7 @@ def list_admin_branches(
     ]
 
 
-@router.post("/branches", status_code=status.HTTP_201_CREATED)
+@router.post("/branches", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_admin_branch(
     payload: CreateBranchPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1320,7 +1347,7 @@ def create_admin_branch(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/roles")
+@router.get("/roles", dependencies=[Depends(require_admin_user)])
 def list_admin_roles(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1371,7 +1398,7 @@ class UpdateOrgPayload(BaseModel):
     address: str | None = None
 
 
-@router.get("/organization")
+@router.get("/organization", dependencies=[Depends(require_admin_user)])
 def get_admin_organization(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1404,7 +1431,7 @@ def get_admin_organization(
     }
 
 
-@router.patch("/organization")
+@router.patch("/organization", dependencies=[Depends(require_admin_user)])
 def update_admin_organization(
     payload: UpdateOrgPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1438,7 +1465,7 @@ def update_admin_organization(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/accounts")
+@router.get("/accounts", dependencies=[Depends(require_admin_user)])
 def list_chart_of_accounts(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1611,7 +1638,7 @@ class ReceivePaymentPayload(BaseModel):
     notes: str | None = None
 
 
-@router.post("/customers/{customer_id}/receive-payment")
+@router.post("/customers/{customer_id}/receive-payment", dependencies=[Depends(require_admin_user)])
 async def receive_customer_payment(
     customer_id: str,
     payload: ReceivePaymentPayload,
@@ -1769,7 +1796,7 @@ async def receive_customer_payment(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/audit-logs")
+@router.get("/audit-logs", dependencies=[Depends(require_admin_user)])
 def list_admin_audit_logs(
     limit: int = Query(50, ge=1, le=200),
     current_user: AuthContext = Depends(get_current_user),
@@ -1819,7 +1846,7 @@ class CreateEmployeePayload(BaseModel):
     initial_password: str = "123456"
 
 
-@router.get("/employees")
+@router.get("/employees", dependencies=[Depends(require_admin_user)])
 def list_admin_employees(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1868,7 +1895,7 @@ def list_admin_employees(
     return results
 
 
-@router.post("/employees", status_code=status.HTTP_201_CREATED)
+@router.post("/employees", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_admin_employee(
     payload: CreateEmployeePayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -1976,7 +2003,7 @@ class ApproveAccessPayload(BaseModel):
     role_slug: str | None = None
 
 
-@router.get("/access-requests")
+@router.get("/access-requests", dependencies=[Depends(require_admin_user)])
 def list_pending_access_requests(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2012,7 +2039,7 @@ def list_pending_access_requests(
     return results
 
 
-@router.post("/access-requests/{user_id}/approve")
+@router.post("/access-requests/{user_id}/approve", dependencies=[Depends(require_admin_user)])
 def approve_access_request(
     user_id: str,
     payload: ApproveAccessPayload,
@@ -2121,7 +2148,7 @@ def approve_access_request(
     return {"message": f"{target_user.full_name} approved and activated as {target_role_slug}"}
 
 
-@router.post("/access-requests/{user_id}/reject")
+@router.post("/access-requests/{user_id}/reject", dependencies=[Depends(require_admin_user)])
 def reject_access_request(
     user_id: str,
     current_user: AuthContext = Depends(get_current_user),
@@ -2151,7 +2178,7 @@ def reject_access_request(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/incentives")
+@router.get("/incentives", dependencies=[Depends(require_admin_user)])
 def list_admin_incentives(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2213,7 +2240,7 @@ def list_admin_incentives(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/vehicles")
+@router.get("/vehicles", dependencies=[Depends(require_admin_user)])
 def list_admin_vehicles(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2281,7 +2308,7 @@ class CreateExpensePayload(BaseModel):
     allow_duplicate: bool = False
 
 
-@router.get("/expenses")
+@router.get("/expenses", dependencies=[Depends(require_admin_user)])
 def list_admin_expenses(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2309,7 +2336,7 @@ def list_admin_expenses(
     ]
 
 
-@router.post("/expenses", status_code=status.HTTP_201_CREATED)
+@router.post("/expenses", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_admin_expense(
     payload: CreateExpensePayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -2374,7 +2401,7 @@ class CreateSupplierPayload(BaseModel):
     gstin: str | None = None
 
 
-@router.get("/suppliers")
+@router.get("/suppliers", dependencies=[Depends(require_admin_user)])
 def list_admin_suppliers(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2401,7 +2428,7 @@ def list_admin_suppliers(
     ]
 
 
-@router.post("/suppliers", status_code=status.HTTP_201_CREATED)
+@router.post("/suppliers", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_admin_supplier(
     payload: CreateSupplierPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -2428,7 +2455,7 @@ def create_admin_supplier(
     return {"message": "Supplier onboarded", "supplier_code": sup_code}
 
 
-@router.get("/purchases")
+@router.get("/purchases", dependencies=[Depends(require_admin_user)])
 def list_admin_purchases(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2459,7 +2486,7 @@ def list_admin_purchases(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/subscription")
+@router.get("/subscription", dependencies=[Depends(require_admin_user)])
 def get_admin_subscription(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -2487,7 +2514,7 @@ def get_admin_subscription(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/daybook")
+@router.get("/daybook", dependencies=[Depends(require_admin_user)])
 def get_admin_daybook(
     target_date: str | None = None,
     branch_id: str | None = None,
@@ -2660,7 +2687,7 @@ class CompleteTripPayload(BaseModel):
     notes: str | None = None
 
 
-@router.get("/trips")
+@router.get("/trips", dependencies=[Depends(require_admin_user)])
 def list_admin_trips(
     branch_id: str | None = None,
     current_user: AuthContext = Depends(get_current_user),
@@ -2715,7 +2742,7 @@ def list_admin_trips(
     return results
 
 
-@router.post("/trips", status_code=status.HTTP_201_CREATED)
+@router.post("/trips", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def create_admin_trip(
     payload: CreateTripPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -2776,7 +2803,7 @@ def create_admin_trip(
     return {"message": "Delivery trip created", "trip_id": trip.id, "trip_number": trip_num}
 
 
-@router.post("/trips/{trip_id}/dispatch")
+@router.post("/trips/{trip_id}/dispatch", dependencies=[Depends(require_admin_user)])
 def dispatch_admin_trip(
     trip_id: str,
     current_user: AuthContext = Depends(get_current_user),
@@ -2795,7 +2822,7 @@ def dispatch_admin_trip(
     return {"message": f"Trip {trip.trip_number} dispatched", "status": "DISPATCHED"}
 
 
-@router.post("/trips/{trip_id}/complete")
+@router.post("/trips/{trip_id}/complete", dependencies=[Depends(require_admin_user)])
 def complete_admin_trip(
     trip_id: str,
     payload: CompleteTripPayload,
@@ -2866,7 +2893,7 @@ class GenerateSalarySlipsPayload(BaseModel):
     working_days: int = 30
 
 
-@router.get("/attendance")
+@router.get("/attendance", dependencies=[Depends(require_admin_user)])
 def get_admin_attendance(
     month: int | None = None,
     year: int | None = None,
@@ -2911,7 +2938,7 @@ def get_admin_attendance(
     ]
 
 
-@router.post("/attendance", status_code=status.HTTP_201_CREATED)
+@router.post("/attendance", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def punch_admin_attendance(
     payload: PunchAttendancePayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -2952,7 +2979,7 @@ def punch_admin_attendance(
     return {"message": "Attendance recorded", "status": payload.status}
 
 
-@router.get("/salary-slips")
+@router.get("/salary-slips", dependencies=[Depends(require_admin_user)])
 def list_admin_salary_slips(
     month: int | None = None,
     year: int | None = None,
@@ -3005,7 +3032,7 @@ def list_admin_salary_slips(
     ]
 
 
-@router.post("/salary-slips/generate", status_code=status.HTTP_201_CREATED)
+@router.post("/salary-slips/generate", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def generate_admin_salary_slips(
     payload: GenerateSalarySlipsPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -4481,7 +4508,7 @@ def _restock_order_items_on_return_or_cancel(
     return float(total_restocked)
 
 
-@router.post("/crm/orders/{order_id}/stage")
+@router.post("/crm/orders/{order_id}/stage", dependencies=[Depends(require_admin_user)])
 def update_crm_order_stage(
     order_id: str,
     payload: UpdateCrmOrderStagePayload,
@@ -4763,7 +4790,7 @@ class SaveSettlementPayload(BaseModel):
     notes: str | None = None
 
 
-@router.get("/settlements")
+@router.get("/settlements", dependencies=[Depends(require_admin_user)])
 def list_admin_settlements(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -4793,7 +4820,7 @@ def list_admin_settlements(
     ]
 
 
-@router.post("/settlements", status_code=status.HTTP_201_CREATED)
+@router.post("/settlements", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
 def save_admin_settlement(
     payload: SaveSettlementPayload,
     current_user: AuthContext = Depends(get_current_user),
@@ -4960,7 +4987,7 @@ def _aggregate_daily_order_and_movement_maps(
     }
 
 
-@router.get("/inventory/realtime")
+@router.get("/inventory/realtime", dependencies=[Depends(require_admin_user)])
 def get_realtime_inventory(
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -5034,7 +5061,7 @@ def get_realtime_inventory(
     return rows
 
 
-@router.get("/inventory/stock-movements")
+@router.get("/inventory/stock-movements", dependencies=[Depends(require_admin_user)])
 def get_stock_movements(
     from_date: str | None = None,
     to_date: str | None = None,
@@ -5133,7 +5160,7 @@ def get_stock_movements(
     return rows
 
 
-@router.get("/inventory/sku-journey/{variant_id}")
+@router.get("/inventory/sku-journey/{variant_id}", dependencies=[Depends(require_admin_user)])
 def get_sku_journey(
     variant_id: str,
     current_user: AuthContext = Depends(get_current_user),
@@ -5241,7 +5268,7 @@ class AdjustInventoryPayload(BaseModel):
     reason: str | None = None
 
 
-@router.post("/inventory/adjust")
+@router.post("/inventory/adjust", dependencies=[Depends(require_admin_user)])
 def adjust_inventory_stock(
     payload: AdjustInventoryPayload,
     current_user: AuthContext = Depends(get_current_user),
