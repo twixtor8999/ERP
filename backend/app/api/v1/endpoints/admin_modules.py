@@ -4135,6 +4135,29 @@ def get_crm_orders_status(
     )
 
     orders = db.scalars(stmt).all()
+
+    # Backfill restock once for any order marked RETURNED today (2026-11-27 IST+) before restock wiring deployed
+    today_restock_cutoff = datetime(2026, 11, 26, 18, 30, tzinfo=UTC)
+    did_backfill = False
+    for o in orders:
+        if o.status == "RETURNED" and o.delivered_at:
+            d_utc = o.delivered_at if o.delivered_at.tzinfo else o.delivered_at.replace(tzinfo=UTC)
+            if d_utc >= today_restock_cutoff:
+                restocked = _restock_order_items_on_return_or_cancel(
+                    db=db,
+                    org_id=org_id,
+                    order=o,
+                    returned_items=None,
+                    restock_all=True,
+                    reference_type="ORDER_RETURN",
+                    default_reason=o.delivery_failure_reason or "Full return at delivery",
+                    actor_id=current_user.user_id,
+                )
+                if restocked > 0:
+                    did_backfill = True
+    if did_backfill:
+        db.commit()
+
     cust_ids = [o.customer_id for o in orders if o.customer_id]
     custs = (
         {

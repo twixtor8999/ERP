@@ -1271,7 +1271,15 @@ export function CrmTelecallerPortalPage() {
       loadDashboardData(false);
     }, 30000);
 
-    return () => clearInterval(syncInterval);
+    const onInventoryUpdated = () => {
+      loadDashboardData(false);
+    };
+    window.addEventListener("inventory_updated", onInventoryUpdated);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener("inventory_updated", onInventoryUpdated);
+    };
   }, []);
 
   // When switching views, immediately refresh data corresponding to that view
