@@ -458,6 +458,63 @@ export function getAllCrmOrders(): CrmOrderRecord[] {
   return result;
 }
 
+// Helper: Merge live backend orders (/api/v1/admin/crm/orders) into crm_orders_master so Dashboard & Reports stay in sync across devices
+export function syncBackendOrdersToLocalStore(backendOrders: any[]): void {
+  if (typeof window === "undefined" || !Array.isArray(backendOrders) || backendOrders.length === 0) {
+    return;
+  }
+  try {
+    const rawMaster = localStorage.getItem("crm_orders_master");
+    const masterArr: any[] = rawMaster ? JSON.parse(rawMaster) : [];
+    const masterMap = new Map<string, any>();
+    for (const m of masterArr) {
+      const no = m?.order_number || m?.orderNo;
+      if (no) masterMap.set(no, m);
+    }
+
+    for (const bo of backendOrders) {
+      const orderNo = bo.order_number || bo.orderNo;
+      if (!orderNo) continue;
+      const rawStaff = (bo.created_by || bo.telecaller_name || "Pushpa Patil").trim();
+      // Guard against raw UUIDs leaking as staff names
+      const staffName = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawStaff) ? "Pushpa Patil" : rawStaff;
+      const statusLower = String(bo.status || "placed").toLowerCase();
+      const mappedStatus =
+        statusLower === "cancelled"
+          ? "cancelled"
+          : statusLower === "delivered"
+          ? "completed"
+          : statusLower === "out_for_delivery"
+          ? "delivery"
+          : statusLower === "dispatched"
+          ? "dispatch"
+          : statusLower === "invoiced" || statusLower === "invoice"
+          ? "invoice"
+          : "placed";
+
+      const prev = masterMap.get(orderNo) || {};
+      masterMap.set(orderNo, {
+        ...prev,
+        id: bo.id || prev.id || `ord-${orderNo}`,
+        order_number: orderNo,
+        order_date: bo.order_date || prev.order_date,
+        customer_name: bo.customer_name || prev.customer_name || "Customer",
+        customer_phone: bo.customer_phone || prev.customer_phone || "",
+        shop_name: bo.shop_name || prev.shop_name || "",
+        village: bo.village || prev.village || "Bijapur",
+        route: bo.route || prev.route || "Bijapur Route",
+        telecaller_name: staffName,
+        total_amount: Number(bo.total_amount ?? prev.total_amount) || 0,
+        status: mappedStatus,
+        order_placed: bo.order_placed || prev.order_placed || bo.order_date,
+        items: Array.isArray(bo.items) && bo.items.length > 0 ? bo.items : prev.items || [],
+      });
+    }
+
+    localStorage.setItem("crm_orders_master", JSON.stringify(Array.from(masterMap.values())));
+  } catch {}
+}
+
 // Helper: Filter orders by date range
 export function getOrdersInDateRange(
   fromDate: string,

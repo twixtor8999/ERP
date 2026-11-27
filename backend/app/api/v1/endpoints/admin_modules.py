@@ -4094,6 +4094,19 @@ def get_crm_orders_status(
         })
 
     results = []
+    # Preload user names for telecaller notes like "Punched by Telecaller CRM (<user_id>)"
+    note_user_ids: set[str] = set()
+    for o in orders:
+        if o.notes and "Punched by Telecaller CRM (" in o.notes:
+            raw_uid = o.notes.replace("Punched by Telecaller CRM (", "").replace(")", "").strip()
+            if raw_uid:
+                note_user_ids.add(raw_uid)
+    users_name_map: dict[str, str] = {}
+    if note_user_ids:
+        for u in db.scalars(select(User).where(User.id.in_(note_user_ids))).all():
+            if u.full_name and u.full_name.strip():
+                users_name_map[u.id] = u.full_name.strip()
+
     for o in orders:
         c = custs.get(o.customer_id)
         if c and c.display_name and " - " in c.display_name:
@@ -4139,6 +4152,17 @@ def get_crm_orders_status(
             if q not in disp_order_no.lower() and q not in contact_person.lower() and q not in (o.shipping_phone or "").lower():
                 continue
 
+        created_by_name = "Pushpa Patil"
+        if o.delivery_notes and "Punched via Telecaller CRM by " in o.delivery_notes:
+            created_by_name = o.delivery_notes.split("Punched via Telecaller CRM by ")[-1].strip() or "Pushpa Patil"
+        elif o.notes and "Punched by Telecaller CRM (" in o.notes:
+            raw_uid = o.notes.replace("Punched by Telecaller CRM (", "").replace(")", "").strip()
+            resolved = users_name_map.get(raw_uid)
+            if resolved:
+                created_by_name = resolved
+            elif raw_uid and "-" not in raw_uid and len(raw_uid) < 40:
+                created_by_name = raw_uid
+
         results.append({
             "id": o.id,
             "order_number": disp_order_no,
@@ -4148,7 +4172,7 @@ def get_crm_orders_status(
             "shop_name": (c.company_name or c.display_name or "Retail Store") if c else "Retail Store",
             "village": (c.city or "Bijapur") if c else "Bijapur",
             "route": (c.state or "Bijapur Route") if c else "Bijapur Route",
-            "created_by": o.notes.replace("Punched by Telecaller CRM (", "").replace(")", "").strip() if o.notes and "Punched by Telecaller CRM" in o.notes else "Pushpa Patil",
+            "created_by": created_by_name,
             "source": "CRM" if o.order_type == "TELECALLER_CRM" else "STORE",
             "total_amount": float(o.total_amount),
             "status": o.status,
