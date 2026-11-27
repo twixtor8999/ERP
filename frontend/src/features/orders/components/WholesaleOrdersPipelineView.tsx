@@ -58,6 +58,17 @@ export interface PipelineOrder {
   dispatchedAt?: string;
   outForDeliveryAt?: string;
   deliveredAt?: string;
+  returnAmount?: number;
+  returnedItems?: Array<{
+    name: string;
+    qty: number;
+    rate: number;
+    amount: number;
+    reason?: string;
+  }>;
+  paymentMode?: string;
+  cashPaid?: number;
+  qrPaid?: number;
 }
 
 export function extractIsoDate(dStr?: string): string {
@@ -1147,6 +1158,8 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1270,6 +1283,8 @@ export function WholesaleOrdersPipelineView() {
       const updated = prev.map((o) => (o.id === orderId ? { ...o, vehicleNo } : o));
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1362,6 +1377,8 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1391,6 +1408,8 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1427,6 +1446,8 @@ export function WholesaleOrdersPipelineView() {
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1445,13 +1466,15 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "cancelled" as const,
             cancelReason: reason,
-            cancelledAt: "24-11-2026",
+            cancelledAt: getIstDateString().split("-").reverse().join("-"),
           };
         }
         return o;
       });
       try {
         localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
       } catch {}
       return updated;
     });
@@ -1659,19 +1682,53 @@ export function WholesaleOrdersPipelineView() {
         return;
       }
 
-      const nowD = new Date();
-      const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
-      const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+      const dStr = getIstDateString().split("-").reverse().join("-");
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
       const timestampStr = `${dStr} ${timeStr}`;
+
+      const returnedItems = viewingOrder.items.flatMap((it, idx) => {
+        const r = itemReturns[idx];
+        if (!r || r.qty <= 0) return [];
+        const rate = (it as any).rate ?? it.price;
+        return [
+          {
+            name: it.name,
+            qty: r.qty,
+            rate,
+            amount: r.qty * rate,
+            reason: r.reason || "Returned",
+          },
+        ];
+      });
+      const isFullReturn = viewingOrder.total > 0 && returnedAmount >= viewingOrder.total;
+      const qrPaid =
+        deliveryPaymentType === "QR"
+          ? netToCollect
+          : deliveryPaymentType === "Cash"
+          ? 0
+          : Number(deliveryQrAmount || 0);
 
       setOrders(prev => {
         const updated = prev.map(o =>
           o.id === viewingOrder.id
-            ? { ...o, stage: "completed" as const, vehicleNo: assignedVehicle, balance: 0, deliveredAt: timestampStr }
+            ? {
+                ...o,
+                stage: (isFullReturn ? "return" : "completed") as PipelineOrder["stage"],
+                vehicleNo: assignedVehicle,
+                balance: 0,
+                deliveredAt: timestampStr,
+                returnAmount: returnedAmount,
+                returnedItems,
+                paymentMode: deliveryPaymentType,
+                cashPaid: calculatedCashAmount,
+                qrPaid,
+              }
             : o
         );
         try {
           localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
+          window.dispatchEvent(new Event("settlements_updated"));
+          window.dispatchEvent(new Event("crm_order_placed"));
         } catch {}
         return updated;
       });

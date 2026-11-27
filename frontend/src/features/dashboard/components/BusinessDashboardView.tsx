@@ -204,14 +204,16 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
     const telecallers = getAllTelecallers();
     const rangeOrders = getOrdersInDateRange(from, to, allOrders);
     const metrics = getStaffMetricsInDateRange(from, to, rangeOrders);
-    const pipelineReturns = getStoredPipelineOrders().filter(
-      (po) => po.stage === "return" && isDateInRange(po.orderDate, from, to)
-    );
+    const pipelineReturns = getStoredPipelineOrders().filter((po) => {
+      const hasReturn = po.stage === "return" || (Number(po.returnAmount) || 0) > 0;
+      return hasReturn && isDateInRange(po.deliveredAt || po.orderDate, from, to);
+    });
     const obSkuNames = new Set(
       getStoredSkus()
         .filter((s) => (s.category || "").toLowerCase().includes("ob"))
         .map((s) => s.name.toLowerCase().trim())
     );
+    const activeMonthPrefix = (from || today).slice(0, 7);
 
     return telecallers.map((st, index) => {
       const metric = metrics.find((m) => m.name.toLowerCase() === st.name.toLowerCase());
@@ -228,11 +230,14 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
       const villagesSet = new Set(staffRangeOrders.map((o) => o.village).filter(Boolean));
       const coveredVillages = villagesSet.size;
 
-      // Staff return orders in range
+      // Staff return orders in range (full returns + partial delivery returns)
       const staffReturns = pipelineReturns.filter(
         (po) => (po.createdBy || "").toLowerCase() === st.name.toLowerCase()
       );
-      const returnTotal = staffReturns.reduce((sum, po) => sum + (Number(po.total) || 0), 0);
+      const returnTotal = staffReturns.reduce(
+        (sum, po) => sum + (po.stage === "return" ? Number(po.total) || 0 : Number(po.returnAmount) || 0),
+        0
+      );
       const salesReturnK = returnTotal >= 1000 ? `₹${(returnTotal / 1000).toFixed(1)}k` : `₹${returnTotal.toLocaleString("en-IN")}`;
 
       // Staff OB Sales in range
@@ -246,14 +251,17 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
       }
       const obSalesK = obTotal >= 1000 ? `₹${(obTotal / 1000).toFixed(1)}k` : `₹${obTotal.toLocaleString("en-IN")}`;
 
-      // Cumulative sales for Target calculation (total achieved towards ₹1.2L)
-      const allStaffOrders = allOrders.filter(
-        (o) => o.staffName.toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
+      // Monthly sales for Target calculation (selected month's non-cancelled sales towards ₹1.2L)
+      const monthlyStaffOrders = allOrders.filter(
+        (o) =>
+          o.staffName.toLowerCase() === st.name.toLowerCase() &&
+          o.status !== "cancelled" &&
+          normalizeDateToIso(o.orderDate).startsWith(activeMonthPrefix)
       );
-      const cumulativeSales = allStaffOrders.reduce((sum, o) => sum + o.total, 0);
+      const monthlySales = monthlyStaffOrders.reduce((sum, o) => sum + o.total, 0);
 
-      // Target progress percentage: (cumulativeSales / 120,000) * 100
-      const targetPercent = Math.min(100, Math.round((cumulativeSales / TARGET_GOAL_AMOUNT) * 100));
+      // Target progress percentage: (monthlySales / 120,000) * 100
+      const targetPercent = Math.min(100, Math.round((monthlySales / TARGET_GOAL_AMOUNT) * 100));
 
       const parts = st.name.trim().split(/\s+/);
       const p0 = parts[0] || "";
@@ -490,13 +498,18 @@ export function BusinessDashboardView() {
       const key = `${dIso}_${po.vehicleNo || "KA28AA6256"}`;
       if (settledVehDates.has(key)) continue;
 
-      const ordTotal = Number(po.total) || 0;
+      const poRet = Number(po.returnAmount) || 0;
+      returnsAmt += poRet;
+
+      const netOrdTotal = Math.max(0, (Number(po.total) || 0) - poRet);
       const pm = String(po.paymentMode || po.paymentMethod || "").toLowerCase();
-      if (pm === "qr" || pm === "upi" || pm === "online") {
-        qr += ordTotal;
-      } else {
-        cash += Number(po.cashPaid) || ordTotal;
+      if (typeof po.cashPaid === "number" || typeof po.qrPaid === "number") {
+        cash += Number(po.cashPaid) || 0;
         qr += Number(po.qrPaid || po.bankPaid) || 0;
+      } else if (pm === "qr" || pm === "upi" || pm === "online") {
+        qr += netOrdTotal;
+      } else {
+        cash += netOrdTotal;
       }
     }
 
@@ -1115,33 +1128,43 @@ export function BusinessDashboardView() {
   if (currentView === "returns") {
     const staffReturnOrders = getStoredPipelineOrders().filter(
       (po) =>
-        po.stage === "return" &&
-        isDateInRange(po.orderDate, appliedFromDate, appliedToDate) &&
+        (po.stage === "return" || (Number(po.returnAmount) || 0) > 0) &&
+        isDateInRange(po.deliveredAt || po.orderDate, appliedFromDate, appliedToDate) &&
         (po.createdBy || "").toLowerCase() === activeStaff.name.toLowerCase()
     );
-    const returnRows: StaffReturnRecord[] = staffReturnOrders.flatMap((po: any) =>
-      Array.isArray(po.items) && po.items.length > 0
-        ? po.items.map((it: any) => ({
-            order: po.orderNo,
-            customer: po.customerName || "Customer",
-            village: po.village || "—",
-            item: it.name || "Item",
-            qty: Number(it.qty) || 1,
-            amount: (Number(it.amount) || (Number(it.qty) || 1) * (Number(it.price) || 0)).toLocaleString("en-IN"),
-          }))
-        : [
-            {
-              order: po.orderNo,
-              customer: po.customerName || "Customer",
-              village: po.village || "—",
-              item: "Returned Order",
-              qty: 1,
-              amount: (Number(po.total) || 0).toLocaleString("en-IN"),
-            },
-          ]
-    );
+    const returnRows: StaffReturnRecord[] = staffReturnOrders.flatMap((po: any) => {
+      const itemsList =
+        Array.isArray(po.returnedItems) && po.returnedItems.length > 0
+          ? po.returnedItems
+          : po.stage === "return" && Array.isArray(po.items)
+          ? po.items
+          : [];
+      if (itemsList.length > 0) {
+        return itemsList.map((it: any) => ({
+          order: po.orderNo,
+          customer: po.customerName || "Customer",
+          village: po.village || "—",
+          item: it.name || "Item",
+          qty: Number(it.qty) || 1,
+          amount: (Number(it.amount) || (Number(it.qty) || 1) * (Number(it.price || it.rate) || 0)).toLocaleString("en-IN"),
+        }));
+      }
+      return [
+        {
+          order: po.orderNo,
+          customer: po.customerName || "Customer",
+          village: po.village || "—",
+          item: "Returned Order",
+          qty: 1,
+          amount: (po.stage === "return" ? Number(po.total) || 0 : Number(po.returnAmount) || 0).toLocaleString("en-IN"),
+        },
+      ];
+    });
     const totalReturnQty = returnRows.reduce((s, r) => s + r.qty, 0);
-    const totalReturnAmt = staffReturnOrders.reduce((s: number, po: any) => s + (Number(po.total) || 0), 0);
+    const totalReturnAmt = staffReturnOrders.reduce(
+      (s: number, po: any) => s + (po.stage === "return" ? Number(po.total) || 0 : Number(po.returnAmount) || 0),
+      0
+    );
     const staffReturns = {
       subtitle: `${appliedFromDate === appliedToDate ? `Date: ${appliedFromDate}` : `${appliedFromDate} to ${appliedToDate}`} · ${staffReturnOrders.length} order(s) · ₹${totalReturnAmt.toLocaleString("en-IN")}`,
       rows: returnRows,
@@ -1909,31 +1932,76 @@ export function BusinessDashboardView() {
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* SUB-VIEW 5: OB Sales Modal Dialog (Screenshot 7)             */}
+      {/* SUB-VIEW 5: OB Sales Modal Dialog (Live SKU Category "OB")     */}
       {/* ------------------------------------------------------------- */}
-      {currentView === "obsales" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
-          <div className="bg-[#1e293b] text-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-700">
-            <h3 className="text-base font-bold text-blue-400">
-              OB Sales · {activeStaff.name}
-            </h3>
-            <p className="text-sm font-semibold text-slate-200">
-              No OB sales in these dates.
-            </p>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              OB Sales = sales of SKUs whose <b className="text-slate-200">Category</b> is &ldquo;OB&rdquo; (for example &ldquo;OB&rdquo; or &ldquo;OB Sales&rdquo;). Set it in SKU&apos;s &rarr; Category.
-            </p>
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setCurrentView("none")}
-                className="bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-xs px-6 py-2 rounded-full shadow-md transition-colors"
-              >
-                Close
-              </button>
+      {currentView === "obsales" && (() => {
+        const obSkuNames = new Set(
+          getStoredSkus()
+            .filter((s) => (s.category || "").toLowerCase().includes("ob"))
+            .map((s) => s.name.toLowerCase().trim())
+        );
+        const obRows = rangeOrders
+          .filter((o) => o.staffName.toLowerCase() === activeStaff.name.toLowerCase())
+          .flatMap((o) =>
+            (o.items || [])
+              .filter((it) => obSkuNames.has((it.name || "").toLowerCase().trim()))
+              .map((it) => ({
+                orderNo: o.orderNo,
+                customer: o.customerName,
+                item: it.name,
+                qty: Number(it.qty) || 0,
+                amount: (Number(it.qty) || 0) * (Number(it.price) || 0),
+              }))
+          );
+        const obModalTotal = obRows.reduce((s, r) => s + r.amount, 0);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
+            <div className="bg-[#1e293b] text-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-blue-400">
+                  OB Sales · {activeStaff.name}
+                </h3>
+                {obModalTotal > 0 && (
+                  <span className="text-sm font-black text-emerald-400">
+                    ₹{obModalTotal.toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
+              {obRows.length === 0 ? (
+                <p className="text-sm font-semibold text-slate-200">
+                  No OB sales in these dates.
+                </p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto border border-slate-700 rounded-xl divide-y divide-slate-700/70">
+                  {obRows.map((row, idx) => (
+                    <div key={idx} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-100 truncate">{row.item}</div>
+                        <div className="text-slate-400">{row.orderNo} · {row.customer} · Qty {row.qty}</div>
+                      </div>
+                      <span className="font-mono font-bold text-emerald-400 shrink-0">
+                        ₹{row.amount.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-slate-400 leading-relaxed">
+                OB Sales = sales of SKUs whose <b className="text-slate-200">Category</b> is &ldquo;OB&rdquo; (for example &ldquo;OB&rdquo; or &ldquo;OB Sales&rdquo;). Set it in SKU&apos;s &rarr; Category.
+              </p>
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setCurrentView("none")}
+                  className="bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-xs px-6 py-2 rounded-full shadow-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
