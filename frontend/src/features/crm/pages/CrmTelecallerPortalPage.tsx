@@ -1439,19 +1439,25 @@ export function CrmTelecallerPortalPage() {
       const repRes = repSettled.status === "fulfilled" ? repSettled.value : null;
       const ordRes = ordSettled.status === "fulfilled" ? ordSettled.value : null;
 
-      if (repRes?.data) {
-        // Merge backend orders with any authoritative local CRM orders
-        const backendOrders = Array.isArray(repRes.data.my_orders) ? repRes.data.my_orders : [];
+      if (repRes?.data || (ordRes && Array.isArray(ordRes.data))) {
+        // Merge orders from both /crm/reports and /crm/orders + local fallback so newly placed orders & items are never missed
+        const backendOrders = Array.isArray(repRes?.data?.my_orders) ? repRes!.data.my_orders : [];
+        const ordListOrders = ordRes && Array.isArray(ordRes.data) ? ordRes.data : [];
         const localOrders = Array.isArray(localReport.my_orders) ? localReport.my_orders : [];
-        const seen = new Set<string>();
-        const mergedOrders: any[] = [];
-        for (const o of [...backendOrders, ...localOrders] as any[]) {
+        const mergedByNo = new Map<string, any>();
+        for (const o of [...localOrders, ...backendOrders, ...ordListOrders] as any[]) {
           const num = o.order_number || o.orderNo;
-          if (num && !seen.has(num)) {
-            seen.add(num);
-            mergedOrders.push(o);
-          }
+          if (!num) continue;
+          const prev = mergedByNo.get(num) || {};
+          const items =
+            Array.isArray(o.items) && o.items.length > 0
+              ? o.items
+              : Array.isArray(prev.items) && prev.items.length > 0
+              ? prev.items
+              : [];
+          mergedByNo.set(num, { ...prev, ...o, items });
         }
+        const mergedOrders = Array.from(mergedByNo.values());
         mergedOrders.sort((a: any, b: any) => {
           const numA = parseInt((a.order_number || a.orderNo || "").replace(/\D/g, ""), 10) || 0;
           const numB = parseInt((b.order_number || b.orderNo || "").replace(/\D/g, ""), 10) || 0;
@@ -1460,7 +1466,7 @@ export function CrmTelecallerPortalPage() {
 
         const totalAmount = mergedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount || o.total) || 0), 0);
 
-        const backendVisited = Array.isArray(repRes.data.visited_customers) ? repRes.data.visited_customers : [];
+        const backendVisited = Array.isArray(repRes?.data?.visited_customers) ? repRes!.data.visited_customers : [];
         const visitedByKey = new Map<string, any>();
         for (const vc of backendVisited) {
           visitedByKey.set(vc.id || vc.phone || vc.name, vc);
@@ -1481,12 +1487,12 @@ export function CrmTelecallerPortalPage() {
         const mergedVisited = Array.from(visitedByKey.values());
 
         const reportWithSortedOrders: CrmReportData = {
-          ...repRes.data,
+          ...(repRes?.data || localReport),
           total_orders: mergedOrders.length,
           order_total: totalAmount,
-          customer_visited: Math.max(repRes.data.customer_visited || 0, mergedVisited.length),
+          customer_visited: Math.max(repRes?.data?.customer_visited || 0, mergedVisited.length),
           visited_customers: mergedVisited,
-          incentive_today: repRes.data.incentive_today ?? repRes.data.incentive ?? 0,
+          incentive_today: repRes?.data?.incentive_today ?? repRes?.data?.incentive ?? localReport.incentive_today ?? 0,
           my_orders: mergedOrders,
         };
         setReportData(reportWithSortedOrders);
@@ -2494,7 +2500,6 @@ export function CrmTelecallerPortalPage() {
       setShowCelebration(true);
       setActiveView("reports");
       loadDashboardData(false);
-      loadReportsAndOrders(todayIst, todayIst);
     } catch (err: any) {
       const msg =
         err?.response?.data?.detail ||
@@ -5643,16 +5648,17 @@ export function CrmTelecallerPortalPage() {
                                   const itemsToRender =
                                     selectedStatusOrder.items && selectedStatusOrder.items.length > 0
                                       ? selectedStatusOrder.items
-                                      : [
-                                        {
-                                          id: `dyn-item-${selectedStatusOrder.id}`,
-                                          product_name: "1/2 LTR WATER ( 24 PCS )",
-                                          sku: `SKU-${Math.floor(10000000 + (parseInt(selectedStatusOrder.id.replace(/\D/g, "") || "12345678", 10) % 89999999))}`,
-                                          quantity: 1,
-                                          unit_price: selectedStatusOrder.total_amount || 140,
-                                          total_amount: selectedStatusOrder.total_amount || 140,
-                                        },
-                                      ];
+                                      : [];
+
+                                  if (itemsToRender.length === 0) {
+                                    return (
+                                      <tr>
+                                        <td colSpan={5} className="px-3 py-4 text-center text-slate-400 italic">
+                                          No item details available for this order.
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
 
                                   return itemsToRender.map((it) => (
                                     <tr key={it.id}>

@@ -3871,6 +3871,23 @@ def get_crm_telecaller_reports(
         for u in db.scalars(select(User).where(User.organization_id == org_id)).all()
     }
 
+    order_ids = [o.id for o in orders]
+    order_items = (
+        db.scalars(select(OrderItem).where(OrderItem.order_id.in_(order_ids))).all()
+        if order_ids
+        else []
+    )
+    items_by_order_rep: dict[str, list[dict[str, Any]]] = {}
+    for it in order_items:
+        items_by_order_rep.setdefault(it.order_id, []).append({
+            "id": it.id,
+            "product_name": it.product_name or "Item",
+            "sku": it.sku or "SKU",
+            "quantity": float(it.quantity or 0),
+            "unit_price": float(it.unit_price or 0),
+            "total_amount": float(it.total_amount or 0),
+        })
+
     ist = ZoneInfo("Asia/Kolkata")
     my_orders = []
     for o in orders:
@@ -3912,16 +3929,13 @@ def get_crm_telecaller_reports(
             "delivered": _fmt_dt(o.delivered_at),
             "payment_method": o.payment_method or "CASH",
             "payment_status": o.payment_status or "UNPAID",
+            "items": items_by_order_rep.get(o.id, []),
         })
 
     # Calculate incentive earnings for orders in the selected date range
-    order_ids = [o.id for o in orders]
     incentive_earned = 0.0
-    if order_ids:
+    if order_items:
         inc_products = get_crm_incentive_products(current_user=current_user, db=db)
-        order_items = db.scalars(
-            select(OrderItem).where(OrderItem.order_id.in_(order_ids))
-        ).all()
         for item in order_items:
             p_lower = (item.product_name or "").lower()
             for ip in inc_products:
