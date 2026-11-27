@@ -1046,17 +1046,11 @@ export function WholesaleOrdersPipelineView() {
     return orders.filter((o) => {
       if (activeTab.includes("rep")) return true; // Report tab handles summary separately
 
-      // 1. Stage Check: Each pipeline tab retains orders that have progressed forward so admins see the green "✓ Moved..." confirmation button on the row while the order also appears in the next stage tab.
+      // 1. Stage Check: Strict stage queue — once moved forward (e.g. Move to invoice), the order leaves the current tab and appears in the next stage tab.
       const matchesStage =
         targetStage === "packing"
-          ? ["packing", "placed", "invoice", "dispatch", "delivery", "completed"].includes(o.stage)
-          : targetStage === "invoice"
-          ? ["invoice", "dispatch", "delivery", "completed"].includes(o.stage)
-          : targetStage === "dispatch"
-          ? ["dispatch", "delivery", "completed"].includes(o.stage)
-          : targetStage === "delivery"
-          ? ["delivery", "completed"].includes(o.stage)
-          : (o.stage === targetStage);
+          ? o.stage === "packing" || o.stage === "placed"
+          : o.stage === targetStage;
 
       // 2. Search query filter
       const matchSearch =
