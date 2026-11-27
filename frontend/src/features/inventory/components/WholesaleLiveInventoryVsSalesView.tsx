@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, Eye, X } from "lucide-react";
 import { toast } from "sonner";
@@ -7,12 +7,41 @@ import {
   getLiveSalesData,
   type InventorySku,
 } from "../data/mockInventory";
+import { getIstDateString } from "@/lib/utilities/istTime";
+import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
 
 export function WholesaleLiveInventoryVsSalesView() {
   const navigate = useNavigate();
-  const [skus] = useState<InventorySku[]>(() => getStoredSkus());
+  const todayIso = getIstDateString();
+  const [rawSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [dataRevision, setDataRevision] = useState(0);
   const [searchCategory, setSearchCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const syncLive = useCallback(async () => {
+    await fetchAndMergeCrmPipelineOrders(todayIso);
+    setDataRevision((r) => r + 1);
+  }, [todayIso]);
+
+  useEffect(() => {
+    const bump = () => setDataRevision((r) => r + 1);
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("inventory_updated", bump);
+    window.addEventListener("storage", bump);
+    void syncLive();
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("inventory_updated", bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, [syncLive]);
+
+  const skus = useMemo(() => {
+    void dataRevision;
+    return computeLiveRealtimeSkus(rawSkus, todayIso);
+  }, [rawSkus, todayIso, dataRevision]);
 
   const { categories, totalStockAmt, totalSalesAmt } = useMemo(() => {
     return getLiveSalesData(skus);

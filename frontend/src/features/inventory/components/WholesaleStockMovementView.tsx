@@ -1,151 +1,54 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredSkus, type InventorySku } from "../data/mockInventory";
-import { getStoredPurchases } from "@/features/purchases/data/mockPurchases";
-import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
-import { getIstDateString, normalizeDateToIso } from "@/lib/utilities/istTime";
-
-interface StockMovementRow {
-  date: string;
-  skuId: number;
-  skuName: string;
-  opening: number;
-  purchase: number;
-  purchaseReturn: number;
-  sales: number;
-  salesReturn: number;
-  splitIn: number;
-  splitOut: number;
-  closing: number;
-  cost: number;
-  stockValue: number;
-  punchOrders: number;
-  orderCancel: number;
-  available: number;
-}
+import { getIstDateString } from "@/lib/utilities/istTime";
+import { computeStockMovementRows, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
 
 export function WholesaleStockMovementView() {
   const navigate = useNavigate();
-  const todayIso = getIstDateString(); // e.g. "2026-11-26"
+  const todayIso = getIstDateString();
   const [fromDate, setFromDate] = useState("2026-11-01");
   const [toDate, setToDate] = useState(todayIso);
   const [selectedSkuId, setSelectedSkuId] = useState<number | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [skus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [skus, setSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [dataRevision, setDataRevision] = useState(0);
 
-  // Generate date-wise movement rows across fromDate - toDate
+  const syncMovement = useCallback(async () => {
+    setSkus(getStoredSkus());
+    await fetchAndMergeCrmPipelineOrders(todayIso);
+    setDataRevision((r) => r + 1);
+  }, [todayIso]);
+
+  useEffect(() => {
+    const bump = () => {
+      setSkus(getStoredSkus());
+      setDataRevision((r) => r + 1);
+    };
+    const onFocus = () => void syncMovement();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("inventory_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", onFocus);
+    void syncMovement();
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("inventory_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncMovement]);
+
+  // Generate real date-wise movement rows across fromDate - toDate
   const movementRows = useMemo(() => {
-    const purchases = getStoredPurchases();
-    const crmOrders = getAllCrmOrders();
-
-    // Collect all purchase lines grouped by date & sku
-    const purchaseMap: Record<string, Record<string, number>> = {};
-    for (const p of purchases) {
-      if (p.status !== "approved") continue;
-      const pDate = p.date;
-      if (!purchaseMap[pDate]) purchaseMap[pDate] = {};
-      for (const l of p.lines || []) {
-        const key = (l.skuName || "").toLowerCase().trim();
-        purchaseMap[pDate][key] = (purchaseMap[pDate][key] || 0) + (l.qty || 0);
-      }
-    }
-
-    // Collect all CRM order lines grouped by date & sku
-    const salesMap: Record<string, Record<string, number>> = {};
-    for (const ord of crmOrders) {
-      if (ord.status === "cancelled") continue;
-      const oDate = normalizeDateToIso(ord.orderDate);
-      if (!oDate) continue;
-
-      const dateSales = salesMap[oDate] || (salesMap[oDate] = {});
-      for (const item of ord.items || []) {
-        const key = (item.name || "").toLowerCase().trim();
-        dateSales[key] = (dateSales[key] || 0) + (item.qty || 0);
-      }
-    }
-
-    // Determine relevant dates in range
-    const start = fromDate || "2026-11-01";
-    const end = toDate || todayIso;
-
-    // Build unique active dates
-    const dateSet = new Set<string>();
-    dateSet.add(end);
-    if (start !== end) {
-      dateSet.add(start);
-      // Add any dates from purchases & sales within range
-      for (const d of Object.keys(purchaseMap)) {
-        if (d >= start && d <= end) dateSet.add(d);
-      }
-      for (const d of Object.keys(salesMap)) {
-        if (d >= start && d <= end) dateSet.add(d);
-      }
-      // Add benchmark sample dates in range if present
-      ["2026-11-20", "2026-11-21", "2026-11-22", "2026-11-24", "2026-11-25"].forEach((d) => {
-        if (d >= start && d <= end) dateSet.add(d);
-      });
-    }
-
-    const sortedDates = Array.from(dateSet).sort((a, b) => b.localeCompare(a)); // Latest date first
-
-    const rows: StockMovementRow[] = [];
-
-    for (const d of sortedDates) {
-      for (const s of skus) {
-        if (selectedSkuId !== "all" && s.id !== selectedSkuId) continue;
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase().trim();
-          if (!s.name.toLowerCase().includes(q) && !s.code.toLowerCase().includes(q)) {
-            continue;
-          }
-        }
-
-        const skuKey = s.name.toLowerCase().trim();
-        const pQty = purchaseMap[d]?.[skuKey] ?? (d === "2026-11-20" || d === "2026-11-18" ? s.purchase : 0);
-        const sQty = salesMap[d]?.[skuKey] ?? (d === "2026-11-21" || d === "2026-11-25" ? s.sales : 0);
-        const pReturn = d === "2026-11-21" ? s.purchaseReturn : 0;
-        const sReturn = d === "2026-11-22" ? s.salesReturn : 0;
-        const spIn = d === "2026-11-20" ? s.splitIn : 0;
-        const spOut = d === "2026-11-20" ? s.splitOut : 0;
-
-        // If filtering for a specific SKU or if there is activity or today's snapshot
-        const isLatestDay = d === end;
-        const hasActivity = pQty > 0 || sQty > 0 || pReturn > 0 || sReturn > 0 || spIn > 0 || spOut > 0;
-
-        if (selectedSkuId !== "all" || isLatestDay || hasActivity) {
-          const closing = isLatestDay ? s.closing : Math.max(0, s.opening + pQty - pReturn - sQty + sReturn + spIn - spOut);
-          const stockVal = closing * s.cost;
-          const punch = isLatestDay ? s.punchOrders : 0;
-          const cancel = isLatestDay ? s.orderCancel : 0;
-          const avail = closing - punch;
-
-          rows.push({
-            date: d,
-            skuId: s.id,
-            skuName: s.name,
-            opening: s.opening,
-            purchase: pQty,
-            purchaseReturn: pReturn,
-            sales: sQty,
-            salesReturn: sReturn,
-            splitIn: spIn,
-            splitOut: spOut,
-            closing,
-            cost: s.cost,
-            stockValue: stockVal,
-            punchOrders: punch,
-            orderCancel: cancel,
-            available: avail,
-          });
-        }
-      }
-    }
-
-    return rows;
-  }, [skus, fromDate, toDate, todayIso, selectedSkuId, searchQuery]);
+    void dataRevision;
+    return computeStockMovementRows(skus, fromDate, toDate, todayIso, selectedSkuId, searchQuery);
+  }, [skus, fromDate, toDate, todayIso, selectedSkuId, searchQuery, dataRevision]);
 
   const totals = useMemo(() => {
     return movementRows.reduce(

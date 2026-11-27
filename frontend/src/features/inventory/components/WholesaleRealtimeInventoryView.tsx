@@ -1,19 +1,63 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw, Download, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
+import { getStoredSkus, type InventorySku } from "../data/mockInventory";
+import { getIstDateString, getIstTimeString } from "@/lib/utilities/istTime";
+import {
+  computeLiveRealtimeSkus,
+  fetchAndMergeCrmPipelineOrders,
+  saveManualRealtimeAdjustment,
+  type LiveRealtimeSku,
+} from "../utils/liveInventory";
 
 export function WholesaleRealtimeInventoryView() {
   const navigate = useNavigate();
-  const [skus, setSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const todayIso = getIstDateString();
+  const [rawSkus, setRawSkus] = useState<InventorySku[]>(() => getStoredSkus());
   const [searchQuery, setSearchQuery] = useState("");
-  const [lastRefreshed, setLastRefreshed] = useState("09:47 pm");
+  const [lastRefreshed, setLastRefreshed] = useState(() => getIstTimeString());
+  const [dataRevision, setDataRevision] = useState(0);
 
   // Stock Adjustment Modal State
-  const [editingSku, setEditingSku] = useState<InventorySku | null>(null);
+  const [editingSku, setEditingSku] = useState<LiveRealtimeSku | null>(null);
   const [adjustedStock, setAdjustedStock] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
+
+  const syncRealtime = useCallback(async () => {
+    setRawSkus(getStoredSkus());
+    const changed = await fetchAndMergeCrmPipelineOrders(todayIso);
+    if (changed) setRawSkus(getStoredSkus());
+    setLastRefreshed(getIstTimeString());
+    setDataRevision((r) => r + 1);
+  }, [todayIso]);
+
+  useEffect(() => {
+    const bump = () => {
+      setRawSkus(getStoredSkus());
+      setLastRefreshed(getIstTimeString());
+      setDataRevision((r) => r + 1);
+    };
+    const onFocus = () => void syncRealtime();
+    window.addEventListener("crm_order_placed", bump);
+    window.addEventListener("settlements_updated", bump);
+    window.addEventListener("inventory_updated", bump);
+    window.addEventListener("storage", bump);
+    window.addEventListener("focus", onFocus);
+    void syncRealtime();
+    return () => {
+      window.removeEventListener("crm_order_placed", bump);
+      window.removeEventListener("settlements_updated", bump);
+      window.removeEventListener("inventory_updated", bump);
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncRealtime]);
+
+  const skus = useMemo<LiveRealtimeSku[]>(() => {
+    void dataRevision;
+    return computeLiveRealtimeSkus(rawSkus, todayIso);
+  }, [rawSkus, todayIso, dataRevision]);
 
   const filteredSkus = useMemo(() => {
     if (!searchQuery.trim()) return skus;
@@ -60,18 +104,12 @@ export function WholesaleRealtimeInventoryView() {
     );
   }, [filteredSkus]);
 
-  const handleRefresh = () => {
-    const timeStr = new Date().toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-    setLastRefreshed(timeStr);
-    setSkus(getStoredSkus());
-    toast.success("Realtime inventory updated");
+  const handleRefresh = async () => {
+    await syncRealtime();
+    toast.success("Realtime inventory updated for today's orders");
   };
 
-  const handleOpenAdjust = (sku: InventorySku) => {
+  const handleOpenAdjust = (sku: LiveRealtimeSku) => {
     setEditingSku(sku);
     setAdjustedStock(String(sku.closing));
     setAdjustReason("Count correction");
@@ -86,9 +124,8 @@ export function WholesaleRealtimeInventoryView() {
       return;
     }
 
-    const updated = skus.map((s) => (s.id === editingSku.id ? { ...s, closing: newQty } : s));
-    setSkus(updated);
-    saveStoredSkus(updated);
+    saveManualRealtimeAdjustment(todayIso, editingSku.id, newQty - editingSku.baseClosing);
+    setDataRevision((r) => r + 1);
     toast.success(`Stock of ${editingSku.name} adjusted to ${newQty}`);
     setEditingSku(null);
   };
@@ -187,8 +224,7 @@ export function WholesaleRealtimeInventoryView() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-[#0f2d59]">Realtime Inventory</h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Live stock at {lastRefreshed}. Purchase, Sales, Sales Return and Adjust are today's; Punch Orders
-          are all orders not yet dispatched.
+          Live stock at {lastRefreshed}. Showing only today&apos;s ({todayIso.split("-").reverse().join("-")}) Purchase, Sales, Sales Return, Split &amp; Punch Orders.
         </p>
       </div>
 
@@ -211,7 +247,7 @@ export function WholesaleRealtimeInventoryView() {
 
       {/* Formula note */}
       <div className="flex flex-wrap items-center gap-x-4 text-xs text-slate-600 italic">
-        <span>Closing = Opening + Purchase − Pur Return − Sales + Sales Return</span>
+        <span>Closing = Opening + Purchase − Pur Return − Sales + Sales Return + Split In − Split Out</span>
         <span>•</span>
         <span>Available = Closing − Punch Orders</span>
       </div>
