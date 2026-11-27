@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Plus, Search, Edit3 } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import {
   getStoredSkuProducts,
   saveStoredSkuProducts,
@@ -11,6 +12,41 @@ import {
 export function WholesaleSkuListView() {
   const navigate = useNavigate();
   const [skus, setSkus] = useState<SkuProduct[]>(() => getStoredSkuProducts());
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<any[]>("/api/v1/admin/products")
+      .then((res) => {
+        if (cancelled || !Array.isArray(res.data) || res.data.length === 0) return;
+        const mapped: SkuProduct[] = [];
+        res.data.forEach((p: any, idx: number) => {
+          const v = Array.isArray(p.variants) && p.variants.length > 0 ? p.variants[0] : null;
+          const stock = Number(v?.stock_on_hand ?? p.stock_on_hand ?? 0);
+          mapped.push({
+            id: Number(String(p.id).replace(/\D/g, "").slice(0, 12)) || idx + 1,
+            name: p.display_name || p.name,
+            code: v?.sku || p.code || `SKU-${idx + 1}`,
+            category: p.category || "General",
+            hsn: p.hsn_code || "",
+            gst: Number(p.tax_rate ?? 5),
+            cost: Number(v?.cost_price ?? p.cost_price ?? 0),
+            price: Number(v?.selling_price ?? p.selling_price ?? 0),
+            mrp: Number(v?.mrp ?? p.mrp ?? 0),
+            stock: Math.max(0, stock),
+            min: 5,
+            status: p.is_active === false || stock <= 0 ? "Inactive" : "Active",
+            added: new Date().toISOString().slice(0, 10),
+          });
+        });
+        setSkus(mapped);
+        saveStoredSkuProducts(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [filterMode, setFilterMode] = useState<"active" | "inactive" | "all">("active");
   const [searchQuery, setSearchQuery] = useState("");
 

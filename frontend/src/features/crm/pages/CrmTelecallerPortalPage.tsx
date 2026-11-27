@@ -50,7 +50,6 @@ import {
   saveStoredAttendance,
   getStoredEmployees,
 } from "@/features/employees/data/mockEmployees";
-import { getStoredSkuProducts } from "@/features/products/data/mockProducts";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -627,59 +626,8 @@ export function CrmTelecallerPortalPage() {
   const [customersDisplayLimit, setCustomersDisplayLimit] = useState<number>(50);
   const callingsFetchedRef = useRef(false);
 
-  // Catalog for Order Pad & SKU List (Initialized from Admin SKU List & master products — no fake hardcoded stock)
-  const [catalog, setCatalog] = useState<ProductItem[]>(() => {
-    const adminSkus = getStoredSkuProducts();
-    const adminSkuByName = new Map<string, number>();
-    adminSkus.forEach((s) => {
-      adminSkuByName.set((s.name || "").trim().toLowerCase(), Number(s.stock ?? 0));
-    });
-
-    const rawList = (realProductsData as any[]).map((p) => {
-      const lowerName = (p.name || "").trim().toLowerCase();
-      const stock = adminSkuByName.has(lowerName)
-        ? adminSkuByName.get(lowerName)!
-        : Number(p.stock ?? 0);
-      const price = Number(p.price) || 100;
-      return {
-        id: String(p.id),
-        name: p.name,
-        code: p.unit || "SKU",
-        display_name: p.name,
-        selling_price: price,
-        mrp: Number(p.mrp) || price,
-        wholesale_price: price,
-        current_stock: Math.max(0, stock),
-        category_name: "General",
-        local_name: getKannadaName(p.name),
-        pack_size: getPackSize(p.name, p),
-      };
-    });
-
-    // Bring Image 3 hero cards to the front
-    const priority = [
-      "A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box",
-      "Aramane Detergent Powder 10Rs 120Pcs Bag",
-      "Aramane Detergent Soap 10Rs 60Pcs Box",
-      "Bullet Rice 26Kg Bag",
-    ];
-
-    const heroes: ProductItem[] = [];
-    const rest: ProductItem[] = [];
-    for (const item of rawList) {
-      if (priority.some((pri) => item.name.includes(pri))) {
-        heroes.push(item);
-      } else {
-        rest.push(item);
-      }
-    }
-    heroes.sort((a, b) => {
-      const idxA = priority.findIndex((pri) => a.name.includes(pri));
-      const idxB = priority.findIndex((pri) => b.name.includes(pri));
-      return idxA - idxB;
-    });
-    return [...heroes, ...rest];
-  });
+  // Catalog for Order Pad & SKU List (Strictly loaded from live Admin DB /api/v1/admin/products — zero mock stock)
+  const [catalog, setCatalog] = useState<ProductItem[]>([]);
   const [skuSearch, setSkuSearch] = useState<string>("");
   const [orderCustomer, setOrderCustomer] = useState<CallingCustomer | null>(null);
   const [orderCustomerSearch, setOrderCustomerSearch] = useState<string>("");
@@ -1350,21 +1298,15 @@ export function CrmTelecallerPortalPage() {
     try {
       const prodRes = await apiClient.get<any[]>("/api/v1/admin/products");
 
-      // Normalize live SKU products & variants from Admin DB (/api/v1/admin/products)
+      // Normalize live SKU products & variants strictly from Admin DB (/api/v1/admin/products)
       const flattenedProducts: ProductItem[] = [];
-      const adminSkus = getStoredSkuProducts();
-      const adminSkuStockByName = new Map<string, number>();
-      adminSkus.forEach((s) => {
-        adminSkuStockByName.set((s.name || "").trim().toLowerCase(), Number(s.stock ?? 0));
-      });
 
-      // Map fallback prices from master data (never invent fake stock)
-      const realFallbackMap = new Map<string, { price: number; stock: number; mrp: number }>();
+      // Map fallback prices only (never fake stock)
+      const realFallbackMap = new Map<string, { price: number; mrp: number }>();
       (realProductsData as any[]).forEach((rp) => {
         const key = rp.name.trim().toLowerCase();
         realFallbackMap.set(key, {
           price: Number(rp.price) || 100,
-          stock: adminSkuStockByName.has(key) ? adminSkuStockByName.get(key)! : Number(rp.stock ?? 0),
           mrp: Number(rp.mrp) || Number(rp.price) || 100,
         });
       });
@@ -1375,7 +1317,7 @@ export function CrmTelecallerPortalPage() {
         for (const [k, v] of realFallbackMap.entries()) {
           if (lower.includes(k) || k.includes(lower)) return v;
         }
-        return { price: 100, stock: 0, mrp: 100 };
+        return { price: 100, mrp: 100 };
       };
 
       const resolveItemVals = (name: string, rawPrice: any, rawMrp: any, rawWholesale: any, rawStock: any) => {
@@ -1388,9 +1330,8 @@ export function CrmTelecallerPortalPage() {
         let mrp = Number(rawMrp ?? 0);
         if (mrp <= 0) mrp = fb.mrp || price;
 
-        // Always trust live DB stock_on_hand when returned (including 0); only fall back to Admin SKU list if null/undefined
-        const hasLiveStock = rawStock !== undefined && rawStock !== null && !Number.isNaN(Number(rawStock));
-        const stock = hasLiveStock ? Math.max(0, Number(rawStock)) : Math.max(0, fb.stock);
+        // Strictly use live DB stock_on_hand (0 stays 0, never mock)
+        const stock = Math.max(0, Number(rawStock ?? 0) || 0);
 
         return { price, mrp, stock };
       };
