@@ -628,17 +628,11 @@ export function BusinessDashboardView() {
       const costRatio = totalOrderAmt > 0 && orderCostTotal > 0 ? orderCostTotal / totalOrderAmt : 0.8;
 
       const profitRows = rawItems.map((it) => {
-        const taxable = it.gstPct > 0 ? Math.round(it.amount / (1 + it.gstPct / 100)) : it.amount;
         const cost = Math.round(it.amount * costRatio);
-        const profit = it.amount - cost;
-        const margin = it.amount > 0 ? ((profit / it.amount) * 100).toFixed(1) : "0.0";
-        return { ...it, taxable, cost, profit, margin };
+        return { ...it, cost };
       });
 
-      const totalTaxable = profitRows.reduce((s, r) => s + r.taxable, 0);
       const totalCost = profitRows.reduce((s, r) => s + r.cost, 0);
-      const totalProfit = totalOrderAmt - totalCost;
-      const totalMargin = totalOrderAmt > 0 ? ((totalProfit / totalOrderAmt) * 100).toFixed(1) : "0.0";
 
       const invLabel = matchedPipelineOrder?.invoiceNo ? ` · ${matchedPipelineOrder.invoiceNo}` : "";
       const statusLabel = matchedCrmOrder?.status || matchedPipelineOrder?.status || matchedPipelineOrder?.stage || "completed";
@@ -725,9 +719,6 @@ export function BusinessDashboardView() {
                       <th className="py-2.5 px-3 text-left">Item</th>
                       <th className="py-2.5 px-3 text-center">Qty</th>
                       <th className="py-2.5 px-3 text-right">Sales (incl. GST)</th>
-                      <th className="py-2.5 px-3 text-right">Profit</th>
-                      <th className="py-2.5 px-3 text-right">Margin</th>
-                      <th className="py-2.5 px-3 text-right">Taxable</th>
                       <th className="py-2.5 px-3 text-right">Cost</th>
                     </tr>
                   </thead>
@@ -737,11 +728,6 @@ export function BusinessDashboardView() {
                         <td className="py-2.5 px-3 font-bold text-slate-900">{pr.name}</td>
                         <td className="py-2.5 px-3 text-center font-mono">{pr.qty}</td>
                         <td className="py-2.5 px-3 text-right font-mono">{pr.amount.toLocaleString("en-IN")}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#059669]">
-                          {pr.profit.toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono">{pr.margin}%</td>
-                        <td className="py-2.5 px-3 text-right font-mono">{pr.taxable.toLocaleString("en-IN")}</td>
                         <td className="py-2.5 px-3 text-right font-mono">{pr.cost.toLocaleString("en-IN")}</td>
                       </tr>
                     ))}
@@ -749,11 +735,6 @@ export function BusinessDashboardView() {
                       <td className="py-2.5 px-3">Total</td>
                       <td className="py-2.5 px-3 text-center font-mono">{totalOrderQty}</td>
                       <td className="py-2.5 px-3 text-right font-mono">{totalOrderAmt.toLocaleString("en-IN")}</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-[#059669]">
-                        {totalProfit.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono">{totalMargin}%</td>
-                      <td className="py-2.5 px-3 text-right font-mono">{totalTaxable.toLocaleString("en-IN")}</td>
                       <td className="py-2.5 px-3 text-right font-mono">{totalCost.toLocaleString("en-IN")}</td>
                     </tr>
                   </tbody>
