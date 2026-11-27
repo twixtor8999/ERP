@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { createBrowserRouter, Navigate, useSearchParams } from "react-router-dom";
+import { createBrowserRouter, Navigate, useRouteError, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
@@ -16,12 +16,86 @@ function PageLoader() {
   );
 }
 
+const CHUNK_RELOAD_KEY = "erp_chunk_reload_at";
+
+function isChunkLoadError(err: unknown): boolean {
+  const msg =
+    err instanceof Error
+      ? `${err.name} ${err.message}`
+      : typeof err === "string"
+      ? err
+      : String(err || "");
+  return (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Importing a module script failed") ||
+    msg.includes("error loading dynamically imported module") ||
+    msg.includes("Unable to preload CSS") ||
+    msg.includes("ChunkLoadError") ||
+    msg.includes("Loading chunk")
+  );
+}
+
+function tryReloadOnceForStaleChunk(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const last = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY) || "0");
+    if (!last || Date.now() - last > 10_000) {
+      window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+      window.location.reload();
+      return true;
+    }
+  } catch {
+    window.location.reload();
+    return true;
+  }
+  return false;
+}
+
+function RouteErrorFallback() {
+  const error = useRouteError();
+  const staleChunk = isChunkLoadError(error);
+
+  if (staleChunk && tryReloadOnceForStaleChunk()) {
+    return <PageLoader />;
+  }
+
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-4 bg-slate-50">
+      <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-6 shadow-sm text-center space-y-3">
+        <h2 className="text-lg font-bold text-slate-900">
+          {staleChunk ? "App Update Available" : "Something went wrong"}
+        </h2>
+        <p className="text-xs text-slate-600">
+          {staleChunk
+            ? "A newer version of the application was deployed. Please reload the page to load the latest Inventory and ERP modules."
+            : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while loading this page."}
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center justify-center px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white text-xs font-bold rounded-lg cursor-pointer"
+        >
+          Reload Page
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function lazyPage<K extends string, T extends Record<K, React.ComponentType<any>>>(
   loader: () => Promise<T>,
   exportName: K
 ) {
   const LazyComp = lazy(() =>
-    loader().then((mod) => ({ default: mod[exportName] as React.ComponentType<any> }))
+    loader()
+      .then((mod) => ({ default: mod[exportName] as React.ComponentType<any> }))
+      .catch((err) => {
+        if (isChunkLoadError(err) && tryReloadOnceForStaleChunk()) {
+          return new Promise<never>(() => {});
+        }
+        throw err;
+      })
   );
   return (
     <Suspense fallback={<PageLoader />}>
@@ -73,6 +147,7 @@ export const router = createBrowserRouter([
   {
     path: "/shop",
     element: <StoreLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [
       { index: true, element: lazyPage(() => import("@/features/store/pages/StoreCatalogPage"), "StoreCatalogPage") },
       { path: "product/:id", element: lazyPage(() => import("@/features/store/pages/ProductDetailPage"), "ProductDetailPage") },
@@ -81,16 +156,19 @@ export const router = createBrowserRouter([
   {
     path: "/cart",
     element: <StoreLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/CartPage"), "CartPage") }],
   },
   {
     path: "/checkout",
     element: <StoreLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/CheckoutPage"), "CheckoutPage") }],
   },
   {
     path: "/account",
     element: <StoreLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [
       { path: "orders", element: lazyPage(() => import("@/features/store/pages/CustomerOrderHistoryPage"), "CustomerOrderHistoryPage") },
       { path: "addresses", element: lazyPage(() => import("@/features/store/pages/CustomerAddressesPage"), "CustomerAddressesPage") },
@@ -99,14 +177,17 @@ export const router = createBrowserRouter([
   {
     path: "/orders/:orderId",
     element: <StoreLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [{ index: true, element: lazyPage(() => import("@/features/store/pages/OrderTrackingPage"), "OrderTrackingPage") }],
   },
   {
     path: "/customer/login",
+    errorElement: <RouteErrorFallback />,
     element: lazyPage(() => import("@/features/store/pages/CustomerLoginPage"), "CustomerLoginPage"),
   },
   {
     path: "/customer/register",
+    errorElement: <RouteErrorFallback />,
     element: lazyPage(() => import("@/features/store/pages/CustomerRegisterPage"), "CustomerRegisterPage"),
   },
 
@@ -125,6 +206,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/crm",
+    errorElement: <RouteErrorFallback />,
     element: (
       <ProtectedRoute>
         <CrmRouteResolver />
@@ -133,6 +215,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
+    errorElement: <RouteErrorFallback />,
     element: (
       <ProtectedRoute>
         <AppLayout />

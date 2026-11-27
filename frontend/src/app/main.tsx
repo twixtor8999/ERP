@@ -8,6 +8,17 @@ import "@/styles/responsive.css";
 
 // Global restriction: Never allow future dates in any date picker across the ERP
 if (typeof window !== "undefined") {
+  // Recover seamlessly when a new deployment replaces hashed lazy chunks while a tab is open
+  window.addEventListener("vite:preloadError", (event) => {
+    const key = "erp_chunk_reload_at";
+    const last = Number(sessionStorage.getItem(key) || "0");
+    if (!last || Date.now() - last > 10_000) {
+      sessionStorage.setItem(key, String(Date.now()));
+      event.preventDefault();
+      window.location.reload();
+    }
+  });
+
   const enforceMaxToday = (target: EventTarget | null) => {
     if (target instanceof HTMLInputElement && target.type === "date") {
       const now = new Date();

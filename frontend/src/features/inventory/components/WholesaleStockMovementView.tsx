@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { getStoredSkus, type InventorySku } from "../data/mockInventory";
 import { getStoredPurchases } from "@/features/purchases/data/mockPurchases";
 import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
-import { getIstDateString } from "@/lib/utilities/istTime";
+import { getIstDateString, normalizeDateToIso } from "@/lib/utilities/istTime";
 
 interface StockMovementRow {
   date: string;
@@ -57,20 +57,8 @@ export function WholesaleStockMovementView() {
     const salesMap: Record<string, Record<string, number>> = {};
     for (const ord of crmOrders) {
       if (ord.status === "cancelled") continue;
-      let oDate = ord.orderDate || "";
-      if (oDate.includes("/")) {
-        const parts = oDate.split("/");
-        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-          oDate = parts[2].length === 4
-            ? `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`
-            : `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
-        }
-      } else if (oDate.includes("-")) {
-        const parts = oDate.split("-");
-        if (parts.length === 3 && parts[0] && parts[1] && parts[2] && parts[0].length === 2) {
-          oDate = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-        }
-      }
+      const oDate = normalizeDateToIso(ord.orderDate);
+      if (!oDate) continue;
 
       const dateSales = salesMap[oDate] || (salesMap[oDate] = {});
       for (const item of ord.items || []) {
