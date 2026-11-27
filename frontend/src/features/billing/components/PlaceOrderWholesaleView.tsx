@@ -390,59 +390,13 @@ export function PlaceOrderWholesaleView() {
       payment_method: "CASH",
       paid_amount: 0,
       delivery_notes: deliveryRemarks.trim() || undefined,
-    }).catch(() => { /* keep local fallback if offline or non-UUID variant */ });
-
-    try {
-      const raw = localStorage.getItem("pos_wholesale_placed_orders");
-      const existing: CustomerOrderRecord[] = raw ? JSON.parse(raw) : [];
-      localStorage.setItem(
-        "pos_wholesale_placed_orders",
-        JSON.stringify([newOrderRecord, ...existing.filter((o) => o.orderNo !== orderNo)])
-      );
-    } catch {}
-
-    // Also immediately sync to Wholesale Pipeline Orders in localStorage so Packing tab updates in real time!
-    try {
-      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
-      const pipelineArr: any[] = storedPipeline ? JSON.parse(storedPipeline) : [];
-      const newPipelineOrder = {
-        id: String(Date.now()),
-        orderNo: orderNo,
-        customerName: activeCustomerForOrder?.name || "Customer",
-        shopName: (activeCustomerForOrder as any)?.shop || "Kirana Store",
-        village: activeCustomerForOrder?.village || "Bijapur",
-        route: (activeCustomerForOrder as any)?.route || "Bijapur Route",
-        createdBy: creatorName,
-        source: orderSource,
-        orderDate: new Date().toISOString().split("T")[0] || "26-11-2026",
-        orderTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase(),
-        phone: activeCustomerForOrder?.phone || "",
-        total: cartTotal,
-        balance: 0,
-        stage: "packing",
-        status: "packed",
-        history: [
-          {
-            when: new Date().toISOString().replace("T", " ").substring(0, 16),
-            from: "Placed",
-            to: "Packed",
-            by: staffName,
-            where: "POS Place Order",
-          },
-        ],
-        items: newItems.map((it) => ({
-          name: it.name,
-          unit: "Box",
-          qty: it.qty,
-          price: it.price,
-          rate: it.price,
-          gst: "5%",
-          amount: it.amount,
-        })),
-      };
-      localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify([newPipelineOrder, ...pipelineArr.filter(p => p.orderNo !== orderNo)]));
-      window.dispatchEvent(new Event("crm_order_placed"));
-    } catch {}
+    })
+      .then(() => {
+        window.dispatchEvent(new Event("crm_order_placed"));
+      })
+      .catch(() => {
+        toast.error("Failed to save order to server. Please retry.");
+      });
 
     toast.success("Order Placed Successfully!", {
       description: `Order ${orderNo} created for ${activeCustomerForOrder?.name} (${activeCustomerForOrder?.village}) - ₹${cartTotal.toLocaleString("en-IN")}. Sent to Packing tab.`,

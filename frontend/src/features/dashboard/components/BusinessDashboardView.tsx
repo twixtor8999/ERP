@@ -398,18 +398,20 @@ export function BusinessDashboardView() {
       syncLiveBackendOrders();
       refreshFromStorage();
     };
+    const onOrderPlaced = () => {
+      syncLiveBackendOrders();
+      refreshFromStorage();
+    };
     refreshFromStorage();
     window.addEventListener("storage", refreshFromStorage);
-    window.addEventListener("crm_order_placed", refreshFromStorage);
+    window.addEventListener("crm_order_placed", onOrderPlaced);
     window.addEventListener("settlements_updated", refreshFromStorage);
     window.addEventListener("focus", refreshOnFocus);
-    window.addEventListener("crm_order_placed", refreshFromStorage);
     return () => {
       window.removeEventListener("storage", refreshFromStorage);
-      window.removeEventListener("crm_order_placed", refreshFromStorage);
+      window.removeEventListener("crm_order_placed", onOrderPlaced);
       window.removeEventListener("settlements_updated", refreshFromStorage);
       window.removeEventListener("focus", refreshOnFocus);
-      window.removeEventListener("crm_order_placed", refreshFromStorage);
     };
   }, [appliedFromDate, appliedToDate, syncLiveBackendOrders]);
 

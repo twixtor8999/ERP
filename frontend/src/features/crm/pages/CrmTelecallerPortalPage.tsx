@@ -2439,65 +2439,13 @@ export function CrmTelecallerPortalPage() {
         items: savedItems,
       };
 
-      // Also immediately sync to Wholesale Pipeline Orders in localStorage so Admin Packing tab gets it instantly!
-      try {
-        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
-        const pipelineArr: PipelineOrder[] = storedPipeline
-          ? JSON.parse(storedPipeline)
-          : [...INITIAL_PIPELINE_ORDERS];
-        const newPipelineOrder: PipelineOrder = {
-          id: orderId,
-          orderNo: orderNum,
-          customerName: newOrder.customer_name,
-          shopName: orderCustomer.shop_name || "Kirana Store",
-          village: orderCustomer.village || "Bijapur",
-          route: orderCustomer.route || "Bijapur Route",
-          createdBy: staffName,
-          source: "CRM",
-          orderDate: dStr,
-          orderTime: nowTime,
-          phone: orderCustomer.phone || "",
-          total: calculatedOrderTotal,
-          balance: 0,
-          stage: "packing",
-          status: "packed",
-          history: [
-            {
-              when: `${todayIst} ${nowTime}`,
-              from: "Placed",
-              to: "Packed",
-              by: staffName,
-              where: "CRM Place Order",
-            },
-          ],
-          items: savedItems.map((it) => ({
-            name: it.product_name,
-            unit: "Unit",
-            qty: it.quantity,
-            price: it.unit_price,
-            rate: it.unit_price,
-            gst: "5%",
-            amount: it.total_amount,
-          })),
-        };
-        const updatedPipeline = [newPipelineOrder, ...pipelineArr.filter((p) => p.orderNo !== orderNum)];
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updatedPipeline));
-
-        // Also save to crm_orders_master
-        try {
-          const rawMaster = localStorage.getItem("crm_orders_master");
-          const masterArr = rawMaster ? JSON.parse(rawMaster) : [];
-          const updatedMaster = [newOrder, ...masterArr.filter((m: any) => m.order_number !== orderNum)];
-          localStorage.setItem("crm_orders_master", JSON.stringify(updatedMaster));
-        } catch { }
-
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch { }
+      // Notify other open modules to refresh directly from Railway PostgreSQL (no localStorage order writes)
+      window.dispatchEvent(new Event("crm_order_placed"));
 
       // Immediately add to ordersList in state so if they view Order Status, it's right at the top
       setOrdersList((prev) => [newOrder, ...prev.filter((o) => o.order_number !== newOrder.order_number)]);
 
-      // Real-time update of CRM Report metrics & My Orders list
+      // Real-time in-memory update of CRM Report metrics & My Orders list
       setReportData((prev) => {
         const existingVisited = prev.visited_customers || [];
         const isAlreadyVisited = existingVisited.some((v) => v.id === orderCustomer.id || v.phone === orderCustomer.phone);
@@ -2528,10 +2476,6 @@ export function CrmTelecallerPortalPage() {
           visited_customers: updatedVisited,
           last_order: `${getTodayDisplayDate()}, ${nowTime}`,
         };
-
-        try {
-          sessionStorage.setItem(`crm_reports_${getTodayIsoDate()}`, JSON.stringify(updatedReport));
-        } catch { }
 
         return updatedReport;
       });

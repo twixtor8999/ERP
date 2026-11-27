@@ -1066,7 +1066,7 @@ export function WholesaleOrdersPipelineView() {
     };
 
     const handleCustomCrmOrder = () => {
-      syncOrdersFromStorage(true);
+      fetchLiveOrders();
     };
 
     window.addEventListener("storage", handleStorageChange);
