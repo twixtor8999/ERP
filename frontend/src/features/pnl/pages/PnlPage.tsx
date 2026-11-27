@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { TrendingUp, ShoppingBag, Users, Calendar, Truck } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { WholesalePnlSummaryView } from '../components/WholesalePnlSummaryView';
 import { WholesaleOrderWiseProfitView } from '../components/WholesaleOrderWiseProfitView';
 import { WholesaleCrmWiseProfitView } from '../components/WholesaleCrmWiseProfitView';
@@ -10,7 +10,7 @@ import { getIstDateString } from '@/lib/utilities/istTime';
 import { toast } from 'sonner';
 
 export function PnlPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // Tab state
   const tabParam = (searchParams.get('tab') || 'pl') as PnlTab;
@@ -29,11 +29,6 @@ export function PnlPage() {
       setActiveTab(tabParam as PnlTab);
     }
   }, [tabParam]);
-
-  const handleTabChange = (tab: PnlTab) => {
-    setActiveTab(tab);
-    setSearchParams({ tab });
-  };
 
   const handlePeriodChange = (period: string) => {
     setSelectedPeriod(period);
@@ -90,35 +85,8 @@ export function PnlPage() {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
-      {/* Top Tab Bar & Range Quick Presets */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
-        {/* Horizontal Navigation Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 py-0.5">
-          {[
-            { id: 'pl' as PnlTab, label: '1) Profit & Loss Report', icon: TrendingUp },
-            { id: 'plo' as PnlTab, label: '2) Order Wise Profit', icon: ShoppingBag },
-            { id: 'plc' as PnlTab, label: '3) CRM Wise Profit', icon: Users },
-            { id: 'plv' as PnlTab, label: '4) Vehicle Wise Profit', icon: Truck },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
-                  isActive
-                    ? 'bg-[#f59e0b] text-slate-900 shadow-2xs font-bold'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
+      {/* Range Quick Presets */}
+      <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
         {/* Quick Date Presets */}
         <div className="flex items-center gap-1 text-xs">
           <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1" />
