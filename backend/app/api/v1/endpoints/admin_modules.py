@@ -4127,7 +4127,10 @@ def get_crm_orders_status(
     stmt = (
         select(Order)
         .where(*conditions)
-        .order_by(Order.created_at.desc())
+        .order_by(
+            func.coalesce(Order.delivered_at, Order.updated_at, Order.created_at).desc(),
+            Order.created_at.desc(),
+        )
         .limit(limit)
     )
 
@@ -4220,6 +4223,10 @@ def get_crm_orders_status(
         delivered_str = "—"
         if o.delivered_at:
             dt_ist = o.delivered_at.astimezone(ist) if o.delivered_at.tzinfo else o.delivered_at.replace(tzinfo=UTC).astimezone(ist)
+            delivered_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+        elif o.status in ("DELIVERED", "RETURNED") and (o.updated_at or o.created_at):
+            dt = o.updated_at or o.created_at
+            dt_ist = dt.astimezone(ist) if dt.tzinfo else dt.replace(tzinfo=UTC).astimezone(ist)
             delivered_str = dt_ist.strftime("%d-%m-%Y %H:%M")
 
         # Filter if search
@@ -4346,6 +4353,7 @@ def _upsert_delivery_note_tag(notes: str | None, tag: str, value: str) -> str:
 
 class UpdateCrmOrderStagePayload(BaseModel):
     stage: str # "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "return" | "cancelled"
+    order_no: str | None = None
     invoice_no: str | None = None
     vehicle_no: str | None = None
     cancel_reason: str | None = None
@@ -4364,15 +4372,34 @@ def update_crm_order_stage(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
+    raw_id = order_id.strip()
+    clean_id = raw_id[4:] if raw_id.lower().startswith("ord-") and len(raw_id) > 4 and raw_id[4:].upper().startswith("ORD-") else raw_id
+    cand_order_no = (payload.order_no or "").strip()
+
+    match_clauses = [
+        Order.id == raw_id,
+        Order.id == clean_id,
+        Order.order_number == raw_id,
+        Order.order_number == clean_id,
+        Order.order_number == f"{clean_id}-B",
+    ]
+    if cand_order_no:
+        match_clauses.extend([
+            Order.order_number == cand_order_no,
+            Order.order_number == f"{cand_order_no}-B",
+        ])
+
     order = db.scalar(
         select(Order).where(
-            (Order.id == order_id) | (Order.order_number == order_id) | (Order.order_number == f"{order_id}-B"),
+            or_(*match_clauses),
             Order.organization_id == org_id,
         )
     )
     if not order:
-        # Fallback check by order_number without prefix
-        order = db.scalar(select(Order).where(Order.order_number.like(f"%{order_id}%"), Order.organization_id == org_id))
+        like_token = cand_order_no or clean_id
+        order = db.scalar(
+            select(Order).where(Order.order_number.ilike(f"%{like_token}%"), Order.organization_id == org_id)
+        )
     
     now_utc = datetime.now(UTC)
     stage = payload.stage.lower()

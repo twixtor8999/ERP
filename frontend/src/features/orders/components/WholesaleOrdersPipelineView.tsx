@@ -107,6 +107,44 @@ function readAndCompressSlipImage(file: File): Promise<string> {
   });
 }
 
+function safeSavePipelineOrders(list: PipelineOrder[]): boolean {
+  try {
+    localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(list));
+    return true;
+  } catch {
+    try {
+      // Strip screenshotUrl from older completed/archived entries beyond the newest 15 with slips
+      let keptSlips = 0;
+      const compacted = list.map((o) => {
+        if (!o.screenshotUrl) return o;
+        if (keptSlips < 15) {
+          keptSlips++;
+          return o;
+        }
+        const { screenshotUrl: _drop, ...rest } = o;
+        return rest as PipelineOrder;
+      });
+      localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(compacted));
+      return true;
+    } catch {
+      try {
+        // Last resort: keep all active non-completed orders + latest 200 completed orders without heavy screenshots
+        const active = list.filter((o) => o.stage !== "completed" && o.stage !== "cancelled");
+        const archived = list
+          .filter((o) => o.stage === "completed" || o.stage === "cancelled")
+          .slice(0, 200)
+          .map(({ screenshotUrl: _drop, ...rest }) => rest as PipelineOrder);
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify([...active, ...archived]));
+        return true;
+      } catch (err) {
+        console.error("Failed to persist pipeline orders even after compaction", err);
+        toast.error("Browser storage full! Old slips could not be trimmed — please export or clear cache.");
+        return false;
+      }
+    }
+  }
+}
+
 export function extractIsoDate(dStr?: string): string {
   if (!dStr) return "";
   const str = dStr.trim();
@@ -812,15 +850,16 @@ export function WholesaleOrdersPipelineView() {
             const orderNo = bo.order_number || `ORD-${bo.id}`;
             const existing = prevMap.get(orderNo);
 
-            // Determine stage based on db status or previous stage
+            // Determine stage based on db status or previous stage (never revert locally delivered/returned orders back to delivery)
             let stage: PipelineOrder["stage"] = "packing";
             const sUpper = (bo.status || "").toUpperCase();
             if (sUpper === "DELIVERED") stage = "completed";
             else if (sUpper === "RETURNED") stage = "return";
+            else if (sUpper === "CANCELLED") stage = "cancelled";
+            else if (existing && (existing.stage === "completed" || existing.stage === "return" || existing.stage === "cancelled")) stage = existing.stage;
             else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
             else if (sUpper === "DISPATCHED") stage = "dispatch";
             else if (sUpper === "INVOICED" || sUpper === "INVOICE") stage = "invoice";
-            else if (sUpper === "CANCELLED") stage = "cancelled";
             else if (existing) stage = existing.stage;
             else stage = "packing";
 
@@ -884,9 +923,7 @@ export function WholesaleOrdersPipelineView() {
 
           // Retain any remaining initial demo/custom orders
           const finalOrders = [...merged, ...Array.from(prevMap.values())];
-          try {
-            localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(finalOrders));
-          } catch {}
+          safeSavePipelineOrders(finalOrders);
           return finalOrders;
         });
       }
@@ -1007,9 +1044,7 @@ export function WholesaleOrdersPipelineView() {
         }
 
         const merged = Array.from(orderMap.values());
-        try {
-          localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(merged));
-        } catch {}
+        safeSavePipelineOrders(merged);
         return merged;
       });
     } catch {}
@@ -1236,11 +1271,9 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
 
@@ -1267,7 +1300,8 @@ export function WholesaleOrdersPipelineView() {
     } catch {}
 
     // Notify backend in background for real-time CRM Order Status sync
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", invoice_no: invNum }).catch(() => {});
+    const ordRef = orders.find((o) => o.id === orderId);
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice", order_no: ordRef?.orderNo, invoice_no: invNum }).catch(() => {});
     setViewingOrder(null);
   };
 
@@ -1361,17 +1395,16 @@ export function WholesaleOrdersPipelineView() {
   const handleUpdateOrderVehicle = (orderId: string, vehicleNo: string) => {
     setOrders((prev) => {
       const updated = prev.map((o) => (o.id === orderId ? { ...o, vehicleNo } : o));
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
     toast.success(`Vehicle updated to ${vehicleNo}`);
   };
 
   const handleBackToDispatch = (orderId: string) => {
+    const ordRef = orders.find((o) => o.id === orderId);
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id === orderId) {
@@ -1393,13 +1426,11 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch", order_no: ordRef?.orderNo }).catch(() => {});
     setViewingOrder(null);
   };
 
@@ -1423,10 +1454,8 @@ export function WholesaleOrdersPipelineView() {
         setViewingOrder(updatedOrder);
         return updatedOrder;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
       return updated;
     });
   };
@@ -1455,18 +1484,17 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch" }).catch(() => {});
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch", order_no: orderToPrint?.orderNo }).catch(() => {});
     setViewingOrder(null);
   };
 
   const handleMoveToDelivery = (orderId: string) => {
+    const ordRef = orders.find((o) => o.id === orderId);
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
     const timeStr = nowD.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
@@ -1486,14 +1514,12 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery" }).catch(() => {});
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "delivery", order_no: ordRef?.orderNo }).catch(() => {});
     setViewingOrder(null);
   };
 
@@ -1528,14 +1554,18 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "completed", vehicle_no: assignedVehicle }).catch(() => {});
+    apiClient
+      .post(`/api/v1/admin/crm/orders/${orderId}/stage`, {
+        stage: "completed",
+        order_no: targetOrder?.orderNo,
+        vehicle_no: assignedVehicle,
+      })
+      .catch(() => {});
     setViewingOrder(null);
   };
 
@@ -1555,14 +1585,13 @@ export function WholesaleOrdersPipelineView() {
         }
         return o;
       });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-        window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "cancelled", cancel_reason: reason }).catch(() => {});
+    const ordRef = orders.find((o) => o.id === orderId);
+    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "cancelled", order_no: ordRef?.orderNo, cancel_reason: reason }).catch(() => {});
   };
 
   // Summary Matrix for "5) Orders Report" - filtered strictly by applied date range
@@ -1816,16 +1845,15 @@ export function WholesaleOrdersPipelineView() {
               }
             : o
         );
-        try {
-          localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-          window.dispatchEvent(new Event("settlements_updated"));
-          window.dispatchEvent(new Event("crm_order_placed"));
-        } catch {}
+        safeSavePipelineOrders(updated);
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
         return updated;
       });
       apiClient
         .post(`/api/v1/admin/crm/orders/${viewingOrder.id}/stage`, {
           stage: nextStage,
+          order_no: viewingOrder.orderNo,
           vehicle_no: assignedVehicle,
           payment_mode: effectivePaymentMode,
           cash_paid: calculatedCashAmount,
@@ -2959,8 +2987,11 @@ export function WholesaleOrdersPipelineView() {
                 className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
               >
                 <option value="0">All Vehicle(s)</option>
-                <option value="KA28AA6256">KA28AA6256</option>
-                <option value="KA28AC0349">KA28AC0349</option>
+                {availableVehicleOptions.map((veh) => (
+                  <option key={veh} value={veh}>
+                    {veh}
+                  </option>
+                ))}
               </select>
             </label>
           </div>

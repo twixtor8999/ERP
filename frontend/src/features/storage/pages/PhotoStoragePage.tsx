@@ -46,14 +46,15 @@ export const PhotoStoragePage: React.FC = () => {
         const orders = JSON.parse(raw);
         if (Array.isArray(orders)) {
           orders.forEach((o: any) => {
-            if (o.paymentSlip) {
+            const slipSrc = o.paymentSlip || o.screenshotUrl;
+            if (slipSrc) {
               qrSlipCount++;
               liveSlipItems.push({
                 id: o.orderNo || String(o.id),
                 title: `QR Payment Slip · ${o.customerName || o.shopName || 'Customer'} (UTR: ${o.utrNumber || '—'})`,
-                date: o.orderDate || '2026-11-27',
-                size: `${Math.max(8, Math.round((String(o.paymentSlip).length * 0.75) / 1024))} KB`,
-                isLocal: String(o.paymentSlip).startsWith('data:image'),
+                date: o.deliveredAt || o.orderDate || '2026-11-27',
+                size: `${Math.max(8, Math.round((String(slipSrc).length * 0.75) / 1024))} KB`,
+                isLocal: String(slipSrc).startsWith('data:image'),
               });
             }
           });

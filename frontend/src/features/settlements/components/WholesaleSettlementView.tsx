@@ -620,7 +620,15 @@ export function WholesaleSettlementView() {
         const targetStage = sUpper === "RETURNED" ? "return" : "completed";
         const targetStatus = sUpper === "RETURNED" ? "returned" : "delivered";
 
-        if (!existing || existing.stage !== targetStage || (!existing.deliveredAt && bo.delivered && bo.delivered !== "—")) {
+        if (
+          !existing ||
+          existing.stage !== targetStage ||
+          (!existing.deliveredAt && bo.delivered && bo.delivered !== "—") ||
+          (typeof bo.cash_paid === "number" && existing.cashPaid == null) ||
+          (typeof bo.qr_paid === "number" && existing.qrPaid == null) ||
+          (bo.utr_number && !existing.utrNumber) ||
+          (bo.vehicle_no && existing.vehicleNo !== bo.vehicle_no)
+        ) {
           changed = true;
           byOrderNo.set(orderNo, {
             ...(existing || {}),
@@ -639,13 +647,14 @@ export function WholesaleSettlementView() {
             balance: 0,
             stage: targetStage,
             status: targetStatus,
-            deliveredAt: existing?.deliveredAt || (bo.delivered && bo.delivered !== "—" ? bo.delivered : bo.order_date || todayStr),
+            deliveredAt: existing?.deliveredAt || (bo.delivered && bo.delivered !== "—" ? bo.delivered : todayStr),
             paymentMode:
               existing?.paymentMode ||
               (bo.payment_method === "QR" ? "QR" : bo.payment_method === "CASH_AND_QR" ? "Split" : "Cash"),
             cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
             qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
             returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
+            utrNumber: existing?.utrNumber || bo.utr_number || undefined,
             items: existing?.items || (Array.isArray(bo.items) ? bo.items : []),
           });
         }
@@ -870,16 +879,11 @@ export function WholesaleSettlementView() {
 
     const handledKeys = new Set<string>();
 
-    // First, add or merge live pipeline delivered vehicle groups so new Mark delivered orders always appear
+    // First, add or merge live pipeline delivered vehicle groups so newly Mark delivered orders ALWAYS appear
+    // (preserving any saved denomination metadata while keeping live totals & order counts up to date)
     Object.entries(deliveredOrdersByGroup).forEach(([key, orders]) => {
       const [dIso, veh] = key.split("_");
       const saved = savedByKey.get(key);
-      const isLiveSavedRow = saved && ((saved.remarks || "").startsWith("Live delivery settlement") || orders.length >= saved.noOfOrders);
-
-      if (saved && !isLiveSavedRow) {
-        // Keep historical multi-order saved batch row as-is
-        return;
-      }
 
       handledKeys.add(key);
       const oldReturn = saved?.oldReturn || 0;
