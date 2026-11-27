@@ -4260,14 +4260,15 @@ def get_crm_orders_status(
 
         created_by_name = "Pushpa Patil" if o.order_type == "TELECALLER_CRM" else "Storefront"
         if o.delivery_notes and "Punched via Telecaller CRM by " in o.delivery_notes:
-            created_by_name = o.delivery_notes.split("Punched via Telecaller CRM by ")[-1].strip() or created_by_name
+            raw_cb = o.delivery_notes.split("Punched via Telecaller CRM by ")[-1].split("[")[0].strip()
+            created_by_name = raw_cb or created_by_name
         elif o.notes and "Punched by Telecaller CRM (" in o.notes:
             raw_uid = o.notes.split("Punched by Telecaller CRM (")[-1].split(")")[0].strip()
             resolved = users_name_map.get(raw_uid)
             if resolved:
-                created_by_name = resolved
+                created_by_name = resolved.split("[")[0].strip()
             elif raw_uid and "-" not in raw_uid and len(raw_uid) < 40:
-                created_by_name = raw_uid
+                created_by_name = raw_uid.split("[")[0].strip()
 
         addr = c.addresses[0] if (c and hasattr(c, "addresses") and c.addresses) else None
         raw_vil = (

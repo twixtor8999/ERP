@@ -11,6 +11,7 @@ import {
   getStaffMetricsInDateRange,
   getAllCrmOrders,
   getOrdersInDateRange,
+  cleanStaffName,
   type CrmOrderRecord,
 } from "@/features/crm/data/mockCrmReports";
 import {
@@ -220,7 +221,7 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
 
       // Calculate live orders and sales for this staff within the selected date range
       const staffRangeOrders = rangeOrders.filter(
-        (o) => o.staffName.toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
+        (o) => cleanStaffName(o.staffName).toLowerCase() === st.name.toLowerCase() && o.status !== "cancelled"
       );
 
       const ordersCount = metric ? metric.ordersCount : staffRangeOrders.length;
@@ -232,7 +233,7 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
 
       // Staff return orders in range (full returns + partial delivery returns)
       const staffReturns = pipelineReturns.filter(
-        (po) => (po.createdBy || "").toLowerCase() === st.name.toLowerCase()
+        (po) => cleanStaffName(po.createdBy).toLowerCase() === st.name.toLowerCase()
       );
       const returnTotal = staffReturns.reduce(
         (sum, po) => sum + (po.stage === "return" ? Number(po.total) || 0 : Number(po.returnAmount) || 0),
@@ -254,7 +255,7 @@ function getDynamicStaffList(fDate?: string, tDate?: string): CrmStaffMember[] {
       // Monthly sales for Target calculation (selected month's non-cancelled sales towards ₹1.2L)
       const monthlyStaffOrders = allOrders.filter(
         (o) =>
-          o.staffName.toLowerCase() === st.name.toLowerCase() &&
+          cleanStaffName(o.staffName).toLowerCase() === st.name.toLowerCase() &&
           o.status !== "cancelled" &&
           normalizeDateToIso(o.orderDate).startsWith(activeMonthPrefix)
       );
@@ -341,7 +342,7 @@ export function BusinessDashboardView() {
             shopName: bo.shop_name || existing?.shopName || "Store",
             village: bo.village || existing?.village || "Bijapur",
             route: bo.route || existing?.route || "Bijapur Route",
-            createdBy: (bo.created_by || existing?.createdBy || "Pushpa Patil").replace(/\s*\([^)]*\)\s*$/g, "").trim(),
+            createdBy: cleanStaffName(bo.created_by || existing?.createdBy),
             source: bo.source === "Admin" ? "Store" : bo.source || existing?.source || "CRM",
             orderDate: bo.order_date || existing?.orderDate || getIstDateString(),
             orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",

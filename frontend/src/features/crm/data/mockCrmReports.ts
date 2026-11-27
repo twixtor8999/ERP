@@ -373,7 +373,7 @@ export function getAllCrmOrders(): CrmOrderRecord[] {
                 shopName: mo.shop_name || mo.shopName || "",
                 village: mo.village || "Bijapur",
                 route: mo.route || "Bijapur Route",
-                staffName: mo.telecaller_name || mo.createdBy || "Pushpa Patil",
+                staffName: cleanStaffName(mo.telecaller_name || mo.createdBy),
                 source: "CRM",
                 orderDate: mo.order_date || mo.orderDate || "24-11-2026",
                 orderTime: mo.order_placed ? mo.order_placed.split(" ")[1] || "10:30 am" : mo.orderTime || "10:30 am",
@@ -413,7 +413,7 @@ export function getAllCrmOrders(): CrmOrderRecord[] {
             shopName: po.shopName,
             village: po.village,
             route: po.route,
-            staffName: po.createdBy || existing?.staffName || "Pushpa Patil",
+            staffName: cleanStaffName(po.createdBy || existing?.staffName),
             source: po.source === "APP" || po.source === "B2B" ? "APP" : "CRM",
             orderDate: po.orderDate,
             orderTime: po.orderTime,
@@ -527,6 +527,14 @@ export function getOrdersInDateRange(
   return all.filter((o) => isDateInRange(o.orderDate, fromDate, toDate));
 }
 
+export function cleanStaffName(raw?: string): string {
+  const cleaned = (raw || "")
+    .replace(/\s*\[[^\]]*\]/g, "")
+    .replace(/\s*\([^)]*\)\s*$/g, "")
+    .trim();
+  return cleaned || "Pushpa Patil";
+}
+
 // Helper: Aggregate staff performance for a given date range
 export function getStaffMetricsInDateRange(
   fromDate: string,
@@ -538,7 +546,7 @@ export function getStaffMetricsInDateRange(
 
   return activeTelecallers.map((base) => {
     const staffOrders = rangeOrders.filter(
-      (o) => o.staffName.toLowerCase() === base.name.toLowerCase() && o.status !== "cancelled"
+      (o) => cleanStaffName(o.staffName).toLowerCase() === base.name.toLowerCase() && o.status !== "cancelled"
     );
     const uniqueCusts = new Set(staffOrders.map((o) => o.customerPhone || o.customerName)).size;
     const totalSales = staffOrders.reduce((sum, o) => sum + o.total, 0);
