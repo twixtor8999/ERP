@@ -505,6 +505,19 @@ export function LoginPage() {
                 </Button>
               </form>
 
+              {/* CRM User Login Portal Link */}
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => navigate("/crm/login")}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1e3a8a] hover:text-[#0d1b4c] hover:underline transition cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>CRM User Login</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
               {/* Footer with Lock & Version 5.17 matching Reference */}
               <div className="text-center pt-2 space-y-1">
                 <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
