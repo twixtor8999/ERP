@@ -2867,6 +2867,7 @@ export function WholesaleOrdersPipelineView() {
 
           {/* Invoice Orders Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto touch-pan-x">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
@@ -2958,6 +2959,7 @@ export function WholesaleOrdersPipelineView() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -2975,6 +2977,7 @@ export function WholesaleOrdersPipelineView() {
 
           {/* Dispatch Orders Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto touch-pan-x">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
@@ -3059,6 +3062,7 @@ export function WholesaleOrdersPipelineView() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -3095,6 +3099,7 @@ export function WholesaleOrdersPipelineView() {
 
           {/* Delivery Orders Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto touch-pan-x">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
@@ -3174,6 +3179,7 @@ export function WholesaleOrdersPipelineView() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -3320,6 +3326,7 @@ export function WholesaleOrdersPipelineView() {
         ) : (
           <div className="space-y-3">
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto touch-pan-x">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-[#2563eb] text-white font-extrabold text-[12px]">
@@ -3380,6 +3387,7 @@ export function WholesaleOrdersPipelineView() {
                   </tr>
                 </tfoot>
               </table>
+              </div>
             </div>
 
             {/* Footnote matching Reference Screenshot 5 */}
