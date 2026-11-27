@@ -1199,13 +1199,12 @@ export function CrmTelecallerPortalPage() {
   }, [activeView]);
 
   useEffect(() => {
-    // Purge any stale deleted 26/11 orders or fake ORD-1660..1699 fallback orders from browser storage
+    // Purge any stale deleted test orders from browser storage
     try {
       const ordersToPurge = new Set(["ORD-0496", "ORD-0497", "ORD-0498"]);
       const isFakeFallbackOrder = (orderNo?: string) => {
         if (!orderNo) return false;
-        if (ordersToPurge.has(orderNo)) return true;
-        return /^ORD-16[6-9]\d$/.test(orderNo);
+        return ordersToPurge.has(orderNo);
       };
       const pipeRaw = localStorage.getItem("crm_wholesale_pipeline_orders");
       if (pipeRaw) {
@@ -1509,33 +1508,53 @@ export function CrmTelecallerPortalPage() {
       ]);
 
       if (repRes.data) {
-        // Trust backend database as source of truth for the selected date range
-        const backendOrders = [...(repRes.data.my_orders || [])].sort((a, b) => {
-          const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
-          const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
+        // Merge backend orders with any authoritative local CRM orders
+        const backendOrders = Array.isArray(repRes.data.my_orders) ? repRes.data.my_orders : [];
+        const localOrders = Array.isArray(localReport.my_orders) ? localReport.my_orders : [];
+        const seen = new Set<string>();
+        const mergedOrders: any[] = [];
+        for (const o of [...backendOrders, ...localOrders] as any[]) {
+          const num = o.order_number || o.orderNo;
+          if (num && !seen.has(num)) {
+            seen.add(num);
+            mergedOrders.push(o);
+          }
+        }
+        mergedOrders.sort((a: any, b: any) => {
+          const numA = parseInt((a.order_number || a.orderNo || "").replace(/\D/g, ""), 10) || 0;
+          const numB = parseInt((b.order_number || b.orderNo || "").replace(/\D/g, ""), 10) || 0;
           return numB - numA;
         });
 
-        const totalAmount = backendOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+        const totalAmount = mergedOrders.reduce((sum: number, o: any) => sum + (Number(o.total_amount || o.total) || 0), 0);
 
         const reportWithSortedOrders: CrmReportData = {
           ...repRes.data,
-          total_orders: backendOrders.length,
+          total_orders: mergedOrders.length,
           order_total: totalAmount,
           incentive_today: repRes.data.incentive_today ?? repRes.data.incentive ?? 0,
-          my_orders: backendOrders,
+          my_orders: mergedOrders,
         };
         setReportData(reportWithSortedOrders);
 
         if (Array.isArray(ordRes.data)) {
-          const sortedOrders = [...ordRes.data].sort((a, b) => {
+          const ordSeen = new Set<string>();
+          const allMergedOrd: CrmOrder[] = [];
+          for (const o of [...ordRes.data, ...mergedOrders]) {
+            const num = o.order_number || o.orderNo;
+            if (num && !ordSeen.has(num)) {
+              ordSeen.add(num);
+              allMergedOrd.push(o);
+            }
+          }
+          allMergedOrd.sort((a, b) => {
             const numA = parseInt((a.order_number || "").replace(/\D/g, ""), 10) || 0;
             const numB = parseInt((b.order_number || "").replace(/\D/g, ""), 10) || 0;
             return numB - numA;
           });
-          setOrdersList(sortedOrders);
+          setOrdersList(allMergedOrd);
         } else {
-          setOrdersList([]);
+          setOrdersList(mergedOrders);
         }
       }
     } catch {

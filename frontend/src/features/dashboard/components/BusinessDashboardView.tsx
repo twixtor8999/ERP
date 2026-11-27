@@ -397,9 +397,11 @@ export function BusinessDashboardView() {
     };
     window.addEventListener("storage", refreshFromStorage);
     window.addEventListener("focus", refreshOnFocus);
+    window.addEventListener("crm_order_placed", refreshFromStorage);
     return () => {
       window.removeEventListener("storage", refreshFromStorage);
       window.removeEventListener("focus", refreshOnFocus);
+      window.removeEventListener("crm_order_placed", refreshFromStorage);
     };
   }, [fromDate, toDate]);
 
