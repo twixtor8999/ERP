@@ -4061,11 +4061,17 @@ export function CrmTelecallerPortalPage() {
                                             INCENTIVE: ₹{incTag.amount} / unit · TARGET {incTag.target}
                                           </span>
                                         )}
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="px-2.5 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold uppercase">
-                                            STOCK: {prod.current_stock}
-                                          </span>
-                                          <span className="px-2.5 py-0.5 rounded-full border border-blue-400 text-blue-700 bg-white text-[10px] font-extrabold uppercase">
+                                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                          {prod.current_stock <= 0 ? (
+                                            <span className="px-3 py-1 rounded-full border border-red-400 text-red-700 bg-red-50 text-xs font-extrabold uppercase tracking-wide">
+                                              OUT OF STOCK
+                                            </span>
+                                          ) : (
+                                            <span className="px-3 py-1 rounded-full border border-blue-500 text-blue-800 bg-blue-50/70 text-xs font-extrabold uppercase tracking-wide">
+                                              STOCK: {prod.current_stock}
+                                            </span>
+                                          )}
+                                          <span className="px-2.5 py-1 rounded-full border border-blue-400 text-blue-700 bg-white text-[11px] font-extrabold uppercase">
                                             {packSize}
                                           </span>
                                         </div>
@@ -4074,7 +4080,15 @@ export function CrmTelecallerPortalPage() {
 
                                     {/* Bottom row: Yellow ADD button on Left, Red Price equation on Right (Exact 1:1 Image 3) */}
                                     <div className="flex items-center justify-between pt-1">
-                                      {currentQty === 0 ? (
+                                      {prod.current_stock <= 0 ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="bg-slate-200 text-slate-500 font-bold px-5 py-2 rounded-lg text-xs uppercase tracking-wider cursor-not-allowed"
+                                        >
+                                          Out of Stock
+                                        </button>
+                                      ) : currentQty === 0 ? (
                                         <button
                                           type="button"
                                           onClick={() =>

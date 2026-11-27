@@ -2486,6 +2486,94 @@ def list_admin_purchases(
 # ---------------------------------------------------------------------------
 
 
+class PurchaseLinePayload(BaseModel):
+    sku_name: str
+    sku_code: str | None = None
+    qty: Decimal
+    cost_price: Decimal = Decimal("0.00")
+
+
+class ReceivePurchasePayload(BaseModel):
+    invoice_no: str
+    vendor_name: str = "Vendor Partner"
+    po_date: str | None = None
+    items: list[PurchaseLinePayload]
+
+
+@router.post("/purchases/receive-stock", dependencies=[Depends(require_admin_user)])
+def receive_purchase_stock(
+    payload: ReceivePurchasePayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Increment StockBalance in DB when Admin approves a purchase invoice."""
+    org_id = current_user.organization_id
+    warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == org_id))
+    updated_count = 0
+
+    for item in payload.items:
+        if item.qty <= Decimal("0"):
+            continue
+        variant: ProductVariant | None = None
+        if item.sku_code:
+            variant = db.scalar(select(ProductVariant).where(ProductVariant.sku == item.sku_code.strip()))
+        if not variant and item.sku_name:
+            prod = db.scalar(
+                select(Product).where(
+                    Product.organization_id == org_id,
+                    func.lower(Product.name) == item.sku_name.strip().lower(),
+                )
+            )
+            if prod:
+                variant = db.scalar(select(ProductVariant).where(ProductVariant.product_id == prod.id))
+        if not variant:
+            continue
+
+        sb = db.scalar(
+            select(StockBalance).where(
+                StockBalance.organization_id == org_id,
+                StockBalance.product_variant_id == variant.id,
+            )
+        )
+        if sb:
+            sb.quantity_on_hand = (sb.quantity_on_hand or Decimal("0.00")) + item.qty
+        elif warehouse:
+            db.add(
+                StockBalance(
+                    id=str(uuid.uuid4()),
+                    organization_id=org_id,
+                    warehouse_id=warehouse.id,
+                    product_variant_id=variant.id,
+                    quantity_on_hand=item.qty,
+                    quantity_reserved=Decimal("0.0000"),
+                )
+            )
+        if item.cost_price > Decimal("0.00"):
+            variant.cost_price = item.cost_price
+
+        if warehouse:
+            db.add(
+                StockMovement(
+                    id=str(uuid.uuid4()),
+                    organization_id=org_id,
+                    warehouse_id=warehouse.id,
+                    product_variant_id=variant.id,
+                    movement_type="PURCHASE",
+                    quantity=item.qty,
+                    unit_cost=item.cost_price if item.cost_price > 0 else variant.cost_price,
+                    total_cost=item.qty * (item.cost_price if item.cost_price > 0 else variant.cost_price),
+                    reference_type="PURCHASE_INVOICE",
+                    reference_id=payload.invoice_no,
+                    notes=f"Purchase {payload.invoice_no} from {payload.vendor_name}",
+                    created_by=current_user.user_id,
+                )
+            )
+        updated_count += 1
+
+    db.commit()
+    return {"success": True, "updated_skus": updated_count}
+
+
 @router.get("/subscription", dependencies=[Depends(require_admin_user)])
 def get_admin_subscription(
     current_user: AuthContext = Depends(get_current_user),

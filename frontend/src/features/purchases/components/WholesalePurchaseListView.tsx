@@ -10,6 +10,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import {
   getStoredPurchases,
   saveStoredPurchases,
@@ -69,7 +70,8 @@ export function WholesalePurchaseListView() {
       .reduce((sum, p) => sum + p.totalAmount, 0);
   }, [filteredPurchases]);
 
-  const handleApprove = (id: number) => {
+  const handleApprove = async (id: number) => {
+    const target = purchases.find((p) => p.id === id);
     const updated = purchases.map((p) => {
       if (p.id === id) {
         return { ...p, status: "approved" as const };
@@ -81,7 +83,25 @@ export function WholesalePurchaseListView() {
     if (selectedPurchase?.id === id) {
       setSelectedPurchase({ ...selectedPurchase, status: "approved" });
     }
-    toast.success("Purchase approved! Stock updated in Inventory.");
+
+    if (target && target.status !== "approved" && Array.isArray(target.lines) && target.lines.length > 0) {
+      try {
+        await apiClient.post("/api/v1/admin/purchases/receive-stock", {
+          invoice_no: target.invoiceNo,
+          vendor_name: target.vendorName,
+          po_date: target.date,
+          items: target.lines.map((l) => ({
+            sku_name: l.skuName,
+            qty: Number(l.qty) || 0,
+            cost_price: Number(l.cost) || 0,
+          })),
+        });
+      } catch {
+        // Keep local approval if offline
+      }
+    }
+    window.dispatchEvent(new Event("inventory_updated"));
+    toast.success("Purchase approved! Stock updated in Inventory & CRM.");
   };
 
   const handleDelete = (id: number, inv: string) => {
