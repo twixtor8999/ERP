@@ -3830,7 +3830,7 @@ def place_crm_quick_order(
                 total_amount=line_tot,
             )
         )
-        # Real-time stock deduction from inventory
+        # Real-time stock validation & deduction from inventory
         sb = db.scalar(
             select(StockBalance).where(
                 StockBalance.organization_id == org_id,
@@ -3838,7 +3838,15 @@ def place_crm_quick_order(
             )
         )
         if sb:
-            sb.quantity_on_hand = max(Decimal("0.00"), sb.quantity_on_hand - it.quantity)
+            avail_qty = Decimal(str(sb.quantity_on_hand or 0))
+            if avail_qty < it.quantity:
+                p_label = variant.product.name if variant.product else variant.sku
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {p_label}: available {avail_qty}, requested {it.quantity}",
+                )
+            sb.quantity_on_hand = max(Decimal("0.00"), avail_qty - it.quantity)
+            sb.quantity_available = max(Decimal("0.00"), Decimal(str(sb.quantity_available or avail_qty)) - it.quantity)
 
     # Create Invoice
     invoice = Invoice(

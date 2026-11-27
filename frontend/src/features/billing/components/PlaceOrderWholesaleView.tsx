@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { fetchRealtimeInventory } from "@/lib/api/apiService";
 import { useAuthStore } from "@/stores/auth.store";
 import { FireworksOverlay } from "@/features/crm/components/FireworksOverlay";
 import realCustomersData from "@/data/realCustomers.json";
@@ -161,21 +162,47 @@ export function PlaceOrderWholesaleView() {
     return [...saved, ...(realCustomerOrders as CustomerOrderRecord[])];
   });
 
-  // Product Catalog
-  const allProducts = useMemo<CatalogProduct[]>(() => {
-    return (realProductsData as any[]).map((p) => ({
-      id: String(p.id),
-      name: p.name,
-      kannadaName: getKannadaName(p.name, p.kn),
-      unit: p.unit || "Pcs",
-      price: Number(p.price) || 0,
-      mrp: Number(p.mrp) || Number(p.price) || 0,
-      stock: Number(p.stock) || 0,
-      packBadge: extractPackBadge(p.name, p.unit),
-      cat: p.cat || "",
-      hsn: p.hsn || "",
-    }));
+  // Live stock map from Railway PostgreSQL
+  const [liveStockByName, setLiveStockByName] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const loadLiveStock = () => {
+      fetchRealtimeInventory()
+        .then((rows) => {
+          const map: Record<string, number> = {};
+          for (const r of rows) {
+            map[r.name.toLowerCase().trim()] = r.closing;
+          }
+          setLiveStockByName(map);
+        })
+        .catch(() => { /* keep static fallback */ });
+    };
+    loadLiveStock();
+    window.addEventListener("inventory_updated", loadLiveStock);
+    window.addEventListener("crm_order_placed", loadLiveStock);
+    return () => {
+      window.removeEventListener("inventory_updated", loadLiveStock);
+      window.removeEventListener("crm_order_placed", loadLiveStock);
+    };
   }, []);
+
+  // Product Catalog (overlaid with live Railway DB stock)
+  const allProducts = useMemo<CatalogProduct[]>(() => {
+    return (realProductsData as any[]).map((p) => {
+      const liveStock = liveStockByName[String(p.name || "").toLowerCase().trim()];
+      return {
+        id: String(p.id),
+        name: p.name,
+        kannadaName: getKannadaName(p.name, p.kn),
+        unit: p.unit || "Pcs",
+        price: Number(p.price) || 0,
+        mrp: Number(p.mrp) || Number(p.price) || 0,
+        stock: liveStock !== undefined ? liveStock : (Number(p.stock) || 0),
+        packBadge: extractPackBadge(p.name, p.unit),
+        cat: p.cat || "",
+        hsn: p.hsn || "",
+      };
+    });
+  }, [liveStockByName]);
 
   // Cart state: Map of productId -> quantity
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -330,10 +357,12 @@ export function PlaceOrderWholesaleView() {
           (p) => p.id === item.skuId || p.name.toLowerCase() === item.name.toLowerCase()
         );
         if (prod && prod.price > 0 && prod.stock > 0) {
-          const avail = prod.stock;
-          const qtyToAdd = Math.min(item.qty, avail);
-          nextCart[prod.id] = (nextCart[prod.id] || 0) + qtyToAdd;
-          addedCount++;
+          const cur = nextCart[prod.id] || 0;
+          const next = Math.min(prod.stock, cur + item.qty);
+          if (next > cur) {
+            nextCart[prod.id] = next;
+            addedCount++;
+          }
         }
       });
       return nextCart;

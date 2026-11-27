@@ -2281,9 +2281,20 @@ export function CrmTelecallerPortalPage() {
     );
   }, [customerOrdersHistory]);
 
+  const incrementOrderItem = (prodId: string, stockLimit: number, prodName?: string) => {
+    const cur = orderItems[prodId] || 0;
+    if (cur + 1 > stockLimit) {
+      toast.error(`Only ${stockLimit} in stock${prodName ? ` for ${prodName}` : ""}`);
+      return false;
+    }
+    setOrderItems((prev) => ({ ...prev, [prodId]: (prev[prodId] || 0) + 1 }));
+    return true;
+  };
+
   const handleRepeatOrder = (order: any) => {
     if (order.items && order.items.length > 0) {
       const newItems: { [id: string]: number } = {};
+      let addedCount = 0;
       order.items.forEach((item: any) => {
         const found = catalog.find(
           (p) =>
@@ -2291,22 +2302,35 @@ export function CrmTelecallerPortalPage() {
             p.id === item.product_id ||
             item.product_name.toLowerCase().includes(p.name.toLowerCase())
         );
-        const fallbackProd = catalog[0];
-        if (found) {
-          newItems[found.id] = (newItems[found.id] || 0) + (item.quantity || 1);
-        } else if (fallbackProd) {
-          newItems[fallbackProd.id] = (newItems[fallbackProd.id] || 0) + (item.quantity || 1);
+        if (found && found.current_stock > 0) {
+          const cur = (orderItems[found.id] || 0) + (newItems[found.id] || 0);
+          const canAdd = Math.min(item.quantity || 1, Math.max(0, found.current_stock - cur));
+          if (canAdd > 0) {
+            newItems[found.id] = (newItems[found.id] || 0) + canAdd;
+            addedCount++;
+          }
         }
       });
-      setOrderItems((prev) => ({ ...prev, ...newItems }));
-      toast.success(`Repeated items from ${order.order_number} added to cart!`);
-      setOrderSubTab("ITEMS");
+      if (addedCount > 0) {
+        setOrderItems((prev) => {
+          const merged = { ...prev };
+          for (const [k, q] of Object.entries(newItems)) {
+            merged[k] = (merged[k] || 0) + q;
+          }
+          return merged;
+        });
+        toast.success(`Repeated ${addedCount} item(s) from ${order.order_number} added to cart!`);
+        setOrderSubTab("ITEMS");
+      } else {
+        toast.error("Items from this order are currently out of stock");
+      }
     } else {
-      const fallbackProd = catalog[0];
-      if (fallbackProd) {
-        setOrderItems((prev) => ({ ...prev, [fallbackProd.id]: (prev[fallbackProd.id] || 0) + 1 }));
+      const fallbackProd = catalog.find((p) => p.current_stock > 0);
+      if (fallbackProd && incrementOrderItem(fallbackProd.id, fallbackProd.current_stock, fallbackProd.name)) {
         toast.success(`Items from ${order.order_number} added to cart!`);
         setOrderSubTab("ITEMS");
+      } else {
+        toast.error("No in-stock items available to repeat");
       }
     }
   };
@@ -3857,12 +3881,7 @@ export function CrmTelecallerPortalPage() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setOrderItems((prev) => ({
-                                          ...prev,
-                                          [id]: (prev[id] || 0) + 1,
-                                        }))
-                                      }
+                                      onClick={() => incrementOrderItem(id, prod.current_stock, prod.name)}
                                       className="text-slate-800 font-black text-sm px-1.5 hover:text-slate-950 active:scale-90 cursor-pointer"
                                     >
                                       +
@@ -4091,12 +4110,7 @@ export function CrmTelecallerPortalPage() {
                                       ) : currentQty === 0 ? (
                                         <button
                                           type="button"
-                                          onClick={() =>
-                                            setOrderItems((prev) => ({
-                                              ...prev,
-                                              [prod.id]: 1,
-                                            }))
-                                          }
+                                          onClick={() => incrementOrderItem(prod.id, prod.current_stock, prod.name)}
                                           className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-bold px-7 py-2 rounded-lg text-xs shadow-2xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
                                         >
                                           ADD
@@ -4120,12 +4134,7 @@ export function CrmTelecallerPortalPage() {
                                           </span>
                                           <button
                                             type="button"
-                                            onClick={() =>
-                                              setOrderItems((prev) => ({
-                                                ...prev,
-                                                [prod.id]: (prev[prod.id] || 0) + 1,
-                                              }))
-                                            }
+                                            onClick={() => incrementOrderItem(prod.id, prod.current_stock, prod.name)}
                                             className="text-slate-800 font-black text-xs px-1 hover:text-slate-950 active:scale-90 cursor-pointer"
                                           >
                                             +
@@ -6682,10 +6691,8 @@ export function CrmTelecallerPortalPage() {
                       selectedIncentiveProduct.name.toLowerCase().includes(c.name.toLowerCase())
                   );
                   const prodId = match ? match.id : selectedIncentiveProduct.id;
-                  setOrderItems((prev) => ({
-                    ...prev,
-                    [prodId]: (prev[prodId] || 0) + 1,
-                  }));
+                  const stockLimit = match ? match.current_stock : 0;
+                  if (!incrementOrderItem(prodId, stockLimit, selectedIncentiveProduct.name)) return;
                   setSelectedIncentiveProduct(null);
                   setActiveView("place-order");
                   toast.success("Item Added to Order Pad", {

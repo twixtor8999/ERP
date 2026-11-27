@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { fetchRealtimeInventory } from "@/lib/api/apiService";
 import { openPackingSlipWindow } from "@/features/orders/utils/packingSlipPrinter";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
@@ -1434,7 +1435,33 @@ export function WholesaleOrdersPipelineView() {
     setViewingOrder(null);
   };
 
+  const liveStockByNameRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    const refreshLiveStock = () => {
+      fetchRealtimeInventory()
+        .then((rows) => {
+          const map: Record<string, number> = {};
+          for (const r of rows) map[r.name.toLowerCase().trim()] = r.closing;
+          liveStockByNameRef.current = map;
+        })
+        .catch(() => {});
+    };
+    refreshLiveStock();
+    window.addEventListener("inventory_updated", refreshLiveStock);
+    return () => window.removeEventListener("inventory_updated", refreshLiveStock);
+  }, []);
+
   const handleUpdateInvoiceItemQty = (orderId: string, itemIdx: number, nextQty: number) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const targetItem = targetOrder?.items[itemIdx];
+    if (targetItem && nextQty > targetItem.qty) {
+      const extraNeeded = nextQty - targetItem.qty;
+      const avail = liveStockByNameRef.current[targetItem.name.toLowerCase().trim()];
+      if (avail !== undefined && extraNeeded > avail) {
+        toast.error(`Only ${avail} additional unit(s) available in stock for ${targetItem.name}`);
+        return;
+      }
+    }
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id !== orderId) return o;
