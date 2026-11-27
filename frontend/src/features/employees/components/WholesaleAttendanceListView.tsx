@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Download,
@@ -56,7 +57,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
   const [selectedMonth, setSelectedMonth] = useState(() => todayStr.slice(0, 7));
   const [showHolidays, setShowHolidays] = useState(false);
 
-  // Modal State for Attendance Override (tap H or A -> P*)
+  const location = useLocation();
   const [fixModal, setFixModal] = useState<{
     emp: Employee;
     date: string;
@@ -65,7 +66,12 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
     isOverridden: boolean;
     record?: AttendanceRecord;
   } | null>(null);
+  const [fixStatus, setFixStatus] = useState<'P' | 'HD' | 'A'>('P');
   const [fixReason, setFixReason] = useState('');
+
+  useEffect(() => {
+    setFixModal(null);
+  }, [location.key, location.search]);
 
   // Modal State for Salary Process: Approve
   const [approveModal, setApproveModal] = useState<{
@@ -116,6 +122,19 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
           colorClass = 'text-emerald-700 font-black';
           P++;
           totalMinutes += 480;
+          isClickable = true;
+        } else if (rec && rec.ov === 'HD') {
+          code = 'HD*';
+          label = `Half Day (Overridden: ${rec.ovWhy || 'Admin override'})`;
+          colorClass = 'text-amber-700 font-black';
+          HD++;
+          totalMinutes += 240;
+          isClickable = true;
+        } else if (rec && rec.ov === 'A') {
+          code = 'A*';
+          label = `Absent (Overridden: ${rec.ovWhy || 'Admin override'})`;
+          colorClass = 'text-red-700 font-black';
+          A++;
           isClickable = true;
         } else if (rec && rec.inT) {
           if (rec.outT) {
@@ -211,7 +230,7 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
     return { totalEmployees, checkedIn, checkedOut, notMarked };
   }, [employees, attendance, todayStr]);
 
-  // Handle click on cell to fix attendance
+  // Handle click on cell to open dedicated Change Attendance page
   const handleCellClick = (emp: Employee, cell: any) => {
     if (!cell.isClickable) return;
     setFixModal({
@@ -219,17 +238,18 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
       date: cell.date,
       currentCode: cell.code,
       currentLabel: cell.label,
-      isOverridden: cell.code === 'P*',
+      isOverridden: Boolean(cell.rec?.ov),
       record: cell.rec,
     });
+    setFixStatus((cell.rec?.ov as 'P' | 'HD' | 'A') || 'P');
     setFixReason(cell.rec?.ovWhy || '');
   };
 
-  const handleSaveFix = () => {
+  const handleSaveFix = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!fixModal) return;
     const { emp, date, record } = fixModal;
-    const selectEl = document.getElementById('modal-attendance-status-select') as HTMLSelectElement | null;
-    const nextOv = (selectEl?.value || 'P') as 'P' | 'HD' | 'A';
+    const nextOv = fixStatus;
 
     let updated: AttendanceRecord[];
     if (record) {
@@ -443,6 +463,112 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
     document.body.removeChild(link);
     toast.success('Attendance matrix exported to CSV');
   };
+
+  if (fixModal) {
+    return (
+      <div className="space-y-4 font-sans text-[#0f172a] pb-12">
+        {/* Top Bar with Back Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setFixModal(null)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white text-xs font-semibold rounded-md shadow-xs transition cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Attendance List</span>
+          </button>
+          <span className="text-xs text-slate-500 font-medium">
+            Employees / 3) Attendance List / <b className="text-slate-800">Change Attendance</b>
+          </span>
+        </div>
+
+        {/* Page Heading */}
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0f2d59]">Change Attendance</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Update attendance status or apply an admin override for <b>{fixModal.emp.name}</b> on <b className="font-mono">{fixModal.date}</b>.
+          </p>
+        </div>
+
+        {/* Dedicated Form Card */}
+        <form
+          onSubmit={handleSaveFix}
+          className="bg-white rounded-xl border border-slate-200 shadow-xs max-w-2xl p-6 space-y-5"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+            <div>
+              <span className="text-slate-500 block">Employee</span>
+              <strong className="text-sm text-slate-900">{fixModal.emp.name}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Date</span>
+              <strong className="text-sm font-mono text-slate-900">{fixModal.date}</strong>
+            </div>
+            <div className="sm:col-span-2 pt-2 border-t border-slate-200/80">
+              <span className="text-slate-500 mr-1.5">Current status:</span>
+              <strong className="text-slate-900">{fixModal.currentLabel}</strong>{' '}
+              (<span className="font-mono font-bold text-blue-700">{fixModal.currentCode}</span>)
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Change Status to
+            </label>
+            <select
+              value={fixStatus}
+              onChange={(e) => setFixStatus(e.target.value as 'P' | 'HD' | 'A')}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="P">Present (P* - Admin override)</option>
+              <option value="HD">Half Day (HD)</option>
+              <option value="A">Absent (A)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Reason (optional)
+            </label>
+            <input
+              type="text"
+              value={fixReason}
+              onChange={(e) => setFixReason(e.target.value)}
+              placeholder="e.g. leave approved, staff forgot to punch in morning"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setFixModal(null)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            {fixModal.isOverridden && (
+              <button
+                type="button"
+                onClick={handleUndoFix}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 cursor-pointer"
+              >
+                Undo · back to original
+              </button>
+            )}
+
+            <button
+              type="submit"
+              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#132038] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
+            >
+              Save Attendance
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -726,89 +852,6 @@ export const WholesaleAttendanceListView: React.FC<Props> = ({
           </table>
         </div>
       </div>
-
-      {/* Modal: Change Attendance (H or A -> P) */}
-      {fixModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-base font-bold text-navy-950">Change Attendance</h3>
-              <button
-                onClick={() => setFixModal(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2 text-sm text-gray-700">
-              <div>
-                <strong>{fixModal.emp.name}</strong> · {fixModal.date}
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs">
-                Current status: <strong>{fixModal.currentLabel}</strong> (
-                <span className="font-mono font-bold">{fixModal.currentCode}</span>)
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Change Status to
-              </label>
-              <select
-                id="modal-attendance-status-select"
-                defaultValue="P"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="P">Present (P* - Admin override)</option>
-                <option value="HD">Half Day (HD)</option>
-                <option value="A">Absent (A)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Reason (optional)
-              </label>
-              <input
-                type="text"
-                value={fixReason}
-                onChange={(e) => setFixReason(e.target.value)}
-                placeholder="e.g. leave approved, staff forgot to punch in morning"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t">
-              <button
-                type="button"
-                onClick={() => setFixModal(null)}
-                className="px-3 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-50 cursor-pointer"
-              >
-                Close
-              </button>
-
-              {fixModal.isOverridden ? (
-                <button
-                  type="button"
-                  onClick={handleUndoFix}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 cursor-pointer"
-                >
-                  Undo · back to original
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSaveFix}
-                  className="px-4 py-1.5 bg-[#0d1b4c] hover:bg-[#132038] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
-                >
-                  Save Attendance
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal: Approve Salary */}
       {approveModal && (
