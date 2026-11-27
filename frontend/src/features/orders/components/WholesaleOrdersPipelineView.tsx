@@ -1276,38 +1276,6 @@ export function WholesaleOrdersPipelineView() {
     toast.success(`Vehicle updated to ${vehicleNo}`);
   };
 
-  const handleBackToInvoice = (orderId: string) => {
-    setOrders((prev) => {
-      const updated = prev.map((o) => {
-        if (o.id === orderId) {
-          toast.success(`Order ${o.orderNo} moved back to Invoice`);
-          const historyEntry: OrderHistoryItem = {
-            when: new Date().toISOString().replace("T", " ").substring(0, 16),
-            from: "Dispatch",
-            to: "Invoice",
-            by: stripRoleSuffix(useAuthStore.getState().user?.fullName || "Admin"),
-            where: "invoice",
-          };
-          return {
-            ...o,
-            stage: "invoice" as const,
-            status: "invoiced",
-            deliveredAt: undefined,
-            history: [...(o.history || []), historyEntry],
-          };
-        }
-        return o;
-      });
-      try {
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(updated));
-        window.dispatchEvent(new Event("settlements_updated"));
-      } catch {}
-      return updated;
-    });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "invoice" }).catch(() => {});
-    setViewingOrder(null);
-  };
-
   const handleBackToDispatch = (orderId: string) => {
     setOrders((prev) => {
       const updated = prev.map((o) => {
@@ -2114,23 +2082,15 @@ export function WholesaleOrdersPipelineView() {
           )}
 
           {viewingOrder.stage === 'dispatch' && (
-            <>
-              <button
-                onClick={() => handleBackToInvoice(viewingOrder.id)}
-                className="px-5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-              >
-                Back to Invoice
-              </button>
-              <button
-                onClick={() => {
-                  handleMoveToDelivery(viewingOrder.id);
-                  setViewingOrder(null);
-                }}
-                className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
-              >
-                Move to Delivery
-              </button>
-            </>
+            <button
+              onClick={() => {
+                handleMoveToDelivery(viewingOrder.id);
+                setViewingOrder(null);
+              }}
+              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+            >
+              Move to Delivery
+            </button>
           )}
 
           {viewingOrder.stage === 'delivery' && (
@@ -2780,14 +2740,6 @@ export function WholesaleOrdersPipelineView() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          {["dispatch", "delivery", "completed"].includes(o.stage) && (
-                            <button
-                              onClick={() => handleBackToInvoice(o.id)}
-                              className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-pointer whitespace-nowrap"
-                            >
-                              Back to Invoice
-                            </button>
-                          )}
                           {["delivery", "completed"].includes(o.stage) ? (
                             <button
                               type="button"
