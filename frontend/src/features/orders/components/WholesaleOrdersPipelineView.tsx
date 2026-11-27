@@ -1054,8 +1054,15 @@ export function WholesaleOrdersPipelineView() {
 
   // Delivery Returns & Payment State
   const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
-  const [deliveryPaymentType, setDeliveryPaymentType] = useState<"Cash" | "QR" | "Split">("Cash");
+  const [deliveryPaymentType, setDeliveryPaymentType] = useState<"QR">("QR");
   const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
+
+  // Reset per-order delivery form state whenever switching viewed orders
+  useEffect(() => {
+    setItemReturns({});
+    setDeliveryPaymentType("QR");
+    setDeliveryQrAmount("");
+  }, [viewingOrder?.id]);
 
   // Immediately exit any open order/drilldown view when switching Orders tabs from sidebar
   useEffect(() => {
@@ -1662,7 +1669,8 @@ export function WholesaleOrdersPipelineView() {
       return sum + rQty * rate;
     }, 0);
     const netToCollect = Math.max(0, viewingOrder.total - returnedAmount);
-    const calculatedCashAmount = deliveryPaymentType === "QR" ? 0 : Math.max(0, netToCollect - Number(deliveryQrAmount || 0));
+    const qrAmountNum = Math.min(netToCollect, Math.max(0, Number(deliveryQrAmount || 0) || 0));
+    const calculatedCashAmount = Math.max(0, netToCollect - qrAmountNum);
 
     const handleReturnQtyChange = (idx: number, qtyVal: number) => {
       const maxQty = viewingOrder.items[idx]?.qty || 0;
@@ -1728,12 +1736,13 @@ export function WholesaleOrdersPipelineView() {
         ];
       });
       const isFullReturn = viewingOrder.total > 0 && returnedAmount >= viewingOrder.total;
-      const qrPaid =
-        deliveryPaymentType === "QR"
-          ? netToCollect
-          : deliveryPaymentType === "Cash"
-          ? 0
-          : Number(deliveryQrAmount || 0);
+      const qrPaid = qrAmountNum;
+      const effectivePaymentMode: "Cash" | "QR" | "Split" =
+        qrPaid > 0 && calculatedCashAmount > 0
+          ? "Split"
+          : qrPaid > 0
+          ? "QR"
+          : "Cash";
 
       const nextStage = (isFullReturn ? "return" : "completed") as PipelineOrder["stage"];
       setOrders(prev => {
@@ -1748,7 +1757,7 @@ export function WholesaleOrdersPipelineView() {
                 deliveredAt: timestampStr,
                 returnAmount: returnedAmount,
                 returnedItems,
-                paymentMode: deliveryPaymentType,
+                paymentMode: effectivePaymentMode,
                 cashPaid: calculatedCashAmount,
                 qrPaid,
               }
@@ -1765,14 +1774,14 @@ export function WholesaleOrdersPipelineView() {
         .post(`/api/v1/admin/crm/orders/${viewingOrder.id}/stage`, {
           stage: nextStage,
           vehicle_no: assignedVehicle,
-          payment_mode: deliveryPaymentType,
+          payment_mode: effectivePaymentMode,
           cash_paid: calculatedCashAmount,
           qr_paid: qrPaid,
           return_amount: returnedAmount,
         })
         .catch(() => {});
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
-        description: `Assigned vehicle ${assignedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${deliveryPaymentType}) · Moved to Vehicle Settlement.`,
+        description: `Assigned vehicle ${assignedVehicle}. Collected ₹${netToCollect.toLocaleString("en-IN")} (${effectivePaymentMode}) · Moved to Vehicle Settlement.`,
       });
       setViewingOrder(null);
     };
@@ -1905,39 +1914,56 @@ export function WholesaleOrdersPipelineView() {
               <span className="font-semibold text-slate-600">Payment Type:</span>
               <select
                 value={deliveryPaymentType}
-                onChange={(e) => setDeliveryPaymentType(e.target.value as any)}
+                onChange={(e) => setDeliveryPaymentType(e.target.value as "QR")}
                 className="px-2.5 py-1 border border-slate-300 rounded-md bg-white font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
               >
-                <option value="Cash">Cash</option>
                 <option value="QR">QR</option>
-                <option value="Split">Split (Cash + QR)</option>
               </select>
             </div>
 
-            {(deliveryPaymentType === "QR" || deliveryPaymentType === "Split") && (
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-600">QR Amount *:</span>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={deliveryQrAmount}
-                  onChange={(e) => setDeliveryQrAmount(e.target.value)}
-                  className="w-24 px-2 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono"
-                />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-600">QR Amount *:</span>
+              <input
+                type="number"
+                min={0}
+                max={netToCollect}
+                placeholder="0"
+                value={deliveryQrAmount}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setDeliveryQrAmount("");
+                    return;
+                  }
+                  const num = Math.min(netToCollect, Math.max(0, Number(raw) || 0));
+                  setDeliveryQrAmount(num);
+                }}
+                className="w-24 px-2 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-600">Cash Amount:</span>
               <input
-                type="text"
-                readOnly
-                value={calculatedCashAmount.toLocaleString("en-IN")}
-                className="w-28 px-2 py-1 text-xs border border-slate-300 rounded-md bg-slate-100 font-mono text-slate-800 font-bold"
+                type="number"
+                min={0}
+                max={netToCollect}
+                value={calculatedCashAmount}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setDeliveryQrAmount(netToCollect);
+                    return;
+                  }
+                  const cashNum = Math.min(netToCollect, Math.max(0, Number(raw) || 0));
+                  const remQr = Math.max(0, netToCollect - cashNum);
+                  setDeliveryQrAmount(remQr > 0 ? remQr : "");
+                }}
+                className="w-28 px-2 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-2">
               <span className="text-slate-600 font-semibold">Net to collect</span>
               <b className="text-base font-extrabold text-slate-900 font-mono">
                 ₹{netToCollect.toLocaleString("en-IN")}
