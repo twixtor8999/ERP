@@ -143,12 +143,7 @@ export function WholesaleQrPaymentsView() {
               cashAmt = Math.max(0, netTotal - bankAmt);
             }
 
-            const utr =
-              po.utrNumber ||
-              po.utr ||
-              (qrAmt > 0
-                ? `432198${String(po.orderNo || "0000").replace(/\D/g, "").padStart(6, "0")}`
-                : "");
+            const utr = po.utrNumber || po.utr || "";
 
             const isCashOnly = qrAmt === 0 && bankAmt === 0;
             const rowKey = po.orderNo || String(po.id);
@@ -243,6 +238,8 @@ export function WholesaleQrPaymentsView() {
             cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
             qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
             returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
+            utrNumber: existing?.utrNumber || bo.utr_number || undefined,
+            screenshotUrl: existing?.screenshotUrl,
           });
         }
       }
@@ -510,9 +507,9 @@ export function WholesaleQrPaymentsView() {
                     <td className="py-3 px-3 font-mono text-slate-700">{r.vehicleNo || "—"}</td>
                     <td className="py-3 px-3 text-slate-700">{r.village || "—"}</td>
                     <td className="py-3 px-3">
-                      {r.utrNumber ? (
+                      {r.utrNumber || r.screenshotUrl ? (
                         <div className="flex items-center gap-1.5 font-mono text-slate-900">
-                          <span>{r.utrNumber}</span>
+                          <span>{r.utrNumber || "Slip"}</span>
                           {r.screenshotUrl && (
                             <button
                               onClick={() => setSelectedScreenshotRow(r)}

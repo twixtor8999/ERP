@@ -4312,6 +4312,7 @@ def get_crm_orders_status(
             "delivered": delivered_str,
             "payment_method": o.payment_method or "CASH",
             "payment_status": o.payment_status or "UNPAID",
+            "utr_number": o.payment_transaction_id,
             "delivery_notes": o.delivery_notes,
             "items": items_by_order.get(o.id, []),
         })
@@ -4352,6 +4353,7 @@ class UpdateCrmOrderStagePayload(BaseModel):
     cash_paid: float | None = None
     qr_paid: float | None = None
     return_amount: float | None = None
+    utr_number: str | None = None
 
 
 @router.post("/crm/orders/{order_id}/stage")
@@ -4386,6 +4388,9 @@ def update_crm_order_stage(
             order.delivery_notes = _upsert_delivery_note_tag(
                 order.delivery_notes, "PAY", f"cash={cash_val:.2f};qr={qr_val:.2f};ret={ret_val:.2f}"
             )
+
+        if payload.utr_number and payload.utr_number.strip():
+            order.payment_transaction_id = payload.utr_number.strip()[:100]
 
         if stage in ("packing", "placed"):
             order.status = "CONFIRMED"

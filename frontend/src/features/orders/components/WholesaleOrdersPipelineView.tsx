@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   Search,
   Download,
+  Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
@@ -69,6 +71,40 @@ export interface PipelineOrder {
   paymentMode?: string;
   cashPaid?: number;
   qrPaid?: number;
+  utrNumber?: string;
+  screenshotUrl?: string;
+}
+
+function readAndCompressSlipImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onload = () => {
+      const rawUrl = String(reader.result || "");
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 900;
+          const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(rawUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75));
+        } catch {
+          resolve(rawUrl);
+        }
+      };
+      img.onerror = () => resolve(rawUrl);
+      img.src = rawUrl;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function extractIsoDate(dStr?: string): string {
@@ -812,6 +848,8 @@ export function WholesaleOrdersPipelineView() {
               cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
               qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
               returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
+              utrNumber: existing?.utrNumber || bo.utr_number || undefined,
+              screenshotUrl: existing?.screenshotUrl,
               packedConfirmedAt:
                 bo.packed_confirmed && bo.packed_confirmed !== "—"
                   ? bo.packed_confirmed
@@ -1062,12 +1100,18 @@ export function WholesaleOrdersPipelineView() {
   const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
   const [deliveryPaymentType, setDeliveryPaymentType] = useState<"QR">("QR");
   const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
+  const [deliveryUtrNumber, setDeliveryUtrNumber] = useState("");
+  const [deliverySlipDataUrl, setDeliverySlipDataUrl] = useState("");
+  const [deliverySlipName, setDeliverySlipName] = useState("");
 
   // Reset per-order delivery form state whenever switching viewed orders
   useEffect(() => {
     setItemReturns({});
     setDeliveryPaymentType("QR");
     setDeliveryQrAmount("");
+    setDeliveryUtrNumber(viewingOrder?.utrNumber || "");
+    setDeliverySlipDataUrl(viewingOrder?.screenshotUrl || "");
+    setDeliverySlipName(viewingOrder?.screenshotUrl ? "Uploaded slip" : "");
   }, [viewingOrder?.id]);
 
   // Immediately exit any open order/drilldown view when switching Orders tabs from sidebar
@@ -1750,6 +1794,7 @@ export function WholesaleOrdersPipelineView() {
           ? "QR"
           : "Cash";
 
+      const cleanUtr = deliveryUtrNumber.trim();
       const nextStage = (isFullReturn ? "return" : "completed") as PipelineOrder["stage"];
       setOrders(prev => {
         const updated = prev.map(o =>
@@ -1766,6 +1811,8 @@ export function WholesaleOrdersPipelineView() {
                 paymentMode: effectivePaymentMode,
                 cashPaid: calculatedCashAmount,
                 qrPaid,
+                utrNumber: cleanUtr || o.utrNumber,
+                screenshotUrl: deliverySlipDataUrl || o.screenshotUrl,
               }
             : o
         );
@@ -1784,6 +1831,7 @@ export function WholesaleOrdersPipelineView() {
           cash_paid: calculatedCashAmount,
           qr_paid: qrPaid,
           return_amount: returnedAmount,
+          utr_number: cleanUtr || undefined,
         })
         .catch(() => {});
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {
@@ -1974,6 +2022,73 @@ export function WholesaleOrdersPipelineView() {
               <b className="text-base font-extrabold text-slate-900 font-mono">
                 ₹{netToCollect.toLocaleString("en-IN")}
               </b>
+            </div>
+          </div>
+
+          {/* QR Payment Slip Upload & UTR Number */}
+          <div className="flex flex-wrap items-center gap-4 text-xs pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-600">UTR Number:</span>
+              <input
+                type="text"
+                placeholder="Enter UTR / Ref No"
+                value={deliveryUtrNumber}
+                onChange={(e) => setDeliveryUtrNumber(e.target.value)}
+                className="w-48 px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-600">QR Payment Slip:</span>
+              <label className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md text-xs font-semibold text-slate-800 cursor-pointer transition-colors">
+                <Upload className="w-3.5 h-3.5 text-blue-600" />
+                <span>{deliverySlipDataUrl ? "Change Slip" : "Upload Slip"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (!file.type.startsWith("image/")) {
+                      toast.error("Please select an image file (JPG, PNG, etc.)");
+                      return;
+                    }
+                    try {
+                      const compressed = await readAndCompressSlipImage(file);
+                      setDeliverySlipDataUrl(compressed);
+                      setDeliverySlipName(file.name);
+                      toast.success("QR payment slip attached");
+                    } catch {
+                      toast.error("Could not read payment slip file");
+                    }
+                  }}
+                />
+              </label>
+
+              {deliverySlipDataUrl && (
+                <div className="inline-flex items-center gap-2 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-md">
+                  <img
+                    src={deliverySlipDataUrl}
+                    alt="QR slip preview"
+                    className="w-6 h-6 object-cover rounded border border-emerald-300"
+                  />
+                  <span className="text-[11px] font-semibold text-emerald-800 max-w-[140px] truncate">
+                    {deliverySlipName || "Payment slip"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliverySlipDataUrl("");
+                      setDeliverySlipName("");
+                    }}
+                    className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                    title="Remove slip"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
