@@ -285,15 +285,26 @@ export function PlaceOrderWholesaleView() {
   }, [cart, allProducts]);
 
   const handleUpdateQty = (productId: string, delta: number) => {
+    const prod = allProducts.find((p) => p.id === productId);
+    const current = cart[productId] || 0;
+    const next = current + delta;
+
+    if (delta > 0 && prod && next > prod.stock) {
+      toast.error(`Only ${prod.stock} in stock for ${prod.name}`);
+      if (prod.stock <= 0) return;
+      setCart((prev) => ({ ...prev, [productId]: prod.stock }));
+      return;
+    }
+
     setCart((prev) => {
-      const current = prev[productId] || 0;
-      const next = current + delta;
-      if (next <= 0) {
+      const c = prev[productId] || 0;
+      const n = c + delta;
+      if (n <= 0) {
         const copy = { ...prev };
         delete copy[productId];
         return copy;
       }
-      return { ...prev, [productId]: next };
+      return { ...prev, [productId]: n };
     });
   };
 
