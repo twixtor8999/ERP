@@ -356,7 +356,6 @@ export function PlaceOrderWholesaleView() {
     const currentUser = useAuthStore.getState().user;
     const roleLower = (currentUser?.role || "").toLowerCase();
     const isCrmUser = roleLower.includes("crm") || roleLower.includes("telecaller");
-    const orderSource = isCrmUser ? "CRM" : "Store";
     const staffName = (currentUser?.fullName || (isCrmUser ? "CRM Staff" : "Admin"))
       .replace(/\s*\([^)]*\)\s*$/g, "")
       .trim();

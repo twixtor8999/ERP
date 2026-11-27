@@ -1774,12 +1774,76 @@ export function WholesaleOrdersPipelineView() {
     };
 
     const handleFullReturn = () => {
+      const assignedVehicle = (selectedVehicle && selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)")
+        ? selectedVehicle
+        : (viewingOrder.vehicleNo || "KA28AA6256");
+
       const full: Record<number, { qty: number; reason: string }> = {};
-      viewingOrder.items.forEach((it, idx) => {
-        full[idx] = { qty: it.qty, reason: itemReturns[idx]?.reason || "" };
+      const returnedItems = viewingOrder.items.map((it, idx) => {
+        const reason = itemReturns[idx]?.reason || "Customer Returned (Full Return)";
+        full[idx] = { qty: it.qty, reason };
+        const rate = (it as any).rate ?? it.price;
+        return {
+          name: it.name,
+          qty: it.qty,
+          rate,
+          amount: it.qty * rate,
+          reason,
+        };
       });
       setItemReturns(full);
-      toast.info("Full return applied. Please select a return reason from the dropdown.");
+
+      const dStr = getIstDateString().split("-").reverse().join("-");
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }).toLowerCase();
+      const timestampStr = `${dStr} ${timeStr}`;
+      const fullReturnAmount = viewingOrder.total || returnedItems.reduce((s, it) => s + it.amount, 0);
+
+      setOrders(prev => {
+        const updated = prev.map(o =>
+          o.id === viewingOrder.id
+            ? {
+                ...o,
+                stage: "return" as PipelineOrder["stage"],
+                status: "returned",
+                vehicleNo: assignedVehicle,
+                balance: 0,
+                deliveredAt: timestampStr,
+                returnAmount: fullReturnAmount,
+                returnedItems,
+                paymentMode: "Cash" as const,
+                cashPaid: 0,
+                qrPaid: 0,
+              }
+            : o
+        );
+        safeSavePipelineOrders(updated);
+        window.dispatchEvent(new Event("settlements_updated"));
+        window.dispatchEvent(new Event("crm_order_placed"));
+        return updated;
+      });
+
+      apiClient
+        .post(`/api/v1/admin/crm/orders/${viewingOrder.id}/stage`, {
+          stage: "return",
+          order_no: viewingOrder.orderNo,
+          vehicle_no: assignedVehicle,
+          payment_mode: "Cash",
+          cash_paid: 0,
+          qr_paid: 0,
+          return_amount: fullReturnAmount,
+          returned_items: returnedItems.map((it) => ({ name: it.name, qty: it.qty, reason: it.reason })),
+        })
+        .then(() => {
+          window.dispatchEvent(new Event("inventory_updated"));
+          toast.success(`Full Return completed for ${viewingOrder.orderNo}!`, {
+            description: `₹${fullReturnAmount.toLocaleString("en-IN")} returned · Stock restored in Railway DB.`,
+          });
+        })
+        .catch(() => {
+          toast.error(`Failed to sync Full Return for ${viewingOrder.orderNo} to Railway DB`);
+        });
+
+      setViewingOrder(null);
     };
 
     const handleCompleteDelivery = () => {
