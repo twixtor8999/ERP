@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Eye } from "lucide-react";
 import {
   INITIAL_PUNCH_ORDERS,
-  getStoredSkus,
   type PunchOrderItem,
-  type InventorySku,
 } from "../data/mockInventory";
 import { getAllCrmOrders, type CrmOrderRecord } from "@/features/crm/data/mockCrmReports";
 import { getIstDateString } from "@/lib/utilities/istTime";
-import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import { fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import { fetchRealtimeInventory, type ApiRealtimeSku } from "@/lib/api/apiService";
 
 interface SkuPunchSummary {
   skuId: number;
@@ -32,36 +31,34 @@ export function WholesalePunchOrdersView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSkuSummary, setSelectedSkuSummary] = useState<SkuPunchSummary | null>(null);
 
-  const [rawSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [skus, setSkus] = useState<ApiRealtimeSku[]>([]);
   const [dataRevision, setDataRevision] = useState(0);
 
   const syncPunch = useCallback(async () => {
-    await fetchAndMergeCrmPipelineOrders(todayIso);
+    try {
+      const [live] = await Promise.all([
+        fetchRealtimeInventory(),
+        fetchAndMergeCrmPipelineOrders(todayIso),
+      ]);
+      setSkus(live);
+    } catch { /* ignore */ }
     setDataRevision((r) => r + 1);
   }, [todayIso]);
 
   useEffect(() => {
-    const bump = () => setDataRevision((r) => r + 1);
-    const onFocus = () => void syncPunch();
+    const bump = () => void syncPunch();
     window.addEventListener("crm_order_placed", bump);
     window.addEventListener("settlements_updated", bump);
     window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
-    window.addEventListener("focus", onFocus);
+    window.addEventListener("focus", bump);
     void syncPunch();
     return () => {
       window.removeEventListener("crm_order_placed", bump);
       window.removeEventListener("settlements_updated", bump);
       window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", bump);
     };
   }, [syncPunch]);
-
-  const skus = useMemo(() => {
-    void dataRevision;
-    return computeLiveRealtimeSkus(rawSkus, todayIso);
-  }, [rawSkus, todayIso, dataRevision]);
 
   // Dynamically derive live punch orders directly from CRM Wholesale orders + pipeline orders
   const orders = useMemo<PunchOrderItem[]>(() => {

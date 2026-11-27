@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getStoredSkus,
   getStoredSavedAudits,
   getStoredAuditDraft,
   type SavedAudit,
@@ -11,46 +10,39 @@ import {
 } from "../data/mockInventory";
 import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
 import { getIstDateString, normalizeDateToIso } from "@/lib/utilities/istTime";
-import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import { fetchRealtimeInventory, type ApiRealtimeSku } from "@/lib/api/apiService";
 
 export function WholesaleDailyAuditReportView() {
   const navigate = useNavigate();
   const todayIso = getIstDateString();
   const [savedAudits, setSavedAudits] = useState<SavedAudit[]>(() => getStoredSavedAudits());
   const [selectedAuditId, setSelectedAuditId] = useState<string>(""); // "" represents Live
+  const [skus, setSkus] = useState<ApiRealtimeSku[]>([]);
   const [dataRevision, setDataRevision] = useState(0);
 
   const syncReport = useCallback(async () => {
     setSavedAudits(getStoredSavedAudits());
-    await fetchAndMergeCrmPipelineOrders(todayIso);
+    try {
+      const live = await fetchRealtimeInventory();
+      setSkus(live);
+    } catch { /* ignore */ }
     setDataRevision((r) => r + 1);
-  }, [todayIso]);
+  }, []);
 
   useEffect(() => {
-    const bump = () => {
-      setSavedAudits(getStoredSavedAudits());
-      setDataRevision((r) => r + 1);
-    };
     const onFocus = () => void syncReport();
-    window.addEventListener("crm_order_placed", bump);
-    window.addEventListener("settlements_updated", bump);
-    window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
+    window.addEventListener("crm_order_placed", onFocus);
+    window.addEventListener("settlements_updated", onFocus);
+    window.addEventListener("inventory_updated", onFocus);
     window.addEventListener("focus", onFocus);
     void syncReport();
     return () => {
-      window.removeEventListener("crm_order_placed", bump);
-      window.removeEventListener("settlements_updated", bump);
-      window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
+      window.removeEventListener("crm_order_placed", onFocus);
+      window.removeEventListener("settlements_updated", onFocus);
+      window.removeEventListener("inventory_updated", onFocus);
       window.removeEventListener("focus", onFocus);
     };
   }, [syncReport]);
-
-  const skus = useMemo(() => {
-    void dataRevision;
-    return computeLiveRealtimeSkus(getStoredSkus(), todayIso);
-  }, [todayIso, dataRevision]);
   const auditDraft = useMemo(() => {
     void dataRevision;
     return getStoredAuditDraft();

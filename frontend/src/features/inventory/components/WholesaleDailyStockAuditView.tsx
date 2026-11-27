@@ -4,18 +4,16 @@ import { ArrowLeft, Search, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth.store";
 import {
-  getStoredSkus,
   getStoredAuditDraft,
   saveStoredAuditDraft,
   getStoredSavedAudits,
   saveStoredSavedAudits,
-  type InventorySku,
   type SavedAudit,
   type AuditLine,
 } from "../data/mockInventory";
 import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
 import { getIstDateString, getIstDisplayDate, getIstTimeString, normalizeDateToIso } from "@/lib/utilities/istTime";
-import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import { fetchRealtimeInventory, type ApiRealtimeSku } from "@/lib/api/apiService";
 
 export function WholesaleDailyStockAuditView() {
   const navigate = useNavigate();
@@ -24,8 +22,7 @@ export function WholesaleDailyStockAuditView() {
   const auditorRole = user?.role ? user.role.replace(/_/g, " ") : "Owner";
   const todayIso = getIstDateString();
 
-  const [rawSkus, setRawSkus] = useState<InventorySku[]>(() => getStoredSkus());
-  const [dataRevision, setDataRevision] = useState(0);
+  const [skus, setSkus] = useState<ApiRealtimeSku[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [draftCounts, setDraftCounts] = useState<Record<number, number | string>>(() =>
     getStoredAuditDraft()
@@ -33,36 +30,26 @@ export function WholesaleDailyStockAuditView() {
   const [savedTime, setSavedTime] = useState(() => getIstTimeString());
 
   const syncAuditData = useCallback(async () => {
-    setRawSkus(getStoredSkus());
-    await fetchAndMergeCrmPipelineOrders(todayIso);
-    setDataRevision((r) => r + 1);
-  }, [todayIso]);
+    try {
+      const live = await fetchRealtimeInventory();
+      setSkus(live);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
-    const bump = () => {
-      setRawSkus(getStoredSkus());
-      setDataRevision((r) => r + 1);
-    };
     const onFocus = () => void syncAuditData();
-    window.addEventListener("crm_order_placed", bump);
-    window.addEventListener("settlements_updated", bump);
-    window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
+    window.addEventListener("crm_order_placed", onFocus);
+    window.addEventListener("settlements_updated", onFocus);
+    window.addEventListener("inventory_updated", onFocus);
     window.addEventListener("focus", onFocus);
     void syncAuditData();
     return () => {
-      window.removeEventListener("crm_order_placed", bump);
-      window.removeEventListener("settlements_updated", bump);
-      window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
+      window.removeEventListener("crm_order_placed", onFocus);
+      window.removeEventListener("settlements_updated", onFocus);
+      window.removeEventListener("inventory_updated", onFocus);
       window.removeEventListener("focus", onFocus);
     };
   }, [syncAuditData]);
-
-  const skus = useMemo(() => {
-    void dataRevision;
-    return computeLiveRealtimeSkus(rawSkus, todayIso);
-  }, [rawSkus, todayIso, dataRevision]);
 
   // Sorted: SKUs with closing stock first, zero stock last
   const sortedSkus = useMemo(() => {

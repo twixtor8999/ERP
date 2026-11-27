@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Plus, Search, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import {
   type ShrinkageItem,
 } from "../data/mockStockSplit";
 import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
+import { fetchRealtimeInventory } from "@/lib/api/apiService";
 import { WholesaleInventoryStockSplitDetailView } from "./WholesaleInventoryStockSplitDetailView";
 import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
@@ -18,7 +19,13 @@ export function WholesaleStockSplitView() {
   const navigate = useNavigate();
 
   const [splits, setSplits] = useState<StockSplitRecord[]>(() => getStoredStockSplits());
-  const [skus, setSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [skus, setSkus] = useState<InventorySku[]>([]);
+
+  useEffect(() => {
+    fetchRealtimeInventory().then((live) => {
+      if (live.length > 0) setSkus(live);
+    }).catch(() => setSkus(getStoredSkus()));
+  }, []);
 
   // Views: list vs add
   const [isAdding, setIsAdding] = useState(false);

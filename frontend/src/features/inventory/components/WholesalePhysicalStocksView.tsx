@@ -6,13 +6,11 @@ import { useAuthStore } from "@/stores/auth.store";
 import {
   getSuperStockAudits,
   saveSuperStockAudits,
-  getStoredSkus,
   type SavedAudit,
-  type InventorySku,
 } from "../data/mockInventory";
 import { getAllCrmOrders } from "@/features/crm/data/mockCrmReports";
 import { getIstDateString, getIstDisplayDate, getIstTimeString, normalizeDateToIso } from "@/lib/utilities/istTime";
-import { computeLiveRealtimeSkus, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import { fetchRealtimeInventory, type ApiRealtimeSku } from "@/lib/api/apiService";
 
 export function WholesalePhysicalStocksView() {
   const navigate = useNavigate();
@@ -22,56 +20,62 @@ export function WholesalePhysicalStocksView() {
   const todayIso = getIstDateString();
 
   const [superAudits, setSuperAudits] = useState<SavedAudit[]>(() => getSuperStockAudits());
-  const [selectedAuditId, setSelectedAuditId] = useState<string>(
-    superAudits[0]?.id || ""
-  );
+  const [selectedAuditId, setSelectedAuditId] = useState<string>(""); // "" = Live Railway DB Stock
   const [searchQuery, setSearchQuery] = useState("");
-  const [dataRevision, setDataRevision] = useState(0);
+  const [skus, setSkus] = useState<ApiRealtimeSku[]>([]);
 
   const syncPhysical = useCallback(async () => {
     setSuperAudits(getSuperStockAudits());
-    await fetchAndMergeCrmPipelineOrders(todayIso);
-    setDataRevision((r) => r + 1);
-  }, [todayIso]);
+    try {
+      const live = await fetchRealtimeInventory();
+      setSkus(live);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
-    const bump = () => {
-      setSuperAudits(getSuperStockAudits());
-      setDataRevision((r) => r + 1);
-    };
+    const bump = () => void syncPhysical();
     window.addEventListener("crm_order_placed", bump);
     window.addEventListener("settlements_updated", bump);
     window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
+    window.addEventListener("focus", bump);
     void syncPhysical();
     return () => {
       window.removeEventListener("crm_order_placed", bump);
       window.removeEventListener("settlements_updated", bump);
       window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
+      window.removeEventListener("focus", bump);
     };
   }, [syncPhysical]);
 
-  const skus: InventorySku[] = useMemo(() => {
-    void dataRevision;
-    return computeLiveRealtimeSkus(getStoredSkus(), todayIso);
-  }, [todayIso, dataRevision]);
-
   const activeAudit = useMemo(() => {
-    return superAudits.find((a) => a.id === selectedAuditId) || superAudits[0] || null;
+    if (!selectedAuditId) return null;
+    return superAudits.find((a) => a.id === selectedAuditId) || null;
   }, [superAudits, selectedAuditId]);
 
   const filteredLines = useMemo(() => {
-    if (!activeAudit) return [];
-    if (!searchQuery.trim()) return activeAudit.lines;
+    const baseLines = activeAudit
+      ? activeAudit.lines
+      : skus.map((s) => ({
+          skuId: s.id,
+          name: s.name,
+          code: s.code,
+          category: s.category,
+          closing: s.closing,
+          phys: s.closing,
+          diff: 0,
+          grn: s.cost,
+          diffAmount: 0,
+          remarks: "Matched" as const,
+        }));
+    if (!searchQuery.trim()) return baseLines;
     const q = searchQuery.toLowerCase().trim();
-    return activeAudit.lines.filter(
+    return baseLines.filter(
       (l) =>
         l.name.toLowerCase().includes(q) ||
         l.code.toLowerCase().includes(q) ||
         l.category.toLowerCase().includes(q)
     );
-  }, [activeAudit, searchQuery]);
+  }, [activeAudit, skus, searchQuery]);
 
   // Create/Approve physical super audit from live closing stock
   const handleApproveSampleSuperAudit = () => {
@@ -156,26 +160,25 @@ export function WholesalePhysicalStocksView() {
         />
       </div>
 
-      {/* Audit Picker if audits exist */}
-      {superAudits.length > 0 && (
-        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-          <label className="text-xs font-bold text-slate-700 whitespace-nowrap">Audit</label>
-          <select
-            value={selectedAuditId}
-            onChange={(e) => setSelectedAuditId(e.target.value)}
-            className="border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
-          >
-            {superAudits.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.date} {a.time} · Approved · {a.lines.length} SKU
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Audit Picker */}
+      <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+        <label className="text-xs font-bold text-slate-700 whitespace-nowrap">Audit</label>
+        <select
+          value={selectedAuditId}
+          onChange={(e) => setSelectedAuditId(e.target.value)}
+          className="border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">Live Railway DB Stock ({skus.length} SKU)</option>
+          {superAudits.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.date} {a.time} · Approved · {a.lines.length} SKU
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Main Content Area */}
-      {superAudits.length === 0 ? (
+      {filteredLines.length === 0 && superAudits.length === 0 ? (
         <div className="bg-white rounded-lg border border-slate-200 p-8 text-center shadow-sm">
           <p className="text-sm font-medium text-slate-500">No super stock audit approved yet.</p>
           <p className="text-xs text-slate-400 mt-1">
