@@ -398,6 +398,112 @@ export async function saveSettlementToApi(payload: {
   }
 }
 
+// ─── LIVE INVENTORY (RAILWAY POSTGRESQL) ────────────────────────────────────
+export interface ApiRealtimeSku {
+  id: number;
+  variantId: string;
+  productId: string;
+  name: string;
+  code: string;
+  category: string;
+  opening: number;
+  purchase: number;
+  purchaseReturn: number;
+  sales: number;
+  salesReturn: number;
+  splitIn: number;
+  splitOut: number;
+  closing: number;
+  baseClosing: number;
+  cost: number;
+  price: number;
+  minStock: number;
+  punchOrders: number;
+  orderCancel: number;
+  available: number;
+  stockValue: number;
+}
+
+export interface ApiStockMovementRow {
+  date: string;
+  skuId: number;
+  variantId: string;
+  skuName: string;
+  skuCode?: string;
+  opening: number;
+  purchase: number;
+  purchaseReturn: number;
+  sales: number;
+  salesReturn: number;
+  splitIn: number;
+  splitOut: number;
+  closing: number;
+  cost: number;
+  stockValue: number;
+  punchOrders: number;
+  orderCancel: number;
+  available: number;
+}
+
+export interface ApiSkuJourney {
+  variantId: string;
+  sku: string;
+  name: string;
+  closing: number;
+  cost: number;
+  price: number;
+  stockValue: number;
+  events: Array<{
+    date: string;
+    type: string;
+    reference: string;
+    party: string;
+    quantity: number;
+    qtyDelta: number;
+    unitPrice: number;
+    amount: number;
+    status: string;
+  }>;
+}
+
+export async function fetchRealtimeInventory(): Promise<ApiRealtimeSku[]> {
+  const res = await apiClient.get<ApiRealtimeSku[]>("/api/v1/admin/inventory/realtime");
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function fetchStockMovements(
+  fromDate: string,
+  toDate: string,
+  variantId?: string,
+  search?: string
+): Promise<ApiStockMovementRow[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  if (variantId && variantId !== "all") params.set("variant_id", variantId);
+  if (search && search.trim()) params.set("search", search.trim());
+  const res = await apiClient.get<ApiStockMovementRow[]>(`/api/v1/admin/inventory/stock-movements?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function fetchSkuJourney(variantId: string): Promise<ApiSkuJourney> {
+  const res = await apiClient.get<ApiSkuJourney>(`/api/v1/admin/inventory/sku-journey/${variantId}`);
+  return res.data;
+}
+
+export async function adjustInventoryStock(
+  variantId: string,
+  newClosing: number,
+  reason?: string
+): Promise<{ success: boolean; closing: number; delta: number }> {
+  const res = await apiClient.post("/api/v1/admin/inventory/adjust", {
+    variant_id: variantId,
+    new_closing: newClosing,
+    reason,
+  });
+  return res.data;
+}
+
 // ─── CRM ORDERS (most critical) ──────────────────────────────────────────────
 const LS_CRM_ORDERS = "crm_wholesale_pipeline_orders";
 const LS_CRM_MASTER = "crm_orders_master";

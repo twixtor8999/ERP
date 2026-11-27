@@ -4853,5 +4853,435 @@ def save_admin_settlement(
     return {"id": settlement.id, "settlement_date": settlement.settlement_date.isoformat(), "status": settlement.status}
 
 
+# ---------------------------------------------------------------------------
+# 23. Live Inventory: Realtime, Stock Movement & Product Journey (PostgreSQL)
+# ---------------------------------------------------------------------------
+
+
+def _aggregate_daily_order_and_movement_maps(
+    db: Session,
+    org_id: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict[str, Any]:
+    """Aggregate daily sales, returns, pending punch orders, cancellations, purchases, and splits from Railway DB."""
+    # Order statuses:
+    # - pending: PLACED, CONFIRMED, PROCESSING, INVOICED, PACKING
+    # - sold: DISPATCHED, OUT_FOR_DELIVERY, DELIVERED, COMPLETED
+    # - returned: RETURNED (counts in both sales & salesReturn, or return restock)
+    # - cancelled: CANCELLED
+    stmt = (
+        select(
+            Order.order_date,
+            Order.status,
+            OrderItem.product_variant_id,
+            func.coalesce(func.sum(OrderItem.quantity), 0),
+        )
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .where(Order.organization_id == org_id)
+    )
+    if start_date:
+        stmt = stmt.where(Order.order_date >= start_date)
+    if end_date:
+        stmt = stmt.where(Order.order_date <= end_date)
+    stmt = stmt.group_by(Order.order_date, Order.status, OrderItem.product_variant_id)
+
+    sales: dict[tuple[str, str], float] = {}
+    sales_return: dict[tuple[str, str], float] = {}
+    punch_pending: dict[tuple[str, str], float] = {}
+    order_cancel: dict[tuple[str, str], float] = {}
+    dates_with_activity: set[str] = set()
+
+    for o_date, o_status, var_id, qty in db.execute(stmt).all():
+        if not o_date or not var_id:
+            continue
+        d_iso = o_date.isoformat()
+        dates_with_activity.add(d_iso)
+        st = (o_status or "").strip().lower()
+        q_val = float(qty or 0)
+        key = (d_iso, var_id)
+
+        if st == "cancelled":
+            order_cancel[key] = order_cancel.get(key, 0.0) + q_val
+        elif st in ("returned", "return"):
+            sales[key] = sales.get(key, 0.0) + q_val
+            sales_return[key] = sales_return.get(key, 0.0) + q_val
+        elif st in ("dispatched", "out_for_delivery", "out for delivery", "delivered", "completed"):
+            sales[key] = sales.get(key, 0.0) + q_val
+        else:
+            punch_pending[key] = punch_pending.get(key, 0.0) + q_val
+
+    # StockMovement records (IN = purchase, ADJUSTMENT, SPLIT, RETURN, etc.)
+    mv_stmt = select(StockMovement).where(StockMovement.organization_id == org_id)
+    if start_date:
+        mv_stmt = mv_stmt.where(func.date(StockMovement.created_at) >= start_date)
+    if end_date:
+        mv_stmt = mv_stmt.where(func.date(StockMovement.created_at) <= end_date)
+
+    purchase: dict[tuple[str, str], float] = {}
+    purchase_return: dict[tuple[str, str], float] = {}
+    split_in: dict[tuple[str, str], float] = {}
+    split_out: dict[tuple[str, str], float] = {}
+    adjustment: dict[tuple[str, str], float] = {}
+
+    ist_tz = ZoneInfo("Asia/Kolkata")
+    for mv in db.scalars(mv_stmt).all():
+        dt = mv.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        d_iso = dt.astimezone(ist_tz).date().isoformat()
+        dates_with_activity.add(d_iso)
+        key = (d_iso, mv.product_variant_id)
+        q_val = float(mv.quantity or 0)
+        mt = (mv.movement_type or "").upper()
+        if mt == "IN":
+            purchase[key] = purchase.get(key, 0.0) + abs(q_val)
+        elif mt == "PURCHASE_RETURN":
+            purchase_return[key] = purchase_return.get(key, 0.0) + abs(q_val)
+        elif mt == "SPLIT":
+            if q_val >= 0:
+                split_in[key] = split_in.get(key, 0.0) + q_val
+            else:
+                split_out[key] = split_out.get(key, 0.0) + abs(q_val)
+        elif mt == "ADJUSTMENT":
+            adjustment[key] = adjustment.get(key, 0.0) + q_val
+
+    return {
+        "sales": sales,
+        "sales_return": sales_return,
+        "punch_pending": punch_pending,
+        "order_cancel": order_cancel,
+        "purchase": purchase,
+        "purchase_return": purchase_return,
+        "split_in": split_in,
+        "split_out": split_out,
+        "adjustment": adjustment,
+        "dates": dates_with_activity,
+    }
+
+
+@router.get("/inventory/realtime")
+def get_realtime_inventory(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Return live inventory for every SKU directly from Railway PostgreSQL."""
+    org_id = current_user.organization_id
+    today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    today_iso = today_ist.isoformat()
+
+    variants = db.scalars(
+        select(ProductVariant)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(Product.organization_id == org_id, Product.is_active == True)
+        .order_by(Product.name)
+    ).all()
+
+    categories = {c.id: c.name for c in db.scalars(select(Category).where(Category.organization_id == org_id)).all()}
+    balances = {
+        sb.product_variant_id: sb
+        for sb in db.scalars(select(StockBalance).where(StockBalance.organization_id == org_id)).all()
+    }
+
+    maps = _aggregate_daily_order_and_movement_maps(db, org_id, start_date=today_ist, end_date=today_ist)
+
+    rows = []
+    for idx, v in enumerate(variants, start=1):
+        p = v.product
+        sb = balances.get(v.id)
+        closing = float(sb.quantity_on_hand) if sb else 0.0
+        cost = float(sb.average_unit_cost) if sb and sb.average_unit_cost else float(v.cost_price or 0)
+        price = float(v.selling_price or 0)
+        key = (today_iso, v.id)
+
+        pur = maps["purchase"].get(key, 0.0)
+        pur_ret = maps["purchase_return"].get(key, 0.0)
+        sal = maps["sales"].get(key, 0.0)
+        sal_ret = maps["sales_return"].get(key, 0.0)
+        sp_in = maps["split_in"].get(key, 0.0)
+        sp_out = maps["split_out"].get(key, 0.0)
+        adj = maps["adjustment"].get(key, 0.0)
+        punch = maps["punch_pending"].get(key, 0.0)
+        cancel = maps["order_cancel"].get(key, 0.0)
+
+        # Opening = Closing - today's net additions (so Opening + Purchase - PurRet - Sales + SalesRet + SplitIn - SplitOut + Adj == Closing)
+        opening = max(0.0, closing - pur + pur_ret + sal - sal_ret - sp_in + sp_out - adj)
+
+        rows.append({
+            "id": idx,
+            "variantId": v.id,
+            "productId": p.id,
+            "name": p.name,
+            "code": v.sku,
+            "category": categories.get(p.category_id, "General") if p.category_id else "General",
+            "opening": round(opening, 2),
+            "purchase": round(pur, 2),
+            "purchaseReturn": round(pur_ret, 2),
+            "sales": round(sal, 2),
+            "salesReturn": round(sal_ret, 2),
+            "splitIn": round(sp_in, 2),
+            "splitOut": round(sp_out, 2),
+            "closing": round(closing, 2),
+            "baseClosing": round(closing, 2),
+            "cost": round(cost, 2),
+            "price": round(price, 2),
+            "minStock": int(v.reorder_level or 10),
+            "punchOrders": round(punch, 2),
+            "orderCancel": round(cancel, 2),
+            "available": round(closing - punch, 2),
+            "stockValue": round(closing * cost, 2),
+        })
+    return rows
+
+
+@router.get("/inventory/stock-movements")
+def get_stock_movements(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    variant_id: str | None = None,
+    search: str | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Return date-wise stock movement rows anchored to live StockBalance in Railway PostgreSQL."""
+    org_id = current_user.organization_id
+    today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    today_iso = today_ist.isoformat()
+    start_iso = (from_date or today_iso)[:10]
+    end_iso = (to_date or today_iso)[:10]
+    start_d = date.fromisoformat(start_iso)
+
+    variants = db.scalars(
+        select(ProductVariant)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(Product.organization_id == org_id, Product.is_active == True)
+        .order_by(Product.name)
+    ).all()
+
+    balances = {
+        sb.product_variant_id: sb
+        for sb in db.scalars(select(StockBalance).where(StockBalance.organization_id == org_id)).all()
+    }
+
+    # Fetch movements from start_date up to today so we can walk backwards accurately from live StockBalance
+    maps = _aggregate_daily_order_and_movement_maps(db, org_id, start_date=start_d, end_date=today_ist)
+    all_dates = sorted(maps["dates"] | {end_iso} | ({start_iso} if start_iso == end_iso else set()), reverse=True)
+    # Include all dates >= start_iso up to today_iso when computing backward balance, emit only [start_iso, end_iso]
+    calc_dates = sorted(maps["dates"] | {today_iso, end_iso, start_iso}, reverse=True)
+
+    q = (search or "").strip().lower()
+    rows: list[dict[str, Any]] = []
+
+    for idx, v in enumerate(variants, start=1):
+        if variant_id and variant_id != "all" and v.id != variant_id:
+            continue
+        p = v.product
+        if q and q not in p.name.lower() and q not in v.sku.lower():
+            continue
+
+        sb = balances.get(v.id)
+        running_closing = float(sb.quantity_on_hand) if sb else 0.0
+        cost = float(sb.average_unit_cost) if sb and sb.average_unit_cost else float(v.cost_price or 0)
+
+        for d_iso in calc_dates:
+            if d_iso > today_iso:
+                continue
+            key = (d_iso, v.id)
+            pur = maps["purchase"].get(key, 0.0)
+            pur_ret = maps["purchase_return"].get(key, 0.0)
+            sal = maps["sales"].get(key, 0.0)
+            sal_ret = maps["sales_return"].get(key, 0.0)
+            sp_in = maps["split_in"].get(key, 0.0)
+            sp_out = maps["split_out"].get(key, 0.0)
+            adj = maps["adjustment"].get(key, 0.0)
+            punch = maps["punch_pending"].get(key, 0.0)
+            cancel = maps["order_cancel"].get(key, 0.0)
+
+            day_closing = running_closing
+            day_opening = max(0.0, day_closing - pur + pur_ret + sal - sal_ret - sp_in + sp_out - adj)
+            running_closing = day_opening
+
+            if d_iso < start_iso or d_iso > end_iso:
+                continue
+
+            is_latest = d_iso == end_iso
+            has_activity = (pur + pur_ret + sal + sal_ret + sp_in + sp_out + punch + cancel) > 0
+            if (variant_id and variant_id != "all") or is_latest or has_activity:
+                rows.append({
+                    "date": d_iso,
+                    "skuId": idx,
+                    "variantId": v.id,
+                    "skuName": p.name,
+                    "skuCode": v.sku,
+                    "opening": round(day_opening, 2),
+                    "purchase": round(pur, 2),
+                    "purchaseReturn": round(pur_ret, 2),
+                    "sales": round(sal, 2),
+                    "salesReturn": round(sal_ret, 2),
+                    "splitIn": round(sp_in, 2),
+                    "splitOut": round(sp_out, 2),
+                    "closing": round(day_closing, 2),
+                    "cost": round(cost, 2),
+                    "stockValue": round(day_closing * cost, 2),
+                    "punchOrders": round(punch, 2),
+                    "orderCancel": round(cancel, 2),
+                    "available": round(day_closing - punch, 2),
+                })
+
+    rows.sort(key=lambda r: (r["date"], r["skuName"]), reverse=False)
+    rows.sort(key=lambda r: r["date"], reverse=True)
+    return rows
+
+
+@router.get("/inventory/sku-journey/{variant_id}")
+def get_sku_journey(
+    variant_id: str,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Return full chronological journey (Purchase -> Sales -> Returns -> Adjustments) for a clicked SKU."""
+    org_id = current_user.organization_id
+    variant = db.scalar(
+        select(ProductVariant)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(ProductVariant.id == variant_id, Product.organization_id == org_id)
+    )
+    if not variant:
+        raise HTTPException(status_code=404, detail="SKU not found")
+
+    sb = db.scalar(
+        select(StockBalance).where(
+            StockBalance.organization_id == org_id,
+            StockBalance.product_variant_id == variant_id,
+        )
+    )
+    closing = float(sb.quantity_on_hand) if sb else 0.0
+    cost = float(sb.average_unit_cost) if sb and sb.average_unit_cost else float(variant.cost_price or 0)
+    price = float(variant.selling_price or 0)
+
+    events: list[dict[str, Any]] = []
+
+    # 1. Orders containing this SKU
+    order_rows = db.execute(
+        select(Order, OrderItem, Customer)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .outerjoin(Customer, Order.customer_id == Customer.id)
+        .where(Order.organization_id == org_id, OrderItem.product_variant_id == variant_id)
+        .order_by(Order.order_date.desc(), Order.created_at.desc())
+        .limit(200)
+    ).all()
+
+    for ord_obj, item_obj, cust_obj in order_rows:
+        st = (ord_obj.status or "").upper()
+        event_type = "SALE"
+        qty_delta = -float(item_obj.quantity or 0)
+        if st == "CANCELLED":
+            event_type = "ORDER_CANCEL"
+            qty_delta = 0.0
+        elif st in ("RETURNED", "RETURN"):
+            event_type = "SALES_RETURN"
+            qty_delta = float(item_obj.quantity or 0)
+        elif st in ("PLACED", "CONFIRMED", "PROCESSING", "INVOICED", "PACKING"):
+            event_type = "PUNCH_ORDER"
+
+        events.append({
+            "date": ord_obj.order_date.isoformat() if ord_obj.order_date else "",
+            "type": event_type,
+            "reference": ord_obj.order_number,
+            "party": cust_obj.display_name if cust_obj else (ord_obj.shipping_recipient_name or "Customer"),
+            "quantity": float(item_obj.quantity or 0),
+            "qtyDelta": qty_delta,
+            "unitPrice": float(item_obj.unit_price or 0),
+            "amount": float(item_obj.total_amount or 0),
+            "status": ord_obj.status,
+        })
+
+    # 2. StockMovement logs (Purchases, Adjustments, Splits, Return Restocks)
+    ist_tz = ZoneInfo("Asia/Kolkata")
+    mv_rows = db.scalars(
+        select(StockMovement)
+        .where(StockMovement.organization_id == org_id, StockMovement.product_variant_id == variant_id)
+        .order_by(StockMovement.created_at.desc())
+        .limit(200)
+    ).all()
+
+    for mv in mv_rows:
+        dt = mv.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        events.append({
+            "date": dt.astimezone(ist_tz).date().isoformat(),
+            "type": mv.movement_type,
+            "reference": mv.reference_id or mv.id[:8],
+            "party": mv.notes or mv.reference_type or "Warehouse",
+            "quantity": abs(float(mv.quantity or 0)),
+            "qtyDelta": float(mv.quantity or 0),
+            "unitPrice": float(mv.unit_cost or cost),
+            "amount": abs(float(mv.quantity or 0)) * float(mv.unit_cost or cost),
+            "status": mv.reference_type or mv.movement_type,
+        })
+
+    events.sort(key=lambda e: e["date"], reverse=True)
+
+    return {
+        "variantId": variant.id,
+        "sku": variant.sku,
+        "name": variant.product.name,
+        "closing": round(closing, 2),
+        "cost": round(cost, 2),
+        "price": round(price, 2),
+        "stockValue": round(closing * cost, 2),
+        "events": events,
+    }
+
+
+class AdjustInventoryPayload(BaseModel):
+    variant_id: str
+    new_closing: Decimal = Field(..., ge=Decimal("0"))
+    reason: str | None = None
+
+
+@router.post("/inventory/adjust")
+def adjust_inventory_stock(
+    payload: AdjustInventoryPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Adjust live StockBalance in Railway PostgreSQL and record a StockMovement audit entry."""
+    org_id = current_user.organization_id
+    sb = db.scalar(
+        select(StockBalance).where(
+            StockBalance.organization_id == org_id,
+            StockBalance.product_variant_id == payload.variant_id,
+        )
+    )
+    if not sb:
+        raise HTTPException(status_code=404, detail="Stock balance record not found for SKU")
+
+    old_qty = Decimal(sb.quantity_on_hand or 0)
+    delta = payload.new_closing - old_qty
+    sb.quantity_on_hand = payload.new_closing
+    sb.quantity_available = max(Decimal("0.00"), payload.new_closing - Decimal(sb.quantity_reserved or 0))
+
+    db.add(
+        StockMovement(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            branch_id=sb.branch_id,
+            warehouse_id=sb.warehouse_id,
+            product_variant_id=sb.product_variant_id,
+            movement_type="ADJUSTMENT",
+            quantity=delta,
+            unit_cost=sb.average_unit_cost or Decimal("0.00"),
+            reference_type="MANUAL_ADJUSTMENT",
+            reference_id=current_user.user_id,
+            notes=payload.reason or f"Manual adjustment from {old_qty} to {payload.new_closing}",
+        )
+    )
+    db.commit()
+    return {"success": True, "variant_id": payload.variant_id, "closing": float(sb.quantity_on_hand), "delta": float(delta)}
+
+
+
 
 

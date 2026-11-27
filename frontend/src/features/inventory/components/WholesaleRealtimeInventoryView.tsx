@@ -2,22 +2,22 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw, Download, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { getStoredSkus, type InventorySku } from "../data/mockInventory";
 import { getIstDateString, getIstTimeString } from "@/lib/utilities/istTime";
 import {
-  computeLiveRealtimeSkus,
-  fetchAndMergeCrmPipelineOrders,
-  saveManualRealtimeAdjustment,
-  type LiveRealtimeSku,
-} from "../utils/liveInventory";
+  fetchRealtimeInventory,
+  adjustInventoryStock,
+  type ApiRealtimeSku,
+} from "@/lib/api/apiService";
+
+type LiveRealtimeSku = ApiRealtimeSku;
 
 export function WholesaleRealtimeInventoryView() {
   const navigate = useNavigate();
   const todayIso = getIstDateString();
-  const [rawSkus, setRawSkus] = useState<InventorySku[]>(() => getStoredSkus());
+  const [skus, setSkus] = useState<LiveRealtimeSku[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState(() => getIstTimeString());
-  const [dataRevision, setDataRevision] = useState(0);
 
   // Stock Adjustment Modal State
   const [editingSku, setEditingSku] = useState<LiveRealtimeSku | null>(null);
@@ -25,39 +25,31 @@ export function WholesaleRealtimeInventoryView() {
   const [adjustReason, setAdjustReason] = useState("");
 
   const syncRealtime = useCallback(async () => {
-    setRawSkus(getStoredSkus());
-    const changed = await fetchAndMergeCrmPipelineOrders(todayIso);
-    if (changed) setRawSkus(getStoredSkus());
-    setLastRefreshed(getIstTimeString());
-    setDataRevision((r) => r + 1);
-  }, [todayIso]);
+    try {
+      const data = await fetchRealtimeInventory();
+      setSkus(data);
+      setLastRefreshed(getIstTimeString());
+    } catch {
+      toast.error("Failed to load live inventory from Railway database");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const bump = () => {
-      setRawSkus(getStoredSkus());
-      setLastRefreshed(getIstTimeString());
-      setDataRevision((r) => r + 1);
-    };
-    const onFocus = () => void syncRealtime();
-    window.addEventListener("crm_order_placed", bump);
-    window.addEventListener("settlements_updated", bump);
-    window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
-    window.addEventListener("focus", onFocus);
+    const onRefresh = () => void syncRealtime();
+    window.addEventListener("crm_order_placed", onRefresh);
+    window.addEventListener("settlements_updated", onRefresh);
+    window.addEventListener("inventory_updated", onRefresh);
+    window.addEventListener("focus", onRefresh);
     void syncRealtime();
     return () => {
-      window.removeEventListener("crm_order_placed", bump);
-      window.removeEventListener("settlements_updated", bump);
-      window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("crm_order_placed", onRefresh);
+      window.removeEventListener("settlements_updated", onRefresh);
+      window.removeEventListener("inventory_updated", onRefresh);
+      window.removeEventListener("focus", onRefresh);
     };
   }, [syncRealtime]);
-
-  const skus = useMemo<LiveRealtimeSku[]>(() => {
-    void dataRevision;
-    return computeLiveRealtimeSkus(rawSkus, todayIso);
-  }, [rawSkus, todayIso, dataRevision]);
 
   const filteredSkus = useMemo(() => {
     if (!searchQuery.trim()) return skus;
@@ -115,7 +107,7 @@ export function WholesaleRealtimeInventoryView() {
     setAdjustReason("Count correction");
   };
 
-  const handleSaveAdjust = (e: React.FormEvent) => {
+  const handleSaveAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSku) return;
     const newQty = Number(adjustedStock);
@@ -124,10 +116,14 @@ export function WholesaleRealtimeInventoryView() {
       return;
     }
 
-    saveManualRealtimeAdjustment(todayIso, editingSku.id, newQty - editingSku.baseClosing);
-    setDataRevision((r) => r + 1);
-    toast.success(`Stock of ${editingSku.name} adjusted to ${newQty}`);
-    setEditingSku(null);
+    try {
+      await adjustInventoryStock(editingSku.variantId, newQty, adjustReason);
+      await syncRealtime();
+      toast.success(`Stock of ${editingSku.name} adjusted to ${newQty} in Railway DB`);
+      setEditingSku(null);
+    } catch {
+      toast.error("Failed to save stock adjustment to Railway DB");
+    }
   };
 
   const handleExport = () => {
@@ -277,7 +273,13 @@ export function WholesaleRealtimeInventoryView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
-              {filteredSkus.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={16} className="py-8 text-center text-slate-500 font-medium">
+                    Loading live inventory from Railway PostgreSQL...
+                  </td>
+                </tr>
+              ) : filteredSkus.length === 0 ? (
                 <tr>
                   <td colSpan={16} className="py-8 text-center text-slate-400">
                     No SKUs found.

@@ -1,54 +1,75 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Search } from "lucide-react";
+import { ArrowLeft, Download, Search, X, History } from "lucide-react";
 import { toast } from "sonner";
-import { getStoredSkus, type InventorySku } from "../data/mockInventory";
 import { getIstDateString } from "@/lib/utilities/istTime";
-import { computeStockMovementRows, fetchAndMergeCrmPipelineOrders } from "../utils/liveInventory";
+import {
+  fetchRealtimeInventory,
+  fetchStockMovements,
+  fetchSkuJourney,
+  type ApiRealtimeSku,
+  type ApiStockMovementRow,
+  type ApiSkuJourney,
+} from "@/lib/api/apiService";
 
 export function WholesaleStockMovementView() {
   const navigate = useNavigate();
   const todayIso = getIstDateString();
   const [fromDate, setFromDate] = useState("2026-11-01");
   const [toDate, setToDate] = useState(todayIso);
-  const [selectedSkuId, setSelectedSkuId] = useState<number | "all">("all");
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [skus, setSkus] = useState<InventorySku[]>(() => getStoredSkus());
-  const [dataRevision, setDataRevision] = useState(0);
+  const [skus, setSkus] = useState<ApiRealtimeSku[]>([]);
+  const [movementRows, setMovementRows] = useState<ApiStockMovementRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Product Journey Modal State (when user clicks a product row)
+  const [journeyData, setJourneyData] = useState<ApiSkuJourney | null>(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
 
   const syncMovement = useCallback(async () => {
-    setSkus(getStoredSkus());
-    await fetchAndMergeCrmPipelineOrders(todayIso);
-    setDataRevision((r) => r + 1);
-  }, [todayIso]);
+    setLoading(true);
+    try {
+      const [skuList, rows] = await Promise.all([
+        fetchRealtimeInventory(),
+        fetchStockMovements(fromDate, toDate, selectedVariantId, searchQuery),
+      ]);
+      setSkus(skuList);
+      setMovementRows(rows);
+    } catch {
+      toast.error("Failed to load stock movement from Railway database");
+    } finally {
+      setLoading(false);
+    }
+  }, [fromDate, toDate, selectedVariantId, searchQuery]);
 
   useEffect(() => {
-    const bump = () => {
-      setSkus(getStoredSkus());
-      setDataRevision((r) => r + 1);
-    };
-    const onFocus = () => void syncMovement();
-    window.addEventListener("crm_order_placed", bump);
-    window.addEventListener("settlements_updated", bump);
-    window.addEventListener("inventory_updated", bump);
-    window.addEventListener("storage", bump);
-    window.addEventListener("focus", onFocus);
+    const onRefresh = () => void syncMovement();
+    window.addEventListener("crm_order_placed", onRefresh);
+    window.addEventListener("settlements_updated", onRefresh);
+    window.addEventListener("inventory_updated", onRefresh);
+    window.addEventListener("focus", onRefresh);
     void syncMovement();
     return () => {
-      window.removeEventListener("crm_order_placed", bump);
-      window.removeEventListener("settlements_updated", bump);
-      window.removeEventListener("inventory_updated", bump);
-      window.removeEventListener("storage", bump);
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("crm_order_placed", onRefresh);
+      window.removeEventListener("settlements_updated", onRefresh);
+      window.removeEventListener("inventory_updated", onRefresh);
+      window.removeEventListener("focus", onRefresh);
     };
   }, [syncMovement]);
 
-  // Generate real date-wise movement rows across fromDate - toDate
-  const movementRows = useMemo(() => {
-    void dataRevision;
-    return computeStockMovementRows(skus, fromDate, toDate, todayIso, selectedSkuId, searchQuery);
-  }, [skus, fromDate, toDate, todayIso, selectedSkuId, searchQuery, dataRevision]);
+  const handleOpenJourney = async (variantId: string) => {
+    setJourneyLoading(true);
+    try {
+      const data = await fetchSkuJourney(variantId);
+      setJourneyData(data);
+    } catch {
+      toast.error("Failed to load SKU journey");
+    } finally {
+      setJourneyLoading(false);
+    }
+  };
 
   const totals = useMemo(() => {
     return movementRows.reduce(
@@ -205,13 +226,13 @@ export function WholesaleStockMovementView() {
         <div className="flex items-center gap-2">
           <label className="text-xs font-bold text-slate-700 whitespace-nowrap">SKU</label>
           <select
-            value={selectedSkuId}
-            onChange={(e) => setSelectedSkuId(e.target.value === "all" ? "all" : Number(e.target.value))}
+            value={selectedVariantId}
+            onChange={(e) => setSelectedVariantId(e.target.value)}
             className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
           >
-            <option value="all">All SKUs</option>
+            <option value="all">All SKUs ({skus.length})</option>
             {skus.map((s) => (
-              <option key={s.id} value={s.id}>
+              <option key={s.variantId} value={s.variantId}>
                 {s.name}
               </option>
             ))}
@@ -259,7 +280,13 @@ export function WholesaleStockMovementView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
-              {movementRows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={14} className="py-8 text-center text-slate-500 font-medium">
+                    Loading live stock movements from Railway PostgreSQL...
+                  </td>
+                </tr>
+              ) : movementRows.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="py-8 text-center text-slate-400 italic">
                     No stock movement in this range.
@@ -267,11 +294,16 @@ export function WholesaleStockMovementView() {
                 </tr>
               ) : (
                 movementRows.map((s, idx) => (
-                  <tr key={`${s.skuId}-${s.date}-${idx}`} className="hover:bg-blue-50/40 transition">
+                  <tr
+                    key={`${s.variantId}-${s.date}-${idx}`}
+                    onClick={() => void handleOpenJourney(s.variantId)}
+                    title="Click to view full Purchase → Sales → Return journey"
+                    className="hover:bg-blue-50/70 transition cursor-pointer"
+                  >
                     <td className="py-2 px-3 border-r border-slate-100 text-slate-600 whitespace-nowrap font-medium">
                       {s.date}
                     </td>
-                    <td className="py-2 px-3 border-r border-slate-100 font-medium text-slate-900">
+                    <td className="py-2 px-3 border-r border-slate-100 font-semibold text-blue-700 hover:underline">
                       {s.skuName}
                     </td>
                     <td className="py-2 px-2 border-r border-slate-100 text-right">{s.opening}</td>
@@ -366,9 +398,105 @@ export function WholesaleStockMovementView() {
 
       {/* Explanatory disclaimer footnote */}
       <p className="text-[11px] sm:text-xs text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded">
-        Order Cancel = quantity of orders cancelled on that day. It goes back to Available stock (+). Shown
-        for information: Closing does not change, because a cancelled order was never dispatched.
+        Click any product row to view its full Purchase → Sales → Return journey from Railway PostgreSQL.
+        Order Cancel = quantity of orders cancelled on that day (goes back to Available stock).
       </p>
+
+      {/* Product Journey Modal */}
+      {(journeyLoading || journeyData) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0d1b4c] text-white">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base">
+                    {journeyLoading ? "Loading SKU Journey..." : journeyData?.name}
+                  </h3>
+                  {journeyData && (
+                    <p className="text-[11px] text-blue-200">
+                      SKU: {journeyData.sku} • Live Stock: {journeyData.closing} • Cost: ₹{journeyData.cost} • Value: ₹
+                      {journeyData.stockValue.toLocaleString("en-IN")}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setJourneyData(null)}
+                className="p-1 rounded hover:bg-white/15 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex-1">
+              {journeyLoading ? (
+                <div className="py-12 text-center text-slate-500 text-sm">
+                  Fetching full product journey from Railway PostgreSQL...
+                </div>
+              ) : !journeyData || journeyData.events.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-sm italic">
+                  No purchase, sale, or adjustment events recorded for this SKU yet.
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 text-slate-700 uppercase text-[11px] font-bold">
+                    <tr>
+                      <th className="py-2 px-3 border-b">Date</th>
+                      <th className="py-2 px-3 border-b">Event</th>
+                      <th className="py-2 px-3 border-b">Reference</th>
+                      <th className="py-2 px-3 border-b">Party / Notes</th>
+                      <th className="py-2 px-3 border-b text-right">Qty</th>
+                      <th className="py-2 px-3 border-b text-right">Stock Impact</th>
+                      <th className="py-2 px-3 border-b text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {journeyData.events.map((ev, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 whitespace-nowrap text-slate-600">{ev.date}</td>
+                        <td className="py-2 px-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                              ev.type === "IN" || ev.type === "SALES_RETURN" || ev.type === "RETURN"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : ev.type === "SALE"
+                                  ? "bg-indigo-100 text-indigo-800"
+                                  : ev.type === "ORDER_CANCEL"
+                                    ? "bg-slate-100 text-slate-600"
+                                    : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {ev.type}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 font-medium text-slate-800">{ev.reference}</td>
+                        <td className="py-2 px-3 text-slate-700">{ev.party}</td>
+                        <td className="py-2 px-3 text-right font-medium">{ev.quantity}</td>
+                        <td
+                          className={`py-2 px-3 text-right font-bold ${
+                            ev.qtyDelta > 0
+                              ? "text-emerald-700"
+                              : ev.qtyDelta < 0
+                                ? "text-rose-600"
+                                : "text-slate-400"
+                          }`}
+                        >
+                          {ev.qtyDelta > 0 ? `+${ev.qtyDelta}` : ev.qtyDelta}
+                        </td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                          ₹{ev.amount.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
