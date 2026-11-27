@@ -1860,6 +1860,15 @@ export function WholesaleOrdersPipelineView() {
           qr_paid: qrPaid,
           return_amount: returnedAmount,
           utr_number: cleanUtr || undefined,
+          returned_items:
+            returnedItems.length > 0
+              ? returnedItems.map((it) => ({ name: it.name, qty: it.qty, reason: it.reason }))
+              : undefined,
+        })
+        .then(() => {
+          if (returnedItems.length > 0 || isFullReturn) {
+            window.dispatchEvent(new Event("inventory_updated"));
+          }
         })
         .catch(() => {});
       toast.success(`Order ${viewingOrder.orderNo} delivered & settled!`, {

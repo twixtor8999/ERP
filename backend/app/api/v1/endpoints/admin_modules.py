@@ -4351,6 +4351,12 @@ def _upsert_delivery_note_tag(notes: str | None, tag: str, value: str) -> str:
     return f"{cleaned} {token}".strip() if cleaned else token
 
 
+class ReturnedItemPayload(BaseModel):
+    name: str | None = None
+    qty: float = 0
+    reason: str | None = None
+
+
 class UpdateCrmOrderStagePayload(BaseModel):
     stage: str # "packing" | "invoice" | "dispatch" | "delivery" | "completed" | "return" | "cancelled"
     order_no: str | None = None
@@ -4362,6 +4368,93 @@ class UpdateCrmOrderStagePayload(BaseModel):
     qr_paid: float | None = None
     return_amount: float | None = None
     utr_number: str | None = None
+    returned_items: list[ReturnedItemPayload] | None = None
+
+
+def _restock_order_items_on_return_or_cancel(
+    db: Session,
+    org_id: str,
+    order: Order,
+    returned_items: list[ReturnedItemPayload] | None,
+    restock_all: bool,
+    reference_type: str,
+    default_reason: str,
+    actor_id: str,
+) -> float:
+    """Restore returned/cancelled item quantities into StockBalance and log StockMovement idempotently."""
+    existing_movement = db.scalar(
+        select(StockMovement.id).where(
+            StockMovement.organization_id == org_id,
+            StockMovement.reference_id == order.id,
+            StockMovement.reference_type.in_(["ORDER_RETURN", "ORDER_CANCEL"]),
+        )
+    )
+    if existing_movement:
+        return 0.0
+
+    order_items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+    if not order_items:
+        return 0.0
+
+    to_restock: list[tuple[OrderItem, Decimal, str]] = []
+    if restock_all and not returned_items:
+        for oi in order_items:
+            if (oi.quantity or Decimal("0")) > Decimal("0"):
+                to_restock.append((oi, Decimal(str(oi.quantity)), default_reason))
+    elif returned_items:
+        by_name = { (oi.product_name or "").strip().lower(): oi for oi in order_items }
+        for ri in returned_items:
+            qty_val = Decimal(str(ri.qty or 0))
+            if qty_val <= Decimal("0"):
+                continue
+            rname = (ri.name or "").strip().lower()
+            matched_oi = by_name.get(rname)
+            if not matched_oi and rname:
+                matched_oi = next(
+                    (oi for k, oi in by_name.items() if k and (k in rname or rname in k)),
+                    None,
+                )
+            if not matched_oi:
+                continue
+            capped_qty = min(qty_val, Decimal(str(matched_oi.quantity or qty_val)))
+            if capped_qty > Decimal("0"):
+                to_restock.append((matched_oi, capped_qty, (ri.reason or default_reason).strip()))
+
+    total_restocked = Decimal("0.0000")
+    for oi, restock_qty, note_reason in to_restock:
+        sb = db.scalar(
+            select(StockBalance).where(
+                StockBalance.organization_id == org_id,
+                StockBalance.product_variant_id == oi.product_variant_id,
+            )
+        )
+        if not sb:
+            continue
+        sb.quantity_on_hand = Decimal(str(sb.quantity_on_hand or 0)) + restock_qty
+        sb.quantity_available = Decimal(str(sb.quantity_available or 0)) + restock_qty
+        unit_cost = Decimal(str(sb.average_unit_cost or 0))
+        sb.total_value = sb.quantity_on_hand * unit_cost
+
+        db.add(
+            StockMovement(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                branch_id=sb.branch_id,
+                warehouse_id=sb.warehouse_id,
+                product_variant_id=oi.product_variant_id,
+                movement_type="RETURN",
+                quantity=restock_qty,
+                unit_cost=unit_cost,
+                total_cost=restock_qty * unit_cost,
+                reference_type=reference_type,
+                reference_id=order.id,
+                notes=f"{order.order_number}: {note_reason}",
+                created_by=actor_id,
+            )
+        )
+        total_restocked += restock_qty
+
+    return float(total_restocked)
 
 
 @router.post("/crm/orders/{order_id}/stage")
@@ -4419,6 +4512,7 @@ def update_crm_order_stage(
         if payload.utr_number and payload.utr_number.strip():
             order.payment_transaction_id = payload.utr_number.strip()[:100]
 
+        restocked_qty = 0.0
         if stage in ("packing", "placed"):
             order.status = "CONFIRMED"
         elif stage == "invoice":
@@ -4438,17 +4532,48 @@ def update_crm_order_stage(
             if payload.payment_mode:
                 pm_upper = payload.payment_mode.strip().upper()
                 order.payment_method = "QR" if pm_upper == "QR" else ("CASH_AND_QR" if "SPLIT" in pm_upper or ("CASH" in pm_upper and "QR" in pm_upper) else "CASH")
+            if payload.returned_items:
+                restocked_qty = _restock_order_items_on_return_or_cancel(
+                    db=db,
+                    org_id=org_id,
+                    order=order,
+                    returned_items=payload.returned_items,
+                    restock_all=False,
+                    reference_type="ORDER_RETURN",
+                    default_reason="Partial return at delivery",
+                    actor_id=current_user.user_id,
+                )
         elif stage == "return":
             order.status = "RETURNED"
             order.delivered_at = now_utc
             order.delivery_failure_reason = "Full return at delivery"
+            restocked_qty = _restock_order_items_on_return_or_cancel(
+                db=db,
+                org_id=org_id,
+                order=order,
+                returned_items=payload.returned_items,
+                restock_all=True,
+                reference_type="ORDER_RETURN",
+                default_reason="Full return at delivery",
+                actor_id=current_user.user_id,
+            )
         elif stage == "cancelled":
             order.status = "CANCELLED"
             order.cancelled_at = now_utc
             order.cancellation_reason = payload.cancel_reason or "Cancelled by admin"
+            restocked_qty = _restock_order_items_on_return_or_cancel(
+                db=db,
+                org_id=org_id,
+                order=order,
+                returned_items=None,
+                restock_all=True,
+                reference_type="ORDER_CANCEL",
+                default_reason=order.cancellation_reason,
+                actor_id=current_user.user_id,
+            )
         
         db.commit()
-        return {"status": "success", "order_id": order.id, "stage": stage, "db_status": order.status}
+        return {"status": "success", "order_id": order.id, "stage": stage, "db_status": order.status, "restocked_qty": restocked_qty}
 
     return {"status": "cached", "order_id": order_id, "stage": stage}
 
