@@ -4,6 +4,7 @@ import { getStoredPurchases, getStoredDebitNotes } from "@/features/purchases/da
 import { getStoredStockSplits } from "../data/mockStockSplit";
 import { type InventorySku } from "../data/mockInventory";
 import { normalizeDateToIso } from "@/lib/utilities/istTime";
+import { PNL_ORDERS } from "@/features/pnl/data/mockPnlData";
 
 const ADJUSTMENTS_STORAGE_KEY = "erp_realtime_adjustments_v1";
 
@@ -145,8 +146,8 @@ interface UnifiedOrderLine {
   dateIso: string;
   deliveredDateIso: string;
   bucket: "pending" | "sold" | "cancelled" | "returned";
-  items: Array<{ name: string; qty: number }>;
-  returnedItems: Array<{ name: string; qty: number }>;
+  items: Array<{ skuId?: number; name: string; qty: number }>;
+  returnedItems: Array<{ skuId?: number; name: string; qty: number }>;
 }
 
 function collectUnifiedOrders(): UnifiedOrderLine[] {
@@ -223,6 +224,39 @@ function collectUnifiedOrders(): UnifiedOrderLine[] {
         deliveredDateIso,
         bucket,
         items: (ord.items || []).map((it) => ({ name: it.name, qty: Number(it.qty) || 0 })),
+        returnedItems: [],
+      });
+    }
+  } catch {}
+
+  // 3. Merge historical 512 backup orders from PNL_ORDERS
+  try {
+    for (const po of PNL_ORDERS) {
+      const orderNo = String(po.no || po.id || "").trim();
+      if (!orderNo || byOrderNo.has(orderNo)) continue;
+      const dateIso = normalizeDateToIso(po.date);
+      if (!dateIso) continue;
+      const deliveredDateIso = normalizeDateToIso(po.dsp || po.date) || dateIso;
+
+      const st = String(po.st || "").toLowerCase();
+      let bucket: UnifiedOrderLine["bucket"] = "pending";
+      if (st === "cancelled") bucket = "cancelled";
+      else if (st === "return" || st === "returned") bucket = "returned";
+      else if (st === "dispatch" || st === "delivery" || st === "completed" || st === "delivered") {
+        bucket = "sold";
+      }
+
+      const items = (po.items || []).map((it: any) => ({
+        skuId: it.s,
+        name: "",
+        qty: Number(it.q) || 0,
+      }));
+      byOrderNo.set(orderNo, {
+        orderNo,
+        dateIso,
+        deliveredDateIso,
+        bucket,
+        items,
         returnedItems: [],
       });
     }
@@ -308,22 +342,22 @@ function buildDaySkuMaps(skus: InventorySku[]): DaySkuMaps {
   // Unified Orders
   for (const ord of collectUnifiedOrders()) {
     if (ord.bucket === "cancelled") {
-      for (const it of ord.items) addQty(orderCancel, ord.dateIso, resolveKey(undefined, it.name), it.qty);
+      for (const it of ord.items) addQty(orderCancel, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
     } else if (ord.bucket === "pending") {
-      for (const it of ord.items) addQty(punchPending, ord.dateIso, resolveKey(undefined, it.name), it.qty);
+      for (const it of ord.items) addQty(punchPending, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
     } else if (ord.bucket === "returned") {
       for (const it of ord.items) {
-        const k = resolveKey(undefined, it.name);
+        const k = resolveKey(it.skuId, it.name);
         addQty(sales, ord.dateIso, k, it.qty);
         addQty(salesReturn, ord.deliveredDateIso, k, it.qty);
       }
     } else {
       // sold (dispatched / delivery / completed)
       for (const it of ord.items) {
-        addQty(sales, ord.dateIso, resolveKey(undefined, it.name), it.qty);
+        addQty(sales, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
       }
       for (const rt of ord.returnedItems) {
-        addQty(salesReturn, ord.deliveredDateIso, resolveKey(undefined, rt.name), rt.qty);
+        addQty(salesReturn, ord.deliveredDateIso, resolveKey(rt.skuId, rt.name), rt.qty);
       }
     }
   }
