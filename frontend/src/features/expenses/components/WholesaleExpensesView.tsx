@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import {
   getStoredExpenses,
   saveStoredExpenses,
+  loadExpensesFromApi,
   type ExpenseRecord,
 } from "../data/mockExpenses";
 import { WholesaleExpenseDetailView } from "./WholesaleExpenseDetailView";
@@ -30,6 +31,13 @@ export function WholesaleExpensesView() {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => getStoredExpenses());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewExpense, setViewExpense] = useState<ExpenseRecord | null>(null);
+
+  // Load from Railway backend on mount
+  useEffect(() => {
+    loadExpensesFromApi().then((data) => {
+      if (data && data.length > 0) setExpenses(data);
+    }).catch(() => { /* keep localStorage */ });
+  }, []);
 
   // Form State matching client Cash Ledger form
   const [cat, setCat] = useState("Office Expenses");

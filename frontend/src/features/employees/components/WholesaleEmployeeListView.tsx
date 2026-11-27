@@ -13,6 +13,7 @@ import {
   Employee,
   getStoredEmployees,
   saveStoredEmployees,
+  loadEmployeesFromApi,
 } from '../data/mockEmployees';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api/client';
@@ -52,6 +53,13 @@ export const WholesaleEmployeeListView: React.FC<Props> = ({ onBack }) => {
 
   // Docs Viewer Modal State
   const [viewDocsEmp, setViewDocsEmp] = useState<Employee | null>(null);
+
+  // Load from Railway backend on mount
+  useEffect(() => {
+    loadEmployeesFromApi().then((data) => {
+      if (data && data.length > 0) setEmployees(data);
+    }).catch(() => { /* keep localStorage data */ });
+  }, []);
 
   // Filtered employees
   const filtered = useMemo(() => {

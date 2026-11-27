@@ -50967,3 +50967,86 @@ export function saveStoredRoutes(list: RouteRecord[]) {
     console.error("Failed to save routes to storage", e);
   }
 }
+
+// ─── API-FIRST LOADERS ────────────────────────────────────────────────────────
+import { fetchCustomers as _fetchCustomers, createCustomer as _createCustomer } from "@/lib/api/apiService";
+
+/**
+ * Fetch customers from Railway backend.
+ * Maps backend shape → CustomerRecord shape.
+ * Falls back to localStorage cache on network failure.
+ */
+export async function loadCustomersFromApi(): Promise<CustomerRecord[]> {
+  try {
+    const apiData = await _fetchCustomers();
+    if (!apiData || apiData.length === 0) return getStoredCustomers();
+    // Map API response → local CustomerRecord shape
+    const mapped: CustomerRecord[] = apiData.map((c) => ({
+      id: c.id as unknown as number,
+      name: c.full_name,
+      nameKn: "",
+      shop: c.full_name,
+      ph: c.phone || "",
+      adh: "",
+      gstin: "",
+      lm: c.email || "",
+      state: "Karnataka",
+      district: "Vijayapura",
+      taluka: "Bijapur",
+      village: "Bijapur",
+      pincode: "586101",
+      route: "BIJAPUR",
+      beat: "Monday",
+      status: c.is_active ? "active" : "inactive",
+      lastBillDate: null,
+      lastBillDays: null,
+      createdAt: c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    }));
+    // Merge with existing localStorage (preserve local additions not in backend)
+    const existing = getStoredCustomers();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const localOnly = existing.filter((e) => !apiIds.has(String(e.id)));
+    const merged = [...mapped, ...localOnly];
+    saveStoredCustomers(merged);
+    return merged;
+  } catch {
+    return getStoredCustomers();
+  }
+}
+
+export async function addCustomerToApi(payload: Partial<CustomerRecord>): Promise<CustomerRecord | null> {
+  try {
+    const result = await _createCustomer({
+      first_name: (payload.name || "").split(" ")[0] || "Customer",
+      last_name: (payload.name || "").split(" ").slice(1).join(" ") || undefined,
+      phone: payload.ph || "",
+      company_name: payload.shop || undefined,
+      route: payload.route || undefined,
+      city: payload.village || "Bijapur",
+      state: payload.state || "Karnataka",
+      postal_code: payload.pincode || "586101",
+      gstin: payload.gstin || undefined,
+      credit_limit: 0,
+    });
+    if (!result) return null;
+    const newCustomer: CustomerRecord = {
+      ...payload,
+      id: result.customer_id as unknown as number,
+      name: payload.name || result.display_name,
+      nameKn: "",
+      ph: payload.ph || "",
+      adh: "",
+      lm: "",
+      status: "active",
+      lastBillDate: null,
+      lastBillDays: null,
+      createdAt: new Date().toISOString().split("T")[0],
+    } as CustomerRecord;
+    // Also save locally
+    const list = getStoredCustomers();
+    saveStoredCustomers([newCustomer, ...list]);
+    return newCustomer;
+  } catch {
+    return null;
+  }
+}

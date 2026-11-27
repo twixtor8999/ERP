@@ -635,3 +635,96 @@ export function numberToIndianWords(n: number): string {
   if (rem) str += (str ? 'and ' : '') + inWords(rem);
   return str.trim() + ' Rupees Only';
 }
+
+// ─── API-FIRST LOADERS ────────────────────────────────────────────────────────
+import { fetchEmployees as _fetchEmployees, createEmployee as _createEmployee, fetchAttendance as _fetchAttendance, fetchSalarySlips as _fetchSalarySlips } from "@/lib/api/apiService";
+
+export async function loadEmployeesFromApi(): Promise<Employee[]> {
+  try {
+    const apiData = await _fetchEmployees();
+    if (!apiData || apiData.length === 0) return getStoredEmployees();
+    const mapped: Employee[] = apiData.map((e) => ({
+      id: e.id as unknown as number,
+      code: e.employee_code,
+      name: e.full_name,
+      des: e.role || "Staff",
+      ph: e.phone || "",
+      jd: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      sal: e.base_salary || 0,
+      bank: "",
+      acn: "",
+      acno: "",
+      ifsc: "",
+      role: e.role || "employee",
+      docs: {},
+      added: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    }));
+    const existing = getStoredEmployees();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
+    saveStoredEmployees(merged);
+    return merged;
+  } catch {
+    return getStoredEmployees();
+  }
+}
+
+export async function addEmployeeToApi(emp: Omit<Employee, "id" | "code">): Promise<Employee | null> {
+  try {
+    const nameParts = emp.name.trim().split(" ");
+    const result = await _createEmployee({
+      first_name: nameParts[0] || "Staff",
+      last_name: nameParts.slice(1).join(" ") || undefined,
+      phone: emp.ph,
+      salary_type: "MONTHLY",
+      base_salary: emp.sal,
+      role: emp.role || "employee",
+      create_login_account: false,
+    });
+    if (!result) return null;
+    const newEmp: Employee = {
+      ...emp,
+      id: result.employee_id as unknown as number,
+      code: result.employee_code,
+    };
+    const list = getStoredEmployees();
+    saveStoredEmployees([newEmp, ...list]);
+    return newEmp;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadAttendanceFromApi(dateFrom?: string, dateTo?: string): Promise<AttendanceRecord[]> {
+  try {
+    const apiData = await _fetchAttendance(dateFrom, dateTo);
+    if (!apiData || apiData.length === 0) return getStoredAttendance();
+    const mapped: AttendanceRecord[] = apiData.map((a) => ({
+      id: a.id as unknown as number,
+      emp: a.employee_id as unknown as number,
+      date: a.date,
+      inT: a.check_in,
+      outT: a.check_out,
+    }));
+    return mapped;
+  } catch {
+    return getStoredAttendance();
+  }
+}
+
+export async function loadSalarySlipsFromApi(month?: string): Promise<SalaryRecord[]> {
+  try {
+    const apiData = await _fetchSalarySlips(month);
+    if (!apiData || apiData.length === 0) return getStoredSalarySlips();
+    const mapped: SalaryRecord[] = apiData.map((s) => ({
+      id: s.id as unknown as number,
+      emp: s.employee_id as unknown as number,
+      mon: s.month || "",
+      st: (s.status as "approved" | "wait" | "reject") || "wait",
+      amt: s.net_salary,
+    }));
+    return mapped;
+  } catch {
+    return getStoredSalarySlips();
+  }
+}

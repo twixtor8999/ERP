@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   getStoredCustomers,
   saveStoredCustomers,
   getStoredRoutes,
+  loadCustomersFromApi,
   type CustomerRecord,
 } from "../data/mockCustomers";
 import { CustomerDetailView } from "./CustomerDetailView";
@@ -24,6 +25,13 @@ export function WholesaleCustomersListView() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<CustomerRecord[]>(() => getStoredCustomers());
   const routes = getStoredRoutes();
+
+  // Load from Railway backend on mount
+  useEffect(() => {
+    loadCustomersFromApi().then((data) => {
+      if (data && data.length > 0) setCustomers(data);
+    }).catch(() => { /* keep localStorage */ });
+  }, []);
 
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive" | "unbilled">("all");
   const [unbilledPeriod, setUnbilledPeriod] = useState<"1" | "2">("1");

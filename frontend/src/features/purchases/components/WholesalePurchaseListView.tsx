@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import {
   getStoredPurchases,
   saveStoredPurchases,
+  loadPurchasesFromApi,
   type PurchaseRecord,
 } from "../data/mockPurchases";
 import { WholesalePurchaseInvoiceDetailView } from "./WholesalePurchaseInvoiceDetailView";
@@ -21,6 +22,13 @@ import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 export function WholesalePurchaseListView() {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState<PurchaseRecord[]>(() => getStoredPurchases());
+
+  // Load from Railway backend on mount
+  useEffect(() => {
+    loadPurchasesFromApi().then((data) => {
+      if (data && data.length > 0) setPurchases(data);
+    }).catch(() => { /* keep localStorage */ });
+  }, []);
 
   // Dynamic today (IST) and earliest purchase date
   const todayIso = getIstDateString();

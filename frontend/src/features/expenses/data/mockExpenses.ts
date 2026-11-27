@@ -1117,3 +1117,57 @@ export function saveStoredInwardExpenses(list: InwardExpenseRecord[]) {
     console.error("Failed to save inward expenses", e);
   }
 }
+
+// ─── API-FIRST LOADERS ────────────────────────────────────────────────────────
+import { fetchExpenses as _fetchExpenses, createExpense as _createExpense } from "@/lib/api/apiService";
+
+export async function loadExpensesFromApi(dateFrom?: string, dateTo?: string): Promise<ExpenseRecord[]> {
+  try {
+    const apiData = await _fetchExpenses(dateFrom, dateTo);
+    if (!apiData || apiData.length === 0) return getStoredExpenses();
+    const mapped: ExpenseRecord[] = apiData.map((e) => ({
+      id: e.id as unknown as number,
+      date: e.date,
+      cat: e.category,
+      sub: e.sub_category,
+      amt: e.amount,
+      paymentType: (e.payment_type as "Cash" | "Credit" | "Bank") || "Cash",
+      paidTo: e.paid_to,
+      veh: e.vehicle_no,
+      billNo: e.bill_no,
+      remarks: e.remarks,
+      ap: e.approved_by ? { by: e.approved_by, date: e.approved_at || e.date, at: e.approved_at || e.date } : undefined,
+    }));
+    // Merge with local (keep local additions not in backend)
+    const existing = getStoredExpenses();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
+    saveStoredExpenses(merged);
+    return merged;
+  } catch {
+    return getStoredExpenses();
+  }
+}
+
+export async function addExpenseToApi(expense: Omit<ExpenseRecord, "id">): Promise<ExpenseRecord> {
+  const newLocal: ExpenseRecord = { ...expense, id: Date.now() };
+  try {
+    const result = await _createExpense({
+      date: expense.date,
+      category: expense.cat,
+      sub_category: expense.sub,
+      amount: expense.amt,
+      payment_type: expense.paymentType,
+      paid_to: expense.paidTo,
+      vehicle_no: expense.veh,
+      bill_no: expense.billNo,
+      remarks: expense.remarks,
+    });
+    if (result?.expense_id) {
+      newLocal.id = result.expense_id as unknown as number;
+    }
+  } catch { /* fall through — save locally */ }
+  const list = getStoredExpenses();
+  saveStoredExpenses([newLocal, ...list]);
+  return newLocal;
+}

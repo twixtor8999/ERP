@@ -2277,3 +2277,64 @@ export const INITIAL_AUTO_PO: AutoPoItem[] = [
 export function getStoredAutoPo(): AutoPoItem[] {
   return INITIAL_AUTO_PO;
 }
+
+// ─── API-FIRST LOADERS ────────────────────────────────────────────────────────
+import { fetchPurchases as _fetchPurchases, fetchSuppliers as _fetchSuppliers } from "@/lib/api/apiService";
+
+export async function loadPurchasesFromApi(dateFrom?: string, dateTo?: string): Promise<PurchaseRecord[]> {
+  try {
+    const apiData = await _fetchPurchases(dateFrom, dateTo);
+    if (!apiData || apiData.length === 0) return getStoredPurchases();
+    const mapped: PurchaseRecord[] = apiData.map((p) => ({
+      id: p.id as unknown as number,
+      date: p.date,
+      vendorId: 0,
+      vendorName: p.supplier_name,
+      invoiceNo: p.invoice_number,
+      totalItems: p.items?.length || 0,
+      totalAmount: p.total_amount,
+      status: (p.status?.toLowerCase() === "approved" ? "approved" : "pending") as "approved" | "pending",
+      lines: (p.items || []).map((it) => ({
+        skuId: 0,
+        skuName: it.product_name,
+        qty: it.quantity,
+        grnPrice: it.unit_cost,
+        sellPrice: it.unit_cost,
+        gstPercent: 0,
+        lineTotal: it.total_cost,
+      })),
+      createdAt: p.created_at || p.date,
+    }));
+    const existing = getStoredPurchases();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
+    saveStoredPurchases(merged);
+    return merged;
+  } catch {
+    return getStoredPurchases();
+  }
+}
+
+export async function loadVendorsFromApi(): Promise<VendorRecord[]> {
+  try {
+    const apiData = await _fetchSuppliers();
+    if (!apiData || apiData.length === 0) return getStoredVendors();
+    const mapped: VendorRecord[] = apiData.map((s) => ({
+      id: s.id as unknown as number,
+      name: s.name,
+      gstin: s.gstin || "",
+      ph: s.phone || "",
+      state: "Karnataka",
+      pan: "",
+      addr: "",
+      createdAt: new Date().toISOString().slice(0, 10),
+    }));
+    const existing = getStoredVendors();
+    const apiIds = new Set(mapped.map((m) => String(m.id)));
+    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
+    saveStoredVendors(merged);
+    return merged;
+  } catch {
+    return getStoredVendors();
+  }
+}
