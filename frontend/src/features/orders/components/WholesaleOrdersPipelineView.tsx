@@ -2196,14 +2196,23 @@ export function WholesaleOrdersPipelineView() {
 
         {/* Bottom Actions Row matching Image 2 */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          {/* Full Return + Remove on the left */}
+          {/* Full Return + Partial Return + Remove on the left */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleFullReturn}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
-              <span>↶ Full Return (All Items)</span>
+              <span>↶ Full Return</span>
             </button>
+            {returnedAmount > 0 && returnedAmount < viewingOrder.total && (
+              <button
+                type="button"
+                onClick={handleCompleteDelivery}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              >
+                <span>Partial Return</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -2216,7 +2225,7 @@ export function WholesaleOrdersPipelineView() {
             </button>
           </div>
 
-          {/* Close, Duplicate Print, Mark delivered / Partial Return on the right */}
+          {/* Close, Duplicate Print, Mark delivered on the right */}
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setViewingOrder(null)}
@@ -2241,15 +2250,9 @@ export function WholesaleOrdersPipelineView() {
 
             <button
               onClick={handleCompleteDelivery}
-              className={`px-4 py-1.5 text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors ${
-                returnedAmount > 0 && returnedAmount < viewingOrder.total
-                  ? "bg-amber-600 hover:bg-amber-700"
-                  : "bg-[#132038] hover:bg-[#1c2e4f]"
-              }`}
+              className="px-4 py-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
-              {returnedAmount > 0 && returnedAmount < viewingOrder.total
-                ? "Partial Return & Deliver"
-                : "Mark delivered"}
+              Mark delivered
             </button>
           </div>
         </div>
