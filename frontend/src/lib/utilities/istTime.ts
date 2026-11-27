@@ -97,3 +97,61 @@ export function useIstLiveClock(intervalMs: number = 15000) {
 
   return clock;
 }
+
+/**
+ * Normalize common ERP date representations ("YYYY-MM-DD", "DD-MM-YYYY",
+ * "DD/MM/YYYY", ISO timestamps, or "DD-MM-YYYY hh:mm am") into "YYYY-MM-DD".
+ * Returns "" when no valid calendar date is present.
+ */
+export function normalizeDateToIso(raw?: string | null): string {
+  if (!raw) return "";
+  const trimmed = String(raw).trim();
+  if (!trimmed) return "";
+
+  const isoMatch = trimmed.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch && isoMatch[1] && isoMatch[2] && isoMatch[3]) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
+  const dmyMatch = trimmed.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch && dmyMatch[1] && dmyMatch[2] && dmyMatch[3]) {
+    const day = Number(dmyMatch[1]);
+    const month = Number(dmyMatch[2]);
+    const year = Number(dmyMatch[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Strictly evaluate whether rawDate falls within [fromDate, toDate].
+ * - Normalizes both the candidate date and range bounds to "YYYY-MM-DD".
+ * - Rejects records with missing/unparseable dates whenever a range bound is active.
+ * - Rejects all records when an inverted range (fromIso > toIso) is supplied.
+ */
+export function isDateInRange(
+  rawDate?: string | null,
+  fromDate?: string | null,
+  toDate?: string | null
+): boolean {
+  const fromIso = normalizeDateToIso(fromDate);
+  const toIso = normalizeDateToIso(toDate);
+
+  if (!fromIso && !toIso) return true;
+  if (fromIso && toIso && fromIso > toIso) return false;
+
+  const targetIso = normalizeDateToIso(rawDate);
+  if (!targetIso) return false;
+
+  if (fromIso && targetIso < fromIso) return false;
+  if (toIso && targetIso > toIso) return false;
+  return true;
+}

@@ -17,6 +17,7 @@ import { getStoredSkus } from "../../inventory/data/mockInventory";
 import { getStoredExpenses } from "../../expenses/data/mockExpenses";
 import { useAuthStore } from "@/stores/auth.store";
 import { getInvoiceTemplateConfig } from "@/features/orders/utils/invoiceTemplateConfig";
+import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 
 // ============================================================================
 // Types
@@ -194,9 +195,12 @@ export function WholesaleAccountsView() {
   // Primary navigation: 'cash' | 'cd' | 'bs'
   const [activeTab, setActiveTab] = useState<"cash" | "cd" | "bs">("cash");
 
-  // Date range filter defaults to live audited date: 24-11-2026
-  const [fromDate, setFromDate] = useState("2026-11-24");
-  const [toDate, setToDate] = useState("2026-11-24");
+  // Date range filter defaults to current IST date
+  const todayIso = getIstDateString();
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayIso);
+  const [appliedToDate, setAppliedToDate] = useState(todayIso);
   const [allDatesActive, setAllDatesActive] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
 
@@ -230,7 +234,7 @@ export function WholesaleAccountsView() {
   const [entryType, setEntryType] = useState<
     "Opening" | "Receipt" | "Payment" | "Expense" | "Journal" | "Contra"
   >("Receipt");
-  const [entryDate, setEntryDate] = useState("2026-11-24");
+  const [entryDate, setEntryDate] = useState(todayIso);
   const [entryAmt, setEntryAmt] = useState("");
   const [entryAccount, setEntryAccount] = useState<"Cash" | "Bank">("Cash");
   const [entryTo, setEntryTo] = useState<"Bank" | "Cash">("Bank");
@@ -239,7 +243,7 @@ export function WholesaleAccountsView() {
   const [entryNarration, setEntryNarration] = useState("");
 
   // Quick Action Forms State
-  const [modalDate] = useState("2026-11-24");
+  const [modalDate] = useState(todayIso);
   const [modalAmount, setModalAmount] = useState("");
   const [modalHead, setModalHead] = useState("");
   const [modalMode, setModalMode] = useState("Cash");
@@ -310,16 +314,14 @@ export function WholesaleAccountsView() {
         const parsed = JSON.parse(storedOrders);
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsed.forEach((ord: any) => {
-            const rawDate = (ord.deliveredAt || ord.orderDate || "").trim();
-            const ordIso = rawDate.includes("-") && rawDate.split("-")[0].length === 4
-              ? rawDate
-              : rawDate.includes("-") && rawDate.split("-")[2]?.length === 4
-              ? `${rawDate.split("-")[2]}-${rawDate.split("-")[1]}-${rawDate.split("-")[0]}`
-              : fromDate;
+            const ordIso = normalizeDateToIso(ord.deliveredAt || ord.orderDate);
+            const inRange = allDatesActive
+              ? Boolean(ordIso)
+              : isDateInRange(ordIso, appliedFromDate, appliedToDate);
 
             if (
               (ord.status === "completed" || ord.status === "delivered" || ord.stage === "completed" || ord.stage === "delivery") &&
-              (ordIso === fromDate || rawDate === formatDmy(fromDate))
+              inRange
             ) {
               const cashPaid = Number(ord.cashPaid || (ord.paymentMode === "Cash" ? ord.total : 0));
               const qrPaid = Number(ord.qrPaid || ord.bankPaid || (ord.paymentMode === "QR" || ord.paymentMode === "UPI" ? ord.total : 0));
@@ -360,14 +362,16 @@ export function WholesaleAccountsView() {
         const settlements = JSON.parse(rawSettlements);
         if (Array.isArray(settlements)) {
           settlements.forEach((s: any) => {
-            const sDate = s.date;
-            const matchesDate = sDate === fromDate || sDate === formatDmy(fromDate);
+            const sIso = normalizeDateToIso(s.date);
+            const matchesDate = allDatesActive
+              ? Boolean(sIso)
+              : isDateInRange(sIso, appliedFromDate, appliedToDate);
             if (matchesDate && s.countedCash != null && s.countedCash > 0) {
               // Avoid duplicate if pipeline orders already matched exactly
               const hasMatchingPipeline = pipelineReceipts.some((r) => r.type === "Cash");
               if (!hasMatchingPipeline) {
                 pipelineReceipts.push({
-                  date: formatDmy(fromDate),
+                  date: formatDmy(sIso || appliedFromDate),
                   voucher: "Receipt",
                   party: `Vehicle Trip Collection · ${s.vehicleNumber} (${s.driverName || "Driver"})`,
                   moneyIn: Number(s.countedCash),
@@ -381,7 +385,7 @@ export function WholesaleAccountsView() {
               const hasMatchingQr = pipelineReceipts.some((r) => r.type === "Bank");
               if (!hasMatchingQr) {
                 pipelineReceipts.push({
-                  date: formatDmy(fromDate),
+                  date: formatDmy(sIso || appliedFromDate),
                   voucher: "QR Receipt",
                   party: `Vehicle Trip QR · ${s.vehicleNumber} (${s.driverName || "Driver"})`,
                   moneyIn: Number(s.qrPayment),
@@ -398,18 +402,21 @@ export function WholesaleAccountsView() {
       console.warn("Error parsing settlements in Accounts", e);
     }
 
+    const baseDateInRange =
+      allDatesActive || isDateInRange(BASE_DATE_ISO, appliedFromDate, appliedToDate);
+
     // If no fresh pipeline orders found for the date, use the live production receipts
     const baseCashList =
       pipelineReceipts.filter((r) => r.type === "Cash").length > 0
         ? pipelineReceipts.filter((r) => r.type === "Cash")
-        : fromDate === BASE_DATE_ISO
+        : baseDateInRange
         ? REFERENCE_LIVE_RECEIPTS
         : [];
 
     const baseBankList =
       pipelineReceipts.filter((r) => r.type === "Bank").length > 0
         ? pipelineReceipts.filter((r) => r.type === "Bank")
-        : fromDate === BASE_DATE_ISO
+        : baseDateInRange
         ? REFERENCE_BANK_RECEIPTS
         : [];
 
@@ -417,9 +424,10 @@ export function WholesaleAccountsView() {
     const storedExpenses = getStoredExpenses();
     const expenseEntries: Omit<CashBankEntry, "balance">[] = [];
     storedExpenses.forEach((exp: any) => {
-      if (exp.date === fromDate || exp.date === formatDmy(fromDate)) {
+      const expIso = normalizeDateToIso(exp.date);
+      if (allDatesActive ? Boolean(expIso) : isDateInRange(expIso, appliedFromDate, appliedToDate)) {
         expenseEntries.push({
-          date: exp.date.includes("-") && exp.date.split("-")[0].length === 4 ? formatDmy(exp.date) : exp.date,
+          date: formatDmy(expIso),
           voucher: "Expense",
           party: `${exp.category || "Expense"} · ${exp.enteredBy || exp.paidTo || "Staff"}`,
           moneyIn: 0,
@@ -431,10 +439,9 @@ export function WholesaleAccountsView() {
     });
 
     // Ingest manual entries matching filter
-    const activeManual = manualEntries.filter((m) => {
-      const d = m.date;
-      return d === fromDate || d === formatDmy(fromDate);
-    });
+    const activeManual = manualEntries.filter((m) =>
+      allDatesActive ? Boolean(normalizeDateToIso(m.date)) : isDateInRange(m.date, appliedFromDate, appliedToDate)
+    );
 
     // Merge Cash & Bank raw lists
     const rawCash = [
@@ -498,7 +505,7 @@ export function WholesaleAccountsView() {
       bankTotalIn: bTotIn,
       bankTotalOut: bTotOut,
     };
-  }, [fromDate, manualEntries]);
+  }, [appliedFromDate, appliedToDate, allDatesActive, manualEntries]);
 
   // Filter transactions by pageSearch
   const filteredCashRows = useMemo(() => {
@@ -706,11 +713,18 @@ export function WholesaleAccountsView() {
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
-            onClick={() =>
+            onClick={() => {
+              if (fromDate && toDate && fromDate > toDate) {
+                toast.error("From date cannot be after To date");
+                return;
+              }
+              setAppliedFromDate(fromDate);
+              setAppliedToDate(toDate);
+              setAllDatesActive(false);
               toast.info("Filter Applied", {
                 description: `Loaded accounts for ${formatDmy(fromDate)} to ${formatDmy(toDate)}`,
-              })
-            }
+              });
+            }}
             className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             Submit
@@ -734,11 +748,11 @@ export function WholesaleAccountsView() {
         </h1>
         <p className="text-xs text-slate-500 font-normal mt-0.5">
           {activeTab === "cash" &&
-            `Tally style books for ${formatDmy(fromDate)} to ${formatDmy(toDate)}. Sales, receipts, returns, purchases and expenses come in by themselves; add Opening Balance, Receipts, Payments, Journal and Contra with + New Entry.`}
+            `Tally style books for ${formatDmy(appliedFromDate)} to ${formatDmy(appliedToDate)}. Sales, receipts, returns, purchases and expenses come in by themselves; add Opening Balance, Receipts, Payments, Journal and Contra with + New Entry.`}
           {activeTab === "cd" &&
-            `Credit & Debit sheet for ${formatDmy(fromDate)} to ${formatDmy(toDate)} · Closing = Opening + Credit − Debit`}
+            `Credit & Debit sheet for ${allDatesActive ? "all dates" : `${formatDmy(appliedFromDate)} to ${formatDmy(appliedToDate)}`} · Closing = Opening + Credit − Debit`}
           {activeTab === "bs" &&
-            `Balance Sheet as on ${formatDmy(toDate)} · ${companyName}`}
+            `Balance Sheet as on ${formatDmy(appliedToDate)} · ${companyName}`}
         </p>
       </div>
 
@@ -905,7 +919,7 @@ export function WholesaleAccountsView() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
             <span>
-              Denomination pending: {formatDmy(fromDate)} {pendingVehiclesInfo.vehicles.join(", ")} — {pendingVehiclesInfo.vehicles.length} vehicle(s) without denomination. Entry is compulsory for physical cash reconciliation in Settlement.
+              Denomination pending: {formatDmy(appliedFromDate)} {pendingVehiclesInfo.vehicles.join(", ")} — {pendingVehiclesInfo.vehicles.length} vehicle(s) without denomination. Entry is compulsory for physical cash reconciliation in Settlement.
             </span>
           </div>
           <button

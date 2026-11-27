@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { WholesaleQrPaymentDetailView } from "./WholesaleQrPaymentDetailView";
 
 export interface QrPaymentRow {
@@ -81,11 +82,8 @@ const SAMPLE_QR_PAYMENTS: QrPaymentRow[] = [
 export function WholesaleQrPaymentsView() {
   const navigate = useNavigate();
 
-  // Today's ISO date (YYYY-MM-DD)
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Today's IST ISO date (YYYY-MM-DD)
+  const todayIso = getIstDateString();
 
   // Date filters defaulting dynamically to today
   const [fromDate, setFromDate] = useState(todayIso);
@@ -121,17 +119,8 @@ export function WholesaleQrPaymentsView() {
                 po.stage === "delivery" ||
                 (po.status && (po.status.toLowerCase() === "delivered" || po.status.toLowerCase() === "completed"))
               ) {
-                const rawDate = (po.deliveredAt || po.orderDate || "").trim();
-                let dateIso = todayIso;
-                const m1 = rawDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-                if (m1 && m1[1] && m1[2] && m1[3]) {
-                  dateIso = `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
-                } else {
-                  const m2 = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-                  if (m2 && m2[1] && m2[2] && m2[3]) {
-                    dateIso = `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
-                  }
-                }
+                const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate);
+                if (!dateIso) return;
 
                 const ordTotal = Number(po.total || po.orderTotal || 0);
                 const pm = (po.paymentMode || po.paymentMethod || "").toLowerCase();
@@ -201,8 +190,7 @@ export function WholesaleQrPaymentsView() {
   // Filtering based on date range, type, and search query
   const filteredPayments = useMemo(() => {
     return allPayments.filter((r) => {
-      if (appliedFromDate && r.date < appliedFromDate) return false;
-      if (appliedToDate && r.date > appliedToDate) return false;
+      if (!isDateInRange(r.date, appliedFromDate, appliedToDate)) return false;
       if (filterType === "qr" && r.qrReceived <= 0) return false;
       if (!pageSearch.trim()) return true;
       const q = pageSearch.toLowerCase();
@@ -233,6 +221,10 @@ export function WholesaleQrPaymentsView() {
   };
 
   const handleView = () => {
+    if (fromDate && toDate && fromDate > toDate) {
+      toast.error("From date cannot be after To date");
+      return;
+    }
     setAppliedFromDate(fromDate);
     setAppliedToDate(toDate);
     toast.info("Filter Applied", {

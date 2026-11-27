@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth.store";
+import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
 import { openTaxInvoiceWindow, TaxInvoiceOrder } from "@/features/orders/utils/taxInvoicePrinter";
 
@@ -459,13 +460,12 @@ const DENOMINATION_NOTES = ["500", "200", "100", "50", "20", "10", "1"];
 export function WholesaleSettlementView() {
   const navigate = useNavigate();
 
-  // Date range defaulting dynamically to today's date
-  const todayStr = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Date range defaulting dynamically to today's date (IST)
+  const todayStr = getIstDateString();
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayStr);
+  const [appliedToDate, setAppliedToDate] = useState(todayStr);
   const [pageSearch, setPageSearch] = useState("");
 
   // Duplicate returns state matching client v4.92 / v4.95
@@ -668,18 +668,12 @@ export function WholesaleSettlementView() {
         if (storedPipeline) {
           const pipelineOrders = JSON.parse(storedPipeline);
           if (Array.isArray(pipelineOrders)) {
-            // Group completed/delivered orders by date & vehicle
+            // Group completed/delivered orders by date & vehicle (skipping undated/unsettled pipeline rows)
             const deliveredGroups: Record<string, any[]> = {};
             for (const po of pipelineOrders) {
-              if (po.stage === "completed" || po.stage === "delivery" || (po.status && po.status.toLowerCase() === "delivered")) {
-                const dateIso: string = (() => {
-                  const str = (po.deliveredAt || po.orderDate || "").trim();
-                  const m1 = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-                  if (m1 && m1[1] && m1[2] && m1[3]) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
-                  const m2 = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-                  if (m2 && m2[1] && m2[2] && m2[3]) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
-                  return todayStr;
-                })();
+              if (po.stage === "completed" || (po.status && po.status.toLowerCase() === "delivered")) {
+                const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate);
+                if (!dateIso) continue;
                 const veh: string = po.vehicleNo || "KA28AA6256";
                 const key = `${dateIso}_${veh}`;
                 if (!deliveredGroups[key]) deliveredGroups[key] = [];
@@ -721,9 +715,9 @@ export function WholesaleSettlementView() {
     return list;
   }, [settlements, todayStr]);
 
-  // Filtered rows
+  // Filtered rows (normalize date formats and reject undated rows when filtered)
   const filteredRows: SettlementRow[] = allSettlements.filter((r: SettlementRow) => {
-    if (r.date && (r.date < fromDate || r.date > toDate)) return false;
+    if (!isDateInRange(r.date, appliedFromDate, appliedToDate)) return false;
     if (!pageSearch) return true;
     const q = pageSearch.toLowerCase();
     return (
@@ -894,7 +888,7 @@ export function WholesaleSettlementView() {
             Settlement – {selectedVehicleSettlement.vehicleNumber}
           </h1>
           <p className="text-xs text-slate-500 font-medium">
-            23-11-2026 to 24-11-2026 · {vehicleOrders.length} invoice(s)
+            {appliedFromDate.split("-").reverse().join("-")} to {appliedToDate.split("-").reverse().join("-")} · {vehicleOrders.length} invoice(s)
           </p>
         </div>
 
@@ -983,7 +977,15 @@ export function WholesaleSettlementView() {
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
-            onClick={() => toast.info("Filter Applied", { description: `Loaded settlements for ${fromDate} to ${toDate}` })}
+            onClick={() => {
+              if (fromDate && toDate && fromDate > toDate) {
+                toast.error("From date cannot be after To date");
+                return;
+              }
+              setAppliedFromDate(fromDate);
+              setAppliedToDate(toDate);
+              toast.info("Filter Applied", { description: `Loaded settlements for ${fromDate} to ${toDate}` });
+            }}
             className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             Submit

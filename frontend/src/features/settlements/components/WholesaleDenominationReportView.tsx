@@ -15,17 +15,15 @@ import {
 import { CashDenominationVoucherDetailView } from './CashDenominationVoucherDetailView';
 import { WholesaleDenominationCountView } from './WholesaleDenominationCountView';
 import { toast } from 'sonner';
+import { getIstDateString, isDateInRange, normalizeDateToIso } from '@/lib/utilities/istTime';
 
 export const WholesaleDenominationReportView: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const voucherParam = searchParams.get('voucher') || searchParams.get('id');
 
-  // Today's date in YYYY-MM-DD
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Today's IST date in YYYY-MM-DD
+  const todayIso = getIstDateString();
 
   const [fromDate, setFromDate] = useState(todayIso);
   const [toDate, setToDate] = useState(todayIso);
@@ -40,6 +38,10 @@ export const WholesaleDenominationReportView: React.FC = () => {
 
   const handleDateFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (fromDate && toDate && fromDate > toDate) {
+      toast.error('From date cannot be after To date');
+      return;
+    }
     setAppliedFromDate(fromDate);
     setAppliedToDate(toDate);
     toast.info(`Filtered denominations for ${fromDate} to ${toDate}`);
@@ -59,26 +61,16 @@ export const WholesaleDenominationReportView: React.FC = () => {
 
         const settledKeys = new Set(storedRecords.map((r) => `${r.date}_${r.vehicleNo}`));
 
-        // Format today's date in DD-MM-YYYY
-        const now = new Date();
-        const todayDmY = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getFullYear()}`;
+        // Format today's IST date in DD-MM-YYYY
+        const todayDmY = getIstDateString().split("-").reverse().join("-");
 
-        // Group today's delivered/completed orders by vehicle
+        // Group delivered/completed orders by vehicle
         const groups: Record<string, any[]> = {};
         for (const po of pipelineOrders) {
-          // Only show vehicles with orders actively in delivery or completed
-          if (po.stage === "completed" || po.stage === "delivery" || (po.status && po.status.toLowerCase() === "delivered")) {
-            const rawDate = (po.deliveredAt || po.orderDate || "").trim();
-            let dateStr = todayDmY;
-            const m1 = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-            if (m1 && m1[1] && m1[2] && m1[3]) {
-              dateStr = `${m1[3].padStart(2, "0")}-${m1[2].padStart(2, "0")}-${m1[1]}`;
-            } else {
-              const m2 = rawDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-              if (m2 && m2[1] && m2[2] && m2[3]) {
-                dateStr = `${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}-${m2[3]}`;
-              }
-            }
+          if (po.stage === "completed" || (po.status && po.status.toLowerCase() === "delivered")) {
+            const iso = normalizeDateToIso(po.deliveredAt || po.orderDate);
+            if (!iso) continue;
+            const dateStr = iso.split("-").reverse().join("-");
 
             // Only consider recent or today's pending trips for the action banner
             if (dateStr === todayDmY || dateStr.endsWith("2026")) {
@@ -145,23 +137,11 @@ export const WholesaleDenominationReportView: React.FC = () => {
     return null;
   }, [selectedRecord, isReadOnlyModal, voucherParam, records]);
 
-  // Helper to convert DD-MM-YYYY or any format to YYYY-MM-DD
-  const toIsoDate = (dStr: string): string => {
-    const trimmed = (dStr || "").trim();
-    const m1 = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (m1 && m1[1] && m1[2] && m1[3]) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
-    const m2 = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-    if (m2 && m2[1] && m2[2] && m2[3]) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
-    return trimmed;
-  };
-
   // Filtered & sorted records (strict descending date order)
   const filteredRecords = useMemo(() => {
     return records
       .filter((r) => {
-        const rIso = toIsoDate(r.date);
-        if (appliedFromDate && rIso < appliedFromDate) return false;
-        if (appliedToDate && rIso > appliedToDate) return false;
+        if (!isDateInRange(r.date, appliedFromDate, appliedToDate)) return false;
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
         return (
@@ -172,8 +152,8 @@ export const WholesaleDenominationReportView: React.FC = () => {
         );
       })
       .sort((a, b) => {
-        const isoA = toIsoDate(a.date);
-        const isoB = toIsoDate(b.date);
+        const isoA = normalizeDateToIso(a.date);
+        const isoB = normalizeDateToIso(b.date);
         return isoB.localeCompare(isoA);
       });
   }, [records, appliedFromDate, appliedToDate, searchQuery]);

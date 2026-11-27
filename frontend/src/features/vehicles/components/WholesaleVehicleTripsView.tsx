@@ -14,16 +14,14 @@ import {
   type VehicleTripRecord,
 } from "../data/mockVehicles";
 import { WholesaleVehicleTripDetailEditView } from "./WholesaleVehicleTripDetailEditView";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 export function WholesaleVehicleTripsView() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<VehicleTripRecord[]>(() => getStoredTrips());
 
-  // Dynamic today ISO date
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Dynamic today ISO date (IST)
+  const todayIso = getIstDateString();
 
   const [fromDate, setFromDate] = useState(todayIso);
   const [toDate, setToDate] = useState(todayIso);
@@ -46,8 +44,7 @@ export function WholesaleVehicleTripsView() {
   const filteredTrips = useMemo(() => {
     return trips.filter((t) => {
       // Date filter
-      if (fromDate && t.date < fromDate) return false;
-      if (toDate && t.date > toDate) return false;
+      if (!isDateInRange(t.date, fromDate, toDate)) return false;
 
       // Search filter
       if (searchQuery.trim()) {

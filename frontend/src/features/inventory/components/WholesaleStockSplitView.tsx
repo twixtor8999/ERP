@@ -12,6 +12,7 @@ import {
 } from "../data/mockStockSplit";
 import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
 import { WholesaleInventoryStockSplitDetailView } from "./WholesaleInventoryStockSplitDetailView";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 export function WholesaleStockSplitView() {
   const navigate = useNavigate();
@@ -23,11 +24,13 @@ export function WholesaleStockSplitView() {
   const [isAdding, setIsAdding] = useState(false);
 
   // Filter States for list view
+  const todayIst = getIstDateString();
+  const monthStartIst = `${todayIst.slice(0, 7)}-01`;
   const [searchQuery, setSearchQuery] = useState("");
-  const [startDate, setStartDate] = useState("2026-11-01");
-  const [endDate, setEndDate] = useState("2026-11-22");
-  const [appliedStartDate, setAppliedStartDate] = useState("2026-11-01");
-  const [appliedEndDate, setAppliedEndDate] = useState("2026-11-22");
+  const [startDate, setStartDate] = useState(monthStartIst);
+  const [endDate, setEndDate] = useState(todayIst);
+  const [appliedStartDate, setAppliedStartDate] = useState(monthStartIst);
+  const [appliedEndDate, setAppliedEndDate] = useState(todayIst);
   const [page, setPage] = useState(0);
   const itemsPerPage = 10;
 
@@ -85,7 +88,7 @@ export function WholesaleStockSplitView() {
   const filteredSplits = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return splits.filter((sp) => {
-      if (sp.date < appliedStartDate || sp.date > appliedEndDate) return false;
+      if (!isDateInRange(sp.date, appliedStartDate, appliedEndDate)) return false;
       if (!q) return true;
       return (
         sp.name.toLowerCase().includes(q) ||
@@ -286,7 +289,7 @@ export function WholesaleStockSplitView() {
     // Create record
     const newSplit: StockSplitRecord = {
       id: "SP" + Date.now().toString(36).toUpperCase(),
-      date: new Date().toISOString().slice(0, 10),
+      date: getIstDateString(),
       at: new Date().toISOString(),
       dc: "SIDDESHWAR ENTERPRISES",
       s: selectedSourceSku.id,

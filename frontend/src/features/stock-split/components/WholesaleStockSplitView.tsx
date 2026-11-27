@@ -6,6 +6,7 @@ import { getStoredStockSplits, saveStoredStockSplit } from '../data/mockStockSpl
 import { StockSplitDetailView } from './StockSplitDetailView';
 import { WholesaleAddStockSplitView } from './WholesaleAddStockSplitView';
 import { toast } from 'sonner';
+import { getIstDateString, isDateInRange } from '@/lib/utilities/istTime';
 
 interface Props {
   onBack?: () => void;
@@ -16,10 +17,11 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const voucherParam = searchParams.get('voucher') || searchParams.get('id');
 
+  const todayIst = getIstDateString();
   const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState('2026-11-24');
-  const [endDate, setEndDate] = useState('2026-11-24');
-  const [activeDateFilter, setActiveDateFilter] = useState({ start: '2026-11-24', end: '2026-11-24' });
+  const [startDate, setStartDate] = useState(todayIst);
+  const [endDate, setEndDate] = useState(todayIst);
+  const [activeDateFilter, setActiveDateFilter] = useState({ start: todayIst, end: todayIst });
 
   // Modals & 2nd Page Selected Record
   const [showAddModal, setShowAddModal] = useState(false);
@@ -79,9 +81,7 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
   const filteredRows = useMemo(() => {
     return splits.filter((r) => {
       // Date filter check
-      const withinDate = (!activeDateFilter.start || r.date >= activeDateFilter.start) &&
-                         (!activeDateFilter.end || r.date <= activeDateFilter.end);
-      if (!withinDate) return false;
+      if (!isDateInRange(r.date, activeDateFilter.start, activeDateFilter.end)) return false;
 
       // Text search check
       if (!searchTerm.trim()) return true;

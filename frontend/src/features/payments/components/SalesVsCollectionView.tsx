@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download } from "lucide-react";
 import { toast } from "sonner";
+import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import {
   STORAGE_KEY_SETTLEMENTS,
   INITIAL_SETTLEMENTS,
@@ -28,9 +29,12 @@ export interface SvcRecord {
 export function SalesVsCollectionView() {
   const navigate = useNavigate();
 
-  // Default to today matching Reference App Screenshot (24-11-2026)
-  const [fromDate, setFromDate] = useState("2026-11-24");
-  const [toDate, setToDate] = useState("2026-11-24");
+  // Default dynamically to today's IST date
+  const todayIso = getIstDateString();
+  const [fromDate, setFromDate] = useState(todayIso);
+  const [toDate, setToDate] = useState(todayIso);
+  const [appliedFromDate, setAppliedFromDate] = useState(todayIso);
+  const [appliedToDate, setAppliedToDate] = useState(todayIso);
   const [pageSearch, setPageSearch] = useState("");
 
   const [selectedRecord, setSelectedRecord] = useState<SvcRecord | null>(null);
@@ -60,42 +64,45 @@ export function SalesVsCollectionView() {
     return INITIAL_SETTLEMENTS;
   }, [fromDate, toDate, refreshKey]);
 
-  // Filter settlements inside date range [fromDate, toDate]
+  // Filter settlements inside applied date range [appliedFromDate, appliedToDate]
   const dateFilteredSettlements = useMemo(() => {
-    return allSettlements.filter((s) => {
-      if (!s.date) return true;
-      return s.date >= fromDate && s.date <= toDate;
-    });
-  }, [allSettlements, fromDate, toDate]);
+    return allSettlements.filter((s) => isDateInRange(s.date, appliedFromDate, appliedToDate));
+  }, [allSettlements, appliedFromDate, appliedToDate]);
 
   // Dynamic Scanner matching client VW.den: Find any vehicle with deliveries (noOfOrders > 0) but NO countedCash saved
   const pendingVehicles = useMemo(() => {
     return dateFilteredSettlements
       .filter((s) => s.noOfOrders > 0 && s.countedCash == null)
-      .map((s) => `${s.date ? s.date.split("-").reverse().join("-") : fromDate} ${s.vehicleNumber}`);
-  }, [dateFilteredSettlements, fromDate]);
+      .map((s) => {
+        const iso = normalizeDateToIso(s.date) || appliedFromDate;
+        return `${iso.split("-").reverse().join("-")} ${s.vehicleNumber}`;
+      });
+  }, [dateFilteredSettlements, appliedFromDate]);
 
   // Only vehicles with saved denominations (countedCash != null) flow into Sales vs Collection records
   const records = useMemo<SvcRecord[]>(() => {
     return dateFilteredSettlements
       .filter((s) => s.countedCash != null)
-      .map((s, idx) => ({
-        id: `svc-${s.vehicleNumber}-${s.date || idx}`,
-        date: s.date ? s.date.split("-").reverse().join("-") : fromDate,
-        vehicle: s.vehicleNumber,
-        orders: s.noOfOrders,
-        invoiceAmt: s.invoiceAmt,
-        returns: (s.fullReturn || 0) + (s.partialReturn || 0) + (s.oldReturn || 0),
-        netSales: s.netAmt,
-        cash: s.countedCash || 0,
-        qr: s.qrPayment || 0,
-        bank: s.bankPayment || 0,
-        diff: s.diff || 0,
-        remarks: s.remarks || "",
-        enteredBy: s.enteredBy || "Vijaykumar Shantagiri",
-        denominations: (s.denominations as Record<string, number>) || {},
-      }));
-  }, [dateFilteredSettlements, fromDate]);
+      .map((s, idx) => {
+        const iso = normalizeDateToIso(s.date) || appliedFromDate;
+        return {
+          id: `svc-${s.vehicleNumber}-${iso || idx}`,
+          date: iso.split("-").reverse().join("-"),
+          vehicle: s.vehicleNumber,
+          orders: s.noOfOrders,
+          invoiceAmt: s.invoiceAmt,
+          returns: (s.fullReturn || 0) + (s.partialReturn || 0) + (s.oldReturn || 0),
+          netSales: s.netAmt,
+          cash: s.countedCash || 0,
+          qr: s.qrPayment || 0,
+          bank: s.bankPayment || 0,
+          diff: s.diff || 0,
+          remarks: s.remarks || "",
+          enteredBy: s.enteredBy || "Vijaykumar Shantagiri",
+          denominations: (s.denominations as Record<string, number>) || {},
+        };
+      });
+  }, [dateFilteredSettlements, appliedFromDate]);
 
   // ─── Full-page drilldown for a single vehicle's denomination breakdown ───
   if (selectedRecord) {
@@ -308,7 +315,15 @@ export function SalesVsCollectionView() {
             className="border border-slate-300 rounded-md px-2 py-1 text-xs font-mono bg-white focus:outline-none"
           />
           <button
-            onClick={() => toast.info("Filter Applied", { description: `Loaded report for ${fromDate} to ${toDate}` })}
+            onClick={() => {
+              if (fromDate && toDate && fromDate > toDate) {
+                toast.error("From date cannot be after To date");
+                return;
+              }
+              setAppliedFromDate(fromDate);
+              setAppliedToDate(toDate);
+              toast.info("Filter Applied", { description: `Loaded report for ${fromDate} to ${toDate}` });
+            }}
             className="bg-[#132038] hover:bg-[#1c2e4f] text-white px-3 py-1 rounded-md text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             Submit

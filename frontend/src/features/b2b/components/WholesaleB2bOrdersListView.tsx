@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { B2bOrderDetailView } from "./B2bOrderDetailView";
 
 export interface B2bOrderRow {
@@ -20,11 +21,8 @@ export interface B2bOrderRow {
 export function WholesaleB2bOrdersListView() {
   const navigate = useNavigate();
 
-  // Today's ISO date (YYYY-MM-DD)
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Today's IST ISO date (YYYY-MM-DD)
+  const todayIso = getIstDateString();
 
   const [fromDate, setFromDate] = useState(todayIso);
   const [toDate, setToDate] = useState(todayIso);
@@ -36,14 +34,7 @@ export function WholesaleB2bOrdersListView() {
   const [selectedOrder, setSelectedOrder] = useState<B2bOrderRow | null>(null);
 
   // Helper to format date into YYYY-MM-DD
-  const toIsoDate = (dStr: string): string => {
-    const trimmed = (dStr || "").trim();
-    const m1 = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (m1 && m1[1] && m1[2] && m1[3]) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
-    const m2 = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-    if (m2 && m2[1] && m2[2] && m2[3]) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
-    return trimmed || todayIso;
-  };
+  const toIsoDate = (dStr: string): string => normalizeDateToIso(dStr);
 
   // Sync real-time orders from pipeline
   useEffect(() => {
@@ -107,9 +98,7 @@ export function WholesaleB2bOrdersListView() {
   const filteredOrders = useMemo(() => {
     return orders
       .filter((o) => {
-        const oIso = toIsoDate(o.date);
-        if (appliedFromDate && oIso < appliedFromDate) return false;
-        if (appliedToDate && oIso > appliedToDate) return false;
+        if (!isDateInRange(o.date, appliedFromDate, appliedToDate)) return false;
         if (!pageSearch.trim()) return true;
         const q = pageSearch.toLowerCase();
         return (
@@ -128,6 +117,10 @@ export function WholesaleB2bOrdersListView() {
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (fromDate && toDate && fromDate > toDate) {
+      toast.error("From date cannot be after To date");
+      return;
+    }
     setAppliedFromDate(fromDate);
     setAppliedToDate(toDate);
     toast.info("Filter Applied", {

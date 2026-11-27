@@ -16,16 +16,14 @@ import {
   type PurchaseRecord,
 } from "../data/mockPurchases";
 import { WholesalePurchaseInvoiceDetailView } from "./WholesalePurchaseInvoiceDetailView";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 export function WholesalePurchaseListView() {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState<PurchaseRecord[]>(() => getStoredPurchases());
 
-  // Dynamic today and earliest purchase date
-  const todayIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Dynamic today (IST) and earliest purchase date
+  const todayIso = getIstDateString();
 
   const defaultFrom = useMemo(() => {
     if (purchases.length > 0) {
@@ -43,8 +41,7 @@ export function WholesalePurchaseListView() {
 
   const filteredPurchases = useMemo(() => {
     return purchases.filter((p) => {
-      if (fromDate && p.date < fromDate) return false;
-      if (toDate && p.date > toDate) return false;
+      if (!isDateInRange(p.date, fromDate, toDate)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();

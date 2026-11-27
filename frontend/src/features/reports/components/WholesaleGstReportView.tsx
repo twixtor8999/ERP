@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Download, Search } from 'lucide-react';
 import { DEFAULT_GST_SLABS, SAMPLE_POPULATED_GST, GstRateRow } from '../data/mockReportsData';
-import { getIstDateString } from '@/lib/utilities/istTime';
+import { getIstDateString, isDateInRange } from '@/lib/utilities/istTime';
 import { getAllCrmOrders } from '@/features/crm/data/mockCrmReports';
 import { toast } from 'sonner';
 
@@ -37,24 +37,7 @@ export const WholesaleGstReportView: React.FC<Props> = ({ onBack }) => {
 
     for (const order of orders) {
       if (order.status === 'cancelled') continue;
-      // normalize order date
-      let d = order.orderDate || '';
-      if (d.includes('/')) {
-        const parts = d.split('/');
-        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-          d = parts[2].length === 4
-            ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
-            : `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-        }
-      } else if (d.includes('-')) {
-        const parts = d.split('-');
-        if (parts.length === 3 && parts[0] && parts[1] && parts[2] && parts[0].length === 2) {
-          d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
-      }
-
-      if (fromDate && d < fromDate) continue;
-      if (toDate && d > toDate) continue;
+      if (!isDateInRange(order.orderDate, fromDate, toDate)) continue;
 
       hasOrdersInRange = true;
       for (const item of order.items || []) {

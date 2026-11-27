@@ -6,6 +6,7 @@ import {
   getSampleRowsForRegister,
 } from '../data/mockCaReports';
 import { toast } from 'sonner';
+import { getIstDateString, isDateInRange, normalizeDateToIso } from '@/lib/utilities/istTime';
 
 interface Props {
   reportId: string;
@@ -16,9 +17,12 @@ export const WholesaleRegisterView: React.FC<Props> = ({ reportId, onBack }) => 
   const config: RegisterConfig =
     CA_REPORT_CONFIGS[reportId] || (CA_REPORT_CONFIGS['carsal'] as RegisterConfig);
 
+  const todayIst = getIstDateString();
   const [period, setPeriod] = useState('This month');
-  const [fromDate, setFromDate] = useState('2026-11-01');
-  const [toDate, setToDate] = useState('2026-11-30');
+  const [fromDate, setFromDate] = useState(`${todayIst.slice(0, 7)}-01`);
+  const [toDate, setToDate] = useState(todayIst);
+  const [appliedFromDate, setAppliedFromDate] = useState(`${todayIst.slice(0, 7)}-01`);
+  const [appliedToDate, setAppliedToDate] = useState(todayIst);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
@@ -29,35 +33,57 @@ export const WholesaleRegisterView: React.FC<Props> = ({ reportId, onBack }) => 
 
   const handlePeriodChange = (val: string) => {
     setPeriod(val);
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const currentIst = getIstDateString();
+    const [yStr, mStr] = currentIst.split('-');
+    const y = Number(yStr);
+    const m = Number(mStr);
+
+    let nextFrom = fromDate;
+    let nextTo = toDate;
 
     if (val === 'Today') {
-      const td = `${y}-${m}-${String(today.getDate()).padStart(2, '0')}`;
-      setFromDate(td);
-      setToDate(td);
+      nextFrom = currentIst;
+      nextTo = currentIst;
     } else if (val === 'This month') {
-      setFromDate(`${y}-${m}-01`);
-      setToDate(`${y}-${m}-30`);
+      nextFrom = `${yStr}-${mStr}-01`;
+      nextTo = currentIst;
     } else if (val === 'Last month') {
-      const prevM = String(today.getMonth() === 0 ? 12 : today.getMonth()).padStart(2, '0');
-      const prevY = today.getMonth() === 0 ? y - 1 : y;
-      setFromDate(`${prevY}-${prevM}-01`);
-      setToDate(`${prevY}-${prevM}-31`);
+      const prevMNum = m === 1 ? 12 : m - 1;
+      const prevY = m === 1 ? y - 1 : y;
+      const prevM = String(prevMNum).padStart(2, '0');
+      const lastDay = new Date(prevY, prevMNum, 0).getDate();
+      nextFrom = `${prevY}-${prevM}-01`;
+      nextTo = `${prevY}-${prevM}-${String(lastDay).padStart(2, '0')}`;
     } else if (val === 'This financial year') {
-      setFromDate(`${y}-04-01`);
-      setToDate(`${y + 1}-03-31`);
+      const fyStartYear = m >= 4 ? y : y - 1;
+      nextFrom = `${fyStartYear}-04-01`;
+      nextTo = currentIst;
+    } else {
+      return;
     }
+
+    setFromDate(nextFrom);
+    setToDate(nextTo);
+    setAppliedFromDate(nextFrom);
+    setAppliedToDate(nextTo);
+    setCurrentPage(1);
   };
 
+  const hasDateColumn = useMemo(
+    () => rows.some((r) => Boolean(normalizeDateToIso(String(r[0] ?? '')))),
+    [rows]
+  );
+
   const filteredRows = useMemo(() => {
-    if (!searchTerm.trim()) return rows;
-    const term = searchTerm.toLowerCase();
-    return rows.filter((r) =>
-      r.some((cell) => String(cell).toLowerCase().includes(term))
-    );
-  }, [rows, searchTerm]);
+    const term = searchTerm.toLowerCase().trim();
+    return rows.filter((r) => {
+      if (hasDateColumn && !isDateInRange(String(r[0] ?? ''), appliedFromDate, appliedToDate)) {
+        return false;
+      }
+      if (!term) return true;
+      return r.some((cell) => String(cell).toLowerCase().includes(term));
+    });
+  }, [rows, hasDateColumn, appliedFromDate, appliedToDate, searchTerm]);
 
   const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
   const paginatedRows = useMemo(() => {
@@ -177,7 +203,16 @@ export const WholesaleRegisterView: React.FC<Props> = ({ reportId, onBack }) => 
         </label>
 
         <button
-          onClick={() => toast.info(`Report filtered: ${fromDate} to ${toDate}`)}
+          onClick={() => {
+            if (fromDate && toDate && fromDate > toDate) {
+              toast.error('From date cannot be after To date');
+              return;
+            }
+            setAppliedFromDate(fromDate);
+            setAppliedToDate(toDate);
+            setCurrentPage(1);
+            toast.info(`Report filtered: ${fromDate} to ${toDate}`);
+          }}
           className="mt-auto px-5 py-2 bg-[#1e40af] hover:bg-blue-800 text-white font-bold rounded text-xs transition shadow-2xs"
         >
           View

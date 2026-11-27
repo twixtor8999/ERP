@@ -13,6 +13,7 @@ import { WholesaleItemWisePickingView } from "./WholesaleItemWisePickingView";
 import { useAuthStore } from "@/stores/auth.store";
 import { getStoredVehicles } from "@/features/vehicles/data/mockVehicles";
 import { downloadExcelXlsx } from "@/lib/utilities/excelExport";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 import realCustomersData from "@/data/realCustomers.json";
 
 export interface OrderHistoryItem {
@@ -742,11 +743,8 @@ export function WholesaleOrdersPipelineView() {
   });
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
-  // Date filters defaulting to today's date dynamically
-  const todayStr = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-  })();
+  // Date filters defaulting to today's IST date dynamically
+  const todayStr = getIstDateString();
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
   const [appliedFromDate, setAppliedFromDate] = useState(todayStr);
@@ -1069,11 +1067,9 @@ export function WholesaleOrdersPipelineView() {
 
       if (!matchesStage) return false;
 
-      // 3. Date Range Filter
+      // 3. Date Range Filter (strictly reject undated/out-of-range rows when a date bound is active)
       const orderIso = extractIsoDate(o.orderDate || o.orderTime);
-      const matchDate =
-        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
-        (!appliedToDate || !orderIso || orderIso <= appliedToDate);
+      const matchDate = isDateInRange(orderIso, appliedFromDate, appliedToDate);
 
       // 4. Route & Village & Vehicle filters
       const matchRoute =
@@ -1508,10 +1504,7 @@ export function WholesaleOrdersPipelineView() {
 
     const dateFilteredOrders = orders.filter((o) => {
       const orderIso = extractIsoDate(o.orderDate || o.orderTime);
-      return (
-        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
-        (!appliedToDate || !orderIso || orderIso <= appliedToDate)
-      );
+      return isDateInRange(orderIso, appliedFromDate, appliedToDate);
     });
 
     return stages.map((s, idx) => {
@@ -1536,10 +1529,7 @@ export function WholesaleOrdersPipelineView() {
     if (!reportDrilldown) return [];
     return orders.filter((o) => {
       const orderIso = extractIsoDate(o.orderDate || o.orderTime);
-      const matchDate =
-        (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
-        (!appliedToDate || !orderIso || orderIso <= appliedToDate);
-      if (!matchDate) return false;
+      if (!isDateInRange(orderIso, appliedFromDate, appliedToDate)) return false;
       return !reportDrilldown.stageKey || o.stage === reportDrilldown.stageKey;
     });
   }, [orders, reportDrilldown, appliedFromDate, appliedToDate]);
@@ -2399,10 +2389,7 @@ export function WholesaleOrdersPipelineView() {
         <WholesaleItemWisePickingView
           orders={orders.filter((o) => {
             const orderIso = extractIsoDate(o.orderDate || o.orderTime);
-            return (
-              (!appliedFromDate || !orderIso || orderIso >= appliedFromDate) &&
-              (!appliedToDate || !orderIso || orderIso <= appliedToDate)
-            );
+            return isDateInRange(orderIso, appliedFromDate, appliedToDate);
           })}
         />
       )}

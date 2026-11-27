@@ -17,11 +17,12 @@ import {
   type ExpenseRecord,
 } from "../data/mockExpenses";
 import { getStoredPurchases, saveStoredPurchases } from "@/features/purchases/data/mockPurchases";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 import { WholesaleInwardExpenseDetailView } from "./WholesaleInwardExpenseDetailView";
 
 export function WholesaleInwardExpensesView() {
   const navigate = useNavigate();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getIstDateString();
   const [fromDate, setFromDate] = useState(todayIso);
   const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,8 +35,7 @@ export function WholesaleInwardExpensesView() {
   // Filtered expenses based on date & search
   const filteredExpenses = useMemo(() => {
     return inwardExpenses.filter((e) => {
-      if (fromDate && e.date < fromDate) return false;
-      if (toDate && e.date > toDate) return false;
+      if (!isDateInRange(e.date, fromDate, toDate)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();

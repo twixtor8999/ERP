@@ -11,6 +11,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   getStoredExpenses,
@@ -21,7 +22,7 @@ import { WholesaleExpenseDetailView } from "./WholesaleExpenseDetailView";
 
 export function WholesaleExpensesView() {
   const navigate = useNavigate();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getIstDateString();
   const [fromDate, setFromDate] = useState(todayIso);
   const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,8 +106,7 @@ export function WholesaleExpensesView() {
   // Filtered expenses based on date & search
   const filteredExpenses = useMemo(() => {
     return expenses.filter((e) => {
-      if (fromDate && e.date < fromDate) return false;
-      if (toDate && e.date > toDate) return false;
+      if (!isDateInRange(e.date, fromDate, toDate)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
