@@ -4162,11 +4162,11 @@ def get_crm_orders_status(
     for it in all_items:
         items_by_order.setdefault(it.order_id, []).append({
             "id": it.id,
-            "product_name": it.product_name,
-            "sku": it.sku,
-            "quantity": float(it.quantity),
-            "unit_price": float(it.unit_price),
-            "total_amount": float(it.total_amount),
+            "product_name": it.product_name or "Item",
+            "sku": it.sku or "SKU",
+            "quantity": float(it.quantity or 0),
+            "unit_price": float(it.unit_price or 0),
+            "total_amount": float(it.total_amount or 0),
         })
 
     results = []
@@ -4258,11 +4258,20 @@ def get_crm_orders_status(
             or "Bijapur"
         ).strip()
 
+        o_date_iso = (
+            o.order_date.isoformat()
+            if o.order_date
+            else (
+                (o.created_at.astimezone(ist) if o.created_at.tzinfo else o.created_at.replace(tzinfo=UTC).astimezone(ist)).date().isoformat()
+                if o.created_at
+                else datetime.now(ist).date().isoformat()
+            )
+        )
         results.append({
             "id": o.id,
             "order_number": disp_order_no,
             "invoice_number": inv_by_order.get(o.id),
-            "order_date": o.order_date.isoformat() if o.order_date else o.created_at.astimezone(ist).date().isoformat(),
+            "order_date": o_date_iso,
             "customer_name": contact_person,
             "customer_phone": o.shipping_phone or (c.phone if c else "-"),
             "shop_name": (c.company_name or c.display_name or "Retail Store") if c else "Retail Store",
@@ -4270,7 +4279,7 @@ def get_crm_orders_status(
             "route": raw_route or "Bijapur",
             "created_by": created_by_name,
             "source": "CRM" if o.order_type == "TELECALLER_CRM" else "STORE",
-            "total_amount": float(o.total_amount),
+            "total_amount": float(o.total_amount or 0),
             "status": o.status,
             "order_placed": placed_str,
             "packed_confirmed": packed_str,

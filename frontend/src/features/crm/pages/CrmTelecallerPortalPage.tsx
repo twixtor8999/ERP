@@ -1491,12 +1491,14 @@ export function CrmTelecallerPortalPage() {
     const localReport = computePersonalReportFromOrders(sDate, eDate, userName);
 
     try {
-      const [repRes, ordRes] = await Promise.all([
+      const [repSettled, ordSettled] = await Promise.allSettled([
         apiClient.get<CrmReportData>(`/api/v1/admin/crm/reports?start_date=${sDate}&end_date=${eDate}`),
         apiClient.get<CrmOrder[]>(`/api/v1/admin/crm/orders?start_date=${sDate}&end_date=${eDate}&limit=100`),
       ]);
+      const repRes = repSettled.status === "fulfilled" ? repSettled.value : null;
+      const ordRes = ordSettled.status === "fulfilled" ? ordSettled.value : null;
 
-      if (repRes.data) {
+      if (repRes?.data) {
         // Merge backend orders with any authoritative local CRM orders
         const backendOrders = Array.isArray(repRes.data.my_orders) ? repRes.data.my_orders : [];
         const localOrders = Array.isArray(localReport.my_orders) ? localReport.my_orders : [];
@@ -1548,7 +1550,7 @@ export function CrmTelecallerPortalPage() {
         };
         setReportData(reportWithSortedOrders);
 
-        if (Array.isArray(ordRes.data)) {
+        if (ordRes && Array.isArray(ordRes.data)) {
           const ordSeen = new Set<string>();
           const allMergedOrd: CrmOrder[] = [];
           for (const o of [...ordRes.data, ...mergedOrders]) {
@@ -1567,6 +1569,8 @@ export function CrmTelecallerPortalPage() {
         } else {
           setOrdersList(mergedOrders);
         }
+      } else {
+        throw new Error("Report unavailable");
       }
     } catch {
       // Offline / fallback handling: Compute dynamically from authoritative CRM orders
