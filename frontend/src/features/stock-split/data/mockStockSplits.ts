@@ -1,94 +1,85 @@
 import { StockSplitRecord } from '../types';
+import {
+  getStoredStockSplits as getInventoryStockSplits,
+  saveStoredStockSplits as saveInventoryStockSplits,
+  type StockSplitRecord as InventoryStockSplitRecord,
+} from '@/features/inventory/data/mockStockSplit';
+import { getStoredSkus } from '@/features/inventory/data/mockInventory';
 
-export const INITIAL_STOCK_SPLITS: StockSplitRecord[] = [
-  {
-    id: 'SPLIT-1793211755',
-    date: '2026-11-24',
-    dcName: 'SIDDESHWAR ENTERPRISES',
-    parentSkuId: '1793211755095131',
-    parentSkuNo: '1793211755095131',
-    parentItemName: 'Masoor Dal 30Kg Bag',
-    parentCategory: 'Pulses & Grains',
-    parentGrnPrice: 2340,
-    splitQty: 1,
-    childSkuId: '1793211755095132',
-    childSkuNo: '1793211755095132',
-    childItemName: 'Masoor Dal 1Kg Pkt',
-    childCategory: 'Pulses & Grains',
-    convertedQty: 30,
-    splitGrnPrice: 78.0, // 2340 / 30
-    shrinkageQty: 0,
-    operatorName: 'Arun Patil',
-    notes: 'Split 1x 30kg bulk sack into 30x 1kg retail packs',
-    createdAt: '2026-11-24T10:15:00Z',
-  },
-  {
-    id: 'SPLIT-1792862514-S',
-    date: '2026-11-24',
-    dcName: 'SIDDESHWAR ENTERPRISES',
-    parentSkuId: '1792862514918293',
-    parentSkuNo: '1792862514918293',
-    parentItemName: 'Vilmaa Femiluv Soft Pads - XL 280mm 80Pcs Box',
-    parentCategory: 'Personal Care',
-    parentGrnPrice: 800,
-    splitQty: 1,
-    childSkuId: '1792862514918294',
-    childSkuNo: '1792862514918294',
-    childItemName: 'Vilmaa Femiluv Soft Pads - XL 280mm 1Pcs Pkt',
-    childCategory: 'Personal Care',
-    convertedQty: 80,
-    splitGrnPrice: 10.0, // 800 / 80
-    shrinkageQty: 0,
-    operatorName: 'Pushpa Patil',
-    notes: 'Master box opened for retail packet distribution',
-    createdAt: '2026-11-24T11:42:00Z',
-  },
-  {
-    id: 'SPLIT-1792862514-D',
-    date: '2026-11-24',
-    dcName: 'SIDDESHWAR ENTERPRISES',
-    parentSkuId: '1792862514916293',
-    parentSkuNo: '1792862514916293',
-    parentItemName: 'Vilmaa Femiluv Dry Pads - XL 280mm 80Pcs Box',
-    parentCategory: 'Personal Care',
-    parentGrnPrice: 800,
-    splitQty: 1,
-    childSkuId: '1792862514916294',
-    childSkuNo: '1792862514916294',
-    childItemName: 'Vilmaa Femiluv Dry Pads - XL 280mm 1Pcs Pkt',
-    childCategory: 'Personal Care',
-    convertedQty: 80,
-    splitGrnPrice: 10.0, // 800 / 80
-    shrinkageQty: 0,
-    operatorName: 'Pushpa Patil',
-    notes: 'Bulk carton split into individual retail pouches',
-    createdAt: '2026-11-24T12:05:00Z',
-  },
-];
+function mapInventorySplitToViewRecord(sp: InventoryStockSplitRecord): StockSplitRecord {
+  const skus = getStoredSkus();
+  const parentSku = skus.find((s) => s.id === sp.s);
+  const firstConv = sp.conv?.[0];
+  const childSku = firstConv ? skus.find((s) => s.id === firstConv.s) : undefined;
+  const totalConvQty = (sp.conv || []).reduce((acc, c) => acc + (Number(c.q) || 0), 0);
 
-const SPLITS_STORAGE_KEY = 'pk_stock_splits_v1';
+  return {
+    id: sp.id,
+    date: sp.date,
+    dcName: sp.dc || 'SIDDESHWAR ENTERPRISES',
+    parentSkuId: sp.s,
+    parentSkuNo: parentSku?.code || String(sp.s),
+    parentItemName: sp.name,
+    parentCategory: parentSku?.category || 'General',
+    parentGrnPrice: Number(sp.grn) || 0,
+    splitQty: Number(sp.out) || 0,
+    childSkuId: firstConv?.s ?? '',
+    childSkuNo: childSku?.code || (firstConv ? String(firstConv.s) : ''),
+    childItemName: (sp.conv || []).map((c) => c.name).join(', ') || 'Converted Item',
+    childCategory: childSku?.category || 'General',
+    convertedQty: totalConvQty,
+    splitGrnPrice: Number(firstConv?.p) || 0,
+    shrinkageQty: sp.shr ? Number(sp.shr.q) || 0 : 0,
+    operatorName: sp.by || 'Staff',
+    notes: sp.shr
+      ? `Split ${sp.out}x ${sp.name} (shrinkage: ${sp.shr.q})`
+      : `Split ${sp.out}x ${sp.name} → ${totalConvQty}x ${(sp.conv || []).map((c) => c.name).join(', ')}`,
+    createdAt: sp.at,
+  };
+}
 
 export function getStoredStockSplits(): StockSplitRecord[] {
-  try {
-    const raw = localStorage.getItem(SPLITS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(SPLITS_STORAGE_KEY, JSON.stringify(INITIAL_STOCK_SPLITS));
-      return INITIAL_STOCK_SPLITS;
-    }
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to load stock splits from localStorage', e);
-    return INITIAL_STOCK_SPLITS;
-  }
+  return getInventoryStockSplits().map(mapInventorySplitToViewRecord);
 }
 
 export function saveStoredStockSplit(record: StockSplitRecord): StockSplitRecord[] {
-  const current = getStoredStockSplits();
-  const updated = [record, ...current];
-  try {
-    localStorage.setItem(SPLITS_STORAGE_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.error('Failed to save stock split to localStorage', e);
+  const current = getInventoryStockSplits();
+  const invRecord: InventoryStockSplitRecord = {
+    id: String(record.id),
+    date: record.date,
+    at: record.createdAt || new Date().toISOString(),
+    dc: record.dcName || 'SIDDESHWAR ENTERPRISES',
+    s: Number(record.parentSkuId),
+    name: record.parentItemName,
+    out: Number(record.splitQty) || 0,
+    grn: Number(record.parentGrnPrice) || 0,
+    conv: [
+      {
+        s: Number(record.childSkuId),
+        name: record.childItemName,
+        q: Number(record.convertedQty) || 0,
+        p: Number(record.splitGrnPrice) || 0,
+      },
+    ],
+    shr:
+      record.shrinkageQty && record.shrinkageQty > 0
+        ? {
+            s: Number(record.parentSkuId),
+            name: record.parentItemName,
+            q: Number(record.shrinkageQty),
+            p: Number(record.parentGrnPrice) || 0,
+          }
+        : null,
+    diffKg: null,
+    by: record.operatorName || 'Admin',
+    role: 'Admin',
+  };
+
+  const updated = [invRecord, ...current];
+  saveInventoryStockSplits(updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('inventory_updated'));
+    window.dispatchEvent(new Event('storage'));
   }
-  return updated;
+  return updated.map(mapInventorySplitToViewRecord);
 }

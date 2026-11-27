@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Search, Scissors, CheckCircle2, Save } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
-import { PNL_SKUS } from '@/features/pnl/data/mockPnlData';
+import { getStoredSkus } from '@/features/inventory/data/mockInventory';
+import { computeLiveRealtimeSkus } from '@/features/inventory/utils/liveInventory';
+import { getIstDateString } from '@/lib/utilities/istTime';
 import { useAuthStore } from '@/stores/auth.store';
 import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
 import { toast } from 'sonner';
@@ -13,8 +15,9 @@ interface Props {
 
 export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess }) => {
   const user = useAuthStore((s) => s.user);
-  const dcName = user?.organizationName || getInvoiceTemplateConfig().companyName || 'Distribution Center';
+  const dcName = user?.organizationName || getInvoiceTemplateConfig().companyName || 'SIDDESHWAR ENTERPRISES';
   const operatorName = user?.fullName || 'Authorized Staff';
+  const todayIso = getIstDateString();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentId, setSelectedParentId] = useState<string | number>('');
@@ -24,21 +27,20 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
   const [shrinkageQty, setShrinkageQty] = useState<number>(0);
   const [notes, setNotes] = useState('');
 
-  // Map mock PNL_SKUS into options
+  // Load all 254 live Inventory SKUs with current live closing stock
   const skuOptions: SplitSkuOption[] = useMemo(() => {
-    return PNL_SKUS.map((s) => ({
+    const liveSkus = computeLiveRealtimeSkus(getStoredSkus(), todayIso);
+    return liveSkus.map((s) => ({
       id: s.id,
-      skuNo: String(s.id),
+      skuNo: s.code || String(s.id),
       name: s.name,
-      category: s.cat || 'General',
-      stock: s.stock ?? 10,
-      cost: s.cost ?? (s.sellingPrice ? s.sellingPrice * 0.85 : 100),
-      price: s.sellingPrice ?? 120,
-      hsn: s.hsn,
-      gst: s.gst,
-      uom: s.uom || 'Unit',
+      category: s.category || 'General',
+      stock: s.closing,
+      cost: s.cost,
+      price: s.price,
+      uom: 'Unit',
     }));
-  }, []);
+  }, [todayIso]);
 
   const filteredSkus = useMemo(() => {
     if (!searchTerm.trim()) return skuOptions;
@@ -52,11 +54,11 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
   }, [skuOptions, searchTerm]);
 
   const parentSku = useMemo(() => {
-    return skuOptions.find((s) => s.id === selectedParentId);
+    return skuOptions.find((s) => String(s.id) === String(selectedParentId));
   }, [skuOptions, selectedParentId]);
 
   const childSku = useMemo(() => {
-    return skuOptions.find((s) => s.id === selectedChildId);
+    return skuOptions.find((s) => String(s.id) === String(selectedChildId));
   }, [skuOptions, selectedChildId]);
 
   // Derived child unit GRN cost
@@ -93,8 +95,8 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
     }
 
     const newRecord: StockSplitRecord = {
-      id: `SPLIT-${Date.now().toString().slice(-8)}`,
-      date: new Date().toISOString().split('T')[0] || '',
+      id: `SP${Date.now().toString(36).toUpperCase()}`,
+      date: todayIso,
       dcName: dcName,
       parentSkuId: parentSku.id,
       parentSkuNo: parentSku.skuNo,
@@ -261,7 +263,7 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
                 >
                   <option value="">-- Choose Retail Product --</option>
                   {skuOptions
-                    .filter((s) => s.id !== selectedParentId)
+                    .filter((s) => String(s.id) !== String(selectedParentId))
                     .map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name} (Stock: {s.stock})

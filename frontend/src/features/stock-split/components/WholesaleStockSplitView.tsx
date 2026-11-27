@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Plus, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { StockSplitRecord } from '../types';
@@ -18,10 +18,21 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
   const voucherParam = searchParams.get('voucher') || searchParams.get('id');
 
   const todayIst = getIstDateString();
+  const monthStartIst = `${todayIst.slice(0, 7)}-01`;
   const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState(todayIst);
+  const [startDate, setStartDate] = useState(monthStartIst);
   const [endDate, setEndDate] = useState(todayIst);
-  const [activeDateFilter, setActiveDateFilter] = useState({ start: todayIst, end: todayIst });
+  const [activeDateFilter, setActiveDateFilter] = useState({ start: monthStartIst, end: todayIst });
+
+  useEffect(() => {
+    const refresh = () => setSplits(getStoredStockSplits());
+    window.addEventListener('inventory_updated', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('inventory_updated', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
 
   // Modals & 2nd Page Selected Record
   const [showAddModal, setShowAddModal] = useState(false);
