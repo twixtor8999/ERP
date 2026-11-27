@@ -555,6 +555,7 @@ export function WholesaleSettlementView() {
   useEffect(() => {
     setSelectedVehicleSettlement(null);
     setSelectedInvoiceOrder(null);
+    setActiveDenomRow(null);
     setShowExportMenu(false);
   }, [location.key, location.search]);
 
@@ -953,6 +954,176 @@ export function WholesaleSettlementView() {
       description: `Downloaded Settlement_${fromDate}_to_${toDate}.xlsx`,
     });
   };
+
+  if (activeDenomRow) {
+    return (
+      <div className="space-y-4 font-sans antialiased text-[#0f172a] max-w-2xl pb-12 animate-in fade-in duration-150">
+        {/* Top Back Button */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setActiveDenomRow(null)}
+            className="inline-flex items-center gap-1.5 bg-[#132038] hover:bg-[#1c2e4f] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
+        </div>
+
+        {/* Dedicated Cash Denomination Page Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-[#132038] text-white px-5 py-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-extrabold text-base text-white flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-amber-400" />
+                <span>Cash Denomination</span>
+              </h2>
+              <p className="text-xs text-slate-300 mt-0.5">
+                {activeDenomRow.vehicleNumber} · {activeDenomRow.date || fromDate} · {activeDenomRow.noOfOrders} order(s) · Driver: {activeDenomRow.driverName}
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveDenomination} className="p-5 space-y-4 text-xs">
+            {/* Gross & Net Summary */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <span className="text-[11px] text-slate-500 font-bold block">Invoice Amount</span>
+                <span className="font-mono font-bold text-sm text-slate-900">
+                  ₹{activeDenomRow.invoiceAmt.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-bold block">Returns</span>
+                <span className="font-mono font-bold text-sm text-slate-600">
+                  ₹{((activeDenomRow.fullReturn || 0) + (activeDenomRow.partialReturn || 0) + (activeDenomRow.oldReturn || 0)).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-bold block">Net Sales</span>
+                <span className="font-mono font-black text-sm text-blue-700">
+                  ₹{activeDenomRow.netAmt.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Currency Notes Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+              <div className="px-4 py-2 bg-slate-100/80 flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase">
+                <span className="w-24">Note</span>
+                <span className="w-28 text-center">Count</span>
+                <span className="w-28 text-right">Amount</span>
+              </div>
+              {DENOMINATION_NOTES.map((note: string) => {
+                const count = noteCounts[note] || 0;
+                const rowTotal = Number(note) * count;
+                return (
+                  <div key={note} className="px-4 py-2 flex items-center justify-between gap-3 hover:bg-slate-50/70">
+                    <span className="w-24 font-bold text-slate-800 text-sm">₹{note}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={count || ""}
+                      onChange={(e) =>
+                        setNoteCounts((prev) => ({
+                          ...prev,
+                          [note]: Math.max(0, parseInt(e.target.value) || 0),
+                        }))
+                      }
+                      placeholder="0"
+                      className="w-28 text-center font-mono font-bold border border-slate-300 rounded-md py-1.5 bg-white focus:outline-none focus:border-blue-500 text-xs"
+                    />
+                    <span className="w-28 text-right font-mono font-bold text-slate-900">
+                      {rowTotal > 0 ? `₹${rowTotal.toLocaleString("en-IN")}` : "0"}
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="px-4 py-2.5 bg-slate-50 font-bold flex justify-between items-center text-slate-900">
+                <span>Counted Cash</span>
+                <span className="font-mono font-black text-base text-blue-700">
+                  ₹{calculatedCountedCash.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Digital Collections (QR & Bank) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">QR ₹</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={denomQR || ""}
+                  onChange={(e) => setDenomQR(Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="0"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Bank ₹</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={denomBank || ""}
+                  onChange={(e) => setDenomBank(Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="0"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Reconciliation Summary Strip */}
+            <div className={`p-3.5 rounded-xl border ${cashDiscrepancy !== 0 ? "bg-amber-50/70 border-amber-200" : "bg-emerald-50/70 border-emerald-200"} space-y-1.5 text-xs`}>
+              <div className="text-slate-700">
+                Cash <b>₹{calculatedCountedCash.toLocaleString("en-IN")}</b> + QR <b>₹{denomQR.toLocaleString("en-IN")}</b> + Bank <b>₹{denomBank.toLocaleString("en-IN")}</b> = <b>₹{totalRemitted.toLocaleString("en-IN")}</b>
+              </div>
+              <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between font-bold">
+                <span>Net sales ₹{targetNet.toLocaleString("en-IN")} →</span>
+                <span>
+                  {cashDiscrepancy === 0 ? (
+                    <span className="text-emerald-700 font-black">✔ Matches</span>
+                  ) : cashDiscrepancy < 0 ? (
+                    <span className="text-rose-700 font-black">Shortage ₹{Math.abs(cashDiscrepancy).toLocaleString("en-IN")}</span>
+                  ) : (
+                    <span className="text-amber-800 font-black">Excess ₹{cashDiscrepancy.toLocaleString("en-IN")}</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Remarks */}
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Remarks</label>
+              <textarea
+                placeholder="Optional explanation for discrepancy..."
+                value={denomRemarks}
+                onChange={(e) => setDenomRemarks(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 min-h-[64px]"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveDenomRow(null)}
+                className="px-4 py-2 font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white font-bold rounded-lg shadow-xs cursor-pointer"
+              >
+                Save Denomination
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (selectedInvoiceOrder) {
     return (
@@ -1490,160 +1661,6 @@ export function WholesaleSettlementView() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* DENOMINATION COUNTER DIALOG (v4.79 Complete)            */}
-      {/* ======================================================== */}
-      {activeDenomRow && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-[#132038] text-white px-4 py-3 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5">
-                  <Calculator className="w-4 h-4 text-amber-400" />
-                  <span>💵 Cash Denomination</span>
-                </h3>
-                <p className="text-[11px] text-slate-300">
-                  {activeDenomRow.vehicleNumber} · {activeDenomRow.date || fromDate} · {activeDenomRow.noOfOrders} orders
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveDenomRow(null)}
-                className="text-slate-300 hover:text-white p-1 rounded-md cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveDenomination} className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
-              {/* Gross & Net Header Info matching client v4.79 */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block">Invoice Amount</span>
-                  <span className="font-mono font-bold text-slate-800">₹{activeDenomRow.invoiceAmt.toLocaleString("en-IN")}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block">Returns</span>
-                  <span className="font-mono font-bold text-slate-500">
-                    ₹{((activeDenomRow.fullReturn || 0) + (activeDenomRow.partialReturn || 0) + (activeDenomRow.oldReturn || 0)).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block">Net Sales</span>
-                  <span className="font-mono font-black text-blue-700">₹{activeDenomRow.netAmt.toLocaleString("en-IN")}</span>
-                </div>
-              </div>
-
-              {/* Currency Notes Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                {DENOMINATION_NOTES.map((note: string) => {
-                  const count = noteCounts[note] || 0;
-                  const rowTotal = Number(note) * count;
-                  return (
-                    <div key={note} className="px-3 py-1.5 flex items-center justify-between gap-3">
-                      <span className="w-20 font-bold text-slate-800">₹{note}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={count || ""}
-                        onChange={(e) =>
-                          setNoteCounts((prev) => ({
-                            ...prev,
-                            [note]: Math.max(0, parseInt(e.target.value) || 0),
-                          }))
-                        }
-                        placeholder="0"
-                        className="w-24 text-center font-mono font-bold border border-slate-300 rounded-md py-1 bg-white focus:outline-none focus:border-blue-500 text-xs"
-                      />
-                      <span className="w-24 text-right font-mono font-bold text-slate-900">
-                        {rowTotal > 0 ? `₹${rowTotal.toLocaleString("en-IN")}` : "0"}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="px-3 py-2 bg-slate-50 font-bold flex justify-between items-center text-slate-900">
-                  <span>Counted Cash</span>
-                  <span className="font-mono font-black text-sm text-blue-700">
-                    ₹{calculatedCountedCash.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Digital Collections (QR & Bank inputs from client v4.79) */}
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">QR ₹</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={denomQR || ""}
-                    onChange={(e) => setDenomQR(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="0"
-                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Bank ₹</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={denomBank || ""}
-                    onChange={(e) => setDenomBank(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="0"
-                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 bg-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Reconciliation Summary Strip matching client v4.79 dn_sum */}
-              <div className={`p-3 rounded-xl border ${cashDiscrepancy !== 0 ? 'bg-amber-50/70 border-amber-200' : 'bg-emerald-50/70 border-emerald-200'} space-y-1 text-xs`}>
-                <div className="text-slate-700">
-                  Cash <b>₹{calculatedCountedCash.toLocaleString("en-IN")}</b> + QR <b>₹{denomQR.toLocaleString("en-IN")}</b> + Bank <b>₹{denomBank.toLocaleString("en-IN")}</b> = <b>₹{totalRemitted.toLocaleString("en-IN")}</b>
-                </div>
-                <div className="pt-1 border-t border-slate-200/60 flex items-center justify-between font-bold">
-                  <span>Net sales ₹{targetNet.toLocaleString("en-IN")} →</span>
-                  <span>
-                    {cashDiscrepancy === 0 ? (
-                      <span className="text-emerald-700 font-black">✔ Matches</span>
-                    ) : cashDiscrepancy < 0 ? (
-                      <span className="text-rose-700 font-black">Shortage ₹{Math.abs(cashDiscrepancy).toLocaleString("en-IN")}</span>
-                    ) : (
-                      <span className="text-amber-800 font-black">Excess ₹{cashDiscrepancy.toLocaleString("en-IN")}</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* Remarks textarea */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Remarks</label>
-                <textarea
-                  placeholder="optional explanation for discrepancy"
-                  value={denomRemarks}
-                  onChange={(e) => setDenomRemarks(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 min-h-[50px]"
-                />
-              </div>
-
-              {/* Footer Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveDenomRow(null)}
-                  className="px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#132038] hover:bg-[#1c2e4f] text-white font-bold rounded-lg shadow-xs cursor-pointer"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
