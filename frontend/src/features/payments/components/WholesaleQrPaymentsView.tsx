@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Download, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { WholesaleQrPaymentDetailView } from "./WholesaleQrPaymentDetailView";
 
@@ -102,90 +103,177 @@ export function WholesaleQrPaymentsView() {
   // Pipeline & Settlement sync
   const [allPayments, setAllPayments] = useState<QrPaymentRow[]>([]);
 
-  useEffect(() => {
-    const syncLiveQrPayments = () => {
-      try {
-        const rows: QrPaymentRow[] = [];
-        const seenOrders = new Set<string>();
+  const syncLiveQrPayments = useCallback(() => {
+    try {
+      const rows: QrPaymentRow[] = [];
+      const seenOrders = new Set<string>();
 
-        // 1. Pull orders from pipeline
-        const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
-        if (storedPipeline) {
-          const pipeline = JSON.parse(storedPipeline);
-          if (Array.isArray(pipeline)) {
-            pipeline.forEach((po: any) => {
-              if (
-                po.stage === "completed" ||
-                po.stage === "delivery" ||
-                (po.status && (po.status.toLowerCase() === "delivered" || po.status.toLowerCase() === "completed"))
-              ) {
-                const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate);
-                if (!dateIso) return;
+      // 1. Pull delivered orders from pipeline (with Cash, Bank and QR split amounts)
+      const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
+      if (storedPipeline) {
+        const pipeline = JSON.parse(storedPipeline);
+        if (Array.isArray(pipeline)) {
+          pipeline.forEach((po: any) => {
+            const stage = String(po.stage || "").toLowerCase();
+            const status = String(po.status || "").toLowerCase();
+            const isDelivered =
+              stage === "completed" ||
+              status === "delivered" ||
+              status === "completed";
+            if (!isDelivered) return;
 
-                const ordTotal = Number(po.total || po.orderTotal || 0);
-                const pm = (po.paymentMode || po.paymentMethod || "").toLowerCase();
-                const isQr = pm === "qr" || pm === "online" || pm === "upi";
-                const isCash = pm === "cash";
-                const qrAmt = isQr ? ordTotal : Number(po.qrPaid || po.bankPaid || 0);
-                const cashAmt = isCash ? ordTotal : Number(po.cashPaid || 0);
-                const utr = po.utrNumber || po.utr || (isQr ? `432198${String(po.orderNo || "0000").replace(/\D/g, "").padStart(6, "0")}` : "");
+            const dateIso = normalizeDateToIso(po.deliveredAt || po.orderDate) || todayIso;
+            const ordTotal = Number(po.total || po.orderTotal || 0);
+            const netTotal = Math.max(0, ordTotal - Number(po.returnAmount || 0));
+            const pm = String(po.paymentMode || po.paymentMethod || "").toLowerCase();
+            const isQr = pm === "qr" || pm === "online" || pm === "upi";
+            const bankAmt = Number(po.bankPaid || 0);
+            const hasExplicitSplit = typeof po.qrPaid === "number" || typeof po.cashPaid === "number";
 
-                const rowKey = po.orderNo || String(po.id);
-                if (!seenOrders.has(rowKey)) {
-                  seenOrders.add(rowKey);
-                  rows.push({
-                    sl: rows.length + 1,
-                    date: dateIso,
-                    customerName: po.customerName || po.shopName || "Customer",
-                    vehicleNo: po.vehicleNo || "KA28AA6256",
-                    village: po.village || po.route || "Bijapur",
-                    utrNumber: utr,
-                    invoiceNumber: po.invoiceNo || (po.orderNo ? po.orderNo.replace("ORD-", "INV-") : "INV"),
-                    orderNumber: po.orderNo || `ORD-${rows.length + 1000}`,
-                    orderTotal: ordTotal,
-                    cash: cashAmt,
-                    bankPaid: 0,
-                    qrReceived: qrAmt,
-                    txnStatus: utr ? "Success" : qrAmt > 0 ? "UTR missing" : "—",
-                    matched: utr ? "Yes" : "No",
-                    isMatched: Boolean(utr),
-                    screenshotUrl: po.screenshotUrl,
-                  });
-                }
-              }
-            });
-          }
+            let qrAmt = 0;
+            let cashAmt = 0;
+            if (hasExplicitSplit) {
+              qrAmt = Number(po.qrPaid || 0);
+              cashAmt = Number(po.cashPaid || 0);
+            } else if (isQr) {
+              qrAmt = netTotal;
+              cashAmt = 0;
+            } else {
+              qrAmt = 0;
+              cashAmt = Math.max(0, netTotal - bankAmt);
+            }
+
+            const utr =
+              po.utrNumber ||
+              po.utr ||
+              (qrAmt > 0
+                ? `432198${String(po.orderNo || "0000").replace(/\D/g, "").padStart(6, "0")}`
+                : "");
+
+            const isCashOnly = qrAmt === 0 && bankAmt === 0;
+            const rowKey = po.orderNo || String(po.id);
+            if (!seenOrders.has(rowKey)) {
+              seenOrders.add(rowKey);
+              rows.push({
+                sl: rows.length + 1,
+                date: dateIso,
+                customerName: po.customerName || po.shopName || "Customer",
+                vehicleNo: po.vehicleNo || "KA28AA6256",
+                village: po.village || po.route || "Bijapur",
+                utrNumber: utr,
+                invoiceNumber: po.invoiceNo || (po.orderNo ? po.orderNo.replace("ORD-", "INV-") : "INV"),
+                orderNumber: po.orderNo || `ORD-${rows.length + 1000}`,
+                orderTotal: ordTotal,
+                cash: cashAmt,
+                bankPaid: bankAmt,
+                qrReceived: qrAmt,
+                txnStatus: qrAmt > 0 ? (utr ? "Success" : "UTR missing") : "—",
+                matched: isCashOnly || Boolean(utr) ? "Yes" : "No",
+                isMatched: isCashOnly || Boolean(utr),
+                screenshotUrl: po.screenshotUrl,
+              });
+            }
+          });
         }
-
-        // 2. Append mock historic rows if not already in list
-        SAMPLE_QR_PAYMENTS.forEach((s) => {
-          if (!seenOrders.has(s.orderNumber)) {
-            const m = s.date.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-            const dateIso = m && m[1] && m[2] && m[3] ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : s.date;
-            rows.push({
-              ...s,
-              date: dateIso,
-              sl: rows.length + 1,
-            });
-          }
-        });
-
-        setAllPayments(rows);
-      } catch (e) {
-        console.error("Failed to sync live QR payments", e);
       }
-    };
 
+      // 2. Append mock historic rows if not already in list
+      SAMPLE_QR_PAYMENTS.forEach((s) => {
+        if (!seenOrders.has(s.orderNumber)) {
+          const m = s.date.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+          const dateIso = m && m[1] && m[2] && m[3] ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : s.date;
+          rows.push({
+            ...s,
+            date: dateIso,
+            sl: rows.length + 1,
+          });
+        }
+      });
+
+      setAllPayments(rows);
+    } catch (e) {
+      console.error("Failed to sync live QR payments", e);
+    }
+  }, [todayIso]);
+
+  const fetchBackendDeliveredPayments = useCallback(async () => {
+    try {
+      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=200");
+      if (!Array.isArray(res.data) || res.data.length === 0) return;
+
+      const raw = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const parsed = raw ? JSON.parse(raw) : [];
+      const existingList: any[] = Array.isArray(parsed) ? parsed : [];
+      const byOrderNo = new Map<string, any>(existingList.map((o: any) => [o.orderNo, o]));
+      let changed = false;
+
+      for (const bo of res.data) {
+        const sUpper = String(bo.status || "").toUpperCase();
+        if (sUpper !== "DELIVERED") continue;
+
+        const orderNo = bo.order_number || `ORD-${bo.id}`;
+        const existing = byOrderNo.get(orderNo);
+        if (
+          !existing ||
+          existing.stage !== "completed" ||
+          (typeof bo.cash_paid === "number" && existing.cashPaid == null) ||
+          (typeof bo.qr_paid === "number" && existing.qrPaid == null)
+        ) {
+          changed = true;
+          byOrderNo.set(orderNo, {
+            ...(existing || {}),
+            id: bo.id || existing?.id || `ord-${orderNo}`,
+            orderNo,
+            invoiceNo: existing?.invoiceNo || bo.invoice_number || orderNo.replace("ORD-", "INV-"),
+            customerName: existing?.customerName || bo.customer_name || "Customer",
+            shopName: existing?.shopName || bo.shop_name || "Store",
+            village: existing?.village || bo.village || "Bijapur",
+            route: existing?.route || bo.route || "Bijapur",
+            createdBy: existing?.createdBy || bo.created_by || "Staff",
+            orderDate: existing?.orderDate || bo.order_date || todayIso,
+            vehicleNo: existing?.vehicleNo || bo.vehicle_no || "KA28AA6256",
+            total: typeof existing?.total === "number" ? existing.total : Number(bo.total_amount || 0),
+            balance: 0,
+            stage: "completed",
+            status: "delivered",
+            deliveredAt: existing?.deliveredAt || (bo.delivered && bo.delivered !== "—" ? bo.delivered : bo.order_date || todayIso),
+            paymentMode:
+              existing?.paymentMode ||
+              (bo.payment_method === "QR" ? "QR" : bo.payment_method === "CASH_AND_QR" ? "Split" : "Cash"),
+            cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
+            qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
+            returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
+          });
+        }
+      }
+
+      if (changed) {
+        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(Array.from(byOrderNo.values())));
+        syncLiveQrPayments();
+      }
+    } catch {
+      // Keep cached localStorage rows cleanly
+    }
+  }, [todayIso, syncLiveQrPayments]);
+
+  useEffect(() => {
     syncLiveQrPayments();
+    void fetchBackendDeliveredPayments();
+    const onFocus = () => {
+      syncLiveQrPayments();
+      void fetchBackendDeliveredPayments();
+    };
     window.addEventListener("crm_order_placed", syncLiveQrPayments);
     window.addEventListener("settlements_updated", syncLiveQrPayments);
     window.addEventListener("storage", syncLiveQrPayments);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("crm_order_placed", syncLiveQrPayments);
       window.removeEventListener("settlements_updated", syncLiveQrPayments);
       window.removeEventListener("storage", syncLiveQrPayments);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [todayIso]);
+  }, [syncLiveQrPayments, fetchBackendDeliveredPayments]);
 
   // Filtering based on date range, type, and search query
   const filteredPayments = useMemo(() => {
@@ -416,7 +504,7 @@ export function WholesaleQrPaymentsView() {
                 </tr>
               ) : (
                 filteredPayments.map((r) => (
-                  <tr key={r.sl} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
+                  <tr key={`${r.orderNumber}_${r.sl}`} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
                     <td className="py-3 px-3 text-slate-500 font-bold">{r.sl}</td>
                     <td className="py-3 px-3 font-bold text-slate-900">{r.customerName}</td>
                     <td className="py-3 px-3 font-mono text-slate-700">{r.vehicleNo || "—"}</td>

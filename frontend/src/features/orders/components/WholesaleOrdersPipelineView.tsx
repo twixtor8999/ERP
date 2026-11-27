@@ -806,6 +806,12 @@ export function WholesaleOrdersPipelineView() {
               stage: stage,
               status: bo.status || existing?.status,
               phone: bo.customer_phone || existing?.phone,
+              paymentMode:
+                existing?.paymentMode ||
+                (bo.payment_method === "QR" ? "QR" : bo.payment_method === "CASH_AND_QR" ? "Split" : undefined),
+              cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
+              qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
+              returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
               packedConfirmedAt:
                 bo.packed_confirmed && bo.packed_confirmed !== "—"
                   ? bo.packed_confirmed

@@ -639,7 +639,12 @@ export function WholesaleSettlementView() {
             stage: targetStage,
             status: targetStatus,
             deliveredAt: existing?.deliveredAt || (bo.delivered && bo.delivered !== "—" ? bo.delivered : bo.order_date || todayStr),
-            paymentMode: existing?.paymentMode || (bo.payment_method === "QR" ? "QR" : "Cash"),
+            paymentMode:
+              existing?.paymentMode ||
+              (bo.payment_method === "QR" ? "QR" : bo.payment_method === "CASH_AND_QR" ? "Split" : "Cash"),
+            cashPaid: existing?.cashPaid ?? (typeof bo.cash_paid === "number" ? bo.cash_paid : undefined),
+            qrPaid: existing?.qrPaid ?? (typeof bo.qr_paid === "number" ? bo.qr_paid : undefined),
+            returnAmount: existing?.returnAmount ?? (typeof bo.return_amount === "number" ? bo.return_amount : undefined),
             items: existing?.items || (Array.isArray(bo.items) ? bo.items : []),
           });
         }
