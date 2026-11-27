@@ -93,7 +93,7 @@ export function WholesalePurchaseListView() {
           items: target.lines.map((l) => ({
             sku_name: l.skuName,
             qty: Number(l.qty) || 0,
-            cost_price: Number(l.cost) || 0,
+            cost_price: Number(l.grnPrice) || 0,
           })),
         });
       } catch {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, ClipboardCheck, History } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   getStoredSuperAuditItems,
   getStoredSuperAuditHistory,
 } from '../data/mockSuperAudit';
+import { fetchRealtimeInventory } from '@/lib/api/apiService';
 import { SuperStockAuditLiveView } from '../components/SuperStockAuditLiveView';
 import { SuperStockAuditReportView } from '../components/SuperStockAuditReportView';
 
@@ -17,6 +18,28 @@ export const SuperStockAuditPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'live' | 'report'>('live');
   const [items, setItems] = useState<SuperAuditItem[]>(() => getStoredSuperAuditItems());
   const [history, setHistory] = useState<ApprovedSuperAuditReport[]>(() => getStoredSuperAuditHistory());
+
+  useEffect(() => {
+    fetchRealtimeInventory()
+      .then((live) => {
+        if (live.length > 0) {
+          setItems(
+            live.map((s) => ({
+              skuId: s.id,
+              skuName: s.name,
+              category: s.category || 'General FMCG',
+              unit: 'Unit',
+              grnCost: s.cost || 0,
+              bookStock: s.closing,
+              physicalStock: s.closing,
+              varianceQty: 0,
+              varianceValue: 0,
+            }))
+          );
+        }
+      })
+      .catch(() => { /* keep fallback */ });
+  }, []);
 
   const handleAuditApproved = () => {
     setHistory(getStoredSuperAuditHistory());
