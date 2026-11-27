@@ -3206,6 +3206,7 @@ class LogCallPayload(BaseModel):
 
 class QuickOrderItemPayload(BaseModel):
     variant_id: str
+    product_name: str | None = None
     quantity: Decimal
     unit_price: Decimal
 
@@ -3775,14 +3776,53 @@ def place_crm_quick_order(
 
     for it in payload.items:
         variant = db.scalar(select(ProductVariant).where(ProductVariant.id == it.variant_id))
+        if not variant and it.variant_id:
+            variant = db.scalar(
+                select(ProductVariant)
+                .join(Product, ProductVariant.product_id == Product.id)
+                .where(
+                    Product.organization_id == org_id,
+                    or_(
+                        ProductVariant.sku == it.variant_id,
+                        ProductVariant.sku == f"SKU-{it.variant_id[-6:]}",
+                        ProductVariant.sku == f"SKU-{it.variant_id[-8:]}",
+                    ),
+                )
+            )
+        if not variant and it.product_name and it.product_name.strip():
+            pname = it.product_name.strip()
+            variant = db.scalar(
+                select(ProductVariant)
+                .join(Product, ProductVariant.product_id == Product.id)
+                .where(
+                    Product.organization_id == org_id,
+                    func.lower(Product.name) == pname.lower(),
+                )
+            )
+            if not variant:
+                variant = db.scalar(
+                    select(ProductVariant)
+                    .join(Product, ProductVariant.product_id == Product.id)
+                    .where(
+                        Product.organization_id == org_id,
+                        Product.name.ilike(f"%{pname[:30]}%"),
+                    )
+                )
+        if not variant:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Product SKU not found in database: {it.product_name or it.variant_id}",
+            )
+
+        resolved_variant_id = variant.id
         line_tot = it.quantity * it.unit_price
         db.add(
             OrderItem(
                 id=str(uuid.uuid4()),
                 order_id=order.id,
-                product_variant_id=it.variant_id,
-                product_name=variant.product.name if variant and variant.product else "Item",
-                sku=variant.sku if variant else "SKU",
+                product_variant_id=resolved_variant_id,
+                product_name=variant.product.name if variant.product else (it.product_name or "Item"),
+                sku=variant.sku,
                 quantity=it.quantity,
                 picked_quantity=it.quantity,
                 picking_status="PICKED",
@@ -3794,7 +3834,7 @@ def place_crm_quick_order(
         sb = db.scalar(
             select(StockBalance).where(
                 StockBalance.organization_id == org_id,
-                StockBalance.product_variant_id == it.variant_id,
+                StockBalance.product_variant_id == resolved_variant_id,
             )
         )
         if sb:

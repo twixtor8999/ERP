@@ -383,6 +383,7 @@ export function PlaceOrderWholesaleView() {
       customer_phone: activeCustomerForOrder?.phone || "",
       items: newItems.map((it) => ({
         variant_id: String(it.skuId),
+        product_name: it.name,
         quantity: it.qty,
         unit_price: it.price,
       })),
