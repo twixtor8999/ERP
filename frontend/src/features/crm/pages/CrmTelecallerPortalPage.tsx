@@ -50,6 +50,7 @@ import {
   saveStoredAttendance,
   getStoredEmployees,
 } from "@/features/employees/data/mockEmployees";
+import { getStoredSkuProducts } from "@/features/products/data/mockProducts";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -364,7 +365,7 @@ const cleanVillageName = (raw?: string): string => {
     try {
       const decoded = decodeURIComponent(qMatch[1].replace(/\+/g, " ")).split(",")[0]?.trim();
       if (decoded) return decoded;
-    } catch {}
+    } catch { }
   }
   if (/https?:\/\/|\.com\/|maps\/search/i.test(v)) {
     return "Vijayapura";
@@ -626,22 +627,20 @@ export function CrmTelecallerPortalPage() {
   const [customersDisplayLimit, setCustomersDisplayLimit] = useState<number>(50);
   const callingsFetchedRef = useRef(false);
 
-  // Catalog for Order Pad & SKU List (Initialized from real products matching Image 3)
+  // Catalog for Order Pad & SKU List (Initialized from Admin SKU List & master products — no fake hardcoded stock)
   const [catalog, setCatalog] = useState<ProductItem[]>(() => {
+    const adminSkus = getStoredSkuProducts();
+    const adminSkuByName = new Map<string, number>();
+    adminSkus.forEach((s) => {
+      adminSkuByName.set((s.name || "").trim().toLowerCase(), Number(s.stock ?? 0));
+    });
+
     const rawList = (realProductsData as any[]).map((p) => {
-      let stock = Number(p.stock) || 20;
-      let price = Number(p.price) || 100;
-      if (p.name.includes("A Gift for TruLove Glucose Biscuit 5Rs 168Pcs Box")) {
-        stock = 1;
-        price = 620;
-      } else if (p.name.includes("Aramane Detergent Powder 10Rs 120Pcs Bag")) {
-        stock = 31;
-        price = 1000;
-      } else if (p.name.includes("Aramane Detergent Soap 10Rs 60Pcs Box")) {
-        stock = 112;
-      } else if (p.name.includes("Bullet Rice 26Kg Bag")) {
-        stock = 7;
-      }
+      const lowerName = (p.name || "").trim().toLowerCase();
+      const stock = adminSkuByName.has(lowerName)
+        ? adminSkuByName.get(lowerName)!
+        : Number(p.stock ?? 0);
+      const price = Number(p.price) || 100;
       return {
         id: String(p.id),
         name: p.name,
@@ -650,7 +649,7 @@ export function CrmTelecallerPortalPage() {
         selling_price: price,
         mrp: Number(p.mrp) || price,
         wholesale_price: price,
-        current_stock: stock,
+        current_stock: Math.max(0, stock),
         category_name: "General",
         local_name: getKannadaName(p.name),
         pack_size: getPackSize(p.name, p),
@@ -771,19 +770,19 @@ export function CrmTelecallerPortalPage() {
               }
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // 2. Check crm_wholesale_pipeline_orders
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
       const pipelineArr: PipelineOrder[] = storedPipeline
         ? (() => {
-            try {
-              return JSON.parse(storedPipeline);
-            } catch {
-              return INITIAL_PIPELINE_ORDERS;
-            }
-          })()
+          try {
+            return JSON.parse(storedPipeline);
+          } catch {
+            return INITIAL_PIPELINE_ORDERS;
+          }
+        })()
         : INITIAL_PIPELINE_ORDERS;
 
       if (Array.isArray(pipelineArr)) {
@@ -861,7 +860,7 @@ export function CrmTelecallerPortalPage() {
               }
             }
           }
-        } catch {}
+        } catch { }
       }
     }
 
@@ -1045,7 +1044,7 @@ export function CrmTelecallerPortalPage() {
       try {
         const parsed = JSON.parse(stored);
         return Boolean(parsed.punched);
-      } catch {}
+      } catch { }
     }
     return false;
   });
@@ -1060,7 +1059,7 @@ export function CrmTelecallerPortalPage() {
       try {
         const parsed = JSON.parse(stored);
         return Boolean(parsed.checkedOut);
-      } catch {}
+      } catch { }
     }
     return false;
   });
@@ -1082,7 +1081,7 @@ export function CrmTelecallerPortalPage() {
           return `${hh}:${mm}`;
         }
         return parsed.time || "";
-      } catch {}
+      } catch { }
     }
     return "";
   });
@@ -1097,7 +1096,7 @@ export function CrmTelecallerPortalPage() {
       try {
         const parsed = JSON.parse(stored);
         return parsed.outTime || "";
-      } catch {}
+      } catch { }
     }
     return "";
   });
@@ -1120,7 +1119,7 @@ export function CrmTelecallerPortalPage() {
         if (parsed.timestamp && !parsed.checkedOut) {
           return Math.max(0, Math.floor((Date.now() - parsed.timestamp) / 1000));
         }
-      } catch {}
+      } catch { }
     }
     return 0;
   });
@@ -1217,7 +1216,7 @@ export function CrmTelecallerPortalPage() {
       }
       sessionStorage.removeItem("crm_reports_2026-11-26");
       sessionStorage.removeItem(`crm_reports_${getTodayIsoDate()}`);
-    } catch {}
+    } catch { }
 
     loadDashboardData(true);
     checkAttendanceStatus();
@@ -1296,14 +1295,14 @@ export function CrmTelecallerPortalPage() {
       .then((res) => {
         if (res.data) setSummary(res.data);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     apiClient
       .get<IncentiveProduct[]>("/api/v1/admin/crm/incentive-products")
       .then((res) => {
         if (res.data) setIncentiveProducts(res.data);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     if (shouldFetchCallings) {
       apiClient
@@ -1343,15 +1342,21 @@ export function CrmTelecallerPortalPage() {
     try {
       const prodRes = await apiClient.get<any[]>("/api/v1/admin/products");
 
-      // Normalize live SKU products & variants from Super Admin (using Selling Price)
+      // Normalize live SKU products & variants from Admin DB (/api/v1/admin/products)
       const flattenedProducts: ProductItem[] = [];
-      // Map fallback prices & stocks from master data
+      const adminSkus = getStoredSkuProducts();
+      const adminSkuStockByName = new Map<string, number>();
+      adminSkus.forEach((s) => {
+        adminSkuStockByName.set((s.name || "").trim().toLowerCase(), Number(s.stock ?? 0));
+      });
+
+      // Map fallback prices from master data (never invent fake stock)
       const realFallbackMap = new Map<string, { price: number; stock: number; mrp: number }>();
       (realProductsData as any[]).forEach((rp) => {
         const key = rp.name.trim().toLowerCase();
         realFallbackMap.set(key, {
           price: Number(rp.price) || 100,
-          stock: Number(rp.stock) || 15,
+          stock: adminSkuStockByName.has(key) ? adminSkuStockByName.get(key)! : Number(rp.stock ?? 0),
           mrp: Number(rp.mrp) || Number(rp.price) || 100,
         });
       });
@@ -1362,24 +1367,10 @@ export function CrmTelecallerPortalPage() {
         for (const [k, v] of realFallbackMap.entries()) {
           if (lower.includes(k) || k.includes(lower)) return v;
         }
-        return { price: 100, stock: 15, mrp: 100 };
+        return { price: 100, stock: 0, mrp: 100 };
       };
 
       const resolveItemVals = (name: string, rawPrice: any, rawMrp: any, rawWholesale: any, rawStock: any) => {
-        const lower = name.toLowerCase();
-        if (lower.includes("a gift for trulove glucose biscuit 5rs 168pcs box")) {
-          return { price: 620, mrp: 840, stock: 1 };
-        }
-        if (lower.includes("aramane detergent powder 10rs 120pcs bag")) {
-          return { price: 1000, mrp: 1200, stock: 31 };
-        }
-        if (lower.includes("aramane detergent soap 10rs 60pcs box")) {
-          return { price: 550, mrp: 600, stock: 112 };
-        }
-        if (lower.includes("bullet rice 26kg bag")) {
-          return { price: 1350, mrp: 1450, stock: 7 };
-        }
-
         const fb = getFallbackVals(name);
         let price = Number(rawPrice ?? 0);
         if (price <= 0) price = Number(rawMrp ?? 0);
@@ -1389,8 +1380,9 @@ export function CrmTelecallerPortalPage() {
         let mrp = Number(rawMrp ?? 0);
         if (mrp <= 0) mrp = fb.mrp || price;
 
-        let stock = Number(rawStock ?? 0);
-        if (stock <= 0) stock = fb.stock;
+        // Always trust live DB stock_on_hand when returned (including 0); only fall back to Admin SKU list if null/undefined
+        const hasLiveStock = rawStock !== undefined && rawStock !== null && !Number.isNaN(Number(rawStock));
+        const stock = hasLiveStock ? Math.max(0, Number(rawStock)) : Math.max(0, fb.stock);
 
         return { price, mrp, stock };
       };
@@ -1890,8 +1882,8 @@ export function CrmTelecallerPortalPage() {
           `crm_attendance_${todayIso}`,
           JSON.stringify({ punched: true, checkedOut: false, time: currentTime, timestamp: punchTimestamp })
         );
-      } catch {}
-      apiClient.post("/api/v1/admin/crm/punch-attendance").catch(() => {});
+      } catch { }
+      apiClient.post("/api/v1/admin/crm/punch-attendance").catch(() => { });
       toast.success("Check-In Recorded!", {
         description: `Check-in recorded at ${currentTime} for ${userName}`,
       });
@@ -1905,7 +1897,7 @@ export function CrmTelecallerPortalPage() {
           `crm_attendance_${todayIso}`,
           JSON.stringify({ ...parsed, checkedOut: true, outTime: currentTime })
         );
-      } catch {}
+      } catch { }
       toast.success("Check-Out Recorded!", {
         description: `Check-out recorded at ${currentTime} for ${userName}`,
       });
@@ -2201,26 +2193,26 @@ export function CrmTelecallerPortalPage() {
       }) ||
       (custNameLower.includes("arun")
         ? {
-            id: "ord-1630",
-            order_number: "ORD-1630",
-            order_date: "23-11-2026",
-            customer_name: orderCustomer.display_name || "Arun Devargudi",
-            customer_phone: orderCustomer.phone || "9590705355",
-            total_amount: 106,
-            status: "PLACED",
-            telecaller_name: "Pushpa Patil",
-            order_placed: "23-11-2026 09:30",
-            items: [
-              {
-                id: "item-1630",
-                product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
-                sku: "SKU-ARAM-10",
-                quantity: 1,
-                unit_price: 106,
-                total_amount: 106,
-              },
-            ],
-          }
+          id: "ord-1630",
+          order_number: "ORD-1630",
+          order_date: "23-11-2026",
+          customer_name: orderCustomer.display_name || "Arun Devargudi",
+          customer_phone: orderCustomer.phone || "9590705355",
+          total_amount: 106,
+          status: "PLACED",
+          telecaller_name: "Pushpa Patil",
+          order_placed: "23-11-2026 09:30",
+          items: [
+            {
+              id: "item-1630",
+              product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
+              sku: "SKU-ARAM-10",
+              quantity: 1,
+              unit_price: 106,
+              total_amount: 106,
+            },
+          ],
+        }
         : null)
     );
   }, [orderCustomer, ordersList]);
@@ -2548,10 +2540,10 @@ export function CrmTelecallerPortalPage() {
           const masterArr = rawMaster ? JSON.parse(rawMaster) : [];
           const updatedMaster = [newOrder, ...masterArr.filter((m: any) => m.order_number !== orderNum)];
           localStorage.setItem("crm_orders_master", JSON.stringify(updatedMaster));
-        } catch {}
+        } catch { }
 
         window.dispatchEvent(new Event("crm_order_placed"));
-      } catch {}
+      } catch { }
 
       // Immediately add to ordersList in state so if they view Order Status, it's right at the top
       setOrdersList((prev) => [newOrder, ...prev.filter((o) => o.order_number !== newOrder.order_number)]);
@@ -2562,21 +2554,21 @@ export function CrmTelecallerPortalPage() {
         const isAlreadyVisited = existingVisited.some((v) => v.id === orderCustomer.id || v.phone === orderCustomer.phone);
         const updatedVisited = isAlreadyVisited
           ? existingVisited.map((v) =>
-              v.id === orderCustomer.id || v.phone === orderCustomer.phone
-                ? { ...v, orders_count: (v.orders_count || 1) + 1 }
-                : v
-            )
+            v.id === orderCustomer.id || v.phone === orderCustomer.phone
+              ? { ...v, orders_count: (v.orders_count || 1) + 1 }
+              : v
+          )
           : [
-              {
-                id: orderCustomer.id,
-                name: orderCustomer.display_name || orderCustomer.name,
-                shop_name: orderCustomer.shop_name || "Kirani Store",
-                village: orderCustomer.village || "Bijapur",
-                phone: orderCustomer.phone,
-                orders_count: 1,
-              },
-              ...existingVisited,
-            ];
+            {
+              id: orderCustomer.id,
+              name: orderCustomer.display_name || orderCustomer.name,
+              shop_name: orderCustomer.shop_name || "Kirani Store",
+              village: orderCustomer.village || "Bijapur",
+              phone: orderCustomer.phone,
+              orders_count: 1,
+            },
+            ...existingVisited,
+          ];
 
         const updatedReport: CrmReportData = {
           ...prev,
@@ -2590,7 +2582,7 @@ export function CrmTelecallerPortalPage() {
 
         try {
           sessionStorage.setItem(`crm_reports_${getTodayIsoDate()}`, JSON.stringify(updatedReport));
-        } catch {}
+        } catch { }
 
         return updatedReport;
       });
@@ -2846,10 +2838,10 @@ export function CrmTelecallerPortalPage() {
                                       : activeView === "customers"
                                         ? "Customer List"
                                         : activeView === "profile"
-                                        ? "My Profile"
-                                        : activeView === "place-order"
-                                          ? "Place Order"
-                                          : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                                          ? "My Profile"
+                                          : activeView === "place-order"
+                                            ? "Place Order"
+                                            : activeView.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </h1>
                   {activeView === "place-order" && orderCustomerSearch.trim() ? (
                     <p className="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest leading-none mt-0.5">
@@ -2970,8 +2962,8 @@ export function CrmTelecallerPortalPage() {
                       setIsMobileMenuOpen(false);
                     }}
                     className={`w-full text-left px-4 py-3 rounded-xl font-bold text-base transition-colors cursor-pointer block ${activeView === "home"
-                        ? "bg-[#f59e0b] text-[#0f172a] shadow-xs"
-                        : "text-slate-100 hover:bg-slate-800"
+                      ? "bg-[#f59e0b] text-[#0f172a] shadow-xs"
+                      : "text-slate-100 hover:bg-slate-800"
                       }`}
                   >
                     Home
@@ -2986,8 +2978,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "attendance"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Attendance
@@ -3001,8 +2993,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "callings"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Callings
@@ -3018,8 +3010,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "place-order"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Place Order
@@ -3033,8 +3025,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "reports"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   CRM Report
@@ -3048,8 +3040,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "team-reports"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Team CRM Reports
@@ -3063,8 +3055,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "order-status"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Order Status
@@ -3078,8 +3070,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "incentive-scheme"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   Incentive Schemes
@@ -3093,8 +3085,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "targets"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   My Targets
@@ -3123,8 +3115,8 @@ export function CrmTelecallerPortalPage() {
                           setIsMobileMenuOpen(false);
                         }}
                         className={`w-full text-left pl-9 pr-5 py-3 border-b border-slate-800/80 text-sm font-medium transition-colors cursor-pointer block ${activeView === "new-customer"
-                            ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                            : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                          ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                          : "text-slate-300 hover:text-white hover:bg-slate-700/50"
                           }`}
                       >
                         New Customer
@@ -3138,8 +3130,8 @@ export function CrmTelecallerPortalPage() {
                           setIsMobileMenuOpen(false);
                         }}
                         className={`w-full text-left pl-9 pr-5 py-3 border-b border-slate-700/60 text-sm font-medium transition-colors cursor-pointer block ${activeView === "customers"
-                            ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                            : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                          ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                          : "text-slate-300 hover:text-white hover:bg-slate-700/50"
                           }`}
                       >
                         Customer List
@@ -3156,8 +3148,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "sku-list"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   SKU List
@@ -3171,8 +3163,8 @@ export function CrmTelecallerPortalPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-5 py-3.5 border-b border-slate-700/60 text-base font-semibold transition-colors cursor-pointer block ${activeView === "profile"
-                      ? "bg-[#f59e0b] text-[#0f172a] font-bold"
-                      : "text-slate-100 hover:bg-slate-800 hover:text-white"
+                    ? "bg-[#f59e0b] text-[#0f172a] font-bold"
+                    : "text-slate-100 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
                   My Profile
@@ -3859,9 +3851,8 @@ export function CrmTelecallerPortalPage() {
                                 </div>
                                 <div className="flex flex-col items-end justify-between shrink-0 h-full min-h-[88px]">
                                   <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${
-                                      isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
-                                    }`}
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-white shadow-xs ${isBilled ? "bg-[#16a34a]" : "bg-[#a16207]"
+                                      }`}
                                   >
                                     {isBilled ? "Active" : "Unbilled"}
                                   </span>
@@ -4100,33 +4091,30 @@ export function CrmTelecallerPortalPage() {
                           <button
                             type="button"
                             onClick={() => setOrderSubTab("ITEMS")}
-                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
-                              orderSubTab === "ITEMS"
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${orderSubTab === "ITEMS"
                                 ? "text-blue-900 border-b-2 border-blue-900 font-black"
                                 : "text-slate-500 hover:text-slate-800"
-                            }`}
+                              }`}
                           >
                             ITEMS
                           </button>
                           <button
                             type="button"
                             onClick={() => setOrderSubTab("ORDER_HISTORY")}
-                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
-                              orderSubTab === "ORDER_HISTORY"
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${orderSubTab === "ORDER_HISTORY"
                                 ? "text-blue-900 border-b-2 border-blue-900 font-black"
                                 : "text-slate-500 hover:text-slate-800"
-                            }`}
+                              }`}
                           >
                             ORDER HISTORY
                           </button>
                           <button
                             type="button"
                             onClick={() => setOrderSubTab("OPEN_ORDER")}
-                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${
-                              orderSubTab === "OPEN_ORDER"
+                            className={`flex-1 py-3 text-center uppercase cursor-pointer transition-colors ${orderSubTab === "OPEN_ORDER"
                                 ? "text-blue-900 border-b-2 border-blue-900 font-black"
                                 : "text-slate-500 hover:text-slate-800"
-                            }`}
+                              }`}
                           >
                             OPEN ORDER
                           </button>
@@ -4269,11 +4257,10 @@ export function CrmTelecallerPortalPage() {
                                       </p>
                                       <div className="flex items-center gap-3 pt-0.5">
                                         <span
-                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                                            isCompleted
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isCompleted
                                               ? "bg-emerald-100 text-emerald-800"
                                               : "bg-amber-100 text-amber-800"
-                                          }`}
+                                            }`}
                                         >
                                           {order.status || "PLACED"}
                                         </span>
@@ -5215,61 +5202,60 @@ export function CrmTelecallerPortalPage() {
 
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                     <div className="max-h-[520px] overflow-y-auto divide-y divide-slate-100">
-                    {(reportData.my_orders && reportData.my_orders.length > 0
-                      ? reportData.my_orders
-                      : []
-                    ).map((ord) => {
-                      const isPacked = ord.status === "PACKED";
-                      const isCompleted = ord.status === "COMPLETED" || ord.status === "DELIVERED";
-                      return (
-                        <div
-                          key={ord.id}
-                          className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
-                          onClick={() => {
-                            const found = ordersList.find((o) => o.order_number === ord.order_number || o.id === ord.id);
-                            if (found) {
-                              setViewingOrderDetails(found);
-                            } else {
-                              setViewingOrderDetails({
-                                id: ord.id,
-                                order_number: ord.order_number,
-                                order_date: ord.order_date,
-                                customer_name: ord.customer_name,
-                                total_amount: ord.total_amount,
-                                status: ord.status,
-                                telecaller_name: userName,
-                              });
-                            }
-                          }}
-                        >
-                          <div>
-                            <h5 className="text-xs sm:text-sm font-bold text-slate-900">
-                              {ord.customer_name}
-                            </h5>
-                            <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                              {ord.order_number} · {ord.order_date}
-                            </p>
-                          </div>
+                      {(reportData.my_orders && reportData.my_orders.length > 0
+                        ? reportData.my_orders
+                        : []
+                      ).map((ord) => {
+                        const isPacked = ord.status === "PACKED";
+                        const isCompleted = ord.status === "COMPLETED" || ord.status === "DELIVERED";
+                        return (
+                          <div
+                            key={ord.id}
+                            className="p-3.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors cursor-pointer"
+                            onClick={() => {
+                              const found = ordersList.find((o) => o.order_number === ord.order_number || o.id === ord.id);
+                              if (found) {
+                                setViewingOrderDetails(found);
+                              } else {
+                                setViewingOrderDetails({
+                                  id: ord.id,
+                                  order_number: ord.order_number,
+                                  order_date: ord.order_date,
+                                  customer_name: ord.customer_name,
+                                  total_amount: ord.total_amount,
+                                  status: ord.status,
+                                  telecaller_name: userName,
+                                });
+                              }
+                            }}
+                          >
+                            <div>
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-900">
+                                {ord.customer_name}
+                              </h5>
+                              <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                {ord.order_number} · {ord.order_date}
+                              </p>
+                            </div>
 
-                          <div className="text-right flex flex-col items-end">
-                            <span className="text-xs sm:text-sm font-black text-slate-900 font-mono block">
-                              ₹{ord.total_amount.toLocaleString("en-IN")}
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase mt-1 tracking-wider ${
-                                isPacked
-                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
-                                  : isCompleted
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                  : "bg-amber-100 text-amber-800 border border-amber-200"
-                              }`}
-                            >
-                              {ord.status} ›
-                            </span>
+                            <div className="text-right flex flex-col items-end">
+                              <span className="text-xs sm:text-sm font-black text-slate-900 font-mono block">
+                                ₹{ord.total_amount.toLocaleString("en-IN")}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase mt-1 tracking-wider ${isPacked
+                                    ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                    : isCompleted
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                      : "bg-amber-100 text-amber-800 border border-amber-200"
+                                  }`}
+                              >
+                                {ord.status} ›
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                     </div>{/* end inner scroll wrapper */}
                   </div>{/* end outer card */}
                 </div>{/* end crm-my-orders-list */}
@@ -5765,15 +5751,15 @@ export function CrmTelecallerPortalPage() {
                                     selectedStatusOrder.items && selectedStatusOrder.items.length > 0
                                       ? selectedStatusOrder.items
                                       : [
-                                          {
-                                            id: `dyn-item-${selectedStatusOrder.id}`,
-                                            product_name: "1/2 LTR WATER ( 24 PCS )",
-                                            sku: `SKU-${Math.floor(10000000 + (parseInt(selectedStatusOrder.id.replace(/\D/g, "") || "12345678", 10) % 89999999))}`,
-                                            quantity: 1,
-                                            unit_price: selectedStatusOrder.total_amount || 140,
-                                            total_amount: selectedStatusOrder.total_amount || 140,
-                                          },
-                                        ];
+                                        {
+                                          id: `dyn-item-${selectedStatusOrder.id}`,
+                                          product_name: "1/2 LTR WATER ( 24 PCS )",
+                                          sku: `SKU-${Math.floor(10000000 + (parseInt(selectedStatusOrder.id.replace(/\D/g, "") || "12345678", 10) % 89999999))}`,
+                                          quantity: 1,
+                                          unit_price: selectedStatusOrder.total_amount || 140,
+                                          total_amount: selectedStatusOrder.total_amount || 140,
+                                        },
+                                      ];
 
                                   return itemsToRender.map((it) => (
                                     <tr key={it.id}>
@@ -6178,19 +6164,18 @@ export function CrmTelecallerPortalPage() {
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
                       <span className="text-[10px] text-slate-400 font-semibold block uppercase">Status</span>
                       <span
-                        className={`font-black text-xs mt-0.5 px-2 py-0.5 rounded-full ${
-                          attendanceCheckedOut
+                        className={`font-black text-xs mt-0.5 px-2 py-0.5 rounded-full ${attendanceCheckedOut
                             ? "bg-slate-100 text-slate-700"
                             : attendancePunched
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
                       >
                         {attendanceCheckedOut
                           ? "Checked Out"
                           : attendancePunched
-                          ? "Checked in"
-                          : "Not marked"}
+                            ? "Checked in"
+                            : "Not marked"}
                       </span>
                     </div>
                   </div>
@@ -6205,13 +6190,12 @@ export function CrmTelecallerPortalPage() {
                       onTouchStart={() => startAttHolding(!attendancePunched ? "in" : "out")}
                       onTouchEnd={cancelAttHolding}
                       disabled={attendancePunched && attendanceCheckedOut}
-                      className={`relative overflow-hidden w-full max-w-xs mx-auto py-3.5 px-6 rounded-2xl font-bold text-sm text-white shadow-md transition-all select-none cursor-pointer flex items-center justify-center gap-2 ${
-                        attendancePunched && attendanceCheckedOut
+                      className={`relative overflow-hidden w-full max-w-xs mx-auto py-3.5 px-6 rounded-2xl font-bold text-sm text-white shadow-md transition-all select-none cursor-pointer flex items-center justify-center gap-2 ${attendancePunched && attendanceCheckedOut
                           ? "bg-slate-300 cursor-not-allowed text-slate-600"
                           : !attendancePunched
-                          ? "bg-emerald-600 hover:bg-emerald-700 active:scale-95"
-                          : "bg-red-600 hover:bg-red-700 active:scale-95"
-                      }`}
+                            ? "bg-emerald-600 hover:bg-emerald-700 active:scale-95"
+                            : "bg-red-600 hover:bg-red-700 active:scale-95"
+                        }`}
                     >
                       {/* Hold Fill Progress Bar */}
                       {isAttHolding && (
@@ -6223,19 +6207,18 @@ export function CrmTelecallerPortalPage() {
                       {/* Status indicator dot */}
                       {!attendanceCheckedOut && (
                         <span
-                          className={`w-3 h-3 rounded-full ${
-                            !attendancePunched ? "bg-emerald-300 animate-pulse" : "bg-red-300 animate-pulse"
-                          }`}
+                          className={`w-3 h-3 rounded-full ${!attendancePunched ? "bg-emerald-300 animate-pulse" : "bg-red-300 animate-pulse"
+                            }`}
                         />
                       )}
                       <span className="relative z-10 font-bold">
                         {isAttHolding
                           ? `Holding... ${Math.round(attHoldProgress)}%`
                           : !attendancePunched
-                          ? "Hold 5 sec to Check in"
-                          : !attendanceCheckedOut
-                          ? "Hold 5 sec to Check out"
-                          : "Attendance Completed"}
+                            ? "Hold 5 sec to Check in"
+                            : !attendanceCheckedOut
+                              ? "Hold 5 sec to Check out"
+                              : "Attendance Completed"}
                       </span>
                     </button>
                     <p className="text-[11px] text-slate-400">
@@ -6949,14 +6932,14 @@ export function CrmTelecallerPortalPage() {
                   {(viewingOrderDetails.items && viewingOrderDetails.items.length > 0
                     ? viewingOrderDetails.items
                     : [
-                        {
-                          id: "item-default",
-                          product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
-                          quantity: 1,
-                          unit_price: viewingOrderDetails.total_amount || 106,
-                          total_amount: viewingOrderDetails.total_amount || 106,
-                        },
-                      ]
+                      {
+                        id: "item-default",
+                        product_name: "Aramane Detergent Powder 10Rs 12Pcs Pkt",
+                        quantity: 1,
+                        unit_price: viewingOrderDetails.total_amount || 106,
+                        total_amount: viewingOrderDetails.total_amount || 106,
+                      },
+                    ]
                   ).map((item: any, idx: number) => (
                     <tr key={item.id || idx} className="hover:bg-blue-950/50 transition-colors">
                       <td className="py-3 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
