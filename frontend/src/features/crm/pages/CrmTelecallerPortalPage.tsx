@@ -1085,6 +1085,13 @@ export function CrmTelecallerPortalPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
+        // If stored time was bugged "05:01 AM" and timestamp exists, calculate from timestamp
+        if (parsed.timestamp) {
+          const dt = new Date(parsed.timestamp);
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const mm = String(dt.getMinutes()).padStart(2, "0");
+          return `${hh}:${mm}`;
+        }
         return parsed.time || "";
       } catch {}
     }
@@ -1747,17 +1754,9 @@ export function CrmTelecallerPortalPage() {
       }>("/api/v1/admin/crm/attendance-status");
       if (res.data.is_punched) {
         setAttendancePunched(true);
-        const cTime = res.data.check_in_time || "09:15 AM";
-        setAttendanceTime(cTime);
-        try {
-          const punchedAt = new Date(cTime).getTime();
-          if (!isNaN(punchedAt)) {
-            setPunchSeconds(Math.max(0, Math.floor((Date.now() - punchedAt) / 1000)));
-          } else {
-            setPunchSeconds(7 * 3600 + 12 * 60 + 45);
-          }
-        } catch {
-          setPunchSeconds(7 * 3600 + 12 * 60);
+        // Only override if central/local didn't already have an accurate time
+        if (res.data.check_in_time && !central?.inT) {
+          setAttendanceTime(res.data.check_in_time);
         }
       }
       setAttendanceDaysPresent(res.data.days_present_this_month || 22);

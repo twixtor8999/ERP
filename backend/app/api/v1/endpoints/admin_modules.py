@@ -4227,8 +4227,11 @@ def punch_crm_self_attendance(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
-    today = datetime.now(UTC).date()
     now_utc = datetime.now(UTC)
+    ist_tz = ZoneInfo("Asia/Kolkata")
+    now_ist = now_utc.astimezone(ist_tz)
+    today = now_ist.date()
+    formatted_time = now_ist.strftime("%I:%M %p")
 
     # Find employee associated with this user
     user_cond = Employee.user_id == current_user.user_id
@@ -4251,7 +4254,7 @@ def punch_crm_self_attendance(
         return {
             "success": True,
             "status": "PRESENT",
-            "check_in_time": now_utc.strftime("%I:%M %p"),
+            "check_in_time": formatted_time,
             "message": "Self check-in recorded successfully!",
         }
 
@@ -4263,10 +4266,15 @@ def punch_crm_self_attendance(
         )
     )
     if existing:
+        ex_time = (
+            existing.check_in.astimezone(ist_tz).strftime("%I:%M %p")
+            if existing.check_in
+            else formatted_time
+        )
         return {
             "success": True,
             "status": existing.status,
-            "check_in_time": existing.check_in.strftime("%I:%M %p") if existing.check_in else now_utc.strftime("%I:%M %p"),
+            "check_in_time": ex_time,
             "message": "Already checked in for today!",
         }
 
@@ -4287,8 +4295,8 @@ def punch_crm_self_attendance(
     return {
         "success": True,
         "status": "PRESENT",
-        "check_in_time": now_utc.strftime("%I:%M %p"),
-        "message": f"Check-in recorded at {now_utc.strftime('%I:%M %p')} for {emp.first_name} {emp.last_name}",
+        "check_in_time": formatted_time,
+        "message": f"Check-in recorded at {formatted_time} for {emp.first_name} {emp.last_name}",
     }
 
 
@@ -4298,7 +4306,10 @@ def get_crm_attendance_status(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
-    today = datetime.now(UTC).date()
+    now_utc = datetime.now(UTC)
+    ist_tz = ZoneInfo("Asia/Kolkata")
+    now_ist = now_utc.astimezone(ist_tz)
+    today = now_ist.date()
 
     user_cond = Employee.user_id == current_user.user_id
     if current_user.phone:
@@ -4339,9 +4350,16 @@ def get_crm_attendance_status(
         )
     ) or 0
 
+    check_in_formatted = None
+    if existing and existing.check_in:
+        dt = existing.check_in
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        check_in_formatted = dt.astimezone(ist_tz).strftime("%I:%M %p")
+
     return {
         "is_punched": existing is not None,
-        "check_in_time": existing.check_in.strftime("%I:%M %p") if existing and existing.check_in else None,
+        "check_in_time": check_in_formatted,
         "days_present_this_month": max(days_present, 22),
         "total_working_days": 26,
     }
