@@ -1175,7 +1175,7 @@ export function WholesaleOrdersPipelineView() {
       // 1. Stage Check: Strict stage queue — once moved forward (e.g. Move to invoice), the order leaves the current tab and appears in the next stage tab.
       const matchesStage =
         targetStage === "packing"
-          ? o.stage === "packing" || o.stage === "placed" || justMovedToInvoiceIds.has(o.id)
+          ? ["packing", "placed", "invoice"].includes(o.stage) || justMovedToInvoiceIds.has(o.id)
           : o.stage === targetStage;
 
       // 2. Search query filter
@@ -1217,7 +1217,7 @@ export function WholesaleOrdersPipelineView() {
 
       return matchDate && matchSearch && matchRoute && matchVillage && matchVehicle;
     });
-  }, [orders, activeTab, appliedFromDate, appliedToDate, pageSearch, routeFilter, villageFilter, selectedVehicle]);
+  }, [orders, activeTab, appliedFromDate, appliedToDate, pageSearch, routeFilter, villageFilter, selectedVehicle, justMovedToInvoiceIds]);
 
   // Stage Totals
   const totalAmount = currentStageOrders.reduce((acc, o) => acc + o.total, 0);
