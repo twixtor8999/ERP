@@ -829,6 +829,7 @@ export function WholesaleOrdersPipelineView() {
     return INITIAL_PIPELINE_ORDERS;
   });
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [justMovedToInvoiceIds, setJustMovedToInvoiceIds] = useState<Set<string>>(new Set());
 
   // Date filters defaulting to today's IST date dynamically
   const todayStr = getIstDateString();
@@ -1174,7 +1175,7 @@ export function WholesaleOrdersPipelineView() {
       // 1. Stage Check: Strict stage queue — once moved forward (e.g. Move to invoice), the order leaves the current tab and appears in the next stage tab.
       const matchesStage =
         targetStage === "packing"
-          ? o.stage === "packing" || o.stage === "placed"
+          ? o.stage === "packing" || o.stage === "placed" || justMovedToInvoiceIds.has(o.id)
           : o.stage === targetStage;
 
       // 2. Search query filter
@@ -1241,6 +1242,7 @@ export function WholesaleOrdersPipelineView() {
 
   // Workflow transitions: Packing -> Invoice -> Dispatch -> Delivery -> Completed
   const handleMoveToInvoice = (orderId: string) => {
+    setJustMovedToInvoiceIds((prev) => new Set(prev).add(orderId));
     const invNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
@@ -2824,9 +2826,9 @@ export function WholesaleOrdersPipelineView() {
                                 <button
                                   type="button"
                                   disabled
-                                  className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
+                                  className="inline-flex items-center gap-1 bg-white text-slate-700 border border-slate-300 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs cursor-default whitespace-nowrap"
                                 >
-                                  ✓ Moved to invoice
+                                  Moved to invoice
                                 </button>
                               ) : (
                                 <button
