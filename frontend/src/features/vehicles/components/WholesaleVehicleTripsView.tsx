@@ -15,6 +15,7 @@ import {
   type VehicleTripRecord,
 } from "../data/mockVehicles";
 import { WholesaleVehicleTripDetailEditView } from "./WholesaleVehicleTripDetailEditView";
+import { WholesaleVehicleTripDetailsView } from "./WholesaleVehicleTripDetailsView";
 import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
 export function WholesaleVehicleTripsView() {
@@ -29,6 +30,7 @@ export function WholesaleVehicleTripsView() {
   const [toDate, setToDate] = useState(todayIso);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTripToEdit, setSelectedTripToEdit] = useState<VehicleTripRecord | null>(null);
+  const [selectedTripForDetails, setSelectedTripForDetails] = useState<VehicleTripRecord | null>(null);
 
   // Sync trips from Railway backend + storage when trips are created or updated
   useEffect(() => {
@@ -104,6 +106,19 @@ export function WholesaleVehicleTripsView() {
   };
 
   // Dedicated 2nd Page: Return full detail & edit view when a trip is selected
+  if (selectedTripForDetails) {
+    return (
+      <WholesaleVehicleTripDetailsView
+        trip={selectedTripForDetails}
+        onBack={() => setSelectedTripForDetails(null)}
+        onEditTrip={() => {
+          setSelectedTripToEdit(selectedTripForDetails);
+          setSelectedTripForDetails(null);
+        }}
+      />
+    );
+  }
+
   if (selectedTripToEdit) {
     return (
       <WholesaleVehicleTripDetailEditView
@@ -303,13 +318,22 @@ export function WholesaleVehicleTripsView() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTripToEdit(t)}
-                        className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
-                      >
-                        {t.status === "closed" ? "View" : "Update / Close"}
-                      </button>
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTripToEdit(t)}
+                          className="px-2.5 py-1 text-xs font-semibold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-full transition-colors cursor-pointer"
+                        >
+                          {t.status === "closed" ? "Edit" : "Update / Close"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTripForDetails(t)}
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-full transition-colors cursor-pointer"
+                        >
+                          {t.status === "closed" ? "View" : "Details"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
