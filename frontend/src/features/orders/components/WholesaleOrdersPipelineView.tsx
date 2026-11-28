@@ -1374,6 +1374,46 @@ export function WholesaleOrdersPipelineView() {
     toast.success(`Vehicle updated to ${vehicleNo}`);
   };
 
+  const handleBackToPacking = (orderId: string) => {
+    const ordRef = orders.find((o) => o.id === orderId);
+    setJustMovedToInvoiceIds((prev) => {
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
+    setOrders((prev) => {
+      const updated = prev.map((o) => {
+        if (o.id === orderId) {
+          toast.success(`Order ${o.orderNo} moved back to Packing`);
+          const historyEntry: OrderHistoryItem = {
+            when: new Date().toISOString().replace("T", " ").substring(0, 16),
+            from: "Invoice",
+            to: "Packing",
+            by: stripRoleSuffix(useAuthStore.getState().user?.fullName || "Admin"),
+            where: "packing",
+          };
+          return {
+            ...o,
+            stage: "packing" as const,
+            status: "packed",
+            history: [...(o.history || []), historyEntry],
+          };
+        }
+        return o;
+      });
+      safeSavePipelineOrders(updated);
+      window.dispatchEvent(new Event("settlements_updated"));
+      return updated;
+    });
+    apiClient
+      .post(`/api/v1/admin/crm/orders/${orderId}/stage`, {
+        stage: "packing",
+        order_no: ordRef?.orderNo,
+      })
+      .catch(() => {});
+    setViewingOrder(null);
+  };
+
   const handleBackToDispatch = (orderId: string) => {
     const ordRef = orders.find((o) => o.id === orderId);
     setOrders((prev) => {
@@ -2410,15 +2450,23 @@ export function WholesaleOrdersPipelineView() {
           )}
 
           {viewingOrder.stage === 'invoice' && (
-            <button
-              onClick={() => {
-                handlePrintAndDispatch(viewingOrder.id);
-                setViewingOrder(null);
-              }}
-              className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
-            >
-              Print & Dispatch
-            </button>
+            <>
+              <button
+                onClick={() => handleBackToPacking(viewingOrder.id)}
+                className="px-5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+              >
+                Back to Packing
+              </button>
+              <button
+                onClick={() => {
+                  handlePrintAndDispatch(viewingOrder.id);
+                  setViewingOrder(null);
+                }}
+                className="px-5 py-2 bg-[#0d1b4c] hover:bg-[#081233] text-white rounded-full text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+              >
+                Print & Dispatch
+              </button>
+            </>
           )}
 
           {viewingOrder.stage === 'dispatch' && (
@@ -2822,6 +2870,21 @@ export function WholesaleOrdersPipelineView() {
             </label>
 
             <label className="flex items-center gap-1.5">
+              <span>Village</span>
+              <select
+                value={villageFilter}
+                onChange={(e) => setVillageFilter(e.target.value)}
+                className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none max-w-[200px]"
+              >
+                {availableVillages.map((v) => (
+                  <option key={v} value={v === "All villages" ? "" : v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex items-center gap-1.5">
               <span>Vehicle No (for all shown)</span>
               <select
                 value={selectedVehicle}
@@ -2892,10 +2955,11 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
                       <td className="py-3 px-3">
                         <select
-                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
+                          <option value="">Select vehicle</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
@@ -2990,10 +3054,11 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
                       <td className="py-3 px-3">
                         <select
-                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
+                          <option value="">Select vehicle</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
@@ -3112,10 +3177,11 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
                       <td className="py-3 px-3">
                         <select
-                          value={o.vehicleNo || availableVehicleOptions[0] || "KA28AA6256"}
+                          value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
+                          <option value="">Select vehicle</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
