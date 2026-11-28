@@ -315,7 +315,15 @@ def main() -> None:
                     db.flush()
                     existing_variants[prod.id] = var
 
-                if var.id not in existing_stocks and branch and warehouse:
+                if var.id in existing_stocks:
+                    sb = existing_stocks[var.id]
+                    unit_cost = grn_price if grn_price > 0 else (sb.average_unit_cost or Decimal("0.00"))
+                    sb.quantity_on_hand = curr_stock
+                    sb.quantity_reserved = Decimal("0.0000")
+                    sb.quantity_available = curr_stock
+                    sb.average_unit_cost = unit_cost
+                    sb.total_value = curr_stock * unit_cost
+                elif branch and warehouse:
                     sb = StockBalance(
                         id=str(uuid.uuid4()),
                         organization_id=org_id,
