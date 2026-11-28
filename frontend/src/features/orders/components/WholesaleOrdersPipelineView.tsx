@@ -1143,7 +1143,7 @@ export function WholesaleOrdersPipelineView() {
       // 1. Stage Check: Strict stage queue — once moved forward (e.g. Move to invoice), the order leaves the current tab and appears in the next stage tab.
       const matchesStage =
         targetStage === "packing"
-          ? ["packing", "placed", "invoice"].includes(o.stage) || justMovedToInvoiceIds.has(o.id)
+          ? o.stage === "packing" || o.stage === "placed"
           : o.stage === targetStage;
 
       // 2. Search query filter
