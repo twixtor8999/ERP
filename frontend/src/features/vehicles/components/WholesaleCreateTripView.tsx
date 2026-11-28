@@ -11,6 +11,8 @@ import {
   MapPin,
   CheckCircle2,
   Search,
+  Camera,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,6 +40,8 @@ export function WholesaleCreateTripView() {
   const [selectedVehId, setSelectedVehId] = useState<string>(
     vehicles[0]?.id ? String(vehicles[0].id) : ""
   );
+  const [startKm, setStartKm] = useState<string>("46100");
+  const [startKmPhoto, setStartKmPhoto] = useState<string>("");
 
   const [searchOrderQuery, setSearchOrderQuery] = useState("");
 
@@ -161,6 +165,7 @@ export function WholesaleCreateTripView() {
     }
 
     const todayIso = new Date().toISOString().slice(0, 10);
+    const startKmNum = Number(startKm) || 0;
     const newTrip: VehicleTripRecord = {
       id: Date.now(),
       date: todayIso,
@@ -172,8 +177,8 @@ export function WholesaleCreateTripView() {
       invoiceAmt: totalLoadedValue,
       returns: 0,
       netSales: totalLoadedValue,
-      startKm: 46100,
-      endKm: 46100,
+      startKm: startKmNum,
+      endKm: startKmNum,
       totalKm: 0,
       fixedRent: 1400,
       dieselCost: 0,
@@ -181,13 +186,15 @@ export function WholesaleCreateTripView() {
       otherCost: 0,
       totalRent: 1400,
       status: "in_progress",
+      kmPhotos: startKmPhoto ? [startKmPhoto] : [],
+      ...(startKmPhoto ? { startKmPhoto } : {}),
       orders: selectedOrders.map((o) => ({
         id: typeof o.id === "number" ? o.id : 0,
         no: o.no,
         custName: o.custName,
         amount: o.amount,
       })),
-    };
+    } as VehicleTripRecord;
 
     // 1. Save new trip to Railway backend + local cache
     const currentTrips = getStoredTrips();
@@ -404,6 +411,56 @@ export function WholesaleCreateTripView() {
                   defaultValue={new Date().toISOString().slice(0, 10)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold"
                   readOnly
+                />
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-500 block mb-1 font-medium">Start KM</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={startKm}
+                  onChange={(e) => setStartKm(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600 font-semibold flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" /> Start KM photo
+                  </span>
+                  {startKmPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => setStartKmPhoto("")}
+                      className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" /> Remove
+                    </button>
+                  )}
+                </div>
+                {startKmPhoto && (
+                  <img
+                    src={startKmPhoto}
+                    alt="Start KM"
+                    className="w-full h-24 object-cover rounded border border-slate-200"
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setStartKmPhoto(String(reader.result || ""));
+                      toast.success("Start KM photo uploaded");
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  className="block w-full text-[11px] text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-[#0d1b4c] file:text-white hover:file:bg-[#1a2d6d] cursor-pointer"
                 />
               </div>
             </div>

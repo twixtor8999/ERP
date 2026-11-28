@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Printer, Download, Save, Truck, Gauge } from "lucide-react";
+import { ArrowLeft, Printer, Download, Save, Truck, Gauge, Camera, X } from "lucide-react";
 import { VehicleTripRecord } from "../data/mockVehicles";
 import { toast } from "sonner";
 
@@ -9,6 +9,14 @@ interface Props {
   onSave: (updated: VehicleTripRecord) => void;
 }
 
+const readImageAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.readAsDataURL(file);
+  });
+
 export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
   trip,
   onBack,
@@ -17,6 +25,31 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
   const [endKm, setEndKm] = useState<number | string>(trip.endKm || trip.startKm);
   const [toll, setToll] = useState<number | string>(trip.otherCost || 0);
   const [status, setStatus] = useState<"in_progress" | "closed">(trip.status);
+  const [startKmPhoto, setStartKmPhoto] = useState<string>(
+    (trip as any).startKmPhoto || trip.kmPhotos?.[0] || ""
+  );
+  const [endKmPhoto, setEndKmPhoto] = useState<string>(
+    (trip as any).endKmPhoto || trip.kmPhotos?.[1] || ""
+  );
+
+  const handlePhotoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: "start" | "end"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      if (target === "start") {
+        setStartKmPhoto(dataUrl);
+      } else {
+        setEndKmPhoto(dataUrl);
+      }
+      toast.success(`${target === "start" ? "Start" : "End"} KM photo uploaded`);
+    } catch {
+      toast.error("Could not read image file");
+    }
+  };
 
   const startKmNum = Number(trip.startKm) || 0;
   const endKmNum = Number(endKm) || startKmNum;
@@ -32,6 +65,7 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
       toast.error("End KM cannot be less than Start KM");
       return;
     }
+    const kmPhotos = [startKmPhoto, endKmPhoto].filter(Boolean);
     const updated: VehicleTripRecord = {
       ...trip,
       endKm: endKmNum,
@@ -39,7 +73,10 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
       otherCost: tollNum,
       totalRent: totalRentCalc,
       status,
-    };
+      kmPhotos,
+      ...(startKmPhoto ? { startKmPhoto } : { startKmPhoto: undefined }),
+      ...(endKmPhoto ? { endKmPhoto } : { endKmPhoto: undefined }),
+    } as VehicleTripRecord;
 
     // When trip is closed, auto-sync / create settlement record in WholesaleSettlementView
     if (status === "closed") {
@@ -260,6 +297,77 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
               <option value="in_progress">In Progress (Active On Delivery)</option>
               <option value="closed">Closed & Reconciled</option>
             </select>
+          </div>
+
+          {/* Start KM Photo & End KM Photo Upload */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700 flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5 text-blue-600" /> Start km photo
+                </span>
+                {startKmPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => setStartKmPhoto("")}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                )}
+              </div>
+              {startKmPhoto ? (
+                <img
+                  src={startKmPhoto}
+                  alt="Start km photo"
+                  className="w-full h-24 object-cover rounded border border-slate-200 bg-white"
+                />
+              ) : (
+                <div className="h-16 flex items-center justify-center rounded border border-dashed border-slate-300 bg-white text-[11px] text-slate-400">
+                  No start km photo
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => void handlePhotoUpload(e, "start")}
+                className="block w-full text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-[#0d1b4c] file:text-white hover:file:bg-[#1a2d6d] cursor-pointer"
+              />
+            </div>
+
+            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700 flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5 text-blue-600" /> End km photo
+                </span>
+                {endKmPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => setEndKmPhoto("")}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                )}
+              </div>
+              {endKmPhoto ? (
+                <img
+                  src={endKmPhoto}
+                  alt="End km photo"
+                  className="w-full h-24 object-cover rounded border border-slate-200 bg-white"
+                />
+              ) : (
+                <div className="h-16 flex items-center justify-center rounded border border-dashed border-slate-300 bg-white text-[11px] text-slate-400">
+                  No end km photo
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => void handlePhotoUpload(e, "end")}
+                className="block w-full text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-[#0d1b4c] file:text-white hover:file:bg-[#1a2d6d] cursor-pointer"
+              />
+            </div>
           </div>
 
           <button

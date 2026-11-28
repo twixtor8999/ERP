@@ -304,7 +304,29 @@ export function WholesaleVehicleTripsView() {
                       ₹{t.totalRent.toLocaleString()}
                     </td>
                     <td className="py-2 px-3 border-r border-slate-100 text-center text-slate-400">
-                      —
+                      {(() => {
+                        const startImg = (t as any).startKmPhoto || t.kmPhotos?.[0];
+                        const endImg = (t as any).endKmPhoto || t.kmPhotos?.[1];
+                        if (!startImg && !endImg) return "—";
+                        return (
+                          <div className="inline-flex items-center gap-1">
+                            {startImg && (
+                              <img
+                                src={startImg}
+                                alt="Start KM"
+                                className="w-10 h-7 object-cover rounded border border-slate-200"
+                              />
+                            )}
+                            {endImg && (
+                              <img
+                                src={endImg}
+                                alt="End KM"
+                                className="w-10 h-7 object-cover rounded border border-slate-200"
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-2 px-3 border-r border-slate-100 text-center">
                       {t.status === "closed" ? (

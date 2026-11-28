@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Camera, Pencil, Trash2, X } from 'lucide-react';
 import { VehicleRecord } from '../data/mockVehicles';
 import { toast } from 'sonner';
 
@@ -45,6 +45,9 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
       ? String((vehicle as VehicleRecord & { capacityKg?: string | number }).capacityKg)
       : ''
   );
+  const [rcPhoto, setRcPhoto] = useState<string>(
+    (vehicle as VehicleRecord & { rcPhoto?: string }).rcPhoto || ''
+  );
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +59,10 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
       toast.error('Owner name is required');
       return;
     }
-    onSave(formData);
+    onSave({
+      ...formData,
+      ...(rcPhoto ? { rcPhoto } : { rcPhoto: undefined }),
+    } as VehicleRecord);
   };
 
   return (
@@ -283,6 +289,46 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
                 onChange={(e) => setCapacityKg(e.target.value)}
                 placeholder="e.g. 1500"
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+              />
+            </div>
+
+            {/* RC / Insurance Photo Upload */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-blue-600" /> RC / Insurance Photo
+                </label>
+                {rcPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => setRcPhoto('')}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                )}
+              </div>
+              {rcPhoto && (
+                <img
+                  src={rcPhoto}
+                  alt="RC / Insurance"
+                  className="w-full max-h-36 object-contain rounded-lg border border-slate-200 bg-slate-50 p-1"
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setRcPhoto(String(reader.result || ''));
+                    toast.success('Vehicle document photo attached');
+                  };
+                  reader.readAsDataURL(file);
+                }}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#132038] file:text-white hover:file:bg-slate-900 cursor-pointer"
               />
             </div>
           </div>
