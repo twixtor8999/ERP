@@ -11,10 +11,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getIstDateString } from "@/lib/utilities/istTime";
-import { fetchRealtimeInventory } from "@/lib/api/apiService";
+import { fetchRealtimeInventory, fetchSuppliers } from "@/lib/api/apiService";
 import { getStoredSkus } from "@/features/inventory/data/mockInventory";
 import {
-  getStoredVendors,
   getStoredPurchases,
   saveStoredPurchases,
   type PurchaseRecord,
@@ -170,9 +169,38 @@ function SearchableSkuInput({ skus, selectedSkuName, onSelect }: SearchableSkuIn
 
 export function WholesaleNewPurchaseView() {
   const navigate = useNavigate();
-  const vendors = getStoredVendors();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const todayIso = getIstDateString();
+
+  const [vendors, setVendors] = useState<Array<{ id: string; numericId: number; name: string }>>([]);
+  const [vendorsLoading, setVendorsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let active = true;
+    setVendorsLoading(true);
+    fetchSuppliers()
+      .then((rows) => {
+        if (!active) return;
+        setVendors(
+          rows
+            .filter((s) => s.is_active !== false && (s.company_name || s.name))
+            .map((s, idx) => ({
+              id: s.id,
+              numericId: idx + 1,
+              name: s.company_name || s.name || "",
+            }))
+        );
+      })
+      .catch(() => {
+        if (active) toast.error("Failed to load vendors from database");
+      })
+      .finally(() => {
+        if (active) setVendorsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [liveSkus, setLiveSkus] = useState<LiveSkuOption[]>(() =>
     getStoredSkus().map((s) => ({
@@ -209,7 +237,7 @@ export function WholesaleNewPurchaseView() {
     };
   }, []);
 
-  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [vendorDropdownOpen, setVendorDropdownOpen] = useState<boolean>(false);
   const [vendorSearch, setVendorSearch] = useState<string>("");
   const vendorDropdownRef = useRef<HTMLDivElement>(null);
@@ -419,7 +447,7 @@ export function WholesaleNewPurchaseView() {
     const newPurchase: PurchaseRecord = {
       id: Date.now(),
       date: invoiceDate,
-      vendorId: selectedVendorObj.id,
+      vendorId: selectedVendorObj.numericId,
       vendorName: selectedVendorObj.name,
       invoiceNo: invoiceNo.trim().toUpperCase(),
       totalItems: mappedLines.length,
@@ -516,7 +544,11 @@ export function WholesaleNewPurchaseView() {
                     </div>
                   </div>
                   <div className="max-h-60 overflow-y-auto divide-y divide-slate-50">
-                    {filteredVendors.length === 0 ? (
+                    {vendorsLoading ? (
+                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                        Loading vendors...
+                      </div>
+                    ) : filteredVendors.length === 0 ? (
                       <div className="px-3 py-3 text-xs text-slate-400 text-center">
                         No matching vendors
                       </div>

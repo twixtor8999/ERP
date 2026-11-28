@@ -162,9 +162,11 @@ export async function createExpense(payload: {
 export interface ApiSupplier {
   id: string;
   name: string;
+  company_name?: string;
   phone?: string;
   gstin?: string;
   email?: string;
+  is_active?: boolean;
 }
 
 export interface ApiPurchase {
