@@ -4301,12 +4301,15 @@ def get_crm_orders_status(
         except ValueError:
             pass
 
+    placed_ts_expr = func.coalesce(Order.placed_at, Order.created_at)
     stmt = (
         select(Order)
         .where(*conditions)
         .order_by(
-            func.coalesce(Order.delivered_at, Order.updated_at, Order.created_at).desc(),
+            order_date_expr.desc(),
+            placed_ts_expr.desc(),
             Order.created_at.desc(),
+            Order.id.desc(),
         )
         .limit(limit)
     )
@@ -4402,7 +4405,10 @@ def get_crm_orders_status(
         if o.placed_at or o.created_at:
             dt = o.placed_at or o.created_at
             dt_ist = dt.astimezone(ist) if dt.tzinfo else dt.replace(tzinfo=UTC).astimezone(ist)
-            placed_str = dt_ist.strftime("%d-%m-%Y %H:%M")
+            if not o.placed_at and o.order_date and dt_ist.date() != o.order_date:
+                placed_str = f"{o.order_date.strftime('%d-%m-%Y')} {dt_ist.strftime('%H:%M')}"
+            else:
+                placed_str = dt_ist.strftime("%d-%m-%Y %H:%M")
 
         packed_str = "—"
         if o.packed_at or o.confirmed_at:

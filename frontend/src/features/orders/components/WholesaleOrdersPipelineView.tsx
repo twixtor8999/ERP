@@ -127,6 +127,42 @@ export function extractIsoDate(dStr?: string): string {
   return "";
 }
 
+/** Parse 24h ("14:09") or 12h ("02:09 pm") time into minutes since midnight for reliable sorting. */
+function parseOrderTimeMinutes(tStr?: string): number {
+  if (!tStr) return -1;
+  const match = tStr.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(am|pm))?$/i);
+  if (!match || !match[1] || !match[2]) return -1;
+  let hours = parseInt(match[1], 10);
+  const mins = parseInt(match[2], 10);
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hours < 12) hours += 12;
+  if (meridiem === "am" && hours === 12) hours = 0;
+  return hours * 60 + mins;
+}
+
+function extractNumericOrderNo(orderNo?: string): number {
+  if (!orderNo) return 0;
+  const digits = orderNo.replace(/\D/g, "");
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+/** Sort orders strictly newest business date & time first, tie-breaking by order number descending. */
+export function compareOrdersNewestFirst(a: Pick<PipelineOrder, "orderDate" | "orderTime" | "orderNo">, b: Pick<PipelineOrder, "orderDate" | "orderTime" | "orderNo">): number {
+  const aIso = extractIsoDate(a.orderDate || a.orderTime);
+  const bIso = extractIsoDate(b.orderDate || b.orderTime);
+  if (aIso !== bIso) {
+    if (!aIso) return 1;
+    if (!bIso) return -1;
+    return bIso.localeCompare(aIso);
+  }
+  const aMins = parseOrderTimeMinutes(a.orderTime);
+  const bMins = parseOrderTimeMinutes(b.orderTime);
+  if (aMins !== bMins) {
+    return bMins - aMins;
+  }
+  return extractNumericOrderNo(b.orderNo) - extractNumericOrderNo(a.orderNo);
+}
+
 export const INITIAL_PIPELINE_ORDERS: PipelineOrder[] = [
   {
     id: "ord-1672",
@@ -819,7 +855,7 @@ export function WholesaleOrdersPipelineView() {
   // Sync real-time orders from backend API
   const fetchLiveOrders = useCallback(async () => {
     try {
-      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=150");
+      const res = await apiClient.get<any[]>("/api/v1/admin/crm/orders?limit=250");
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         setOrders((prev) => {
           const prevMap = new Map(prev.map((o) => [o.orderNo, o]));
@@ -903,8 +939,8 @@ export function WholesaleOrdersPipelineView() {
             prevMap.delete(orderNo);
           }
 
-          // Retain any remaining initial demo/custom orders
-          const finalOrders = [...merged, ...Array.from(prevMap.values())];
+          // Retain any remaining initial demo/custom orders and keep strictly newest-first
+          const finalOrders = [...merged, ...Array.from(prevMap.values())].sort(compareOrdersNewestFirst);
           safeSavePipelineOrders(finalOrders);
           return finalOrders;
         });
@@ -1207,7 +1243,7 @@ export function WholesaleOrdersPipelineView() {
         o.vehicleNo === selectedVehicle;
 
       return matchDate && matchSearch && matchRoute && matchVillage && matchVehicle;
-    });
+    }).sort(compareOrdersNewestFirst);
   }, [orders, activeTab, appliedFromDate, appliedToDate, pageSearch, routeFilter, villageFilter, selectedVehicle, justMovedToInvoiceIds]);
 
   // Stage Totals
@@ -1707,11 +1743,13 @@ export function WholesaleOrdersPipelineView() {
   // Drilldown orders computed from stageKey (or all orders for View All), matching date range
   const drilldownOrders = useMemo(() => {
     if (!reportDrilldown) return [];
-    return orders.filter((o) => {
-      const orderIso = extractIsoDate(o.orderDate || o.orderTime);
-      if (!isDateInRange(orderIso, appliedFromDate, appliedToDate)) return false;
-      return !reportDrilldown.stageKey || o.stage === reportDrilldown.stageKey;
-    });
+    return orders
+      .filter((o) => {
+        const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+        if (!isDateInRange(orderIso, appliedFromDate, appliedToDate)) return false;
+        return !reportDrilldown.stageKey || o.stage === reportDrilldown.stageKey;
+      })
+      .sort(compareOrdersNewestFirst);
   }, [orders, reportDrilldown, appliedFromDate, appliedToDate]);
 
   const drilldownTotalAmt = drilldownOrders.reduce((sum, o) => sum + o.total, 0);
@@ -3044,7 +3082,10 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
                       <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{o.source}</td>
-                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
+                        <div>{o.orderDate}</div>
+                        {o.orderTime && <div className="text-slate-400 text-[10px]">{o.orderTime}</div>}
+                      </td>
                       <td className="py-3 px-3">
                         <select
                           value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
@@ -3143,7 +3184,10 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 font-mono text-slate-800">{o.orderNo}</td>
                       <td className="py-3 px-3 text-slate-900 font-bold">{o.customerName}</td>
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
-                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
+                        <div>{o.orderDate}</div>
+                        {o.orderTime && <div className="text-slate-400 text-[10px]">{o.orderTime}</div>}
+                      </td>
                       <td className="py-3 px-3">
                         <select
                           value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
@@ -3266,7 +3310,10 @@ export function WholesaleOrdersPipelineView() {
                       <td className="py-3 px-3 text-slate-900 font-bold">{o.customerName}</td>
                       <td className="py-3 px-3 text-slate-700">{o.village}</td>
                       <td className="py-3 px-3 text-slate-600">{o.createdBy}</td>
-                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                      <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
+                        <div>{o.orderDate}</div>
+                        {o.orderTime && <div className="text-slate-400 text-[10px]">{o.orderTime}</div>}
+                      </td>
                       <td className="py-3 px-3">
                         <select
                           value={o.vehicleNo && availableVehicleOptions.includes(o.vehicleNo) ? o.vehicleNo : ""}
@@ -3386,7 +3433,10 @@ export function WholesaleOrdersPipelineView() {
                           <td className="py-3 px-3 text-slate-500 font-bold">{idx + 1}</td>
                           <td className="py-3 px-3 font-mono font-bold text-slate-900">{o.orderNo}</td>
                           <td className="py-3 px-3 font-mono text-blue-700 font-semibold">{o.invoiceNo || "—"}</td>
-                          <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">{o.orderDate}</td>
+                          <td className="py-3 px-3 text-slate-700 font-mono text-[11px]">
+                        <div>{o.orderDate}</div>
+                        {o.orderTime && <div className="text-slate-400 text-[10px]">{o.orderTime}</div>}
+                      </td>
                           <td className="py-3 px-4 font-bold text-slate-900">{o.customerName}</td>
                           <td className="py-3 px-3 text-slate-700">{o.village}</td>
                           <td className="py-3 px-3 text-slate-700">{o.createdBy}</td>
