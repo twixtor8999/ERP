@@ -1580,9 +1580,24 @@ export function WholesaleOrdersPipelineView() {
 
   const handleMarkDelivered = (orderId: string) => {
     const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    const paidTotal = (Number(targetOrder.cashPaid) || 0) + (Number(targetOrder.qrPaid) || 0);
+    const hasPayment = Boolean(targetOrder.paymentMode) && (paidTotal > 0 || (Number(targetOrder.returnAmount) || 0) > 0);
+    if (!hasPayment) {
+      toast.error("Please complete payment before marking delivered.");
+      setViewingOrder(targetOrder);
+      return;
+    }
+
     const assignedVehicle = (selectedVehicle && selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)")
       ? selectedVehicle
-      : (targetOrder?.vehicleNo || "KA28AA6256");
+      : (targetOrder.vehicleNo || "");
+    if (!assignedVehicle || assignedVehicle === "Select Vehicle No") {
+      toast.error("Please select a Vehicle No before marking delivered.");
+      setViewingOrder(targetOrder);
+      return;
+    }
 
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
@@ -1909,7 +1924,12 @@ export function WholesaleOrdersPipelineView() {
     const handleCompleteDelivery = () => {
       const assignedVehicle = (selectedVehicle && selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)")
         ? selectedVehicle
-        : (viewingOrder.vehicleNo || "KA28AA6256");
+        : (viewingOrder.vehicleNo || "");
+
+      if (!assignedVehicle || assignedVehicle === "Select Vehicle No") {
+        toast.error("Please select a Vehicle No before marking delivered.");
+        return;
+      }
 
       const hasMissingReason = viewingOrder.items.some((_, idx) => {
         const r = itemReturns[idx];
@@ -1917,6 +1937,17 @@ export function WholesaleOrdersPipelineView() {
       });
       if (hasMissingReason) {
         toast.error("Please select a return reason for all returned items.");
+        return;
+      }
+
+      const qrPaid = qrAmountNum;
+      const totalPaid = qrPaid + calculatedCashAmount;
+      if (netToCollect > 0 && totalPaid <= 0) {
+        toast.error("Please complete payment before marking delivered.");
+        return;
+      }
+      if (qrPaid > 0 && !deliveryUtrNumber.trim() && !deliverySlipDataUrl) {
+        toast.error("Please enter UTR Number or upload QR Payment Slip for QR payment.");
         return;
       }
 
@@ -1938,8 +1969,7 @@ export function WholesaleOrdersPipelineView() {
           },
         ];
       });
-      const isFullReturn = viewingOrder.total > 0 && returnedAmount >= viewingOrder.total;
-      const qrPaid = qrAmountNum;
+      const isFullReturn = effectiveOrderTotal > 0 && returnedAmount >= effectiveOrderTotal;
       const effectivePaymentMode: "Cash" | "QR" | "Split" =
         qrPaid > 0 && calculatedCashAmount > 0
           ? "Split"
