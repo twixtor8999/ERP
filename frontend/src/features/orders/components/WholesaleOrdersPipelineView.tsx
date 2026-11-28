@@ -825,10 +825,10 @@ export function WholesaleOrdersPipelineView() {
               }
             }
             const loaded = Array.from(map.values());
-            if (!localStorage.getItem("pk_all_vehicle_default_cleared_v3")) {
-              localStorage.setItem("pk_all_vehicle_default_cleared_v3", "1");
+            if (!localStorage.getItem("pk_all_vehicle_default_cleared_v4")) {
+              localStorage.setItem("pk_all_vehicle_default_cleared_v4", "1");
               const cleared = loaded.map((o) =>
-                o.stage !== "completed" ? { ...o, vehicleNo: "" } : o
+                o.stage === "packing" || o.stage === "invoice" ? { ...o, vehicleNo: "" } : o
               );
               safeSavePipelineOrders(cleared);
               return cleared;
@@ -838,8 +838,11 @@ export function WholesaleOrdersPipelineView() {
         } catch {}
       }
     }
-    return INITIAL_PIPELINE_ORDERS;
+    return INITIAL_PIPELINE_ORDERS.map((o) =>
+      o.stage === "packing" || o.stage === "invoice" ? { ...o, vehicleNo: "" } : o
+    );
   });
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [justMovedToInvoiceIds, setJustMovedToInvoiceIds] = useState<Set<string>>(new Set());
 
@@ -1380,7 +1383,7 @@ export function WholesaleOrdersPipelineView() {
       customerDistrict: "Vijayapura",
       customerRoute: order.route,
       customerGstin: "N/A",
-      vehicleNo: order.vehicleNo || "KA28AA6256",
+      vehicleNo: order.vehicleNo || "",
       createdBy: stripRoleSuffix(order.createdBy),
       creatorPhone: "",
       items: order.items.map((i) => {
@@ -1424,6 +1427,7 @@ export function WholesaleOrdersPipelineView() {
   }, [orders]);
 
   const handleUpdateOrderVehicle = (orderId: string, vehicleNo: string) => {
+    setDispatchError(null);
     setOrders((prev) => {
       const updated = prev.map((o) => (o.id === orderId ? { ...o, vehicleNo } : o));
       safeSavePipelineOrders(updated);
@@ -1431,7 +1435,9 @@ export function WholesaleOrdersPipelineView() {
       window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    toast.success(`Vehicle updated to ${vehicleNo}`);
+    if (vehicleNo) {
+      toast.success(`Vehicle updated to ${vehicleNo}`);
+    }
   };
 
   const handleBackToPacking = (orderId: string) => {
@@ -1559,8 +1565,32 @@ export function WholesaleOrdersPipelineView() {
 
   const handlePrintAndDispatch = (orderId: string) => {
     const orderToPrint = orders.find((o) => o.id === orderId);
+    const topSelectedVehicle =
+      selectedVehicle &&
+      selectedVehicle !== "0" &&
+      selectedVehicle !== "Select vehicle" &&
+      selectedVehicle !== "Select Vehicle No" &&
+      selectedVehicle !== "All Vehicle(s)"
+        ? selectedVehicle
+        : "";
+    const rawVehicle = (orderToPrint?.vehicleNo || topSelectedVehicle || "").trim();
+    const assignedVehicle =
+      rawVehicle &&
+      rawVehicle !== "Select vehicle" &&
+      rawVehicle !== "Select Vehicle No"
+        ? rawVehicle
+        : "";
+
+    if (!assignedVehicle) {
+      const msg = "Please select vehicle number";
+      setDispatchError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setDispatchError(null);
     if (orderToPrint) {
-      handleDuplicatePrint(orderToPrint, false);
+      handleDuplicatePrint({ ...orderToPrint, vehicleNo: assignedVehicle }, false);
     }
     const nowD = new Date();
     const dStr = `${nowD.getDate().toString().padStart(2, "0")}-${(nowD.getMonth() + 1).toString().padStart(2, "0")}-${nowD.getFullYear()}`;
@@ -1576,6 +1606,7 @@ export function WholesaleOrdersPipelineView() {
           return {
             ...o,
             stage: "dispatch" as const,
+            vehicleNo: assignedVehicle,
             dispatchedAt: timestampStr,
           };
         }
@@ -1586,7 +1617,13 @@ export function WholesaleOrdersPipelineView() {
       window.dispatchEvent(new Event("crm_order_placed"));
       return updated;
     });
-    apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage: "dispatch", order_no: orderToPrint?.orderNo }).catch(() => {});
+    apiClient
+      .post(`/api/v1/admin/crm/orders/${orderId}/stage`, {
+        stage: "dispatch",
+        order_no: orderToPrint?.orderNo,
+        vehicle_no: assignedVehicle,
+      })
+      .catch(() => {});
     setViewingOrder(null);
   };
 
@@ -1895,7 +1932,11 @@ export function WholesaleOrdersPipelineView() {
     const handleFullReturn = () => {
       const assignedVehicle = (selectedVehicle && selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)")
         ? selectedVehicle
-        : (viewingOrder.vehicleNo || "KA28AA6256");
+        : (viewingOrder.vehicleNo || "");
+      if (!assignedVehicle || assignedVehicle === "Select Vehicle No" || assignedVehicle === "Select vehicle") {
+        toast.error("Please select vehicle number");
+        return;
+      }
 
       const full: Record<number, { qty: number; reason: string }> = {};
       const returnedItems = viewingOrder.items.map((it, idx) => {
@@ -2099,7 +2140,7 @@ export function WholesaleOrdersPipelineView() {
 
         {/* Subtitle matching Image 2 */}
         <p className="text-xs text-slate-600 -mt-2">
-          {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy} · Vehicle {viewingOrder.vehicleNo || "KA28AB3425"}
+          {viewingOrder.customerName}, {viewingOrder.village} · {viewingOrder.orderDate} · taken by {viewingOrder.createdBy}{viewingOrder.vehicleNo ? ` · Vehicle ${viewingOrder.vehicleNo}` : ""}
         </p>
 
         {/* Delivery FMCG Items Table with Royal Blue Header matching Image 2 */}
@@ -3035,6 +3076,19 @@ export function WholesaleOrdersPipelineView() {
             <span>Orders <b className="text-slate-900 font-black">{currentStageOrders.length}</b></span>
             <span>Order total <b className="text-slate-900 font-black font-mono">₹{totalAmount.toLocaleString("en-IN")}</b></span>
           </div>
+
+          {dispatchError && (
+            <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-300 text-red-700 rounded-xl px-4 py-2.5 text-xs font-bold shadow-xs">
+              <span>{dispatchError}</span>
+              <button
+                type="button"
+                onClick={() => setDispatchError(null)}
+                className="text-red-500 hover:text-red-700 font-black cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Invoice Orders Table */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
