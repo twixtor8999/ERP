@@ -2389,7 +2389,7 @@ export function WholesaleOrdersPipelineView() {
             Close
           </button>
 
-          {(viewingOrder.invoiceNo || ['invoice', 'dispatch', 'delivery', 'completed'].includes(viewingOrder.stage)) && (
+          {viewingOrder.stage !== 'invoice' && (viewingOrder.invoiceNo || ['dispatch', 'delivery', 'completed'].includes(viewingOrder.stage)) && (
             <button
               onClick={() => handleDuplicatePrint(viewingOrder)}
               className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-full text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
