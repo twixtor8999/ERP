@@ -399,7 +399,7 @@ export function WholesaleStockMovementView() {
       {/* Explanatory disclaimer footnote */}
       <p className="text-[11px] sm:text-xs text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded">
         Click any product row to view its full Purchase → Sales → Return journey from Railway PostgreSQL.
-        Available = Closing − Punch Orders (pending). Order Cancel = qty cancelled on that day (already excluded from Punch Orders).
+        Available = Closing stock for that day. Order Cancel = qty cancelled on that day.
       </p>
 
       {/* Product Journey Modal */}

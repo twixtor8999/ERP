@@ -533,7 +533,7 @@ export function computeStockMovementRows(
           stockValue: closingForDay * s.cost,
           punchOrders: punch,
           orderCancel: cancel,
-          available: closingForDay - punch,
+          available: closingForDay,
         });
       }
     }
