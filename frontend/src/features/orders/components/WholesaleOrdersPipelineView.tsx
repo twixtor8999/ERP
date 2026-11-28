@@ -1110,6 +1110,7 @@ export function WholesaleOrdersPipelineView() {
   const [itemReturns, setItemReturns] = useState<Record<number, { qty: number; reason: string }>>({});
   const [deliveryPaymentType, setDeliveryPaymentType] = useState<"QR">("QR");
   const [deliveryQrAmount, setDeliveryQrAmount] = useState<number | string>("");
+  const [qrBoxFocused, setQrBoxFocused] = useState(false);
   const [deliveryUtrNumber, setDeliveryUtrNumber] = useState("");
   const [deliverySlipDataUrl, setDeliverySlipDataUrl] = useState("");
   const [deliverySlipName, setDeliverySlipName] = useState("");
@@ -1119,6 +1120,7 @@ export function WholesaleOrdersPipelineView() {
     setItemReturns({});
     setDeliveryPaymentType("QR");
     setDeliveryQrAmount("");
+    setQrBoxFocused(false);
     setDeliveryUtrNumber(viewingOrder?.utrNumber || "");
     setDeliverySlipDataUrl(viewingOrder?.screenshotUrl || "");
     setDeliverySlipName(viewingOrder?.screenshotUrl ? "Uploaded slip" : "");
@@ -1784,12 +1786,17 @@ export function WholesaleOrdersPipelineView() {
 
   if (viewingOrder && viewingOrder.stage === "delivery") {
     const totalQty = viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0), 0);
+    const itemsSumTotal = viewingOrder.items.reduce((sum, it) => {
+      const rate = (it as any).rate ?? it.price ?? 0;
+      return sum + ((it as any).amount ?? (it.qty || 0) * rate);
+    }, 0);
+    const effectiveOrderTotal = viewingOrder.total > 0 ? viewingOrder.total : itemsSumTotal;
     const returnedAmount = viewingOrder.items.reduce((sum, it, idx) => {
       const rQty = itemReturns[idx]?.qty || 0;
       const rate = (it as any).rate ?? it.price;
       return sum + rQty * rate;
     }, 0);
-    const netToCollect = Math.max(0, viewingOrder.total - returnedAmount);
+    const netToCollect = Math.max(0, effectiveOrderTotal - returnedAmount);
     const qrAmountNum = Math.min(netToCollect, Math.max(0, Number(deliveryQrAmount || 0) || 0));
     const calculatedCashAmount = Math.max(0, netToCollect - qrAmountNum);
 
@@ -2082,7 +2089,10 @@ export function WholesaleOrdersPipelineView() {
                   <td className="py-2.5 px-3"></td>
                   <td className="py-2.5 px-3"></td>
                   <td className="py-2.5 px-3 text-right font-mono font-bold">
-                    {viewingOrder.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(viewingOrder.total > 0
+                      ? viewingOrder.total
+                      : viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0) * (it.rate || 0), 0)
+                    ).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               </tbody>
@@ -2126,6 +2136,8 @@ export function WholesaleOrdersPipelineView() {
                 max={netToCollect}
                 placeholder="0"
                 value={deliveryQrAmount}
+                onFocus={() => setQrBoxFocused(true)}
+                onClick={() => setQrBoxFocused(true)}
                 onChange={(e) => {
                   const raw = e.target.value;
                   if (raw === "") {
@@ -2169,6 +2181,7 @@ export function WholesaleOrdersPipelineView() {
           </div>
 
           {/* QR Payment Slip Upload & UTR Number */}
+          {(qrBoxFocused || qrAmountNum > 0 || Boolean(deliverySlipDataUrl) || Boolean(deliveryUtrNumber)) && (
           <div className="flex flex-wrap items-center gap-4 text-xs pt-3 border-t border-slate-100">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-600">UTR Number:</span>
@@ -2234,6 +2247,7 @@ export function WholesaleOrdersPipelineView() {
               )}
             </div>
           </div>
+          )}
         </div>
 
         {/* Bottom Actions Row matching Image 2 */}
@@ -2398,7 +2412,10 @@ export function WholesaleOrdersPipelineView() {
                   <td className="py-2.5 px-3"></td>
                   <td className="py-2.5 px-3"></td>
                   <td className="py-2.5 px-3 text-right font-mono font-bold">
-                    {viewingOrder.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(viewingOrder.total > 0
+                      ? viewingOrder.total
+                      : viewingOrder.items.reduce((sum, it) => sum + (it.qty || 0) * (it.rate || 0), 0)
+                    ).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               </tbody>
