@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Bot, CheckCircle2, FileUp } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Bot, CheckCircle2, FileUp, Search, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   getStoredVendors,
@@ -39,6 +39,24 @@ export function WholesaleNewPurchaseView() {
   };
 
   const [selectedVendorId, setSelectedVendorId] = useState<number>(vendors[0]?.id || 1);
+  const [vendorDropdownOpen, setVendorDropdownOpen] = useState<boolean>(false);
+  const [vendorSearch, setVendorSearch] = useState<string>("");
+  const vendorDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (vendorDropdownRef.current && !vendorDropdownRef.current.contains(e.target as Node)) {
+        setVendorDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedVendorObj = vendors.find((v) => v.id === selectedVendorId) || vendors[0];
+  const filteredVendors = vendorSearch.trim()
+    ? vendors.filter((v) => v.name.toLowerCase().includes(vendorSearch.trim().toLowerCase()))
+    : vendors;
   const [invoiceNo, setInvoiceNo] = useState<string>("");
   const [invoiceDate, setInvoiceDate] = useState<string>("2026-11-22");
   const [attachedFileName, setAttachedFileName] = useState<string>("");
@@ -229,21 +247,64 @@ export function WholesaleNewPurchaseView() {
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Vendor, Invoice No, Invoice Date */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
+            <div ref={vendorDropdownRef} className="relative">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Vendor <span className="text-rose-500">*</span>
               </label>
-              <select
-                value={selectedVendorId}
-                onChange={(e) => handleVendorChange(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+              <button
+                type="button"
+                onClick={() => setVendorDropdownOpen((o) => !o)}
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-left flex items-center justify-between gap-2 cursor-pointer"
               >
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
+                <span className="truncate text-slate-900">
+                  {selectedVendorObj?.name || "Select vendor"}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${vendorDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {vendorDropdownOpen && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Search vendor..."
+                        value={vendorSearch}
+                        onChange={(e) => setVendorSearch(e.target.value)}
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-50">
+                    {filteredVendors.length === 0 ? (
+                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                        No matching vendors
+                      </div>
+                    ) : (
+                      filteredVendors.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => {
+                            handleVendorChange(v.id);
+                            setVendorDropdownOpen(false);
+                            setVendorSearch("");
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                            v.id === selectedVendorId
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-700 hover:bg-blue-50"
+                          }`}
+                        >
+                          {v.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
