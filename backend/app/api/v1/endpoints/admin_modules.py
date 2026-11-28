@@ -18,6 +18,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.security import hash_password
 from app.core.websocket_manager import ws_manager
 from app.database.dependencies import AuthContext, get_current_user
+from app.modules.inventory.service import (
+    adjust_order_item_quantity,
+    finalize_order_reservations_to_sales,
+    release_order_reservations_on_cancel,
+    reserve_order_item_stock,
+)
 from app.database.session import get_db
 from app.models import (
     AttendanceRecord,
@@ -4106,30 +4112,16 @@ def place_crm_quick_order(
                 total_amount=line_tot,
             )
         )
-        # Real-time stock validation & deduction from inventory with row-level lock
-        sb = db.scalar(
-            select(StockBalance)
-            .where(
-                StockBalance.organization_id == org_id,
-                StockBalance.product_variant_id == resolved_variant_id,
-            )
-            .with_for_update()
-            .limit(1)
+        # Phase 2: Reserve stock atomically on Pending/Packing order (deducted from on_hand on Dispatch/Completion)
+        reserve_order_item_stock(
+            db=db,
+            org_id=org_id,
+            order_id=order.id,
+            variant_id=resolved_variant_id,
+            qty=it.quantity,
+            order_number=order_no,
+            actor_id=current_user.user_id,
         )
-        avail_qty = Decimal(str(sb.quantity_available if sb and sb.quantity_available is not None else 0))
-        if not sb or avail_qty < it.quantity:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient Stock. Available Quantity: {avail_qty}. Requested Quantity: {it.quantity}.",
-            )
-        on_hand_qty = Decimal(str(sb.quantity_on_hand or 0))
-        if on_hand_qty < it.quantity:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient Stock. Available Quantity: {on_hand_qty}. Requested Quantity: {it.quantity}.",
-            )
-        sb.quantity_on_hand = on_hand_qty - it.quantity
-        sb.quantity_available = avail_qty - it.quantity
 
     # Create Invoice
     invoice = Invoice(
@@ -5032,14 +5024,17 @@ def update_crm_order_stage(
         elif stage == "dispatch":
             order.status = "DISPATCHED"
             order.dispatched_at = now_utc
+            finalize_order_reservations_to_sales(db=db, org_id=org_id, order=order, actor_id=current_user.user_id)
         elif stage == "delivery":
             order.status = "OUT_FOR_DELIVERY"
             order.dispatched_at = order.dispatched_at or now_utc
             order.delivery_started_at = now_utc
+            finalize_order_reservations_to_sales(db=db, org_id=org_id, order=order, actor_id=current_user.user_id)
         elif stage == "completed":
             order.status = "DELIVERED"
             order.delivered_at = now_utc
             order.payment_status = "PAID"
+            finalize_order_reservations_to_sales(db=db, org_id=org_id, order=order, actor_id=current_user.user_id)
             if payload.payment_mode:
                 pm_upper = payload.payment_mode.strip().upper()
                 order.payment_method = "QR" if pm_upper == "QR" else ("CASH_AND_QR" if "SPLIT" in pm_upper or ("CASH" in pm_upper and "QR" in pm_upper) else "CASH")
@@ -5058,6 +5053,7 @@ def update_crm_order_stage(
             order.status = "RETURNED"
             order.delivered_at = now_utc
             order.delivery_failure_reason = "Full return at delivery"
+            finalize_order_reservations_to_sales(db=db, org_id=org_id, order=order, actor_id=current_user.user_id)
             restocked_qty = _restock_order_items_on_return_or_cancel(
                 db=db,
                 org_id=org_id,
@@ -5072,14 +5068,11 @@ def update_crm_order_stage(
             order.status = "CANCELLED"
             order.cancelled_at = now_utc
             order.cancellation_reason = payload.cancel_reason or "Cancelled by admin"
-            restocked_qty = _restock_order_items_on_return_or_cancel(
+            restocked_qty = release_order_reservations_on_cancel(
                 db=db,
                 org_id=org_id,
                 order=order,
-                returned_items=None,
-                restock_all=True,
-                reference_type="ORDER_CANCEL",
-                default_reason=order.cancellation_reason,
+                reason=order.cancellation_reason,
                 actor_id=current_user.user_id,
             )
         
@@ -5087,6 +5080,45 @@ def update_crm_order_stage(
         return {"status": "success", "order_id": order.id, "stage": stage, "db_status": order.status, "restocked_qty": restocked_qty}
 
     return {"status": "cached", "order_id": order_id, "stage": stage}
+
+
+class AdjustOrderItemQtyPayload(BaseModel):
+    order_no: str | None = None
+    product_name: str
+    new_qty: Decimal
+
+
+@router.post("/crm/orders/{order_id}/items/qty", dependencies=[Depends(require_admin_user)])
+def update_crm_order_item_qty(
+    order_id: str,
+    payload: AdjustOrderItemQtyPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Validate and adjust an invoice/packing order item's reserved stock atomically."""
+    org_id = current_user.organization_id
+    raw_id = order_id.strip()
+    cand_order_no = (payload.order_no or "").strip()
+    clauses = [Order.id == raw_id, Order.order_number == raw_id]
+    if cand_order_no:
+        clauses.append(Order.order_number == cand_order_no)
+
+    order = db.scalar(
+        select(Order).where(or_(*clauses), Order.organization_id == org_id).with_for_update()
+    )
+    if not order:
+        return {"status": "cached", "order_id": order_id}
+
+    res = adjust_order_item_quantity(
+        db=db,
+        org_id=org_id,
+        order=order,
+        product_name=payload.product_name,
+        new_qty=payload.new_qty,
+        actor_id=current_user.user_id,
+    )
+    db.commit()
+    return {"status": "success", "order_id": order.id, **res}
 
 
 @router.post("/crm/punch-attendance")
@@ -5496,6 +5528,9 @@ def get_realtime_inventory(
         # Opening = Closing - today's net additions (so Opening + Purchase - PurRet - Sales + SalesRet + SplitIn - SplitOut + Adj == Closing)
         opening = max(0.0, closing - pur + pur_ret + sal - sal_ret - sp_in + sp_out - adj)
 
+        pending_orders = float(sb.quantity_reserved) if sb and sb.quantity_reserved is not None else punch
+        avail_val = max(0.0, closing - pending_orders)
+
         rows.append({
             "id": idx,
             "variantId": v.id,
@@ -5515,9 +5550,9 @@ def get_realtime_inventory(
             "cost": round(cost, 2),
             "price": round(price, 2),
             "minStock": int(getattr(v, "reorder_level", None) or getattr(p, "reorder_level", None) or 10),
-            "punchOrders": round(punch, 2),
+            "punchOrders": round(pending_orders, 2),
             "orderCancel": round(cancel, 2),
-            "available": round(closing - punch, 2),
+            "available": round(avail_val, 2),
             "stockValue": round(closing * cost, 2),
         })
     return rows

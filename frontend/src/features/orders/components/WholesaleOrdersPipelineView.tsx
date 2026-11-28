@@ -1517,7 +1517,7 @@ export function WholesaleOrdersPipelineView() {
       fetchRealtimeInventory()
         .then((rows) => {
           const map: Record<string, number> = {};
-          for (const r of rows) map[r.name.toLowerCase().trim()] = r.closing;
+          for (const r of rows) map[r.name.toLowerCase().trim()] = r.available ?? r.closing;
           liveStockByNameRef.current = map;
         })
         .catch(() => {});
@@ -1527,17 +1527,37 @@ export function WholesaleOrdersPipelineView() {
     return () => window.removeEventListener("inventory_updated", refreshLiveStock);
   }, []);
 
-  const handleUpdateInvoiceItemQty = (orderId: string, itemIdx: number, nextQty: number) => {
+  const handleUpdateInvoiceItemQty = async (orderId: string, itemIdx: number, nextQty: number) => {
     const targetOrder = orders.find((o) => o.id === orderId);
     const targetItem = targetOrder?.items[itemIdx];
-    if (targetItem && nextQty > targetItem.qty) {
+    if (!targetOrder || !targetItem) return;
+
+    if (nextQty <= 0 && targetOrder.items.length <= 1) {
+      toast.error("Invoice must have at least one item");
+      return;
+    }
+
+    if (nextQty > targetItem.qty) {
       const extraNeeded = nextQty - targetItem.qty;
       const avail = liveStockByNameRef.current[targetItem.name.toLowerCase().trim()];
       if (avail !== undefined && extraNeeded > avail) {
-        toast.error(`Only ${avail} additional unit(s) available in stock for ${targetItem.name}`);
+        toast.error(`Insufficient Stock. Available Quantity: ${avail}. Requested Quantity: ${extraNeeded}.`);
         return;
       }
     }
+
+    try {
+      await apiClient.post(`/api/v1/admin/crm/orders/${orderId}/items/qty`, {
+        order_no: targetOrder.orderNo,
+        product_name: targetItem.name,
+        new_qty: nextQty,
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "Failed to update item quantity in database";
+      toast.error(msg);
+      return;
+    }
+
     setOrders((prev) => {
       const updated = prev.map((o) => {
         if (o.id !== orderId) return o;
@@ -1559,6 +1579,7 @@ export function WholesaleOrdersPipelineView() {
       });
       safeSavePipelineOrders(updated);
       window.dispatchEvent(new Event("settlements_updated"));
+      window.dispatchEvent(new Event("inventory_updated"));
       return updated;
     });
   };

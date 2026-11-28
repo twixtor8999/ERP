@@ -1541,6 +1541,14 @@ def complete_delivery(
     order.delivered_at = now_utc
     order.delivery_attempt_count = (order.delivery_attempt_count or 0) + 1
 
+    from app.modules.inventory.service import finalize_order_reservations_to_sales
+    finalize_order_reservations_to_sales(
+        db=db,
+        org_id=auth.organization_id,
+        order=order,
+        actor_id=auth.user_id,
+    )
+
     # Record delivery attempt
     attempt_emp_id = order.delivery_employee_id or auth.user_id
     db.add(
