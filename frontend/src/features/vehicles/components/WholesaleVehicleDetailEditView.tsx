@@ -66,10 +66,10 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden my-auto">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-900/45 p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden my-auto max-h-[94dvh] flex flex-col">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
               Vehicle {vehicle.no}
@@ -99,7 +99,7 @@ export const WholesaleVehicleDetailEditView: React.FC<Props> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
+        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Vehicle no * */}
             <div className="space-y-1.5">

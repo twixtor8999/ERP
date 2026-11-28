@@ -150,7 +150,7 @@ export function WholesaleVehicleTripsView() {
           </button>
 
           {/* Date Range Strip with max today restriction */}
-          <div className="flex items-center gap-2 text-xs bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-xs bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto">
             <span className="text-slate-500 font-semibold pl-2">From</span>
             <input
               type="date"
