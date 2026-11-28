@@ -392,6 +392,24 @@ export async function adjustInventoryStock(
   return res.data;
 }
 
+export async function fetchInventorySplits(limit = 100): Promise<any[]> {
+  const res = await apiClient.get<any[]>(`/api/v1/admin/inventory/splits?limit=${limit}`);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function fetchInventoryLedger(
+  variantId?: string,
+  movementType?: string,
+  limit = 200
+): Promise<any[]> {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (variantId && variantId !== "all") params.set("variant_id", variantId);
+  if (movementType && movementType !== "all") params.set("movement_type", movementType);
+  const res = await apiClient.get<any[]>(`/api/v1/admin/inventory/ledger?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
 // ─── CRM ORDERS ──────────────────────────────────────────────────────────────
 export interface ApiCrmOrder {
   id: string | number;

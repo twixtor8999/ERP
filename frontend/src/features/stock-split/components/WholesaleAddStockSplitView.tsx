@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, Search, Scissors, CheckCircle2, Save } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
 import { getStoredSkus } from '@/features/inventory/data/mockInventory';
 import { computeLiveRealtimeSkus } from '@/features/inventory/utils/liveInventory';
+import { fetchRealtimeInventory, type ApiRealtimeSku } from '@/lib/api/apiService';
 import { getIstDateString } from '@/lib/utilities/istTime';
 import { useAuthStore } from '@/stores/auth.store';
 import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
@@ -27,20 +28,42 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
   const [shrinkageQty, setShrinkageQty] = useState<number>(0);
   const [notes, setNotes] = useState('');
 
-  // Load all 254 live Inventory SKUs with current live closing stock
+  const [liveApiSkus, setLiveApiSkus] = useState<ApiRealtimeSku[] | null>(null);
+
+  useEffect(() => {
+    fetchRealtimeInventory()
+      .then((rows) => {
+        if (rows.length > 0) setLiveApiSkus(rows);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load live Inventory SKUs from PostgreSQL (with fallback to computed store SKUs)
   const skuOptions: SplitSkuOption[] = useMemo(() => {
+    if (liveApiSkus && liveApiSkus.length > 0) {
+      return liveApiSkus.map((s) => ({
+        id: s.id,
+        skuNo: s.code || String(s.id),
+        name: s.name,
+        category: s.category || 'General',
+        stock: s.available ?? s.closing,
+        cost: s.cost,
+        price: s.price,
+        uom: 'Unit',
+      }));
+    }
     const liveSkus = computeLiveRealtimeSkus(getStoredSkus(), todayIso);
     return liveSkus.map((s) => ({
       id: s.id,
       skuNo: s.code || String(s.id),
       name: s.name,
       category: s.category || 'General',
-      stock: s.closing,
+      stock: s.available ?? s.closing,
       cost: s.cost,
       price: s.price,
       uom: 'Unit',
     }));
-  }, [todayIso]);
+  }, [liveApiSkus, todayIso]);
 
   const filteredSkus = useMemo(() => {
     if (!searchTerm.trim()) return skuOptions;

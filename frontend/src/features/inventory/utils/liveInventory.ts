@@ -4,7 +4,6 @@ import { getStoredPurchases, getStoredDebitNotes } from "@/features/purchases/da
 import { getStoredStockSplits } from "../data/mockStockSplit";
 import { type InventorySku } from "../data/mockInventory";
 import { normalizeDateToIso } from "@/lib/utilities/istTime";
-import { PNL_ORDERS } from "@/features/pnl/data/mockPnlData";
 
 const ADJUSTMENTS_STORAGE_KEY = "erp_realtime_adjustments_v1";
 
@@ -29,6 +28,7 @@ export interface StockMovementRow {
 
 export interface LiveRealtimeSku extends InventorySku {
   baseClosing: number;
+  available?: number;
 }
 
 function normalizeNameKey(name?: string): string {
@@ -94,13 +94,13 @@ export async function fetchAndMergeCrmPipelineOrders(fallbackDateIso: string): P
       const mappedItems =
         Array.isArray(bo.items) && bo.items.length > 0
           ? bo.items.map((it: any) => ({
-              name: it.product_name,
-              unit: "Unit",
-              qty: Number(it.quantity) || 1,
-              price: Number(it.unit_price) || 0,
-              rate: Number(it.unit_price) || 0,
-              amount: Number(it.total_amount) || 0,
-            }))
+            name: it.product_name,
+            unit: "Unit",
+            qty: Number(it.quantity) || 1,
+            price: Number(it.unit_price) || 0,
+            rate: Number(it.unit_price) || 0,
+            amount: Number(it.total_amount) || 0,
+          }))
           : existing?.items || [];
 
       if (
@@ -146,8 +146,8 @@ interface UnifiedOrderLine {
   dateIso: string;
   deliveredDateIso: string;
   bucket: "pending" | "sold" | "cancelled" | "returned";
-  items: Array<{ skuId?: number; name: string; qty: number }>;
-  returnedItems: Array<{ skuId?: number; name: string; qty: number }>;
+  items: Array<{ name: string; qty: number }>;
+  returnedItems: Array<{ name: string; qty: number }>;
 }
 
 function collectUnifiedOrders(): UnifiedOrderLine[] {
@@ -197,7 +197,7 @@ function collectUnifiedOrders(): UnifiedOrderLine[] {
           byOrderNo.set(orderNo, { orderNo, dateIso, deliveredDateIso, bucket, items, returnedItems });
         }
       }
-    } catch {}
+    } catch { }
   }
 
   // 2. Merge remaining orders from CRM report store
@@ -227,40 +227,7 @@ function collectUnifiedOrders(): UnifiedOrderLine[] {
         returnedItems: [],
       });
     }
-  } catch {}
-
-  // 3. Merge historical 512 backup orders from PNL_ORDERS
-  try {
-    for (const po of PNL_ORDERS) {
-      const orderNo = String(po.no || po.id || "").trim();
-      if (!orderNo || byOrderNo.has(orderNo)) continue;
-      const dateIso = normalizeDateToIso(po.date);
-      if (!dateIso) continue;
-      const deliveredDateIso = normalizeDateToIso(po.dsp || po.date) || dateIso;
-
-      const st = String(po.st || "").toLowerCase();
-      let bucket: UnifiedOrderLine["bucket"] = "pending";
-      if (st === "cancelled") bucket = "cancelled";
-      else if (st === "return" || st === "returned") bucket = "returned";
-      else if (st === "dispatch" || st === "delivery" || st === "completed" || st === "delivered") {
-        bucket = "sold";
-      }
-
-      const items = (po.items || []).map((it: any) => ({
-        skuId: it.s,
-        name: "",
-        qty: Number(it.q) || 0,
-      }));
-      byOrderNo.set(orderNo, {
-        orderNo,
-        dateIso,
-        deliveredDateIso,
-        bucket,
-        items,
-        returnedItems: [],
-      });
-    }
-  } catch {}
+  } catch { }
 
   return Array.from(byOrderNo.values());
 }
@@ -342,22 +309,22 @@ function buildDaySkuMaps(skus: InventorySku[]): DaySkuMaps {
   // Unified Orders
   for (const ord of collectUnifiedOrders()) {
     if (ord.bucket === "cancelled") {
-      for (const it of ord.items) addQty(orderCancel, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
+      for (const it of ord.items) addQty(orderCancel, ord.dateIso, resolveKey(undefined, it.name), it.qty);
     } else if (ord.bucket === "pending") {
-      for (const it of ord.items) addQty(punchPending, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
+      for (const it of ord.items) addQty(punchPending, ord.dateIso, resolveKey(undefined, it.name), it.qty);
     } else if (ord.bucket === "returned") {
       for (const it of ord.items) {
-        const k = resolveKey(it.skuId, it.name);
+        const k = resolveKey(undefined, it.name);
         addQty(sales, ord.dateIso, k, it.qty);
         addQty(salesReturn, ord.deliveredDateIso, k, it.qty);
       }
     } else {
       // sold (dispatched / delivery / completed)
       for (const it of ord.items) {
-        addQty(sales, ord.dateIso, resolveKey(it.skuId, it.name), it.qty);
+        addQty(sales, ord.dateIso, resolveKey(undefined, it.name), it.qty);
       }
       for (const rt of ord.returnedItems) {
-        addQty(salesReturn, ord.deliveredDateIso, resolveKey(rt.skuId, rt.name), rt.qty);
+        addQty(salesReturn, ord.deliveredDateIso, resolveKey(undefined, rt.name), rt.qty);
       }
     }
   }
@@ -367,14 +334,11 @@ function buildDaySkuMaps(skus: InventorySku[]): DaySkuMaps {
 
 /**
  * Compute Realtime Inventory rows with CUMULATIVE running balance across ALL dates up to today.
- * Opening = initial backup opening + all movements from ALL past days up to today.
  */
 export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string): LiveRealtimeSku[] {
   const maps = buildDaySkuMaps(skus);
-  const adj = getManualAdjustments();
 
-  // Collect all dates across all movement buckets that are <= today, sort ascending
-  const allDatesSet = new Set<string>();
+  const allDatesSet = new Set<string>([todayIso]);
   for (const bucket of [
     maps.purchase,
     maps.purchaseReturn,
@@ -389,13 +353,10 @@ export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string):
       if (d <= todayIso) allDatesSet.add(d);
     }
   }
-  allDatesSet.add(todayIso);
   const allDatesSorted = Array.from(allDatesSet).sort();
 
   return skus.map((s) => {
     const k = normalizeNameKey(s.name);
-
-    // Build running cumulative balance across all days up to today
     let runningBalance = s.opening;
     let todayPurchase = 0, todayPurchaseReturn = 0, todaySales = 0, todaySalesReturn = 0;
     let todaySplitIn = 0, todaySplitOut = 0, todayPunch = 0, todayCancel = 0;
@@ -407,9 +368,8 @@ export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string):
       const sReturn = maps.salesReturn[d]?.[k] || 0;
       const spIn = maps.splitIn[d]?.[k] || 0;
       const spOut = maps.splitOut[d]?.[k] || 0;
-      const delta = adj[`${d}_${s.id}`] || 0;
 
-      runningBalance = Math.max(0, runningBalance + pQty - pReturn - sQty + sReturn + spIn - spOut + delta);
+      runningBalance = Math.max(0, runningBalance + pQty - pReturn - sQty + sReturn + spIn - spOut);
 
       if (d === todayIso) {
         todayPurchase = pQty;
@@ -423,6 +383,11 @@ export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string):
       }
     }
 
+    const totalPending = Object.values(maps.punchPending).reduce(
+      (sum, dayMap) => sum + (dayMap[k] || 0),
+      0
+    );
+
     return {
       ...s,
       purchase: todayPurchase,
@@ -431,17 +396,17 @@ export function computeLiveRealtimeSkus(skus: InventorySku[], todayIso: string):
       salesReturn: todaySalesReturn,
       splitIn: todaySplitIn,
       splitOut: todaySplitOut,
-      punchOrders: todayPunch,
+      punchOrders: totalPending || todayPunch,
       orderCancel: todayCancel,
       baseClosing: runningBalance,
       closing: runningBalance,
+      available: Math.max(0, runningBalance - (totalPending || todayPunch)),
     };
   });
 }
 
 /**
- * Compute date-wise Stock Movement rows with PROPER running balance.
- * Opening of each day = closing of previous day (cumulative from initial backup opening).
+ * Compute date-wise Stock Movement rows with proper running balance (Next Day Opening = Previous Day Closing).
  */
 export function computeStockMovementRows(
   skus: InventorySku[],
@@ -452,14 +417,11 @@ export function computeStockMovementRows(
   searchQuery: string
 ): StockMovementRow[] {
   const maps = buildDaySkuMaps(skus);
-  const adj = getManualAdjustments();
 
   const start = fromDate || todayIso;
   const end = toDate || todayIso;
 
-  // Collect ALL dates from ALL movement buckets (not just within range)
-  // so we can compute the correct running balance before the selected range
-  const allDatesSet = new Set<string>();
+  const allDatesSet = new Set<string>([start, end]);
   for (const bucket of [
     maps.purchase,
     maps.purchaseReturn,
@@ -474,11 +436,6 @@ export function computeStockMovementRows(
       allDatesSet.add(d);
     }
   }
-  // Always include start and end dates
-  allDatesSet.add(start);
-  allDatesSet.add(end);
-
-  // Sort ALL dates ascending to build running balance correctly
   const allDatesSorted = Array.from(allDatesSet).sort();
 
   const q = searchQuery.toLowerCase().trim();
@@ -489,8 +446,6 @@ export function computeStockMovementRows(
     if (q && !s.name.toLowerCase().includes(q) && !s.code.toLowerCase().includes(q)) continue;
 
     const k = normalizeNameKey(s.name);
-
-    // Running balance starts at backup opening stock
     let runningBalance = s.opening;
 
     for (const d of allDatesSorted) {
@@ -502,15 +457,11 @@ export function computeStockMovementRows(
       const spOut = maps.splitOut[d]?.[k] || 0;
       const punch = maps.punchPending[d]?.[k] || 0;
       const cancel = maps.orderCancel[d]?.[k] || 0;
-      const delta = adj[`${d}_${s.id}`] || 0;
 
       const openingForDay = runningBalance;
-      const closingForDay = Math.max(0, openingForDay + pQty - pReturn - sQty + sReturn + spIn - spOut + delta);
-
-      // Always update running balance (even for days outside the selected range)
+      const closingForDay = Math.max(0, openingForDay + pQty - pReturn - sQty + sReturn + spIn - spOut);
       runningBalance = closingForDay;
 
-      // Only emit rows within the selected date range
       if (d < start || d > end) continue;
 
       const isLatestDay = d === end;
@@ -533,14 +484,11 @@ export function computeStockMovementRows(
           stockValue: closingForDay * s.cost,
           punchOrders: punch,
           orderCancel: cancel,
-          available: closingForDay,
+          available: Math.max(0, closingForDay - punch),
         });
       }
     }
   }
-
-  // Sort descending by date then by SKU name
-  rows.sort((a, b) => b.date.localeCompare(a.date) || a.skuName.localeCompare(b.skuName));
 
   return rows;
 }

@@ -11,7 +11,7 @@ import {
   type ShrinkageItem,
 } from "../data/mockStockSplit";
 import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
-import { fetchRealtimeInventory } from "@/lib/api/apiService";
+import { fetchRealtimeInventory, fetchInventorySplits } from "@/lib/api/apiService";
 import { apiClient } from "@/lib/api/client";
 import { WholesaleInventoryStockSplitDetailView } from "./WholesaleInventoryStockSplitDetailView";
 import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
@@ -23,9 +23,46 @@ export function WholesaleStockSplitView() {
   const [skus, setSkus] = useState<InventorySku[]>([]);
 
   useEffect(() => {
-    fetchRealtimeInventory().then((live) => {
-      if (live.length > 0) setSkus(live);
-    }).catch(() => setSkus(getStoredSkus()));
+    const syncAll = () => {
+      fetchRealtimeInventory().then((live) => {
+        if (live.length > 0) setSkus(live);
+      }).catch(() => setSkus(getStoredSkus()));
+
+      fetchInventorySplits().then((remoteSplits) => {
+        if (!remoteSplits || remoteSplits.length === 0) return;
+        setSplits((prev) => {
+          const seen = new Set(prev.map((sp) => sp.id));
+          const mappedRemote: StockSplitRecord[] = remoteSplits
+            .filter((b: any) => !seen.has(b.batch_number))
+            .map((b: any) => ({
+              id: b.batch_number,
+              date: b.split_date,
+              at: b.split_date,
+              dc: "SIDDESHWAR ENTERPRISES",
+              s: 0,
+              name: b.source_name || b.source_sku || "Source SKU",
+              out: Number(b.source_quantity) || 0,
+              grn: 0,
+              conv: (b.items || []).map((it: any) => ({
+                s: 0,
+                name: it.target_name || it.target_sku || "Target SKU",
+                q: Number(it.target_quantity) || 0,
+                p: 0,
+              })),
+              shr: null,
+              diffKg: null,
+              by: "Admin",
+              role: "Admin",
+            }));
+          if (mappedRemote.length === 0) return prev;
+          return [...mappedRemote, ...prev];
+        });
+      }).catch(() => {});
+    };
+
+    syncAll();
+    window.addEventListener("inventory_updated", syncAll);
+    return () => window.removeEventListener("inventory_updated", syncAll);
   }, []);
 
   // Views: list vs add
@@ -248,8 +285,9 @@ export function WholesaleStockSplitView() {
       return;
     }
 
-    if (outNum > selectedSourceSku.closing) {
-      toast.error(`Out Qty is more than the stock (${selectedSourceSku.closing})`);
+    const availQty = (selectedSourceSku as any).available ?? selectedSourceSku.closing;
+    if (outNum > availQty) {
+      toast.error(`Insufficient Stock. Available Quantity: ${availQty}. Requested Quantity: ${outNum}.`);
       return;
     }
 
