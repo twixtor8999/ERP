@@ -256,7 +256,7 @@ def main() -> None:
             gst_pct = int(round(float(row.get("GST %", "5") or 5)))
             grn_price = Decimal(str(round(float(row.get("GRN Price (incl. GST)", "0") or 0), 2)))
             sell_price = Decimal(str(round(float(row.get("Selling Price (incl. GST)", "0") or 0), 2)))
-            curr_stock = Decimal(str(round(float(row.get("Current Stock", "0") or 0), 4)))
+            curr_stock = max(Decimal("0.0000"), Decimal(str(round(float(row.get("Current Stock", "0") or 0), 4))))
 
             if not sku_name:
                 continue
