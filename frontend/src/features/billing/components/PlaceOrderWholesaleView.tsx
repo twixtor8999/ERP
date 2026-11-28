@@ -488,10 +488,10 @@ export function PlaceOrderWholesaleView() {
       return inStockProducts;
     }
     const q = itemSearchQuery.trim().toLowerCase();
-    return inStockProducts
-      .filter((p) => (p.name || "").toLowerCase().includes(q))
+    return allProducts
+      .filter((p) => (p.price ?? 0) > 0 && (p.name || "").toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [inStockProducts, itemSearchQuery]);
+  }, [inStockProducts, allProducts, itemSearchQuery]);
 
   // Cart items list for "In cart" section at top
   const inCartProducts = useMemo(() => {
@@ -525,7 +525,15 @@ export function PlaceOrderWholesaleView() {
           </div>
 
           <div className="pt-1">
-            {qtyInCart > 0 ? (
+            {(prod.stock ?? 0) <= 0 ? (
+              <button
+                type="button"
+                disabled
+                className="bg-slate-200 text-slate-500 font-extrabold text-xs px-5 py-2 rounded-lg cursor-not-allowed"
+              >
+                OUT OF STOCK
+              </button>
+            ) : qtyInCart > 0 ? (
               <div className="inline-flex items-center rounded-lg shadow-2xs overflow-hidden border border-slate-200 bg-white">
                 <button
                   type="button"
@@ -560,9 +568,15 @@ export function PlaceOrderWholesaleView() {
         {/* Right Side: Badges & Price Equation */}
         <div className="flex flex-col items-end gap-1.5 shrink-0 self-stretch justify-between">
           <div className="flex flex-col items-end gap-1">
-            <span className="border-[1.5px] border-[#0f3aa8] text-[#0f3aa8] rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-white">
-              STOCK: {prod.stock > 0 ? prod.stock : "N/A"}
-            </span>
+            {(prod.stock ?? 0) <= 0 ? (
+              <span className="border-[1.5px] border-rose-500 text-rose-600 rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-rose-50">
+                OUT OF STOCK
+              </span>
+            ) : (
+              <span className="border-[1.5px] border-[#0f3aa8] text-[#0f3aa8] rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-white">
+                STOCK: {prod.stock}
+              </span>
+            )}
             {prod.packBadge && (
               <span className="border-[1.5px] border-[#0f3aa8] text-[#0f3aa8] rounded-full px-2.5 py-0.5 text-[11px] sm:text-xs font-extrabold whitespace-nowrap bg-white">
                 {prod.packBadge}

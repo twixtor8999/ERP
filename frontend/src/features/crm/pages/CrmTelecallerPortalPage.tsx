@@ -2117,10 +2117,12 @@ export function CrmTelecallerPortalPage() {
 
   // Filtered Products for Order Pad
   const filteredOrderProducts = useMemo(() => {
-    const inStockCatalog = catalog.filter((p) => (p.current_stock ?? 0) > 0 && (p.selling_price ?? 0) > 0);
-    if (!orderProductSearch.trim()) return inStockCatalog;
+    const validCatalog = catalog.filter((p) => (p.selling_price ?? 0) > 0);
+    if (!orderProductSearch.trim()) {
+      return validCatalog.filter((p) => (p.current_stock ?? 0) > 0);
+    }
     const q = orderProductSearch.toLowerCase().trim();
-    return inStockCatalog.filter((p) => {
+    return validCatalog.filter((p) => {
       const nameMatch = p.name.toLowerCase().includes(q);
       const codeMatch = p.code.toLowerCase().includes(q);
       const catMatch = p.category_name?.toLowerCase().includes(q);
