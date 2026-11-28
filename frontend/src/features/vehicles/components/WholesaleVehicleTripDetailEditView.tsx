@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { ArrowLeft, Printer, Download, Save, Truck, Gauge, Camera, X } from "lucide-react";
-import { VehicleTripRecord } from "../data/mockVehicles";
+import {
+  getStoredDieselRates,
+  getStoredVehicles,
+  type VehicleTripRecord,
+} from "../data/mockVehicles";
 import { toast } from "sonner";
 
 interface Props {
@@ -22,7 +26,17 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
   onBack,
   onSave,
 }) => {
+  const matchedVehicle = getStoredVehicles().find(
+    (v) => v.no.trim().toUpperCase() === (trip.vehNo || "").trim().toUpperCase()
+  );
+  const resolvedDriver =
+    (trip as any).driverName || (trip as any).dr || matchedVehicle?.dr || "—";
+  const activeDieselRate = getStoredDieselRates()[0]?.rate || 99;
+  const perKmRate = Math.round((activeDieselRate / 10) * 100) / 100;
+
+  const [startKm, setStartKm] = useState<number | string>(trip.startKm || 0);
   const [endKm, setEndKm] = useState<number | string>(trip.endKm || trip.startKm);
+  const [fixedRent, setFixedRent] = useState<number | string>(trip.fixedRent || 0);
   const [toll, setToll] = useState<number | string>(trip.otherCost || 0);
   const [status, setStatus] = useState<"in_progress" | "closed">(trip.status);
   const [startKmPhoto, setStartKmPhoto] = useState<string>(
@@ -51,13 +65,16 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
     }
   };
 
-  const startKmNum = Number(trip.startKm) || 0;
+  const startKmNum = Number(startKm) || 0;
   const endKmNum = Number(endKm) || startKmNum;
   const totalKmCalc = Math.max(0, endKmNum - startKmNum);
+  const fixedRentNum = Number(fixedRent) || 0;
   const tollNum = Number(toll) || 0;
-  // 10 km/l @ Rs 99/l = Rs 9.9 per km
-  const mileageCost = Math.round(totalKmCalc * 9.9);
-  const totalRentCalc = trip.fixedRent + tollNum + mileageCost;
+  const mileageCost =
+    trip.dieselCost > 0 && totalKmCalc === trip.totalKm
+      ? trip.dieselCost
+      : Math.round(totalKmCalc * perKmRate);
+  const totalRentCalc = fixedRentNum + tollNum + mileageCost;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +85,11 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
     const kmPhotos = [startKmPhoto, endKmPhoto].filter(Boolean);
     const updated: VehicleTripRecord = {
       ...trip,
+      startKm: startKmNum,
       endKm: endKmNum,
       totalKm: totalKmCalc,
+      fixedRent: fixedRentNum,
+      dieselCost: mileageCost,
       otherCost: tollNum,
       totalRent: totalRentCalc,
       status,
@@ -90,11 +110,19 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
           );
           if (!alreadyExists) {
             const netAmount = Math.max(0, trip.invoiceAmt - trip.returns);
+            const currentUserName = (() => {
+              try {
+                const u = JSON.parse(localStorage.getItem("auth_user") || "{}");
+                return u?.name || u?.full_name || localStorage.getItem("user_name") || "Admin";
+              } catch {
+                return "Admin";
+              }
+            })();
             const newSettlement = {
               sl: existingList.length + 1,
               date: trip.date,
               vehicleNumber: trip.vehNo,
-              driverName: (trip as any).driverName || (trip as any).dr || "Driver",
+              driverName: resolvedDriver !== "—" ? resolvedDriver : "",
               noOfOrders: trip.ordersCount,
               invoiceAmt: trip.invoiceAmt,
               fullReturn: 0,
@@ -107,8 +135,8 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
               countedCash: null,
               diff: null,
               denominations: null,
-              remarks: `Auto-generated from closed trip (${trip.startKm} to ${endKmNum} km)`,
-              enteredBy: "Vijaykumar Shantagiri",
+              remarks: `Auto-generated from closed trip (${startKmNum} to ${endKmNum} km)`,
+              enteredBy: currentUserName,
             };
             localStorage.setItem(SETTLEMENT_KEY, JSON.stringify([newSettlement, ...existingList]));
             window.dispatchEvent(new Event("settlements_updated"));
@@ -207,7 +235,7 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-xs text-slate-600 font-medium">
-            Vehicle: <span className="font-bold text-slate-900">{trip.vehNo}</span> ({trip.model}) · Date: {trip.date} · Driver: {(trip as any).driverName || "Basavaraj Hiremath"}
+            Vehicle: <span className="font-bold text-slate-900">{trip.vehNo}</span> ({trip.model}) · Date: {trip.date} · Driver: {resolvedDriver}
           </p>
         </div>
 
@@ -259,10 +287,16 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
             Odometer Readings & Trip Closure Inputs
           </h2>
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-slate-500 block mb-1">Start Odometer (KM)</span>
-              <span className="text-base font-black font-mono text-slate-900">{trip.startKm}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Start Odometer (KM) *</label>
+              <input
+                type="number"
+                value={startKm}
+                onChange={(e) => setStartKm(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold"
+                required
+              />
             </div>
 
             <div>
@@ -277,14 +311,25 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="text-xs">
-            <label className="block text-slate-700 font-semibold mb-1">Toll, Loading & Other Expenses (₹)</label>
-            <input
-              type="number"
-              value={toll}
-              onChange={(e) => setToll(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Fixed Daily Rent (₹)</label>
+              <input
+                type="number"
+                value={fixedRent}
+                onChange={(e) => setFixedRent(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Toll, Loading & Other Expenses (₹)</label>
+              <input
+                type="number"
+                value={toll}
+                onChange={(e) => setToll(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              />
+            </div>
           </div>
 
           <div className="text-xs">
@@ -389,14 +434,14 @@ export const WholesaleVehicleTripDetailEditView: React.FC<Props> = ({
           <div className="space-y-2 text-xs">
             <div className="flex justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
               <span className="text-slate-600">Fixed Daily Rent:</span>
-              <span className="font-bold font-mono text-slate-900">₹{trip.fixedRent.toLocaleString("en-IN")}</span>
+              <span className="font-bold font-mono text-slate-900">₹{fixedRentNum.toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
               <span className="text-slate-600">Mileage Distance:</span>
               <span className="font-bold font-mono text-slate-900">{totalKmCalc} KM</span>
             </div>
             <div className="flex justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-              <span className="text-slate-600">Diesel Consumption (10 km/l @ ₹99/l):</span>
+              <span className="text-slate-600">Diesel Consumption (10 km/l @ ₹{activeDieselRate}/l):</span>
               <span className="font-bold font-mono text-slate-900">₹{mileageCost.toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">

@@ -221,7 +221,7 @@ export function WholesaleStockMovementView() {
             Back
           </button>
 
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-700">
             <span>From</span>
             <input
               type="date"

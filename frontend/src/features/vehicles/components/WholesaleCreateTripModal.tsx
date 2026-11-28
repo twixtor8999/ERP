@@ -112,8 +112,8 @@ export function WholesaleCreateTripModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#132038] text-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-slate-700 animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-[#132038] text-white rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-2xl border border-slate-700 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto my-auto">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight">Create trip</h2>
           <p className="text-xs text-slate-300 mt-1">
