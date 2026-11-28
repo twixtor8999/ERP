@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 import {
   getStoredPurchases,
   getStoredDebitNotes,
@@ -183,7 +184,28 @@ export function WholesalePurchaseReturnView() {
     setInvoiceQuery("");
   };
 
-  const handleApproveDebitNote = (id: number) => {
+  const handleApproveDebitNote = async (id: number) => {
+    const target = debitNotes.find((d) => d.id === id);
+    if (!target || target.status === "approved") return;
+
+    try {
+      await apiClient.post("/api/v1/admin/purchases/return-stock", {
+        debit_note_no: target.debitNoteNo,
+        vendor_name: target.vendorName,
+        items: (target.lines || []).map((l) => ({
+          sku_code: (l as any).skuCode || undefined,
+          sku_name: l.skuName,
+          qty: l.returnQty,
+          cost_price: l.grnPrice || 0,
+          reason: l.reason,
+        })),
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "Failed to deduct purchase return stock in database";
+      toast.error(msg);
+      return;
+    }
+
     const updated = debitNotes.map((d) => {
       if (d.id === id) {
         return { ...d, status: "approved" as const };
@@ -195,6 +217,7 @@ export function WholesalePurchaseReturnView() {
     if (selectedNote?.id === id) {
       setSelectedNote({ ...selectedNote, status: "approved" });
     }
+    window.dispatchEvent(new Event("inventory_updated"));
     toast.success("Debit Note approved! Stock deducted and vendor credit updated.");
   };
 

@@ -12,6 +12,7 @@ import {
 } from "../data/mockStockSplit";
 import { getStoredSkus, saveStoredSkus, type InventorySku } from "../data/mockInventory";
 import { fetchRealtimeInventory } from "@/lib/api/apiService";
+import { apiClient } from "@/lib/api/client";
 import { WholesaleInventoryStockSplitDetailView } from "./WholesaleInventoryStockSplitDetailView";
 import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 
@@ -234,7 +235,7 @@ export function WholesaleStockSplitView() {
     toast.success("Stock split exported");
   };
 
-  const handleSubmitSplit = (e: React.FormEvent) => {
+  const handleSubmitSplit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSourceSku) {
       toast.error("Select the item to split");
@@ -310,6 +311,28 @@ export function WholesaleStockSplitView() {
       role: "Owner",
     };
 
+    try {
+      await apiClient.post("/api/v1/admin/inventory/split", {
+        split_no: newSplit.id,
+        source_variant_id: (selectedSourceSku as any).variantId || undefined,
+        source_sku_name: selectedSourceSku.name,
+        out_qty: outNum,
+        targets: convList.map((c) => {
+          const targetSku = skus.find((item) => item.id === c.s);
+          return {
+            variant_id: (targetSku as any)?.variantId || undefined,
+            sku_name: c.name,
+            qty: c.q,
+            cost_price: c.p,
+          };
+        }),
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "Failed to save stock split in database";
+      toast.error(msg);
+      return;
+    }
+
     // Update inventory stocks in storage
     const updatedSkus = skus.map((s) => {
       if (s.id === selectedSourceSku.id) {
@@ -337,6 +360,7 @@ export function WholesaleStockSplitView() {
     saveStoredStockSplits(updatedSplits);
     setSplits(updatedSplits);
 
+    window.dispatchEvent(new Event("inventory_updated"));
     toast.success("Stock split saved");
     setIsAdding(false);
   };
