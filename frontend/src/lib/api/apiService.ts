@@ -226,12 +226,78 @@ export async function fetchVehicles(): Promise<ApiVehicle[]> {
   return Array.isArray(res.data) ? res.data : [];
 }
 
-export async function fetchTrips(dateFrom?: string, dateTo?: string): Promise<ApiTrip[]> {
+export async function fetchTrips(dateFrom?: string, dateTo?: string): Promise<any> {
   const params = new URLSearchParams();
   if (dateFrom) params.set("date_from", dateFrom);
   if (dateTo) params.set("date_to", dateTo);
-  const res = await apiClient.get<ApiTrip[]>(`/api/v1/admin/trips?${params}`);
-  return Array.isArray(res.data) ? res.data : [];
+  const res = await apiClient.get<any>(`/api/v1/admin/trips?${params}`);
+  return res.data;
+}
+
+// ─── VEHICLE SETTLEMENTS & DENOMINATIONS (AISB-V0.1) ─────────────────────────
+export interface ApiVehicleSettlementRow {
+  vehicle_id: string;
+  vehicle_number: string;
+  orders_count: number;
+  invoice_amount: number;
+  full_return: number;
+  partial_return: number;
+  old_return: number;
+  net_amount: number;
+  qr_payment: number;
+  cash_received: number;
+  bank_payment: number;
+  difference: number;
+  has_denomination: boolean;
+  denomination?: {
+    note_500: number;
+    note_200: number;
+    note_100: number;
+    note_50: number;
+    note_20: number;
+    note_10: number;
+    coins: number;
+    cash_total: number;
+    qr_total: number;
+    difference: number;
+  } | null;
+}
+
+export interface ApiVehicleSettlementSummary {
+  date_from: string;
+  date_to: string;
+  missing_denomination_count: number;
+  compulsory_alert: string | null;
+  rows: ApiVehicleSettlementRow[];
+}
+
+export async function fetchVehicleSettlementSummary(
+  dateFrom?: string,
+  dateTo?: string
+): Promise<ApiVehicleSettlementSummary> {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const res = await apiClient.get<ApiVehicleSettlementSummary>(`/api/v1/admin/vehicles/settlement-summary?${params}`);
+  return res.data;
+}
+
+export async function saveVehicleDenomination(payload: {
+  vehicle_number: string;
+  settlement_date: string;
+  net_amount: number;
+  note_500?: number;
+  note_200?: number;
+  note_100?: number;
+  note_50?: number;
+  note_20?: number;
+  note_10?: number;
+  coins_amount?: number;
+  qr_total?: number;
+  notes?: string;
+}): Promise<any> {
+  const res = await apiClient.post("/api/v1/admin/vehicles/denomination", payload);
+  return res.data;
 }
 
 export async function createTrip(payload: {

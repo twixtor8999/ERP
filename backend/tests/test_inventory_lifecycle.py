@@ -254,7 +254,7 @@ def test_05_pipeline_deducts_stock_exactly_once(client, db_session: Session):
         r_stage = client.post(
             f"/api/v1/admin/crm/orders/{order_no}/stage",
             headers=ctx["headers"],
-            json={"stage": stage},
+            json={"stage": stage, "vehicle_no": "KA28AA6256"},
         )
         assert r_stage.status_code == 200
 

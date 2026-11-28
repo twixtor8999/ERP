@@ -166,6 +166,7 @@ from app.modules.settlements.models import (
     PaymentReconciliationRecord,
     Settlement,
     SettlementItem,
+    VehicleSettlementDenomination,
 )
 
 # 17. SaaS Plans & Subscriptions

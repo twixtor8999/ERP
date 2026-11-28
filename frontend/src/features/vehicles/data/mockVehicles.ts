@@ -566,9 +566,11 @@ export async function loadVehiclesFromApi(): Promise<VehicleRecord[]> {
     }));
 }
 
-export async function loadTripsFromApi(): Promise<VehicleTripRecord[]> {
-  const apiData = await _fetchTrips();
-  return apiData.map((t: any) => {
+export async function loadTripsFromApi(): Promise<{ trips: VehicleTripRecord[]; inProgressAlert: string | null }> {
+  const apiRes = await _fetchTrips();
+  const rawList = Array.isArray(apiRes) ? apiRes : (apiRes?.items || []);
+  const inProgressAlert = apiRes?.in_progress_alert || null;
+  const mapped = rawList.map((t: any) => {
     const vehNo = String(t.vehicle_name || "").split(" ")[0] || "KA28AA6256";
     const startKm = Number(t.start_odometer) || 0;
     const endKm = Number(t.end_odometer) || startKm;
@@ -606,6 +608,7 @@ export async function loadTripsFromApi(): Promise<VehicleTripRecord[]> {
         : [],
     };
   });
+  return { trips: mapped, inProgressAlert };
 }
 
 export async function createTripInApi(trip: VehicleTripRecord): Promise<VehicleTripRecord> {

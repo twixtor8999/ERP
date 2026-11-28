@@ -20,6 +20,7 @@ import { getIstDateString, isDateInRange } from "@/lib/utilities/istTime";
 export function WholesaleVehicleTripsView() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<VehicleTripRecord[]>(() => getStoredTrips());
+  const [inProgressAlert, setInProgressAlert] = useState<string | null>(null);
 
   // Dynamic today ISO date (IST)
   const todayIso = getIstDateString();
@@ -32,7 +33,8 @@ export function WholesaleVehicleTripsView() {
   // Sync trips from Railway backend + storage when trips are created or updated
   useEffect(() => {
     loadTripsFromApi().then((data) => {
-      if (data && data.length > 0) setTrips(data);
+      if (data && data.trips && data.trips.length > 0) setTrips(data.trips);
+      if (data?.inProgressAlert) setInProgressAlert(data.inProgressAlert);
     }).catch(() => { /* keep local */ });
     const handleTripsUpdated = () => {
       setTrips(getStoredTrips());
@@ -188,13 +190,15 @@ export function WholesaleVehicleTripsView() {
       </div>
 
       {/* Ongoing Trips Alert Banner */}
-      {inProgressTrips.length > 0 && (
+      {(inProgressAlert || inProgressTrips.length > 0) && (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl text-xs flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>
               <b>Trip in Progress:</b>{" "}
-              {inProgressTrips.map((t) => `${t.vehNo} (${t.date})`).join(", ")} – Close these trips to bill these vehicles again.
+              {inProgressAlert
+                ? inProgressAlert
+                : `${inProgressTrips.map((t) => `${t.vehNo} (${t.date})`).join(", ")} – Close these trips to bill these vehicles again.`}
             </span>
           </div>
         </div>

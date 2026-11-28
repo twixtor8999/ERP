@@ -91,3 +91,6 @@ scripts/analyze_*.py
 
 
 
+*.db
+*.ps
+backend/*.db

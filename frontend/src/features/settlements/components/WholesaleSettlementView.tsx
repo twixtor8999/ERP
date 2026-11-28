@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Download, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
-import { fetchSettlements, saveSettlementToApi } from "@/lib/api/apiService";
+import { fetchSettlements, saveSettlementToApi, saveVehicleDenomination } from "@/lib/api/apiService";
 import { useAuthStore } from "@/stores/auth.store";
 import { getIstDateString, isDateInRange, normalizeDateToIso } from "@/lib/utilities/istTime";
 import { KA28AB3425_SETTLEMENT_ORDERS, SettlementInvoiceOrder } from "../data/mockSettlementOrders";
@@ -855,6 +855,22 @@ export function WholesaleSettlementView() {
         denominations: savedRow.denominations,
         enteredBy: savedRow.enteredBy,
       }),
+    });
+
+    // Centralized vehicle denomination persistence in PostgreSQL table
+    void saveVehicleDenomination({
+      vehicle_number: savedRow.vehicleNumber,
+      settlement_date: savedRow.date || todayStr,
+      net_amount: savedRow.netAmt,
+      note_500: Number(noteCounts["500"] || 0),
+      note_200: Number(noteCounts["200"] || 0),
+      note_100: Number(noteCounts["100"] || 0),
+      note_50: Number(noteCounts["50"] || 0),
+      note_20: Number(noteCounts["20"] || 0),
+      note_10: Number(noteCounts["10"] || 0),
+      coins_amount: Number(noteCounts["1"] || 0),
+      qr_total: denomQR,
+      notes: denomRemarks || undefined,
     });
 
     // Save to localStorage cache so Sales vs Collection and Denomination Report pick it up immediately

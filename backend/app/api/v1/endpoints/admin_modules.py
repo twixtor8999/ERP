@@ -57,6 +57,7 @@ from app.models import (
     RolePermission,
     SalarySlip,
     Settlement,
+    VehicleSettlementDenomination,
     StockBalance,
     StockMovement,
     StockSplitBatch,
@@ -3101,13 +3102,21 @@ class CompleteTripPayload(BaseModel):
 @router.get("/trips", dependencies=[Depends(require_admin_user)])
 def list_admin_trips(
     branch_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     org_id = current_user.organization_id
-    query = select(DeliveryTrip).where(DeliveryTrip.organization_id == org_id).order_by(DeliveryTrip.created_at.desc())
+    query = select(DeliveryTrip).where(DeliveryTrip.organization_id == org_id).order_by(DeliveryTrip.trip_date.desc(), DeliveryTrip.created_at.desc())
     if branch_id:
         query = query.where(DeliveryTrip.branch_id == branch_id)
+    if date_from:
+        d_from = date.fromisoformat(date_from[:10])
+        query = query.where(DeliveryTrip.trip_date >= d_from)
+    if date_to:
+        d_to = date.fromisoformat(date_to[:10])
+        query = query.where(DeliveryTrip.trip_date <= d_to)
     trips = db.scalars(query).all()
 
     vehicles_map = {v.id: f"{v.vehicle_number} ({v.make} {v.model})" for v in db.scalars(select(Vehicle).where(Vehicle.organization_id == org_id)).all()}
@@ -3150,7 +3159,31 @@ def list_admin_trips(
             "notes": t.notes,
             "stops": stops_data,
         })
-    return results
+
+    # Check for unclosed prior trips for warning header
+    now_ist = datetime.now(UTC) + timedelta(hours=5, minutes=30)
+    today_ist_date = now_ist.date()
+    open_prior_trips = db.scalars(
+        select(DeliveryTrip)
+        .where(
+            DeliveryTrip.organization_id == org_id,
+            DeliveryTrip.status != "COMPLETED",
+            DeliveryTrip.trip_date < today_ist_date,
+        )
+    ).all()
+    prior_unclosed_list = [
+        f"{vehicles_map.get(t.vehicle_id, 'Vehicle').split(' ')[0]} ({t.trip_date.isoformat()})"
+        for t in open_prior_trips
+    ]
+
+    return {
+        "trips": results,
+        "unclosed_prior_trips": prior_unclosed_list,
+        "in_progress_alert": (
+            f"Trip in Progress: {', '.join(prior_unclosed_list)} – Close these trips to bill these vehicles again."
+            if prior_unclosed_list else None
+        )
+    }
 
 
 @router.post("/trips", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_user)])
@@ -4874,14 +4907,23 @@ def get_crm_orders_status(
 
 
 def _extract_delivery_note_tag(notes: str | None, tag: str) -> str | None:
-    """Extract `[TAG:value]` token from Order.delivery_notes if present."""
-    marker = f"[{tag}:"
-    if not notes or marker not in notes:
+    """Extract `[TAG:value]` or legacy `TAG:value` token from Order.delivery_notes if present."""
+    if not notes:
         return None
-    try:
-        return notes.split(marker, 1)[1].split("]", 1)[0].strip() or None
-    except Exception:
-        return None
+    # 1. Check bracket format: [TAG:value]
+    bracket_marker = f"[{tag}:"
+    if bracket_marker in notes:
+        try:
+            return notes.split(bracket_marker, 1)[1].split("]", 1)[0].strip() or None
+        except Exception:
+            pass
+    # 2. Check pipe / delimiter format: TAG:value (e.g. VEH:KA28AA6256|PAY:...)
+    for part in notes.split("|"):
+        part = part.strip()
+        prefix = f"{tag}:"
+        if part.startswith(prefix):
+            return part[len(prefix):].strip() or None
+    return None
 
 
 def _upsert_delivery_note_tag(notes: str | None, tag: str, value: str) -> str:
@@ -5087,6 +5129,44 @@ def update_crm_order_stage(
             order.status = "PACKED"
             order.packed_at = now_utc
         elif stage == "dispatch":
+            # Mandatory vehicle assignment check
+            v_no = (payload.vehicle_no or "").strip()
+            if not v_no:
+                existing_v = _extract_delivery_note_tag(order.delivery_notes, "VEH")
+                if existing_v:
+                    v_no = existing_v.strip()
+            if not v_no:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot dispatch order without selecting a delivery vehicle."
+                )
+
+            # Check if this vehicle has an unclosed trip from a previous day (Trip in Progress rule)
+            today_ist_date = (now_utc + timedelta(hours=5, minutes=30)).date()
+            veh_obj = db.scalar(
+                select(Vehicle).where(
+                    Vehicle.organization_id == org_id,
+                    Vehicle.vehicle_number == v_no,
+                )
+            )
+            if veh_obj:
+                unclosed_prior_trip = db.scalar(
+                    select(DeliveryTrip).where(
+                        DeliveryTrip.organization_id == org_id,
+                        DeliveryTrip.vehicle_id == veh_obj.id,
+                        DeliveryTrip.status != "COMPLETED",
+                        DeliveryTrip.trip_date < today_ist_date,
+                    )
+                )
+                if unclosed_prior_trip:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Trip in Progress: {v_no} ({unclosed_prior_trip.trip_date.isoformat()}). "
+                            "Close this trip to bill this vehicle again."
+                        )
+                    )
+
             order.status = "DISPATCHED"
             order.dispatched_at = now_utc
             finalize_order_reservations_to_sales(db=db, org_id=org_id, order=order, actor_id=current_user.user_id)
@@ -5435,6 +5515,295 @@ def save_admin_settlement(
     db.commit()
     db.refresh(settlement)
     return {"id": settlement.id, "settlement_date": settlement.settlement_date.isoformat(), "status": settlement.status}
+
+
+class SaveVehicleDenominationPayload(BaseModel):
+    settlement_date: str
+    vehicle_number: str
+    orders_count: int = 0
+    net_amount: Decimal = Decimal("0.00")
+    note_500: int = 0
+    note_200: int = 0
+    note_100: int = 0
+    note_50: int = 0
+    note_20: int = 0
+    note_10: int = 0
+    coins_amount: Decimal = Decimal("0.00")
+    qr_total: Decimal = Decimal("0.00")
+    notes: str | None = None
+
+
+@router.get("/vehicles/settlement-summary", dependencies=[Depends(require_admin_user)])
+def get_vehicle_settlement_summary(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Calculates settlement rows for all vehicles over the specified date range.
+    
+    Adopts exact AISB-V0.1 settlement math:
+      net_amount = invoice_amount - full_return - partial_return - old_return
+      diff = net_amount - (cash_received + qr_payment + bank_payment)
+    """
+    org_id = current_user.organization_id
+    now_ist = datetime.now(UTC) + timedelta(hours=5, minutes=30)
+    today_iso = now_ist.date().isoformat()
+    d_from_str = date_from or today_iso
+    d_to_str = date_to or today_iso
+    d_from = date.fromisoformat(d_from_str[:10])
+    d_to = date.fromisoformat(d_to_str[:10])
+
+    vehicles = db.scalars(
+        select(Vehicle)
+        .where(Vehicle.organization_id == org_id, Vehicle.is_active == True)
+        .order_by(Vehicle.vehicle_number.asc())
+    ).all()
+    
+    # Query all orders in range that are dispatched, delivered, completed or returned
+    orders = db.scalars(
+        select(Order).where(
+            Order.organization_id == org_id,
+            Order.status.in_(["DISPATCHED", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "RETURNED", "CANCELLED"]),
+        )
+    ).all()
+
+    # Preload existing denomination entries for the date range
+    denoms = db.scalars(
+        select(VehicleSettlementDenomination).where(
+            VehicleSettlementDenomination.organization_id == org_id,
+            VehicleSettlementDenomination.settlement_date >= d_from,
+            VehicleSettlementDenomination.settlement_date <= d_to,
+        )
+    ).all()
+    denom_map = {f"{d.settlement_date.isoformat()}_{d.vehicle_number}": d for d in denoms}
+
+    rows = []
+    missing_denom_count = 0
+
+    for v in vehicles:
+        v_no = v.vehicle_number
+        # Match orders assigned to this vehicle
+        v_orders = []
+        for o in orders:
+            v_tag = _extract_delivery_note_tag(o.delivery_notes, "VEH")
+            if v_tag and v_tag.strip().upper() == v_no.strip().upper():
+                # Settlement date rule: defaults to dispatched date (or order date)
+                order_date = o.order_date
+                if o.dispatched_at:
+                    disp_ist = (o.dispatched_at + timedelta(hours=5, minutes=30)).date()
+                    order_date = disp_ist
+                if d_from <= order_date <= d_to:
+                    v_orders.append((o, order_date))
+
+        inv_amt = Decimal("0.00")
+        full_ret = Decimal("0.00")
+        part_ret = Decimal("0.00")
+        old_ret = Decimal("0.00")
+        qr_paid = Decimal("0.00")
+        cash_paid = Decimal("0.00")
+        bank_paid = Decimal("0.00")
+
+        for o, o_date in v_orders:
+            tot = Decimal(str(o.total_amount or 0.0))
+            inv_amt += tot
+            
+            # Extract payment tags if any
+            pay_tag = _extract_delivery_note_tag(o.delivery_notes, "PAY")
+            o_cash = Decimal("0.00")
+            o_qr = Decimal("0.00")
+            o_ret = Decimal("0.00")
+            if pay_tag:
+                parts = dict(kv.split("=") for kv in pay_tag.split(";") if "=" in kv)
+                o_cash = Decimal(parts.get("cash", "0"))
+                o_qr = Decimal(parts.get("qr", "0"))
+                o_ret = Decimal(parts.get("ret", "0"))
+
+            # Return calculation
+            if o.status in ("RETURNED", "CANCELLED") or o_ret >= tot:
+                full_ret += tot
+            elif o_ret > Decimal("0.00"):
+                part_ret += o_ret
+
+            # Payment breakdown
+            pm = (o.payment_method or "").upper()
+            if o_cash > Decimal("0.00") or o_qr > Decimal("0.00"):
+                cash_paid += o_cash
+                qr_paid += o_qr
+            elif "QR" in pm or "UPI" in pm:
+                qr_paid += max(Decimal("0.00"), tot - o_ret)
+            elif "BANK" in pm:
+                bank_paid += max(Decimal("0.00"), tot - o_ret)
+            else:
+                cash_paid += max(Decimal("0.00"), tot - o_ret)
+
+        net_amt = max(Decimal("0.00"), inv_amt - full_ret - part_ret - old_ret)
+        diff = net_amt - (cash_paid + qr_paid + bank_paid)
+
+        # Check denomination entry
+        v_denom = denom_map.get(f"{d_to_str}_{v_no}") or denom_map.get(f"{d_from_str}_{v_no}")
+        has_denom = v_denom is not None
+        denom_data = None
+        if v_denom:
+            denom_data = {
+                "note_500": v_denom.note_500,
+                "note_200": v_denom.note_200,
+                "note_100": v_denom.note_100,
+                "note_50": v_denom.note_50,
+                "note_20": v_denom.note_20,
+                "note_10": v_denom.note_10,
+                "coins": float(v_denom.coins_amount),
+                "cash_total": float(v_denom.cash_total),
+                "qr_total": float(v_denom.qr_total),
+                "difference": float(v_denom.difference),
+            }
+        elif len(v_orders) > 0 and net_amt > Decimal("0.00"):
+            missing_denom_count += 1
+
+        if len(v_orders) > 0 or net_amt > Decimal("0.00") or has_denom:
+            rows.append({
+                "vehicle_id": v.id,
+                "vehicle_number": v_no,
+                "orders_count": len(v_orders),
+                "invoice_amount": float(inv_amt),
+                "full_return": float(full_ret),
+                "partial_return": float(part_ret),
+                "old_return": float(old_ret),
+                "net_amount": float(net_amt),
+                "qr_payment": float(qr_paid),
+                "cash_received": float(cash_paid),
+                "bank_payment": float(bank_paid),
+                "difference": float(diff),
+                "has_denomination": has_denom,
+                "denomination": denom_data,
+            })
+
+    return {
+        "date_from": d_from_str,
+        "date_to": d_to_str,
+        "missing_denomination_count": missing_denom_count,
+        "missing_denomination_alert": (
+            f"{missing_denom_count} vehicle(s) without denomination – entry is compulsory for every vehicle."
+            if missing_denom_count > 0 else None
+        ),
+        "rows": rows,
+    }
+
+
+@router.post("/vehicles/denomination", status_code=status.HTTP_200_OK, dependencies=[Depends(require_admin_user)])
+def save_vehicle_denomination(
+    payload: SaveVehicleDenominationPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Records currency note breakdown, coins, and QR collection for a vehicle on a settlement date.
+    
+    Verifies mathematical formula:
+      cash_total = 500*n500 + 200*n200 + 100*n100 + 50*n50 + 20*n20 + 10*n10 + coins
+      difference = (cash_total + qr_total) - net_amount
+    """
+    org_id = current_user.organization_id
+    branch_id = current_user.active_branch_id or (
+        current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
+    )
+    if not branch_id:
+        first_b = db.scalar(select(Branch).where(Branch.organization_id == org_id))
+        branch_id = first_b.id if first_b else None
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="No branch configured for organization")
+
+    v_no = payload.vehicle_number.strip()
+    veh_obj = db.scalar(
+        select(Vehicle).where(
+            Vehicle.organization_id == org_id,
+            Vehicle.vehicle_number == v_no,
+        )
+    )
+    if not veh_obj:
+        raise HTTPException(status_code=404, detail=f"Vehicle {v_no} not found")
+
+    s_date = date.fromisoformat(payload.settlement_date[:10])
+    
+    # Calculate exact cash sum
+    calc_cash = Decimal(
+        payload.note_500 * 500
+        + payload.note_200 * 200
+        + payload.note_100 * 100
+        + payload.note_50 * 50
+        + payload.note_20 * 20
+        + payload.note_10 * 10
+    ) + payload.coins_amount
+
+    # difference = (cash + qr) - net_amount
+    diff = (calc_cash + payload.qr_total) - payload.net_amount
+
+    existing = db.scalar(
+        select(VehicleSettlementDenomination).where(
+            VehicleSettlementDenomination.organization_id == org_id,
+            VehicleSettlementDenomination.settlement_date == s_date,
+            VehicleSettlementDenomination.vehicle_id == veh_obj.id,
+        )
+    )
+
+    if existing:
+        existing.orders_count = payload.orders_count
+        existing.net_amount = payload.net_amount
+        existing.note_500 = payload.note_500
+        existing.note_200 = payload.note_200
+        existing.note_100 = payload.note_100
+        existing.note_50 = payload.note_50
+        existing.note_20 = payload.note_20
+        existing.note_10 = payload.note_10
+        existing.coins_amount = payload.coins_amount
+        existing.cash_total = calc_cash
+        existing.qr_total = payload.qr_total
+        existing.difference = diff
+        existing.verified_by_user_id = current_user.user_id
+        existing.notes = payload.notes
+        db.commit()
+        db.refresh(existing)
+        return {
+            "id": existing.id,
+            "vehicle_number": v_no,
+            "settlement_date": existing.settlement_date.isoformat(),
+            "cash_total": float(calc_cash),
+            "difference": float(diff),
+            "status": "UPDATED",
+        }
+
+    denom = VehicleSettlementDenomination(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=branch_id,
+        settlement_date=s_date,
+        vehicle_id=veh_obj.id,
+        vehicle_number=v_no,
+        orders_count=payload.orders_count,
+        net_amount=payload.net_amount,
+        note_500=payload.note_500,
+        note_200=payload.note_200,
+        note_100=payload.note_100,
+        note_50=payload.note_50,
+        note_20=payload.note_20,
+        note_10=payload.note_10,
+        coins_amount=payload.coins_amount,
+        cash_total=calc_cash,
+        qr_total=payload.qr_total,
+        difference=diff,
+        verified_by_user_id=current_user.user_id,
+        notes=payload.notes,
+    )
+    db.add(denom)
+    db.commit()
+    db.refresh(denom)
+    return {
+        "id": denom.id,
+        "vehicle_number": v_no,
+        "settlement_date": denom.settlement_date.isoformat(),
+        "cash_total": float(calc_cash),
+        "difference": float(diff),
+        "status": "CREATED",
+    }
 
 
 # ---------------------------------------------------------------------------
