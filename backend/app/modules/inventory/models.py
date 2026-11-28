@@ -173,8 +173,10 @@ class StockMovement(Base):
     )
     movement_type: Mapped[str] = mapped_column(
         String(30), nullable=False
-    )  # IN, OUT, TRANSFER, ADJUSTMENT, RETURN, SPLIT
+    )  # IN, PURCHASE, PURCHASE_RETURN, OUT, TRANSFER, ADJUSTMENT, RETURN, SPLIT, ORDER_RESERVATION, RESERVATION_RELEASE, SALES_FINALIZATION
     quantity: Mapped[Decimal] = mapped_column(QUANTITY_TYPE, nullable=False)
+    opening_quantity: Mapped[Decimal | None] = mapped_column(QUANTITY_TYPE, nullable=True)
+    closing_quantity: Mapped[Decimal | None] = mapped_column(QUANTITY_TYPE, nullable=True)
     unit_cost: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
     total_cost: Mapped[Decimal] = mapped_column(MONEY_TYPE, default=Decimal("0.00"), nullable=False)
     reference_type: Mapped[str] = mapped_column(String(50), nullable=False)

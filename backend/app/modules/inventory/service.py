@@ -1,11 +1,12 @@
-"""Centralized atomic inventory reservation, sales finalization, and release service."""
+"""Centralized atomic inventory reservation, sales finalization, split, and ledger service."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 import uuid
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Invoice
@@ -13,6 +14,8 @@ from app.modules.inventory.models import (
     InventoryReservation,
     StockBalance,
     StockMovement,
+    StockSplitBatch,
+    StockSplitItem,
 )
 from app.modules.orders.models import Order, OrderItem
 
@@ -23,6 +26,45 @@ def _recompute_available(sb: StockBalance) -> None:
     sb.quantity_available = max(Decimal("0.0000"), on_hand - reserved)
     unit_cost = Decimal(str(sb.average_unit_cost or 0))
     sb.total_value = on_hand * unit_cost
+
+
+def record_stock_movement(
+    db: Session,
+    *,
+    org_id: str,
+    branch_id: str,
+    warehouse_id: str,
+    variant_id: str,
+    movement_type: str,
+    quantity: Decimal,
+    opening_qty: Decimal,
+    closing_qty: Decimal,
+    unit_cost: Decimal,
+    reference_type: str,
+    reference_id: str,
+    notes: str | None = None,
+    created_by: str | None = None,
+) -> StockMovement:
+    """Append an immutable StockMovement ledger entry with opening/closing snapshots."""
+    mv = StockMovement(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=branch_id,
+        warehouse_id=warehouse_id,
+        product_variant_id=variant_id,
+        movement_type=movement_type,
+        quantity=quantity,
+        opening_quantity=opening_qty,
+        closing_quantity=closing_qty,
+        unit_cost=unit_cost,
+        total_cost=(abs(quantity) * unit_cost).quantize(Decimal("0.01")),
+        reference_type=reference_type,
+        reference_id=reference_id,
+        notes=notes,
+        created_by=created_by,
+    )
+    db.add(mv)
+    return mv
 
 
 def reserve_order_item_stock(
@@ -54,6 +96,7 @@ def reserve_order_item_stock(
             detail=f"Insufficient Stock. Available Quantity: {avail_qty}. Requested Quantity: {qty}.",
         )
 
+    on_hand = Decimal(str(sb.quantity_on_hand or 0))
     sb.quantity_reserved = Decimal(str(sb.quantity_reserved or 0)) + qty
     _recompute_available(sb)
 
@@ -70,22 +113,21 @@ def reserve_order_item_stock(
         is_released=False,
     )
     db.add(resv)
-    db.add(
-        StockMovement(
-            id=str(uuid.uuid4()),
-            organization_id=org_id,
-            branch_id=sb.branch_id,
-            warehouse_id=sb.warehouse_id,
-            product_variant_id=variant_id,
-            movement_type="ORDER_RESERVATION",
-            quantity=qty,
-            unit_cost=Decimal(str(sb.average_unit_cost or 0)),
-            total_cost=qty * Decimal(str(sb.average_unit_cost or 0)),
-            reference_type="ORDER_RESERVATION",
-            reference_id=order_id,
-            notes=f"Reserved {qty} for {order_number or order_id}",
-            created_by=actor_id,
-        )
+    record_stock_movement(
+        db,
+        org_id=org_id,
+        branch_id=sb.branch_id,
+        warehouse_id=sb.warehouse_id,
+        variant_id=variant_id,
+        movement_type="ORDER_RESERVATION",
+        quantity=qty,
+        opening_qty=avail_qty,
+        closing_qty=Decimal(str(sb.quantity_available or 0)),
+        unit_cost=Decimal(str(sb.average_unit_cost or 0)),
+        reference_type="ORDER_RESERVATION",
+        reference_id=order_id,
+        notes=f"Reserved {qty} for {order_number or order_id} (on_hand={on_hand})",
+        created_by=actor_id,
     )
     return resv
 
@@ -138,27 +180,26 @@ def finalize_order_reservations_to_sales(
             continue
 
         deduct_qty = Decimal(str(resv.quantity or 0))
+        opening_on_hand = Decimal(str(sb.quantity_on_hand or 0))
         sb.quantity_reserved = max(Decimal("0.0000"), Decimal(str(sb.quantity_reserved or 0)) - deduct_qty)
-        sb.quantity_on_hand = max(Decimal("0.0000"), Decimal(str(sb.quantity_on_hand or 0)) - deduct_qty)
+        sb.quantity_on_hand = max(Decimal("0.0000"), opening_on_hand - deduct_qty)
         _recompute_available(sb)
 
-        unit_cost = Decimal(str(sb.average_unit_cost or 0))
-        db.add(
-            StockMovement(
-                id=str(uuid.uuid4()),
-                organization_id=org_id,
-                branch_id=sb.branch_id,
-                warehouse_id=sb.warehouse_id,
-                product_variant_id=resv.product_variant_id,
-                movement_type="SALES_FINALIZATION",
-                quantity=-deduct_qty,
-                unit_cost=unit_cost,
-                total_cost=deduct_qty * unit_cost,
-                reference_type="ORDER_SALE",
-                reference_id=order.id,
-                notes=f"Sales finalization for {order.order_number}",
-                created_by=actor_id,
-            )
+        record_stock_movement(
+            db,
+            org_id=org_id,
+            branch_id=sb.branch_id,
+            warehouse_id=sb.warehouse_id,
+            variant_id=resv.product_variant_id,
+            movement_type="SALES_FINALIZATION",
+            quantity=-deduct_qty,
+            opening_qty=opening_on_hand,
+            closing_qty=Decimal(str(sb.quantity_on_hand or 0)),
+            unit_cost=Decimal(str(sb.average_unit_cost or 0)),
+            reference_type="ORDER_SALE",
+            reference_id=order.id,
+            notes=f"Sales finalization for {order.order_number}",
+            created_by=actor_id,
         )
         total_finalized += deduct_qty
 
@@ -210,26 +251,25 @@ def release_order_reservations_on_cancel(
             if not sb:
                 continue
             rel_qty = Decimal(str(resv.quantity or 0))
+            opening_avail = Decimal(str(sb.quantity_available or 0))
             sb.quantity_reserved = max(Decimal("0.0000"), Decimal(str(sb.quantity_reserved or 0)) - rel_qty)
             _recompute_available(sb)
 
-            unit_cost = Decimal(str(sb.average_unit_cost or 0))
-            db.add(
-                StockMovement(
-                    id=str(uuid.uuid4()),
-                    organization_id=org_id,
-                    branch_id=sb.branch_id,
-                    warehouse_id=sb.warehouse_id,
-                    product_variant_id=resv.product_variant_id,
-                    movement_type="RESERVATION_RELEASE",
-                    quantity=rel_qty,
-                    unit_cost=unit_cost,
-                    total_cost=rel_qty * unit_cost,
-                    reference_type="ORDER_CANCEL",
-                    reference_id=order.id,
-                    notes=f"{order.order_number}: {reason}",
-                    created_by=actor_id,
-                )
+            record_stock_movement(
+                db,
+                org_id=org_id,
+                branch_id=sb.branch_id,
+                warehouse_id=sb.warehouse_id,
+                variant_id=resv.product_variant_id,
+                movement_type="RESERVATION_RELEASE",
+                quantity=rel_qty,
+                opening_qty=opening_avail,
+                closing_qty=Decimal(str(sb.quantity_available or 0)),
+                unit_cost=Decimal(str(sb.average_unit_cost or 0)),
+                reference_type="ORDER_CANCEL",
+                reference_id=order.id,
+                notes=f"{order.order_number}: {reason}",
+                created_by=actor_id,
             )
             total_released += rel_qty
         return float(total_released)
@@ -252,25 +292,24 @@ def release_order_reservations_on_cancel(
         )
         if not sb:
             continue
-        sb.quantity_on_hand = Decimal(str(sb.quantity_on_hand or 0)) + qty
+        opening_on_hand = Decimal(str(sb.quantity_on_hand or 0))
+        sb.quantity_on_hand = opening_on_hand + qty
         _recompute_available(sb)
-        unit_cost = Decimal(str(sb.average_unit_cost or 0))
-        db.add(
-            StockMovement(
-                id=str(uuid.uuid4()),
-                organization_id=org_id,
-                branch_id=sb.branch_id,
-                warehouse_id=sb.warehouse_id,
-                product_variant_id=oi.product_variant_id,
-                movement_type="RETURN",
-                quantity=qty,
-                unit_cost=unit_cost,
-                total_cost=qty * unit_cost,
-                reference_type="ORDER_CANCEL",
-                reference_id=order.id,
-                notes=f"{order.order_number}: {reason}",
-                created_by=actor_id,
-            )
+        record_stock_movement(
+            db,
+            org_id=org_id,
+            branch_id=sb.branch_id,
+            warehouse_id=sb.warehouse_id,
+            variant_id=oi.product_variant_id,
+            movement_type="RETURN",
+            quantity=qty,
+            opening_qty=opening_on_hand,
+            closing_qty=Decimal(str(sb.quantity_on_hand or 0)),
+            unit_cost=Decimal(str(sb.average_unit_cost or 0)),
+            reference_type="ORDER_CANCEL",
+            reference_id=order.id,
+            notes=f"{order.order_number}: {reason}",
+            created_by=actor_id,
         )
         total_restored += qty
 
@@ -368,3 +407,149 @@ def adjust_order_item_quantity(
         inv.balance_amount = max(Decimal("0.00"), inv.total_amount - Decimal(str(inv.paid_amount or 0)))
 
     return {"old_qty": float(old_qty), "new_qty": float(new_qty), "total_amount": float(order.total_amount)}
+
+
+def execute_stock_split(
+    db: Session,
+    *,
+    org_id: str,
+    branch_id: str,
+    warehouse_id: str,
+    split_no: str,
+    src_variant_id: str,
+    src_default_cost: Decimal,
+    out_qty: Decimal,
+    targets: list[dict],
+    actor_id: str | None = None,
+) -> StockSplitBatch:
+    """Atomically execute Split Out + Split In, persist StockSplitBatch/Items, and log StockMovement snapshots."""
+    existing_batch = db.scalar(
+        select(StockSplitBatch).where(
+            StockSplitBatch.organization_id == org_id,
+            StockSplitBatch.batch_number == split_no,
+        )
+    )
+    if existing_batch:
+        return existing_batch
+
+    src_sb = db.scalar(
+        select(StockBalance)
+        .where(
+            StockBalance.organization_id == org_id,
+            StockBalance.product_variant_id == src_variant_id,
+        )
+        .with_for_update()
+        .limit(1)
+    )
+    src_avail = Decimal(str(src_sb.quantity_available if src_sb and src_sb.quantity_available is not None else 0))
+    if not src_sb or src_avail < out_qty:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient Stock. Available Quantity: {src_avail}. Requested Quantity: {out_qty}.",
+        )
+
+    src_opening = Decimal(str(src_sb.quantity_on_hand or 0))
+    src_sb.quantity_on_hand = max(Decimal("0.0000"), src_opening - out_qty)
+    _recompute_available(src_sb)
+    src_cost = Decimal(str(src_sb.average_unit_cost or src_default_cost or 0))
+
+    record_stock_movement(
+        db,
+        org_id=org_id,
+        branch_id=src_sb.branch_id or branch_id,
+        warehouse_id=src_sb.warehouse_id or warehouse_id,
+        variant_id=src_variant_id,
+        movement_type="SPLIT",
+        quantity=-out_qty,
+        opening_qty=src_opening,
+        closing_qty=Decimal(str(src_sb.quantity_on_hand or 0)),
+        unit_cost=src_cost,
+        reference_type="STOCK_SPLIT",
+        reference_id=split_no,
+        notes=f"Split Out {split_no}",
+        created_by=actor_id,
+    )
+
+    batch = StockSplitBatch(
+        id=str(uuid.uuid4()),
+        organization_id=org_id,
+        branch_id=src_sb.branch_id or branch_id,
+        warehouse_id=src_sb.warehouse_id or warehouse_id,
+        batch_number=split_no,
+        source_variant_id=src_variant_id,
+        source_quantity=out_qty,
+        split_date=datetime.now(ZoneInfo("Asia/Kolkata")).date(),
+        status="COMPLETED",
+    )
+    db.add(batch)
+    db.flush()
+
+    for tgt in targets:
+        tgt_qty = Decimal(str(tgt["qty"]))
+        if tgt_qty <= Decimal("0"):
+            continue
+        tgt_variant_id = tgt["variant_id"]
+        eff_cost = Decimal(str(tgt.get("cost_price") or 0))
+
+        tgt_sb = db.scalar(
+            select(StockBalance)
+            .where(
+                StockBalance.organization_id == org_id,
+                StockBalance.product_variant_id == tgt_variant_id,
+            )
+            .with_for_update()
+            .limit(1)
+        )
+        if tgt_sb:
+            tgt_opening = Decimal(str(tgt_sb.quantity_on_hand or 0))
+            tgt_sb.quantity_on_hand = tgt_opening + tgt_qty
+            _recompute_available(tgt_sb)
+            tgt_branch = tgt_sb.branch_id or branch_id
+            tgt_wh = tgt_sb.warehouse_id or warehouse_id
+            tgt_cost = Decimal(str(tgt_sb.average_unit_cost or eff_cost))
+        else:
+            tgt_opening = Decimal("0.0000")
+            tgt_branch = branch_id
+            tgt_wh = warehouse_id
+            tgt_cost = eff_cost
+            db.add(
+                StockBalance(
+                    id=str(uuid.uuid4()),
+                    organization_id=org_id,
+                    branch_id=tgt_branch,
+                    warehouse_id=tgt_wh,
+                    product_variant_id=tgt_variant_id,
+                    quantity_on_hand=tgt_qty,
+                    quantity_reserved=Decimal("0.0000"),
+                    quantity_available=tgt_qty,
+                    average_unit_cost=tgt_cost,
+                    total_value=tgt_qty * tgt_cost,
+                )
+            )
+
+        db.add(
+            StockSplitItem(
+                id=str(uuid.uuid4()),
+                split_batch_id=batch.id,
+                target_variant_id=tgt_variant_id,
+                target_quantity=tgt_qty,
+            )
+        )
+        record_stock_movement(
+            db,
+            org_id=org_id,
+            branch_id=tgt_branch,
+            warehouse_id=tgt_wh,
+            variant_id=tgt_variant_id,
+            movement_type="SPLIT",
+            quantity=tgt_qty,
+            opening_qty=tgt_opening,
+            closing_qty=tgt_opening + tgt_qty,
+            unit_cost=tgt_cost,
+            reference_type="STOCK_SPLIT",
+            reference_id=split_no,
+            notes=f"Split In {split_no}",
+            created_by=actor_id,
+        )
+
+    return batch

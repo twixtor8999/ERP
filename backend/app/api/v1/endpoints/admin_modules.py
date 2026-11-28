@@ -20,7 +20,9 @@ from app.core.websocket_manager import ws_manager
 from app.database.dependencies import AuthContext, get_current_user
 from app.modules.inventory.service import (
     adjust_order_item_quantity,
+    execute_stock_split,
     finalize_order_reservations_to_sales,
+    record_stock_movement,
     release_order_reservations_on_cancel,
     reserve_order_item_stock,
 )
@@ -56,6 +58,8 @@ from app.models import (
     Settlement,
     StockBalance,
     StockMovement,
+    StockSplitBatch,
+    StockSplitItem,
     Supplier,
     UnitConversion,
     UnitOfMeasure,
@@ -2546,7 +2550,8 @@ def receive_purchase_stock(
         )
         eff_cost = item.cost_price if item.cost_price > Decimal("0.00") else Decimal(str(variant.cost_price or 0))
         if sb:
-            sb.quantity_on_hand = Decimal(str(sb.quantity_on_hand or 0)) + item.qty
+            opening_on_hand = Decimal(str(sb.quantity_on_hand or 0))
+            sb.quantity_on_hand = opening_on_hand + item.qty
             sb.quantity_available = max(
                 Decimal("0.0000"),
                 sb.quantity_on_hand - Decimal(str(sb.quantity_reserved or 0)),
@@ -2554,7 +2559,10 @@ def receive_purchase_stock(
             if eff_cost > Decimal("0.00"):
                 sb.average_unit_cost = eff_cost
             sb.total_value = sb.quantity_on_hand * Decimal(str(sb.average_unit_cost or eff_cost))
+            closing_on_hand = sb.quantity_on_hand
         elif warehouse:
+            opening_on_hand = Decimal("0.0000")
+            closing_on_hand = item.qty
             db.add(
                 StockBalance(
                     id=str(uuid.uuid4()),
@@ -2569,26 +2577,28 @@ def receive_purchase_stock(
                     total_value=item.qty * eff_cost,
                 )
             )
+        else:
+            opening_on_hand = Decimal("0.0000")
+            closing_on_hand = item.qty
         if item.cost_price > Decimal("0.00"):
             variant.cost_price = item.cost_price
 
         if warehouse:
-            db.add(
-                StockMovement(
-                    id=str(uuid.uuid4()),
-                    organization_id=org_id,
-                    branch_id=warehouse.branch_id,
-                    warehouse_id=warehouse.id,
-                    product_variant_id=variant.id,
-                    movement_type="PURCHASE",
-                    quantity=item.qty,
-                    unit_cost=eff_cost,
-                    total_cost=item.qty * eff_cost,
-                    reference_type="PURCHASE_INVOICE",
-                    reference_id=payload.invoice_no,
-                    notes=f"Purchase {payload.invoice_no} from {payload.vendor_name}",
-                    created_by=current_user.user_id,
-                )
+            record_stock_movement(
+                db,
+                org_id=org_id,
+                branch_id=sb.branch_id if sb else warehouse.branch_id,
+                warehouse_id=sb.warehouse_id if sb else warehouse.id,
+                variant_id=variant.id,
+                movement_type="PURCHASE",
+                quantity=item.qty,
+                opening_qty=opening_on_hand,
+                closing_qty=closing_on_hand,
+                unit_cost=eff_cost,
+                reference_type="PURCHASE_INVOICE",
+                reference_id=payload.invoice_no,
+                notes=f"Purchase {payload.invoice_no} from {payload.vendor_name}",
+                created_by=current_user.user_id,
             )
         updated_count += 1
 
@@ -2655,28 +2665,28 @@ def return_purchase_stock(
                 detail=f"Insufficient Stock. Available Quantity: {avail}. Requested Quantity: {item.qty}.",
             )
 
-        sb.quantity_on_hand = max(Decimal("0.0000"), Decimal(str(sb.quantity_on_hand or 0)) - item.qty)
+        opening_on_hand = Decimal(str(sb.quantity_on_hand or 0))
+        sb.quantity_on_hand = max(Decimal("0.0000"), opening_on_hand - item.qty)
         sb.quantity_available = max(Decimal("0.0000"), avail - item.qty)
         eff_cost = item.cost_price if item.cost_price > Decimal("0.00") else Decimal(str(sb.average_unit_cost or variant.cost_price or 0))
         sb.total_value = sb.quantity_on_hand * Decimal(str(sb.average_unit_cost or eff_cost))
 
         if warehouse:
-            db.add(
-                StockMovement(
-                    id=str(uuid.uuid4()),
-                    organization_id=org_id,
-                    branch_id=sb.branch_id or warehouse.branch_id,
-                    warehouse_id=sb.warehouse_id or warehouse.id,
-                    product_variant_id=variant.id,
-                    movement_type="PURCHASE_RETURN",
-                    quantity=-item.qty,
-                    unit_cost=eff_cost,
-                    total_cost=item.qty * eff_cost,
-                    reference_type="DEBIT_NOTE",
-                    reference_id=payload.debit_note_no,
-                    notes=f"Purchase Return {payload.debit_note_no} ({item.reason or payload.vendor_name})".strip(),
-                    created_by=current_user.user_id,
-                )
+            record_stock_movement(
+                db,
+                org_id=org_id,
+                branch_id=sb.branch_id or warehouse.branch_id,
+                warehouse_id=sb.warehouse_id or warehouse.id,
+                variant_id=variant.id,
+                movement_type="PURCHASE_RETURN",
+                quantity=-item.qty,
+                opening_qty=opening_on_hand,
+                closing_qty=sb.quantity_on_hand,
+                unit_cost=eff_cost,
+                reference_type="DEBIT_NOTE",
+                reference_id=payload.debit_note_no,
+                notes=f"Purchase Return {payload.debit_note_no} ({item.reason or payload.vendor_name})".strip(),
+                created_by=current_user.user_id,
             )
         updated_count += 1
 
@@ -2731,105 +2741,143 @@ def split_inventory_stock(
     if not src_variant:
         raise HTTPException(status_code=404, detail="Source SKU not found in database")
 
-    src_sb = db.scalar(
-        select(StockBalance)
-        .where(
-            StockBalance.organization_id == org_id,
-            StockBalance.product_variant_id == src_variant.id,
-        )
-        .with_for_update()
-        .limit(1)
-    )
-    src_avail = Decimal(str(src_sb.quantity_available if src_sb and src_sb.quantity_available is not None else 0))
-    if not src_sb or src_avail < payload.out_qty:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient Stock. Available Quantity: {src_avail}. Requested Quantity: {payload.out_qty}.",
-        )
-
-    src_sb.quantity_on_hand = max(Decimal("0.0000"), Decimal(str(src_sb.quantity_on_hand or 0)) - payload.out_qty)
-    src_sb.quantity_available = max(Decimal("0.0000"), src_avail - payload.out_qty)
-    src_cost = Decimal(str(src_sb.average_unit_cost or src_variant.cost_price or 0))
-    src_sb.total_value = src_sb.quantity_on_hand * src_cost
-
-    db.add(
-        StockMovement(
-            id=str(uuid.uuid4()),
-            organization_id=org_id,
-            branch_id=src_sb.branch_id or warehouse.branch_id,
-            warehouse_id=src_sb.warehouse_id or warehouse.id,
-            product_variant_id=src_variant.id,
-            movement_type="SPLIT",
-            quantity=-payload.out_qty,
-            unit_cost=src_cost,
-            total_cost=payload.out_qty * src_cost,
-            reference_type="STOCK_SPLIT",
-            reference_id=payload.split_no,
-            notes=f"Split Out {payload.split_no}",
-            created_by=current_user.user_id,
-        )
-    )
-
+    resolved_targets: list[dict[str, Any]] = []
     for tgt in payload.targets:
         if tgt.qty <= Decimal("0"):
             continue
         tgt_variant = _resolve_variant(tgt.variant_id, tgt.sku_name)
         if not tgt_variant:
             raise HTTPException(status_code=404, detail=f"Target SKU not found: {tgt.sku_name or tgt.variant_id}")
+        resolved_targets.append({
+            "variant_id": tgt_variant.id,
+            "qty": tgt.qty,
+            "cost_price": tgt.cost_price if tgt.cost_price > Decimal("0.00") else Decimal(str(tgt_variant.cost_price or 0)),
+        })
 
-        tgt_sb = db.scalar(
-            select(StockBalance)
-            .where(
-                StockBalance.organization_id == org_id,
-                StockBalance.product_variant_id == tgt_variant.id,
-            )
-            .with_for_update()
-            .limit(1)
-        )
-        eff_cost = tgt.cost_price if tgt.cost_price > Decimal("0.00") else Decimal(str(tgt_variant.cost_price or 0))
-        if tgt_sb:
-            tgt_sb.quantity_on_hand = Decimal(str(tgt_sb.quantity_on_hand or 0)) + tgt.qty
-            tgt_sb.quantity_available = max(
-                Decimal("0.0000"),
-                tgt_sb.quantity_on_hand - Decimal(str(tgt_sb.quantity_reserved or 0)),
-            )
-            tgt_sb.total_value = tgt_sb.quantity_on_hand * Decimal(str(tgt_sb.average_unit_cost or eff_cost))
-        else:
-            db.add(
-                StockBalance(
-                    id=str(uuid.uuid4()),
-                    organization_id=org_id,
-                    branch_id=warehouse.branch_id,
-                    warehouse_id=warehouse.id,
-                    product_variant_id=tgt_variant.id,
-                    quantity_on_hand=tgt.qty,
-                    quantity_reserved=Decimal("0.0000"),
-                    quantity_available=tgt.qty,
-                    average_unit_cost=eff_cost,
-                    total_value=tgt.qty * eff_cost,
-                )
-            )
-
-        db.add(
-            StockMovement(
-                id=str(uuid.uuid4()),
-                organization_id=org_id,
-                branch_id=(tgt_sb.branch_id if tgt_sb else warehouse.branch_id),
-                warehouse_id=(tgt_sb.warehouse_id if tgt_sb else warehouse.id),
-                product_variant_id=tgt_variant.id,
-                movement_type="SPLIT",
-                quantity=tgt.qty,
-                unit_cost=eff_cost,
-                total_cost=tgt.qty * eff_cost,
-                reference_type="STOCK_SPLIT",
-                reference_id=payload.split_no,
-                notes=f"Split In {payload.split_no}",
-                created_by=current_user.user_id,
-            )
-        )
-
+    batch = execute_stock_split(
+        db,
+        org_id=org_id,
+        branch_id=warehouse.branch_id,
+        warehouse_id=warehouse.id,
+        split_no=payload.split_no,
+        src_variant_id=src_variant.id,
+        src_default_cost=Decimal(str(src_variant.cost_price or 0)),
+        out_qty=payload.out_qty,
+        targets=resolved_targets,
+        actor_id=current_user.user_id,
+    )
     db.commit()
-    return {"success": True, "split_no": payload.split_no}
+    return {"success": True, "split_no": payload.split_no, "batch_id": batch.id}
+
+
+@router.get("/inventory/splits", dependencies=[Depends(require_admin_user)])
+def list_inventory_splits(
+    limit: int = 100,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Return persisted StockSplitBatch records and target items from PostgreSQL."""
+    org_id = current_user.organization_id
+    batches = db.scalars(
+        select(StockSplitBatch)
+        .options(joinedload(StockSplitBatch.items))
+        .where(StockSplitBatch.organization_id == org_id)
+        .order_by(StockSplitBatch.split_date.desc(), StockSplitBatch.created_at.desc())
+        .limit(limit)
+    ).unique().all()
+
+    variant_ids = {b.source_variant_id for b in batches}
+    for b in batches:
+        for it in b.items:
+            variant_ids.add(it.target_variant_id)
+    v_map: dict[str, tuple[str, str]] = {}
+    if variant_ids:
+        for v_id, sku, p_name in db.execute(
+            select(ProductVariant.id, ProductVariant.sku, Product.name)
+            .join(Product, ProductVariant.product_id == Product.id)
+            .where(ProductVariant.id.in_(variant_ids))
+        ).all():
+            v_map[v_id] = (sku, p_name)
+
+    return [
+        {
+            "id": b.id,
+            "batch_number": b.batch_number,
+            "split_date": b.split_date.isoformat(),
+            "source_variant_id": b.source_variant_id,
+            "source_sku": v_map.get(b.source_variant_id, ("", ""))[0],
+            "source_name": v_map.get(b.source_variant_id, ("", "Unknown"))[1],
+            "source_quantity": float(b.source_quantity or 0),
+            "status": b.status,
+            "items": [
+                {
+                    "target_variant_id": it.target_variant_id,
+                    "target_sku": v_map.get(it.target_variant_id, ("", ""))[0],
+                    "target_name": v_map.get(it.target_variant_id, ("", "Unknown"))[1],
+                    "target_quantity": float(it.target_quantity or 0),
+                }
+                for it in b.items
+            ],
+        }
+        for b in batches
+    ]
+
+
+@router.get("/inventory/ledger", dependencies=[Depends(require_admin_user)])
+def get_inventory_ledger(
+    variant_id: str | None = None,
+    movement_type: str | None = None,
+    limit: int = 200,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Return permanent StockMovement ledger entries with opening/in/out/closing snapshots."""
+    org_id = current_user.organization_id
+    stmt = select(StockMovement).where(StockMovement.organization_id == org_id)
+    if variant_id and variant_id != "all":
+        stmt = stmt.where(StockMovement.product_variant_id == variant_id)
+    if movement_type and movement_type != "all":
+        stmt = stmt.where(StockMovement.movement_type == movement_type.upper())
+    stmt = stmt.order_by(StockMovement.created_at.desc()).limit(limit)
+
+    movements = db.scalars(stmt).all()
+    var_ids = {m.product_variant_id for m in movements}
+    v_map: dict[str, tuple[str, str]] = {}
+    if var_ids:
+        for v_id, sku, p_name in db.execute(
+            select(ProductVariant.id, ProductVariant.sku, Product.name)
+            .join(Product, ProductVariant.product_id == Product.id)
+            .where(ProductVariant.id.in_(var_ids))
+        ).all():
+            v_map[v_id] = (sku, p_name)
+
+    ist = ZoneInfo("Asia/Kolkata")
+    results = []
+    for m in movements:
+        dt = m.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        dt_ist = dt.astimezone(ist)
+        qty_val = float(m.quantity or 0)
+        sku, p_name = v_map.get(m.product_variant_id, ("", "SKU"))
+        results.append({
+            "id": m.id,
+            "business_id": m.organization_id,
+            "variant_id": m.product_variant_id,
+            "sku": sku,
+            "product_name": p_name,
+            "transaction_type": m.movement_type,
+            "reference_type": m.reference_type,
+            "reference_id": m.reference_id,
+            "opening_quantity": float(m.opening_quantity) if m.opening_quantity is not None else None,
+            "in_quantity": round(qty_val, 4) if qty_val > 0 else 0.0,
+            "out_quantity": round(abs(qty_val), 4) if qty_val < 0 else 0.0,
+            "closing_quantity": float(m.closing_quantity) if m.closing_quantity is not None else None,
+            "created_at": dt_ist.isoformat(),
+            "created_by": m.created_by,
+            "notes": m.notes,
+        })
+    return results
 
 
 @router.get("/subscription", dependencies=[Depends(require_admin_user)])

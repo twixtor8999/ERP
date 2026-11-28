@@ -27,6 +27,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         f"Starting {settings.APP_NAME} in '{settings.APP_ENV}' environment",
         extra={"version": "0.1.0", "env": settings.APP_ENV},
     )
+    try:
+        from sqlalchemy import text
+        from app.database.session import engine
+        with engine.begin() as conn:
+            dialect = conn.dialect.name
+            if dialect == "postgresql":
+                conn.execute(text("ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS opening_quantity NUMERIC(14, 4)"))
+                conn.execute(text("ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS closing_quantity NUMERIC(14, 4)"))
+            elif dialect == "sqlite":
+                cols = {row[1] for row in conn.execute(text("PRAGMA table_info(stock_movements)")).fetchall()}
+                if "opening_quantity" not in cols:
+                    conn.execute(text("ALTER TABLE stock_movements ADD COLUMN opening_quantity NUMERIC(14, 4)"))
+                if "closing_quantity" not in cols:
+                    conn.execute(text("ALTER TABLE stock_movements ADD COLUMN closing_quantity NUMERIC(14, 4)"))
+    except Exception as exc:
+        logger.warning(f"Startup schema column check skipped: {exc}")
     yield
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME} cleanly")
