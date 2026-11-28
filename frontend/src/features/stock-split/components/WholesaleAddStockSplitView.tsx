@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, Search, Scissors, CheckCircle2, Save } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ArrowLeft, Search, Scissors, CheckCircle2, Save, ChevronDown } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
 import { getStoredSkus } from '@/features/inventory/data/mockInventory';
 import { computeLiveRealtimeSkus } from '@/features/inventory/utils/liveInventory';
@@ -14,13 +14,111 @@ interface Props {
   onSuccess: (record: StockSplitRecord) => void;
 }
 
+interface SearchableSkuSelectProps {
+  options: SplitSkuOption[];
+  value: string | number;
+  onChange: (id: string) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+  formatOption: (s: SplitSkuOption) => string;
+}
+
+const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
+  options,
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+  formatOption,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const selected = options.find((s) => String(s.id) === String(value));
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (s) => s.name.toLowerCase().includes(q) || s.skuNo.toLowerCase().includes(q)
+    );
+  }, [options, query]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between gap-2 text-left cursor-pointer"
+      >
+        <span className={`truncate ${selected ? 'text-slate-900 font-semibold' : 'text-slate-500'}`}>
+          {selected ? formatOption(selected) : placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                autoFocus
+                placeholder={searchPlaceholder}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto divide-y divide-slate-50">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-slate-400 text-center">No matching SKUs</div>
+            ) : (
+              filtered.map((s) => {
+                const isSelected = String(s.id) === String(value);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(String(s.id));
+                      setOpen(false);
+                      setQuery('');
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                      isSelected ? 'bg-blue-600 text-white font-semibold' : 'text-slate-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    {formatOption(s)}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess }) => {
   const user = useAuthStore((s) => s.user);
   const dcName = user?.organizationName || getInvoiceTemplateConfig().companyName || 'SIDDESHWAR ENTERPRISES';
   const operatorName = user?.fullName || 'Authorized Staff';
   const todayIso = getIstDateString();
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentId, setSelectedParentId] = useState<string | number>('');
   const [selectedChildId, setSelectedChildId] = useState<string | number>('');
   const [splitQty, setSplitQty] = useState<number>(1);
@@ -64,17 +162,6 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
       uom: 'Unit',
     }));
   }, [liveApiSkus, todayIso]);
-
-  const filteredSkus = useMemo(() => {
-    if (!searchTerm.trim()) return skuOptions;
-    const q = searchTerm.toLowerCase();
-    return skuOptions.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q) ||
-        String(s.id).includes(q)
-    );
-  }, [skuOptions, searchTerm]);
 
   const parentSku = useMemo(() => {
     return skuOptions.find((s) => String(s.id) === String(selectedParentId));
@@ -200,36 +287,19 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
                 )}
               </div>
 
-              {/* Search input */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Filter items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-500 font-medium"
-                />
-              </div>
-
               {/* Select SKU dropdown */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Select Bulk SKU *
                 </label>
-                <select
+                <SearchableSkuSelect
+                  options={skuOptions}
                   value={selectedParentId}
-                  onChange={(e) => setSelectedParentId(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">-- Choose Bulk Product --</option>
-                  {filteredSkus.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (Stock: {s.stock} | GRN: ₹{s.cost})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedParentId}
+                  placeholder="-- Choose Bulk Product --"
+                  searchPlaceholder="Search bulk SKU..."
+                  formatOption={(s) => `${s.name} (Stock: ${s.stock} | GRN: ₹${s.cost})`}
+                />
               </div>
 
               {/* Bulk Quantity Input */}
@@ -278,21 +348,14 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Select Converted SKU *
                 </label>
-                <select
+                <SearchableSkuSelect
+                  options={skuOptions.filter((s) => String(s.id) !== String(selectedParentId))}
                   value={selectedChildId}
-                  onChange={(e) => setSelectedChildId(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">-- Choose Retail Product --</option>
-                  {skuOptions
-                    .filter((s) => String(s.id) !== String(selectedParentId))
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} (Stock: {s.stock})
-                      </option>
-                    ))}
-                </select>
+                  onChange={setSelectedChildId}
+                  placeholder="-- Choose Retail Product --"
+                  searchPlaceholder="Search retail SKU..."
+                  formatOption={(s) => `${s.name} (Stock: ${s.stock})`}
+                />
               </div>
 
               {/* Converted Qty & Shrinkage */}
