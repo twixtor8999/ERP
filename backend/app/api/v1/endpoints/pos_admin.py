@@ -650,7 +650,7 @@ async def process_pos_checkout(
             avail = stock_bal.quantity_available if stock_bal else Decimal("0.0000")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for SKU '{variant.sku}'. Available: {avail}",
+                detail=f"Insufficient Stock. Available Quantity: {avail}. Requested Quantity: {item_req.quantity}.",
             )
 
         # Deduct stock

@@ -380,7 +380,7 @@ async def dispatch_stock_transfer(
             avail = source_bal.quantity_available if source_bal else Decimal("0.0000")
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient source stock for item {item.product_variant_id}. Available: {avail}",
+                detail=f"Insufficient Stock. Available Quantity: {avail}. Requested Quantity: {item.quantity_requested}.",
             )
 
         # Deduct
@@ -694,7 +694,7 @@ async def record_stock_adjustment(
     if delta < Decimal("0.0000") and bal.quantity_available < abs(delta):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot reduce stock below zero. Available: {bal.quantity_available}, Requested: {abs(delta)}",
+            detail=f"Insufficient Stock. Available Quantity: {bal.quantity_available}. Requested Quantity: {abs(delta)}.",
         )
 
     bal.quantity_on_hand += delta

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Date, func, or_, select
@@ -3219,6 +3219,7 @@ class QuickOrderPayload(BaseModel):
     payment_method: str = "CASH"
     paid_amount: Decimal = Decimal("0.00")
     delivery_notes: str | None = None
+    idempotency_key: str | None = None
 
 
 @router.get("/crm/telecaller/summary")
@@ -3650,10 +3651,32 @@ def log_crm_telecaller_call(
 @router.post("/crm/quick-order", status_code=status.HTTP_201_CREATED)
 def place_crm_quick_order(
     payload: QuickOrderPayload,
+    idempotency_key_header: str | None = Header(default=None, alias="Idempotency-Key"),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
+    effective_idem_key = (payload.idempotency_key or idempotency_key_header or "").strip() or None
+    if effective_idem_key:
+        existing_order = db.scalar(
+            select(Order).where(
+                Order.organization_id == org_id,
+                Order.payment_transaction_id == effective_idem_key,
+            )
+        )
+        if existing_order:
+            existing_inv = db.scalar(
+                select(Invoice.invoice_number).where(Invoice.order_id == existing_order.id)
+            )
+            return {
+                "success": True,
+                "idempotent_replay": True,
+                "order_id": existing_order.id,
+                "order_number": existing_order.order_number,
+                "invoice_number": existing_inv,
+                "total_amount": float(existing_order.total_amount or 0),
+                "status": existing_order.status,
+            }
     branch_id = current_user.active_branch_id or (
         current_user.allowed_branch_ids[0] if current_user.allowed_branch_ids else None
     )
@@ -3768,6 +3791,7 @@ def place_crm_quick_order(
         shipping_phone=customer.phone,
         payment_method=payload.payment_method.upper(),
         payment_status=pay_status,
+        payment_transaction_id=effective_idem_key,
         delivery_notes=payload.delivery_notes,
         notes=f"Punched by Telecaller CRM ({current_user.user_id})",
     )
@@ -3830,23 +3854,30 @@ def place_crm_quick_order(
                 total_amount=line_tot,
             )
         )
-        # Real-time stock validation & deduction from inventory
+        # Real-time stock validation & deduction from inventory with row-level lock
         sb = db.scalar(
-            select(StockBalance).where(
+            select(StockBalance)
+            .where(
                 StockBalance.organization_id == org_id,
                 StockBalance.product_variant_id == resolved_variant_id,
             )
+            .with_for_update()
+            .limit(1)
         )
-        if sb:
-            avail_qty = Decimal(str(sb.quantity_on_hand or 0))
-            if avail_qty < it.quantity:
-                p_label = variant.product.name if variant.product else variant.sku
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock for {p_label}: available {avail_qty}, requested {it.quantity}",
-                )
-            sb.quantity_on_hand = max(Decimal("0.00"), avail_qty - it.quantity)
-            sb.quantity_available = max(Decimal("0.00"), Decimal(str(sb.quantity_available or avail_qty)) - it.quantity)
+        avail_qty = Decimal(str(sb.quantity_available if sb and sb.quantity_available is not None else 0))
+        if not sb or avail_qty < it.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient Stock. Available Quantity: {avail_qty}. Requested Quantity: {it.quantity}.",
+            )
+        on_hand_qty = Decimal(str(sb.quantity_on_hand or 0))
+        if on_hand_qty < it.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient Stock. Available Quantity: {on_hand_qty}. Requested Quantity: {it.quantity}.",
+            )
+        sb.quantity_on_hand = on_hand_qty - it.quantity
+        sb.quantity_available = avail_qty - it.quantity
 
     # Create Invoice
     invoice = Invoice(
@@ -4576,6 +4607,7 @@ class UpdateCrmOrderStagePayload(BaseModel):
     return_amount: float | None = None
     utr_number: str | None = None
     returned_items: list[ReturnedItemPayload] | None = None
+    idempotency_key: str | None = None
 
 
 def _restock_order_items_on_return_or_cancel(
@@ -4630,10 +4662,13 @@ def _restock_order_items_on_return_or_cancel(
     total_restocked = Decimal("0.0000")
     for oi, restock_qty, note_reason in to_restock:
         sb = db.scalar(
-            select(StockBalance).where(
+            select(StockBalance)
+            .where(
                 StockBalance.organization_id == org_id,
                 StockBalance.product_variant_id == oi.product_variant_id,
             )
+            .with_for_update()
+            .limit(1)
         )
         if not sb:
             continue
@@ -4668,10 +4703,12 @@ def _restock_order_items_on_return_or_cancel(
 def update_crm_order_stage(
     order_id: str,
     payload: UpdateCrmOrderStagePayload,
+    idempotency_key_header: str | None = Header(default=None, alias="Idempotency-Key"),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     org_id = current_user.organization_id
+    effective_idem_key = (payload.idempotency_key or idempotency_key_header or "").strip() or None
     raw_id = order_id.strip()
     clean_id = raw_id[4:] if raw_id.lower().startswith("ord-") and len(raw_id) > 4 and raw_id[4:].upper().startswith("ORD-") else raw_id
     cand_order_no = (payload.order_no or "").strip()
@@ -4690,21 +4727,36 @@ def update_crm_order_stage(
         ])
 
     order = db.scalar(
-        select(Order).where(
+        select(Order)
+        .where(
             or_(*match_clauses),
             Order.organization_id == org_id,
         )
+        .with_for_update()
     )
     if not order:
         like_token = cand_order_no or clean_id
         order = db.scalar(
-            select(Order).where(Order.order_number.ilike(f"%{like_token}%"), Order.organization_id == org_id)
+            select(Order)
+            .where(Order.order_number.ilike(f"%{like_token}%"), Order.organization_id == org_id)
+            .with_for_update()
         )
     
     now_utc = datetime.now(UTC)
     stage = payload.stage.lower()
 
     if order:
+        if effective_idem_key and _extract_delivery_note_tag(order.delivery_notes, "IDEM") == effective_idem_key:
+            return {
+                "status": "success",
+                "idempotent_replay": True,
+                "order_id": order.id,
+                "stage": stage,
+                "db_status": order.status,
+                "restocked_qty": 0.0,
+            }
+        if effective_idem_key:
+            order.delivery_notes = _upsert_delivery_note_tag(order.delivery_notes, "IDEM", effective_idem_key)
         if payload.vehicle_no and payload.vehicle_no.strip():
             order.delivery_notes = _upsert_delivery_note_tag(order.delivery_notes, "VEH", payload.vehicle_no)
 

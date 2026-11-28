@@ -318,7 +318,7 @@ def place_order(
             avail = stock_bal.quantity_available if stock_bal else Decimal("0.00")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for {variant.variant_name}. Available: {avail}.",
+                detail=f"Insufficient Stock. Available Quantity: {avail}. Requested Quantity: {it.quantity}.",
             )
 
         # Reserve stock atomically
@@ -647,7 +647,10 @@ def cancel_order(
     for r in reservations:
         r.is_released = True
         stock_bal = db.scalar(
-            select(StockBalance).where(StockBalance.product_variant_id == r.product_variant_id).limit(1)
+            select(StockBalance)
+            .where(StockBalance.product_variant_id == r.product_variant_id)
+            .with_for_update()
+            .limit(1)
         )
         if stock_bal:
             stock_bal.quantity_reserved = max(Decimal("0.00"), stock_bal.quantity_reserved - r.quantity)
