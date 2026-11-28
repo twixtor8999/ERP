@@ -2193,32 +2193,13 @@ export function WholesaleOrdersPipelineView() {
 
         {/* Bottom Actions Row matching Image 2 */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          {/* Full Return + Partial Return + Remove on the left */}
-          <div className="flex items-center gap-2">
+          {/* Full Return on the left */}
+          <div>
             <button
               onClick={handleFullReturn}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
             >
               <span>↶ Full Return</span>
-            </button>
-            {returnedAmount > 0 && returnedAmount < viewingOrder.total && (
-              <button
-                type="button"
-                onClick={handleCompleteDelivery}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-              >
-                <span>Partial Return</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setCancelReason("");
-                setCancellingOrder(viewingOrder);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-rose-700 bg-white hover:bg-rose-50 rounded-md text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-            >
-              <span>Remove</span>
             </button>
           </div>
 
