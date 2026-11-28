@@ -38,7 +38,7 @@ export function WholesaleNewPurchaseView() {
     gst: 5,
   };
 
-  const [selectedVendorId, setSelectedVendorId] = useState<number>(vendors[0]?.id || 1);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
   const [vendorDropdownOpen, setVendorDropdownOpen] = useState<boolean>(false);
   const [vendorSearch, setVendorSearch] = useState<string>("");
   const vendorDropdownRef = useRef<HTMLDivElement>(null);
@@ -53,7 +53,7 @@ export function WholesaleNewPurchaseView() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedVendorObj = vendors.find((v) => v.id === selectedVendorId) || vendors[0];
+  const selectedVendorObj = selectedVendorId !== null ? vendors.find((v) => v.id === selectedVendorId) : undefined;
   const filteredVendors = vendorSearch.trim()
     ? vendors.filter((v) => v.name.toLowerCase().includes(vendorSearch.trim().toLowerCase()))
     : vendors;
@@ -256,8 +256,8 @@ export function WholesaleNewPurchaseView() {
                 onClick={() => setVendorDropdownOpen((o) => !o)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-left flex items-center justify-between gap-2 cursor-pointer"
               >
-                <span className="truncate text-slate-900">
-                  {selectedVendorObj?.name || "Select vendor"}
+                <span className={`truncate ${selectedVendorObj ? "text-slate-900" : "text-slate-400"}`}>
+                  {selectedVendorObj?.name || "Search vendor..."}
                 </span>
                 <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${vendorDropdownOpen ? "rotate-180" : ""}`} />
               </button>
@@ -307,33 +307,44 @@ export function WholesaleNewPurchaseView() {
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Invoice no <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. INV-9842"
-                value={invoiceNo}
-                onChange={(e) => setInvoiceNo(e.target.value.toUpperCase())}
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold uppercase"
-                required
-              />
-            </div>
+            {selectedVendorObj && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Invoice no <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. INV-9842"
+                    value={invoiceNo}
+                    onChange={(e) => setInvoiceNo(e.target.value.toUpperCase())}
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold uppercase"
+                    required
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Invoice date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Invoice date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={invoiceDate}
+                    onChange={(e) => setInvoiceDate(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    required
+                  />
+                </div>
+              </>
+            )}
           </div>
+
+          {!selectedVendorObj ? (
+            <p className="text-xs text-slate-500">
+              Invoice details, attachment, SKUs and the AI check open after you pick a vendor.
+            </p>
+          ) : (
+            <>
 
           {/* Invoice Attachment & AI Scan Strip */}
           <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-2">
@@ -522,6 +533,8 @@ export function WholesaleNewPurchaseView() {
               </button>
             </div>
           </div>
+            </>
+          )}
         </form>
       </div>
     </div>
