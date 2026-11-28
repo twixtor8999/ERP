@@ -129,7 +129,7 @@ export function WholesalePunchOrdersView() {
           skuId: ord.skuId,
           skuName: ord.skuName,
           qty: 0,
-          availableQty: stockNow,
+          availableQty: Math.max(0, stockNow),
           stockNow,
           statusMap: { placed: 0, packed: 0, invoiced: 0, dispatched: 0 },
           orders: [],
@@ -138,7 +138,7 @@ export function WholesalePunchOrdersView() {
       }
 
       existing.qty += ord.qty;
-      existing.availableQty = existing.stockNow - existing.qty;
+      existing.availableQty = Math.max(0, existing.stockNow - existing.qty);
       existing.statusMap[ord.status] = (existing.statusMap[ord.status] || 0) + ord.qty;
       existing.orders.push(ord);
     });
