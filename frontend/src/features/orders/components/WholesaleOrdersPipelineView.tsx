@@ -1200,7 +1200,11 @@ export function WholesaleOrdersPipelineView() {
         (o.village || "").toLowerCase() === villageFilter.toLowerCase();
 
       const matchVehicle =
-        selectedVehicle === "0" || selectedVehicle === "Select vehicle" || o.vehicleNo === selectedVehicle;
+        activeTab.includes("inv") ||
+        selectedVehicle === "0" ||
+        selectedVehicle === "Select vehicle" ||
+        selectedVehicle === "Select Vehicle No" ||
+        o.vehicleNo === selectedVehicle;
 
       return matchDate && matchSearch && matchRoute && matchVillage && matchVehicle;
     });
@@ -2956,11 +2960,31 @@ export function WholesaleOrdersPipelineView() {
               <span>Vehicle No (for all shown)</span>
               <select
                 value={selectedVehicle}
-                onChange={(e) => setSelectedVehicle(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedVehicle(val);
+                  const newVeh = val === "0" ? "" : val;
+                  const shownIds = new Set(currentStageOrders.map((o) => o.id));
+                  if (shownIds.size > 0) {
+                    setOrders((prev) => {
+                      const updated = prev.map((o) => (shownIds.has(o.id) ? { ...o, vehicleNo: newVeh } : o));
+                      safeSavePipelineOrders(updated);
+                      window.dispatchEvent(new Event("settlements_updated"));
+                      window.dispatchEvent(new Event("crm_order_placed"));
+                      return updated;
+                    });
+                    toast.success(
+                      newVeh
+                        ? `Updated Vehicle No to ${newVeh} for ${shownIds.size} shown order(s)`
+                        : `Reset Vehicle No to Select Vehicle No for ${shownIds.size} shown order(s)`
+                    );
+                  }
+                }}
                 className="border border-slate-200 bg-[#f8fafc] rounded-md px-2.5 py-1 text-slate-800 focus:outline-none"
               >
-                {VEHICLES_LIST.map((v, i) => (
-                  <option key={i} value={v === "Select vehicle" ? "0" : v}>
+                <option value="0">Select Vehicle No</option>
+                {availableVehicleOptions.map((v) => (
+                  <option key={v} value={v}>
                     {v}
                   </option>
                 ))}
