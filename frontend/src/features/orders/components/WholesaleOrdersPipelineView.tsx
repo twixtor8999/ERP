@@ -788,7 +788,17 @@ export function WholesaleOrdersPipelineView() {
                 map.set(initO.orderNo, initO);
               }
             }
-            return Array.from(map.values());
+            const loaded = Array.from(map.values());
+            if (!localStorage.getItem("pk_invoice_vehicle_default_cleared_v1")) {
+              localStorage.setItem("pk_invoice_vehicle_default_cleared_v1", "1");
+              return loaded.map((o) =>
+                (o.stage === "packing" || o.stage === "invoice") &&
+                (o.vehicleNo === "KA28AA6256" || (o.vehicleNo && /^\d{10,}$/.test(o.vehicleNo)))
+                  ? { ...o, vehicleNo: "" }
+                  : o
+              );
+            }
+            return loaded;
           }
         } catch {}
       }
@@ -845,7 +855,13 @@ export function WholesaleOrdersPipelineView() {
               source: bo.source === "Admin" ? "Store" : (bo.source || existing?.source || "CRM"),
               orderDate: bo.order_date || existing?.orderDate || "24-11-2026",
               orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",
-              vehicleNo: existing?.vehicleNo || bo.vehicle_no || "KA28AA6256",
+              vehicleNo: (() => {
+                const rawV = existing?.vehicleNo || (bo.vehicle_no && !/^\d{10,}$/.test(String(bo.vehicle_no)) ? String(bo.vehicle_no) : "");
+                if ((stage === "packing" || stage === "invoice") && rawV === "KA28AA6256" && !existing?.vehicleNo) {
+                  return "";
+                }
+                return rawV || "";
+              })(),
               total: typeof bo.total_amount === "number" ? bo.total_amount : existing?.total || 0,
               balance: bo.payment_status === "PAID" ? 0 : typeof bo.total_amount === "number" ? bo.total_amount : existing?.balance || 0,
               stage: stage,
@@ -962,7 +978,7 @@ export function WholesaleOrdersPipelineView() {
                     orderDate: mo.order_date || mo.orderDate || "24-11-2026",
                     orderTime: mo.order_placed ? (mo.order_placed.split(" ")[1] || "10:30 am") : (mo.orderTime || "10:30 am"),
                     phone: mo.customer_phone || mo.phone || "",
-                    vehicleNo: "KA28AA6256",
+                    vehicleNo: "",
                     total: mo.total_amount || mo.total || 0,
                     balance: 0,
                     stage: "packing",
@@ -1241,7 +1257,7 @@ export function WholesaleOrdersPipelineView() {
             ...o,
             stage: "invoice" as const,
             invoiceNo: invNum,
-            vehicleNo: o.vehicleNo || "KA28AA6256",
+            vehicleNo: o.vehicleNo || "",
             status: "invoiced",
             packedConfirmedAt: timestampStr,
             history: [...(o.history || []), historyEntry],
@@ -1365,7 +1381,8 @@ export function WholesaleOrdersPipelineView() {
       });
     } catch {}
     orders.forEach((o) => {
-      if (o.vehicleNo) vSet.add(o.vehicleNo.trim());
+      const v = o.vehicleNo?.trim();
+      if (v && !/^\d{10,}$/.test(v)) vSet.add(v);
     });
     return Array.from(vSet).filter(Boolean);
   }, [orders]);
@@ -2981,7 +2998,7 @@ export function WholesaleOrdersPipelineView() {
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
-                          <option value="">Select vehicle</option>
+                          <option value="">Select Vehicle No</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
@@ -3080,7 +3097,7 @@ export function WholesaleOrdersPipelineView() {
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
-                          <option value="">Select vehicle</option>
+                          <option value="">Select Vehicle No</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
@@ -3203,7 +3220,7 @@ export function WholesaleOrdersPipelineView() {
                           onChange={(e) => handleUpdateOrderVehicle(o.id, e.target.value)}
                           className="border border-slate-200 bg-white rounded-md px-2 py-1 text-[11px] font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                         >
-                          <option value="">Select vehicle</option>
+                          <option value="">Select Vehicle No</option>
                           {availableVehicleOptions.map((veh) => (
                             <option key={veh} value={veh}>
                               {veh}
