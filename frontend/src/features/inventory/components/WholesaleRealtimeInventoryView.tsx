@@ -321,7 +321,7 @@ export function WholesaleRealtimeInventoryView() {
                       </td>
                       <td className="py-2 px-2 border-r border-slate-100 text-center">
                         {s.orderCancel > 0 ? (
-                          <span className="font-bold text-emerald-700">+{s.orderCancel}</span>
+                          <span className="font-semibold text-slate-600">{s.orderCancel}</span>
                         ) : (
                           <span className="text-slate-400">0</span>
                         )}
@@ -390,8 +390,8 @@ export function WholesaleRealtimeInventoryView() {
                   <td className="py-2.5 px-2 border-r border-slate-200 text-right text-amber-700">
                     {totals.punchOrders}
                   </td>
-                  <td className="py-2.5 px-2 border-r border-slate-200 text-center text-emerald-700">
-                    +{totals.orderCancel}
+                  <td className="py-2.5 px-2 border-r border-slate-200 text-center text-slate-600">
+                    {totals.orderCancel}
                   </td>
                   <td className="py-2.5 px-2.5 border-r border-slate-200 text-right text-emerald-700">
                     {totals.available}

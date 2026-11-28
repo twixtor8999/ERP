@@ -332,7 +332,7 @@ export function WholesaleStockMovementView() {
                     </td>
                     <td className="py-2 px-2 border-r border-slate-100 text-center">
                       {s.orderCancel > 0 ? (
-                        <span className="font-bold text-emerald-700">+{s.orderCancel}</span>
+                        <span className="font-semibold text-slate-600">{s.orderCancel}</span>
                       ) : (
                         <span className="text-slate-400">0</span>
                       )}
@@ -386,8 +386,8 @@ export function WholesaleStockMovementView() {
                 <td className="py-2.5 px-2.5 border-r border-slate-200 text-right text-amber-700 font-bold">
                   {totals.punchOrders}
                 </td>
-                <td className="py-2.5 px-2 border-r border-slate-200 text-center text-emerald-700 font-bold">
-                  +{totals.orderCancel}
+                <td className="py-2.5 px-2 border-r border-slate-200 text-center text-slate-600 font-bold">
+                  {totals.orderCancel}
                 </td>
                 <td className="py-2.5 px-2.5 text-right text-emerald-700 font-black">{totals.available}</td>
               </tr>
@@ -399,7 +399,7 @@ export function WholesaleStockMovementView() {
       {/* Explanatory disclaimer footnote */}
       <p className="text-[11px] sm:text-xs text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded">
         Click any product row to view its full Purchase → Sales → Return journey from Railway PostgreSQL.
-        Order Cancel = quantity of orders cancelled on that day (goes back to Available stock).
+        Available = Closing − Punch Orders (pending). Order Cancel = qty cancelled on that day (already excluded from Punch Orders).
       </p>
 
       {/* Product Journey Modal */}
