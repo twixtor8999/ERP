@@ -1250,7 +1250,7 @@ export function WholesaleOrdersPipelineView() {
   }, [orders, activeTab, appliedFromDate, appliedToDate, pageSearch, routeFilter, villageFilter, selectedVehicle, justMovedToInvoiceIds]);
 
   // Stage Totals
-  const totalAmount = currentStageOrders.reduce((acc, o) => acc + o.total, 0);
+  const totalAmount = currentStageOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
 
   // Checkbox helpers
   const handleToggleSelectAll = () => {
@@ -2975,7 +2975,7 @@ export function WholesaleOrdersPipelineView() {
                             <div className="text-slate-400 text-[10px]">{o.orderTime}</div>
                           </td>
                           <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
-                            ₹{o.total.toLocaleString("en-IN")}
+                            ₹{(Number(o.total) || 0).toLocaleString("en-IN")}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <div className="inline-flex items-center gap-1.5 justify-end">
@@ -3176,7 +3176,7 @@ export function WholesaleOrdersPipelineView() {
                         </select>
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
-                        ₹{o.total.toLocaleString("en-IN")}
+                        ₹{(Number(o.total) || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="py-3 px-2 text-center">
                         <button
@@ -3278,10 +3278,10 @@ export function WholesaleOrdersPipelineView() {
                         </select>
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
-                        ₹{o.total.toLocaleString("en-IN")}
+                        ₹{(Number(o.total) || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-rose-600">
-                        ₹{o.balance.toLocaleString("en-IN")}
+                        ₹{(Number(o.balance ?? o.total) || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="py-3 px-2 text-center">
                         <button
@@ -3404,7 +3404,7 @@ export function WholesaleOrdersPipelineView() {
                         </select>
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
-                        ₹{o.total.toLocaleString("en-IN")}
+                        ₹{(Number(o.total) || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
@@ -3531,7 +3531,7 @@ export function WholesaleOrdersPipelineView() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
-                            ₹{o.total.toLocaleString("en-IN")}
+                            ₹{(Number(o.total) || 0).toLocaleString("en-IN")}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="inline-flex items-center gap-1.5 justify-center">
