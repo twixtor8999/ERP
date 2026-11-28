@@ -41,13 +41,11 @@ export function WholesaleRealtimeInventoryView() {
     window.addEventListener("crm_order_placed", onRefresh);
     window.addEventListener("settlements_updated", onRefresh);
     window.addEventListener("inventory_updated", onRefresh);
-    window.addEventListener("focus", onRefresh);
     void syncRealtime();
     return () => {
       window.removeEventListener("crm_order_placed", onRefresh);
       window.removeEventListener("settlements_updated", onRefresh);
       window.removeEventListener("inventory_updated", onRefresh);
-      window.removeEventListener("focus", onRefresh);
     };
   }, [syncRealtime]);
 

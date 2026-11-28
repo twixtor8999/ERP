@@ -31,31 +31,63 @@ export function WholesaleStockMovementView() {
   const syncMovement = useCallback(async () => {
     setLoading(true);
     try {
-      const [skuList, rows] = await Promise.all([
-        fetchRealtimeInventory(),
-        fetchStockMovements(fromDate, toDate, selectedVariantId, searchQuery),
-      ]);
-      setSkus(skuList);
+      const rows = await fetchStockMovements(fromDate, toDate, selectedVariantId);
       setMovementRows(rows);
+      if (selectedVariantId === "all" && rows.length > 0) {
+        const seen = new Map<string, ApiRealtimeSku>();
+        for (const r of rows) {
+          if (!seen.has(r.variantId)) {
+            seen.set(r.variantId, {
+              id: r.skuId,
+              variantId: r.variantId,
+              productId: r.variantId,
+              name: r.skuName,
+              code: r.skuCode || "",
+              category: "",
+              opening: r.opening,
+              purchase: r.purchase,
+              purchaseReturn: r.purchaseReturn,
+              sales: r.sales,
+              salesReturn: r.salesReturn,
+              splitIn: r.splitIn,
+              splitOut: r.splitOut,
+              closing: r.closing,
+              baseClosing: r.closing,
+              cost: r.cost,
+              price: r.cost,
+              minStock: 10,
+              punchOrders: r.punchOrders,
+              orderCancel: r.orderCancel,
+              available: r.available,
+              stockValue: r.stockValue,
+            });
+          }
+        }
+        setSkus(Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name)));
+      }
     } catch {
       toast.error("Failed to load stock movement from Railway database");
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, selectedVariantId, searchQuery]);
+  }, [fromDate, toDate, selectedVariantId]);
+
+  useEffect(() => {
+    if (skus.length === 0 && selectedVariantId !== "all") {
+      void fetchRealtimeInventory().then(setSkus).catch(() => {});
+    }
+  }, [skus.length, selectedVariantId]);
 
   useEffect(() => {
     const onRefresh = () => void syncMovement();
     window.addEventListener("crm_order_placed", onRefresh);
     window.addEventListener("settlements_updated", onRefresh);
     window.addEventListener("inventory_updated", onRefresh);
-    window.addEventListener("focus", onRefresh);
     void syncMovement();
     return () => {
       window.removeEventListener("crm_order_placed", onRefresh);
       window.removeEventListener("settlements_updated", onRefresh);
       window.removeEventListener("inventory_updated", onRefresh);
-      window.removeEventListener("focus", onRefresh);
     };
   }, [syncMovement]);
 
@@ -71,8 +103,16 @@ export function WholesaleStockMovementView() {
     }
   };
 
+  const filteredMovementRows = useMemo(() => {
+    if (!searchQuery.trim()) return movementRows;
+    const q = searchQuery.toLowerCase().trim();
+    return movementRows.filter(
+      (r) => r.skuName.toLowerCase().includes(q) || (r.skuCode || "").toLowerCase().includes(q)
+    );
+  }, [movementRows, searchQuery]);
+
   const totals = useMemo(() => {
-    return movementRows.reduce(
+    return filteredMovementRows.reduce(
       (acc, s) => {
         acc.opening += s.opening;
         acc.purchase += s.purchase;
@@ -103,7 +143,7 @@ export function WholesaleStockMovementView() {
         available: 0,
       }
     );
-  }, [movementRows]);
+  }, [filteredMovementRows]);
 
   const handleExport = () => {
     const csvRows = [
@@ -123,7 +163,7 @@ export function WholesaleStockMovementView() {
         "Order Cancel",
         "Available",
       ],
-      ...movementRows.map((s) => [
+      ...filteredMovementRows.map((s) => [
         s.date,
         s.skuName,
         s.opening,
@@ -289,14 +329,14 @@ export function WholesaleStockMovementView() {
                     Loading live stock movements from Railway PostgreSQL...
                   </td>
                 </tr>
-              ) : movementRows.length === 0 ? (
+              ) : filteredMovementRows.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="py-8 text-center text-slate-400 italic">
                     No stock movement in this range.
                   </td>
                 </tr>
               ) : (
-                movementRows.map((s, idx) => (
+                filteredMovementRows.map((s, idx) => (
                   <tr
                     key={`${s.variantId}-${s.date}-${idx}`}
                     onClick={() => void handleOpenJourney(s.variantId)}
@@ -363,7 +403,7 @@ export function WholesaleStockMovementView() {
                   Total
                 </td>
                 <td className="py-2.5 px-3 border-r border-slate-200 min-w-[200px] text-slate-500 font-normal">
-                  ({movementRows.length} entries)
+                  ({filteredMovementRows.length} entries)
                 </td>
                 <td className="py-2.5 px-2 border-r border-slate-200 text-right">{totals.opening}</td>
                 <td className="py-2.5 px-2 border-r border-slate-200 text-right text-emerald-700 font-bold">

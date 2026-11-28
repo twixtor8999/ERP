@@ -5480,7 +5480,12 @@ def _aggregate_daily_order_and_movement_maps(
 
     # StockMovement records (IN / PURCHASE, PURCHASE_RETURN, ADJUSTMENT, SPLIT, RETURN, etc.)
     ist_tz = ZoneInfo("Asia/Kolkata")
-    mv_stmt = select(StockMovement).where(StockMovement.organization_id == org_id)
+    mv_stmt = select(
+        StockMovement.created_at,
+        StockMovement.product_variant_id,
+        StockMovement.movement_type,
+        StockMovement.quantity,
+    ).where(StockMovement.organization_id == org_id)
     if start_date:
         start_utc = datetime(start_date.year, start_date.month, start_date.day, tzinfo=ist_tz).astimezone(UTC)
         mv_stmt = mv_stmt.where(StockMovement.created_at >= start_utc)
@@ -5494,15 +5499,15 @@ def _aggregate_daily_order_and_movement_maps(
     split_out: dict[tuple[str, str], float] = {}
     adjustment: dict[tuple[str, str], float] = {}
 
-    for mv in db.scalars(mv_stmt).all():
-        dt = mv.created_at
+    for mv_created_at, mv_variant_id, mv_type, mv_qty in db.execute(mv_stmt).all():
+        dt = mv_created_at
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         d_iso = dt.astimezone(ist_tz).date().isoformat()
         dates_with_activity.add(d_iso)
-        key = (d_iso, mv.product_variant_id)
-        q_val = float(mv.quantity or 0)
-        mt = (mv.movement_type or "").upper()
+        key = (d_iso, mv_variant_id)
+        q_val = float(mv_qty or 0)
+        mt = (mv_type or "").upper()
         if mt in ("IN", "PURCHASE"):
             purchase[key] = purchase.get(key, 0.0) + abs(q_val)
         elif mt == "PURCHASE_RETURN":
@@ -5539,8 +5544,8 @@ def get_realtime_inventory(
     today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
     today_iso = today_ist.isoformat()
 
-    variants = db.scalars(
-        select(ProductVariant)
+    variant_rows = db.execute(
+        select(ProductVariant, Product)
         .join(Product, ProductVariant.product_id == Product.id)
         .where(Product.organization_id == org_id, Product.is_active == True)
         .order_by(Product.name)
@@ -5555,8 +5560,7 @@ def get_realtime_inventory(
     maps = _aggregate_daily_order_and_movement_maps(db, org_id, start_date=today_ist, end_date=today_ist)
 
     rows = []
-    for idx, v in enumerate(variants, start=1):
-        p = v.product
+    for idx, (v, p) in enumerate(variant_rows, start=1):
         sb = balances.get(v.id)
         closing = float(sb.quantity_on_hand) if sb else 0.0
         cost = float(sb.average_unit_cost) if sb and sb.average_unit_cost else float(v.cost_price or 0)
@@ -5626,8 +5630,8 @@ def get_stock_movements(
     start_d = date.fromisoformat(start_iso)
     end_d = date.fromisoformat(end_iso)
 
-    variants = db.scalars(
-        select(ProductVariant)
+    variant_rows = db.execute(
+        select(ProductVariant, Product)
         .join(Product, ProductVariant.product_id == Product.id)
         .where(Product.organization_id == org_id, Product.is_active == True)
         .order_by(Product.name)
@@ -5649,10 +5653,9 @@ def get_stock_movements(
     q = (search or "").strip().lower()
     rows: list[dict[str, Any]] = []
 
-    for idx, v in enumerate(variants, start=1):
+    for idx, (v, p) in enumerate(variant_rows, start=1):
         if variant_id and variant_id != "all" and v.id != variant_id:
             continue
-        p = v.product
         if q and q not in p.name.lower() and q not in v.sku.lower():
             continue
 
