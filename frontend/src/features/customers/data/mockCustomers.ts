@@ -50977,41 +50977,28 @@ import { fetchCustomers as _fetchCustomers, createCustomer as _createCustomer } 
  * Falls back to localStorage cache on network failure.
  */
 export async function loadCustomersFromApi(): Promise<CustomerRecord[]> {
-  try {
-    const apiData = await _fetchCustomers();
-    if (!apiData || apiData.length === 0) return getStoredCustomers();
-    // Map API response → local CustomerRecord shape
-    const mapped: CustomerRecord[] = apiData.map((c) => ({
-      id: c.id as unknown as number,
-      name: c.full_name,
-      nameKn: "",
-      shop: c.full_name,
-      ph: c.phone || "",
-      adh: "",
-      gstin: "",
-      lm: c.email || "",
-      state: "Karnataka",
-      district: "Vijayapura",
-      taluka: "Bijapur",
-      village: "Bijapur",
-      pincode: "586101",
-      route: "BIJAPUR",
-      beat: "Monday",
-      status: c.is_active ? "active" : "inactive",
-      lastBillDate: null,
-      lastBillDays: null,
-      createdAt: c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
-    }));
-    // Merge with existing localStorage (preserve local additions not in backend)
-    const existing = getStoredCustomers();
-    const apiIds = new Set(mapped.map((m) => String(m.id)));
-    const localOnly = existing.filter((e) => !apiIds.has(String(e.id)));
-    const merged = [...mapped, ...localOnly];
-    saveStoredCustomers(merged);
-    return merged;
-  } catch {
-    return getStoredCustomers();
-  }
+  const apiData = await _fetchCustomers();
+  return apiData.map((c) => ({
+    id: c.id as unknown as number,
+    name: c.full_name,
+    nameKn: "",
+    shop: c.full_name,
+    ph: c.phone || "",
+    adh: "",
+    gstin: "",
+    lm: c.email || "",
+    state: "Karnataka",
+    district: "Vijayapura",
+    taluka: "Bijapur",
+    village: "Bijapur",
+    pincode: "586101",
+    route: "BIJAPUR",
+    beat: "Monday",
+    status: c.is_active ? "active" : "inactive",
+    lastBillDate: null,
+    lastBillDays: null,
+    createdAt: c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+  }));
 }
 
 export async function addCustomerToApi(payload: Partial<CustomerRecord>): Promise<CustomerRecord | null> {

@@ -108,42 +108,9 @@ function readAndCompressSlipImage(file: File): Promise<string> {
   });
 }
 
-function safeSavePipelineOrders(list: PipelineOrder[]): boolean {
-  try {
-    localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(list));
-    return true;
-  } catch {
-    try {
-      // Strip screenshotUrl from older completed/archived entries beyond the newest 15 with slips
-      let keptSlips = 0;
-      const compacted = list.map((o) => {
-        if (!o.screenshotUrl) return o;
-        if (keptSlips < 15) {
-          keptSlips++;
-          return o;
-        }
-        const { screenshotUrl: _drop, ...rest } = o;
-        return rest as PipelineOrder;
-      });
-      localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify(compacted));
-      return true;
-    } catch {
-      try {
-        // Last resort: keep all active non-completed orders + latest 200 completed orders without heavy screenshots
-        const active = list.filter((o) => o.stage !== "completed" && o.stage !== "cancelled");
-        const archived = list
-          .filter((o) => o.stage === "completed" || o.stage === "cancelled")
-          .slice(0, 200)
-          .map(({ screenshotUrl: _drop, ...rest }) => rest as PipelineOrder);
-        localStorage.setItem("crm_wholesale_pipeline_orders", JSON.stringify([...active, ...archived]));
-        return true;
-      } catch (err) {
-        console.error("Failed to persist pipeline orders even after compaction", err);
-        toast.error("Browser storage full! Old slips could not be trimmed — please export or clear cache.");
-        return false;
-      }
-    }
-  }
+function safeSavePipelineOrders(_list: PipelineOrder[]): boolean {
+  // Orders are persisted directly in Railway PostgreSQL via /api/v1/admin/crm/orders
+  return true;
 }
 
 export function extractIsoDate(dStr?: string): string {

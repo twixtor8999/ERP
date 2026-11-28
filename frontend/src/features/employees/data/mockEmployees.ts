@@ -640,33 +640,23 @@ export function numberToIndianWords(n: number): string {
 import { fetchEmployees as _fetchEmployees, createEmployee as _createEmployee, fetchAttendance as _fetchAttendance, fetchSalarySlips as _fetchSalarySlips } from "@/lib/api/apiService";
 
 export async function loadEmployeesFromApi(): Promise<Employee[]> {
-  try {
-    const apiData = await _fetchEmployees();
-    if (!apiData || apiData.length === 0) return getStoredEmployees();
-    const mapped: Employee[] = apiData.map((e) => ({
-      id: e.id as unknown as number,
-      code: e.employee_code,
-      name: e.full_name,
-      des: e.role || "Staff",
-      ph: e.phone || "",
-      jd: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
-      sal: e.base_salary || 0,
-      bank: "",
-      acn: "",
-      acno: "",
-      ifsc: "",
-      role: e.role || "employee",
-      docs: {},
-      added: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
-    }));
-    const existing = getStoredEmployees();
-    const apiIds = new Set(mapped.map((m) => String(m.id)));
-    const merged = [...mapped, ...existing.filter((e) => !apiIds.has(String(e.id)))];
-    saveStoredEmployees(merged);
-    return merged;
-  } catch {
-    return getStoredEmployees();
-  }
+  const apiData = await _fetchEmployees();
+  return apiData.map((e) => ({
+    id: e.id as unknown as number,
+    code: e.employee_code,
+    name: e.full_name,
+    des: e.role || "Staff",
+    ph: e.phone || "",
+    jd: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    sal: e.base_salary || 0,
+    bank: "",
+    acn: "",
+    acno: "",
+    ifsc: "",
+    role: e.role || "employee",
+    docs: {},
+    added: e.joining_date ? e.joining_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+  }));
 }
 
 export async function addEmployeeToApi(emp: Omit<Employee, "id" | "code">): Promise<Employee | null> {

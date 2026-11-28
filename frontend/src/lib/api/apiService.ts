@@ -1,27 +1,11 @@
 /**
- * Central API Service Layer
- * All backend Railway PostgreSQL API calls go through here.
- * Each function: tries backend → falls back to localStorage cache on failure.
+ * Central API Service Layer — 100% Railway PostgreSQL Backend
+ * Zero localStorage caching or mock fallbacks.
  */
 
 import { apiClient } from "@/lib/api/client";
 
-// ─── HELPER ─────────────────────────────────────────────────────────────────
-function ls<T>(key: string, fallback: T): T {
-  try {
-    const r = localStorage.getItem(key);
-    return r ? (JSON.parse(r) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function lsSet(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
-}
-
 // ─── CUSTOMERS ───────────────────────────────────────────────────────────────
-const LS_CUSTOMERS = "erp_api_customers_cache_v1";
-
 export interface ApiCustomer {
   id: string;
   customer_code: string;
@@ -35,14 +19,8 @@ export interface ApiCustomer {
 }
 
 export async function fetchCustomers(): Promise<ApiCustomer[]> {
-  try {
-    const res = await apiClient.get<ApiCustomer[]>("/api/v1/admin/customers?limit=1000");
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_CUSTOMERS, data);
-    return data;
-  } catch {
-    return ls<ApiCustomer[]>(LS_CUSTOMERS, []);
-  }
+  const res = await apiClient.get<ApiCustomer[]>("/api/v1/admin/customers?limit=1000");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function createCustomer(payload: {
@@ -61,17 +39,11 @@ export async function createCustomer(payload: {
   aadhaar_number?: string;
   credit_limit?: number;
 }): Promise<{ customer_id: string; customer_code: string; display_name: string } | null> {
-  try {
-    const res = await apiClient.post("/api/v1/admin/customers", payload);
-    return res.data;
-  } catch {
-    return null;
-  }
+  const res = await apiClient.post("/api/v1/admin/customers", payload);
+  return res.data;
 }
 
 // ─── EMPLOYEES ───────────────────────────────────────────────────────────────
-const LS_EMPLOYEES = "erp_api_employees_cache_v1";
-
 export interface ApiEmployee {
   id: string;
   employee_code: string;
@@ -90,14 +62,8 @@ export interface ApiEmployee {
 }
 
 export async function fetchEmployees(): Promise<ApiEmployee[]> {
-  try {
-    const res = await apiClient.get<ApiEmployee[]>("/api/v1/admin/employees");
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_EMPLOYEES, data);
-    return data;
-  } catch {
-    return ls<ApiEmployee[]>(LS_EMPLOYEES, []);
-  }
+  const res = await apiClient.get<ApiEmployee[]>("/api/v1/admin/employees");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function createEmployee(payload: {
@@ -112,17 +78,11 @@ export async function createEmployee(payload: {
   create_login_account?: boolean;
   initial_password?: string;
 }): Promise<{ employee_id: string; employee_code: string } | null> {
-  try {
-    const res = await apiClient.post("/api/v1/admin/employees", payload);
-    return res.data;
-  } catch {
-    return null;
-  }
+  const res = await apiClient.post("/api/v1/admin/employees", payload);
+  return res.data;
 }
 
 // ─── ATTENDANCE ──────────────────────────────────────────────────────────────
-const LS_ATTENDANCE = "erp_api_attendance_cache_v1";
-
 export interface ApiAttendance {
   id: string;
   employee_id: string;
@@ -134,22 +94,14 @@ export interface ApiAttendance {
 }
 
 export async function fetchAttendance(dateFrom?: string, dateTo?: string): Promise<ApiAttendance[]> {
-  try {
-    const params = new URLSearchParams();
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    const res = await apiClient.get<ApiAttendance[]>(`/api/v1/admin/attendance?${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_ATTENDANCE, data);
-    return data;
-  } catch {
-    return ls<ApiAttendance[]>(LS_ATTENDANCE, []);
-  }
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const res = await apiClient.get<ApiAttendance[]>(`/api/v1/admin/attendance?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 // ─── SALARY SLIPS ────────────────────────────────────────────────────────────
-const LS_SALARY_SLIPS = "erp_api_salary_slips_cache_v1";
-
 export interface ApiSalarySlip {
   id: string;
   employee_id: string;
@@ -162,20 +114,12 @@ export interface ApiSalarySlip {
 }
 
 export async function fetchSalarySlips(month?: string): Promise<ApiSalarySlip[]> {
-  try {
-    const params = month ? `?month=${month}` : "";
-    const res = await apiClient.get<ApiSalarySlip[]>(`/api/v1/admin/salary-slips${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_SALARY_SLIPS, data);
-    return data;
-  } catch {
-    return ls<ApiSalarySlip[]>(LS_SALARY_SLIPS, []);
-  }
+  const params = month ? `?month=${month}` : "";
+  const res = await apiClient.get<ApiSalarySlip[]>(`/api/v1/admin/salary-slips${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 // ─── EXPENSES ────────────────────────────────────────────────────────────────
-const LS_EXPENSES = "erp_api_expenses_cache_v1";
-
 export interface ApiExpense {
   id: string;
   date: string;
@@ -192,17 +136,11 @@ export interface ApiExpense {
 }
 
 export async function fetchExpenses(dateFrom?: string, dateTo?: string): Promise<ApiExpense[]> {
-  try {
-    const params = new URLSearchParams();
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    const res = await apiClient.get<ApiExpense[]>(`/api/v1/admin/expenses?${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_EXPENSES, data);
-    return data;
-  } catch {
-    return ls<ApiExpense[]>(LS_EXPENSES, []);
-  }
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const res = await apiClient.get<ApiExpense[]>(`/api/v1/admin/expenses?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function createExpense(payload: {
@@ -216,18 +154,11 @@ export async function createExpense(payload: {
   bill_no?: string;
   remarks?: string;
 }): Promise<{ expense_id: string } | null> {
-  try {
-    const res = await apiClient.post("/api/v1/admin/expenses", payload);
-    return res.data;
-  } catch {
-    return null;
-  }
+  const res = await apiClient.post("/api/v1/admin/expenses", payload);
+  return res.data;
 }
 
 // ─── PURCHASES / SUPPLIERS ───────────────────────────────────────────────────
-const LS_PURCHASES = "erp_api_purchases_cache_v1";
-const LS_SUPPLIERS = "erp_api_suppliers_cache_v1";
-
 export interface ApiSupplier {
   id: string;
   name: string;
@@ -254,34 +185,19 @@ export interface ApiPurchase {
 }
 
 export async function fetchSuppliers(): Promise<ApiSupplier[]> {
-  try {
-    const res = await apiClient.get<ApiSupplier[]>("/api/v1/admin/suppliers");
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_SUPPLIERS, data);
-    return data;
-  } catch {
-    return ls<ApiSupplier[]>(LS_SUPPLIERS, []);
-  }
+  const res = await apiClient.get<ApiSupplier[]>("/api/v1/admin/suppliers");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function fetchPurchases(dateFrom?: string, dateTo?: string): Promise<ApiPurchase[]> {
-  try {
-    const params = new URLSearchParams();
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    const res = await apiClient.get<ApiPurchase[]>(`/api/v1/admin/purchases?${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_PURCHASES, data);
-    return data;
-  } catch {
-    return ls<ApiPurchase[]>(LS_PURCHASES, []);
-  }
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const res = await apiClient.get<ApiPurchase[]>(`/api/v1/admin/purchases?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 // ─── VEHICLES / TRIPS ────────────────────────────────────────────────────────
-const LS_VEHICLES = "erp_api_vehicles_cache_v1";
-const LS_TRIPS = "erp_api_trips_cache_v1";
-
 export interface ApiVehicle {
   id: string;
   registration_number: string;
@@ -304,28 +220,16 @@ export interface ApiTrip {
 }
 
 export async function fetchVehicles(): Promise<ApiVehicle[]> {
-  try {
-    const res = await apiClient.get<ApiVehicle[]>("/api/v1/admin/vehicles");
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_VEHICLES, data);
-    return data;
-  } catch {
-    return ls<ApiVehicle[]>(LS_VEHICLES, []);
-  }
+  const res = await apiClient.get<ApiVehicle[]>("/api/v1/admin/vehicles");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function fetchTrips(dateFrom?: string, dateTo?: string): Promise<ApiTrip[]> {
-  try {
-    const params = new URLSearchParams();
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    const res = await apiClient.get<ApiTrip[]>(`/api/v1/admin/trips?${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_TRIPS, data);
-    return data;
-  } catch {
-    return ls<ApiTrip[]>(LS_TRIPS, []);
-  }
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const res = await apiClient.get<ApiTrip[]>(`/api/v1/admin/trips?${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function createTrip(payload: {
@@ -343,17 +247,11 @@ export async function createTrip(payload: {
     amount_to_collect: number;
   }>;
 }): Promise<{ id: string; trip_number: string } | null> {
-  try {
-    const res = await apiClient.post("/api/v1/admin/trips", payload);
-    return res.data;
-  } catch {
-    return null;
-  }
+  const res = await apiClient.post("/api/v1/admin/trips", payload);
+  return res.data;
 }
 
 // ─── SETTLEMENTS ─────────────────────────────────────────────────────────────
-const LS_SETTLEMENTS_CACHE = "erp_api_settlements_cache_v1";
-
 export interface ApiSettlement {
   id: string;
   settlement_date: string;
@@ -369,14 +267,8 @@ export interface ApiSettlement {
 }
 
 export async function fetchSettlements(): Promise<ApiSettlement[]> {
-  try {
-    const res = await apiClient.get<ApiSettlement[]>("/api/v1/admin/settlements");
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_SETTLEMENTS_CACHE, data);
-    return data;
-  } catch {
-    return ls<ApiSettlement[]>(LS_SETTLEMENTS_CACHE, []);
-  }
+  const res = await apiClient.get<ApiSettlement[]>("/api/v1/admin/settlements");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function saveSettlementToApi(payload: {
@@ -390,12 +282,8 @@ export async function saveSettlementToApi(payload: {
   status?: string;
   notes?: string;
 }): Promise<{ id: string; settlement_date: string; status: string } | null> {
-  try {
-    const res = await apiClient.post("/api/v1/admin/settlements", payload);
-    return res.data;
-  } catch {
-    return null;
-  }
+  const res = await apiClient.post("/api/v1/admin/settlements", payload);
+  return res.data;
 }
 
 // ─── LIVE INVENTORY (RAILWAY POSTGRESQL) ────────────────────────────────────
@@ -504,10 +392,7 @@ export async function adjustInventoryStock(
   return res.data;
 }
 
-// ─── CRM ORDERS (most critical) ──────────────────────────────────────────────
-const LS_CRM_ORDERS = "crm_wholesale_pipeline_orders";
-const LS_CRM_MASTER = "crm_orders_master";
-
+// ─── CRM ORDERS ──────────────────────────────────────────────────────────────
 export interface ApiCrmOrder {
   id: string | number;
   order_number: string;
@@ -534,61 +419,15 @@ export interface ApiCrmOrder {
 }
 
 export async function fetchCrmOrders(limit = 500): Promise<ApiCrmOrder[]> {
-  try {
-    const res = await apiClient.get<ApiCrmOrder[]>(`/api/v1/admin/crm/orders?limit=${limit}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    // Also cache as pipeline orders so inventory picks them up
-    if (data.length > 0) {
-      const pipeline = data.map((bo) => {
-        const sUpper = String(bo.status || "").toUpperCase();
-        let stage = "packing";
-        if (sUpper === "DELIVERED" || sUpper === "COMPLETED") stage = "completed";
-        else if (sUpper === "RETURNED") stage = "return";
-        else if (sUpper === "OUT_FOR_DELIVERY") stage = "delivery";
-        else if (sUpper === "DISPATCHED") stage = "dispatch";
-        else if (sUpper === "INVOICED" || sUpper === "INVOICE") stage = "invoice";
-        else if (sUpper === "CANCELLED") stage = "cancelled";
-        return {
-          id: bo.id,
-          orderNo: bo.order_number || `ORD-${bo.id}`,
-          invoiceNo: bo.invoice_number,
-          customerName: bo.customer_name || "Customer",
-          shopName: bo.shop_name || "Store",
-          village: bo.village || "Bijapur",
-          route: bo.route || "Bijapur",
-          createdBy: bo.created_by || "Staff",
-          source: bo.source === "Admin" ? "Store" : bo.source || "CRM",
-          orderDate: bo.order_date,
-          vehicleNo: bo.vehicle_no || "KA28AA6256",
-          total: Number(bo.total_amount) || 0,
-          stage,
-          status: bo.status,
-          deliveredAt: bo.delivered && bo.delivered !== "—" ? bo.delivered : undefined,
-          returnAmount: typeof bo.return_amount === "number" ? bo.return_amount : undefined,
-          items: Array.isArray(bo.items)
-            ? bo.items.map((it) => ({
-                name: it.product_name,
-                unit: "Unit",
-                qty: Number(it.quantity) || 1,
-                price: Number(it.unit_price) || 0,
-                amount: Number(it.total_amount) || 0,
-              }))
-            : [],
-          returnedItems: [],
-        };
-      });
-      lsSet(LS_CRM_ORDERS, pipeline);
-      lsSet(LS_CRM_MASTER, data);
-    }
-    return data;
-  } catch {
-    // Return cached pipeline data mapped back
-    const cached = ls<any[]>(LS_CRM_MASTER, []);
-    return cached;
-  }
+  const res = await apiClient.get<ApiCrmOrder[]>(`/api/v1/admin/crm/orders?limit=${limit}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
-export async function updateCrmOrderStage(orderId: string | number, stage: string, extraData?: Record<string, unknown>): Promise<boolean> {
+export async function updateCrmOrderStage(
+  orderId: string | number,
+  stage: string,
+  extraData?: Record<string, unknown>
+): Promise<boolean> {
   try {
     await apiClient.post(`/api/v1/admin/crm/orders/${orderId}/stage`, { stage, ...extraData });
     return true;
@@ -598,8 +437,6 @@ export async function updateCrmOrderStage(orderId: string | number, stage: strin
 }
 
 // ─── INCENTIVES ──────────────────────────────────────────────────────────────
-const LS_INCENTIVES = "erp_api_incentives_cache_v1";
-
 export interface ApiIncentive {
   id: string;
   employee_id?: string;
@@ -611,13 +448,7 @@ export interface ApiIncentive {
 }
 
 export async function fetchIncentives(month?: string): Promise<ApiIncentive[]> {
-  try {
-    const params = month ? `?month=${month}` : "";
-    const res = await apiClient.get<ApiIncentive[]>(`/api/v1/admin/incentives${params}`);
-    const data = Array.isArray(res.data) ? res.data : [];
-    lsSet(LS_INCENTIVES, data);
-    return data;
-  } catch {
-    return ls<ApiIncentive[]>(LS_INCENTIVES, []);
-  }
+  const params = month ? `?month=${month}` : "";
+  const res = await apiClient.get<ApiIncentive[]>(`/api/v1/admin/incentives${params}`);
+  return Array.isArray(res.data) ? res.data : [];
 }
