@@ -1521,7 +1521,7 @@ class CreateCustomerPayload(BaseModel):
 @router.get("/customers")
 def list_admin_customers(
     search: str | None = None,
-    limit: int = Query(default=300, ge=1, le=3000),
+    limit: int = Query(default=5000, ge=1, le=10000),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
@@ -3471,7 +3471,7 @@ def get_crm_callings_sheet(
     beat_day: str | None = Query(None),
     village_key: str | None = Query(None),
     search: str | None = Query(None),
-    limit: int = Query(2500, ge=1, le=5000),
+    limit: int = Query(5000, ge=1, le=10000),
     current_user: AuthContext = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:

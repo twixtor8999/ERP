@@ -19,7 +19,7 @@ export interface ApiCustomer {
 }
 
 export async function fetchCustomers(): Promise<ApiCustomer[]> {
-  const res = await apiClient.get<ApiCustomer[]>("/api/v1/admin/customers?limit=1000");
+  const res = await apiClient.get<ApiCustomer[]>("/api/v1/admin/customers?limit=5000");
   return Array.isArray(res.data) ? res.data : [];
 }
 
