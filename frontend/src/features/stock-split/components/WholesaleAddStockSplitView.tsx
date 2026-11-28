@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowLeft, Search, Scissors, CheckCircle2, Save, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
 import { getStoredSkus } from '@/features/inventory/data/mockInventory';
 import { computeLiveRealtimeSkus } from '@/features/inventory/utils/liveInventory';
@@ -14,22 +14,25 @@ interface Props {
   onSuccess: (record: StockSplitRecord) => void;
 }
 
-interface SearchableSkuSelectProps {
-  options: SplitSkuOption[];
-  value: string | number;
-  onChange: (id: string) => void;
-  placeholder: string;
-  searchPlaceholder: string;
-  formatOption: (s: SplitSkuOption) => string;
+interface SplitItemRow {
+  uid: string;
+  childId: string;
+  sellingPrice: string;
+  inQty: string;
 }
 
-const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
+interface SearchableItemDropdownProps {
+  options: SplitSkuOption[];
+  value: string;
+  onChange: (id: string) => void;
+  placeholder: string;
+}
+
+const SearchableItemDropdown: React.FC<SearchableItemDropdownProps> = ({
   options,
   value,
   onChange,
   placeholder,
-  searchPlaceholder,
-  formatOption,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -48,10 +51,10 @@ const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
   const selected = options.find((s) => String(s.id) === String(value));
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.skuNo.toLowerCase().includes(q)
-    );
+    if (!q) return options.slice(0, 80);
+    return options
+      .filter((s) => s.name.toLowerCase().includes(q) || s.skuNo.toLowerCase().includes(q))
+      .slice(0, 80);
   }, [options, query]);
 
   return (
@@ -62,7 +65,7 @@ const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
         className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between gap-2 text-left cursor-pointer"
       >
         <span className={`truncate ${selected ? 'text-slate-900 font-semibold' : 'text-slate-500'}`}>
-          {selected ? formatOption(selected) : placeholder}
+          {selected ? selected.name : placeholder}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -75,14 +78,14 @@ const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
               <input
                 type="text"
                 autoFocus
-                placeholder={searchPlaceholder}
+                placeholder="Search converted item..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto divide-y divide-slate-50">
+          <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
             {filtered.length === 0 ? (
               <div className="px-3 py-3 text-xs text-slate-400 text-center">No matching SKUs</div>
             ) : (
@@ -101,7 +104,7 @@ const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
                       isSelected ? 'bg-blue-600 text-white font-semibold' : 'text-slate-700 hover:bg-blue-50'
                     }`}
                   >
-                    {formatOption(s)}
+                    {s.name} (Stock: {s.stock})
                   </button>
                 );
               })
@@ -113,18 +116,30 @@ const SearchableSkuSelect: React.FC<SearchableSkuSelectProps> = ({
   );
 };
 
+function createSplitRow(idx: number): SplitItemRow {
+  return {
+    uid: `split-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+    childId: '',
+    sellingPrice: '',
+    inQty: '',
+  };
+}
+
 export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess }) => {
   const user = useAuthStore((s) => s.user);
   const dcName = user?.organizationName || getInvoiceTemplateConfig().companyName || 'SIDDESHWAR ENTERPRISES';
   const operatorName = user?.fullName || 'Authorized Staff';
   const todayIso = getIstDateString();
 
-  const [selectedParentId, setSelectedParentId] = useState<string | number>('');
-  const [selectedChildId, setSelectedChildId] = useState<string | number>('');
-  const [splitQty, setSplitQty] = useState<number>(1);
-  const [convertedQty, setConvertedQty] = useState<number>(30);
-  const [shrinkageQty, setShrinkageQty] = useState<number>(0);
-  const [notes, setNotes] = useState('');
+  const [leftSearch, setLeftSearch] = useState('');
+  const [showAllItems, setShowAllItems] = useState(true);
+  const [selectedParentId, setSelectedParentId] = useState<string>('');
+  const [outQtyInput, setOutQtyInput] = useState<string>('');
+  const [splitRows, setSplitRows] = useState<SplitItemRow[]>(() => [createSplitRow(0)]);
+
+  const [shrinkageItemId, setShrinkageItemId] = useState<string>('');
+  const [shrinkagePrice, setShrinkagePrice] = useState<string>('');
+  const [shrinkageQtyInput, setShrinkageQtyInput] = useState<string>('');
 
   const [liveApiSkus, setLiveApiSkus] = useState<ApiRealtimeSku[] | null>(null);
 
@@ -136,7 +151,6 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
       .catch(() => {});
   }, []);
 
-  // Load live Inventory SKUs from PostgreSQL (with fallback to computed store SKUs)
   const skuOptions: SplitSkuOption[] = useMemo(() => {
     if (liveApiSkus && liveApiSkus.length > 0) {
       return liveApiSkus.map((s) => ({
@@ -163,294 +177,394 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
     }));
   }, [liveApiSkus, todayIso]);
 
-  const parentSku = useMemo(() => {
-    return skuOptions.find((s) => String(s.id) === String(selectedParentId));
-  }, [skuOptions, selectedParentId]);
+  const leftFilteredSkus = useMemo(() => {
+    const q = leftSearch.trim().toLowerCase();
+    return skuOptions.filter((s) => {
+      if (!showAllItems && s.stock <= 0 && !q) return false;
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        s.skuNo.toLowerCase().includes(q)
+      );
+    });
+  }, [skuOptions, leftSearch, showAllItems]);
 
-  const childSku = useMemo(() => {
-    return skuOptions.find((s) => String(s.id) === String(selectedChildId));
-  }, [skuOptions, selectedChildId]);
+  const parentSku = useMemo(
+    () => skuOptions.find((s) => String(s.id) === String(selectedParentId)),
+    [skuOptions, selectedParentId]
+  );
 
-  // Derived child unit GRN cost
-  const derivedUnitCost = useMemo(() => {
-    if (!parentSku || convertedQty <= 0 || splitQty <= 0) return 0;
-    const totalBulkCost = splitQty * parentSku.cost;
-    return totalBulkCost / convertedQty;
-  }, [parentSku, splitQty, convertedQty]);
+  const outQtyNum = Math.max(0, Number(outQtyInput) || 0);
+  const totalInQty = splitRows.reduce((sum, r) => sum + Math.max(0, Number(r.inQty) || 0), 0);
+  const shrinkageQtyNum = Math.max(0, Number(shrinkageQtyInput) || 0);
+  const diffQty = Math.max(0, outQtyNum - (totalInQty > 0 ? outQtyNum : 0));
+
+  const handleSelectParent = (sku: SplitSkuOption) => {
+    setSelectedParentId(String(sku.id));
+    setOutQtyInput('');
+    setSplitRows([createSplitRow(0)]);
+    setShrinkageItemId('');
+    setShrinkagePrice('');
+    setShrinkageQtyInput('');
+  };
+
+  const handleRowChange = (uid: string, patch: Partial<SplitItemRow>) => {
+    setSplitRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!parentSku) {
-      toast.error('Please select a source bulk SKU to split');
+      toast.error('Please select an item to split from the left list');
       return;
     }
-    if (!childSku) {
-      toast.error('Please select a target retail SKU');
+    if (outQtyNum <= 0) {
+      toast.error('Please enter Out Qty greater than 0');
       return;
-    }
-    if (parentSku.id === childSku.id) {
-      toast.error('Parent and child SKU must be different items');
-      return;
-    }
-    if (splitQty <= 0) {
-      toast.error('Bulk split quantity must be greater than 0');
-      return;
-    }
-    if (convertedQty <= 0) {
-      toast.error('Converted retail quantity must be greater than 0');
-      return;
-    }
-    if (parentSku.stock < splitQty) {
-      toast.warning(`Warning: Parent stock (${parentSku.stock}) is less than split quantity (${splitQty}). Proceeding with override.`);
     }
 
-    const newRecord: StockSplitRecord = {
-      id: `SP${Date.now().toString(36).toUpperCase()}`,
-      date: todayIso,
-      dcName: dcName,
-      parentSkuId: parentSku.id,
-      parentSkuNo: parentSku.skuNo,
-      parentItemName: parentSku.name,
-      parentCategory: parentSku.category,
-      parentGrnPrice: parentSku.cost,
-      splitQty,
-      childSkuId: childSku.id,
-      childSkuNo: childSku.skuNo,
-      childItemName: childSku.name,
-      childCategory: childSku.category,
-      convertedQty,
-      splitGrnPrice: Math.round(derivedUnitCost * 100) / 100,
-      shrinkageQty: shrinkageQty || 0,
-      operatorName: operatorName,
-      notes: notes.trim() || `Standard stock split ${parentSku.name} → ${childSku.name}`,
-      createdAt: new Date().toISOString(),
-    };
+    const validRows = splitRows.filter((r) => r.childId && (Number(r.inQty) || 0) > 0);
+    if (validRows.length === 0) {
+      toast.error('Please select a Converted Item and enter In Qty');
+      return;
+    }
 
-    onSuccess(newRecord);
+    const totalCost = outQtyNum * parentSku.cost;
+    const totalConverted = validRows.reduce((s, r) => s + (Number(r.inQty) || 0), 0);
+
+    for (const row of validRows) {
+      const childSku = skuOptions.find((s) => String(s.id) === String(row.childId));
+      if (!childSku) continue;
+      if (String(childSku.id) === String(parentSku.id)) {
+        toast.error('Converted item must be different from the main item');
+        return;
+      }
+      const inQty = Number(row.inQty) || 0;
+      const allocatedUnitCost = totalConverted > 0 ? totalCost / totalConverted : 0;
+
+      const newRecord: StockSplitRecord = {
+        id: `SP${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 4).toUpperCase()}`,
+        date: todayIso,
+        dcName,
+        parentSkuId: parentSku.id,
+        parentSkuNo: parentSku.skuNo,
+        parentItemName: parentSku.name,
+        parentCategory: parentSku.category,
+        parentGrnPrice: parentSku.cost,
+        splitQty: outQtyNum,
+        childSkuId: childSku.id,
+        childSkuNo: childSku.skuNo,
+        childItemName: childSku.name,
+        childCategory: childSku.category,
+        convertedQty: inQty,
+        splitGrnPrice: Math.round(allocatedUnitCost * 100) / 100,
+        shrinkageQty: shrinkageQtyNum,
+        operatorName,
+        notes: `Standard stock split ${parentSku.name} → ${childSku.name}`,
+        createdAt: new Date().toISOString(),
+      };
+      onSuccess(newRecord);
+    }
+
     toast.success('Stock split completed successfully!');
     onBack();
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16 animate-in fade-in duration-150">
-      {/* Top Header Row with Back Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+    <div className="space-y-4 max-w-6xl mx-auto pb-16">
+      {/* Top Back Button & Breadcrumb matching reference */}
+      <div className="space-y-1.5">
         <button
           type="button"
           onClick={onBack}
-          className="bg-[#0d1b4c] hover:bg-[#1a2d6d] text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-xs transition shadow-2xs cursor-pointer active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0d1b4c] hover:bg-[#1a2d6d] text-white text-xs font-bold shadow-sm cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Stock Split
+          <ArrowLeft className="w-3.5 h-3.5" /> Back
         </button>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-md">
-            DC: {dcName}
-          </span>
-          <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-            Operator: {operatorName}
-          </span>
+        <div className="text-xs text-slate-500">
+          <button type="button" onClick={onBack} className="text-blue-600 hover:underline cursor-pointer">
+            Stock-Split
+          </button>{' '}
+          / <span className="text-slate-700 font-medium">Add Stock Split</span>
         </div>
+        <h1 className="text-xl font-bold text-[#0f2d59]">Add Stock Split</h1>
       </div>
 
-      {/* Main Form Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-[#132038] text-white px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 font-bold">
-              <Scissors className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="font-black text-base leading-tight">
-                Add Standard Stock Split
-              </h1>
-              <p className="text-xs text-slate-300">
-                Convert bulk master sacks/cartons into individual retail packets
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 text-sm">
-          {/* Step 1: Source & Target Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Source Bulk SKU Column */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase text-rose-700 tracking-wide">
-                  Step 1: Source Bulk Item (Deducted)
-                </span>
-                {parentSku && (
-                  <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">
-                    Stock: {parentSku.stock}
-                  </span>
-                )}
-              </div>
-
-              {/* Select SKU dropdown */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Select Bulk SKU *
-                </label>
-                <SearchableSkuSelect
-                  options={skuOptions}
-                  value={selectedParentId}
-                  onChange={setSelectedParentId}
-                  placeholder="-- Choose Bulk Product --"
-                  searchPlaceholder="Search bulk SKU..."
-                  formatOption={(s) => `${s.name} (Stock: ${s.stock} | GRN: ₹${s.cost})`}
-                />
-              </div>
-
-              {/* Bulk Quantity Input */}
-              {parentSku && (
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Bulk Qty to Split *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={splitQty}
-                      onChange={(e) => setSplitQty(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Bulk GRN Cost
-                    </label>
-                    <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2 text-xs font-mono font-bold text-slate-800">
-                      ₹{parentSku.cost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Target Retail SKU Column */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase text-emerald-700 tracking-wide">
-                  Step 2: Target Retail SKU (Added)
-                </span>
-                {childSku && (
-                  <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">
-                    Current Stock: {childSku.stock}
-                  </span>
-                )}
-              </div>
-
-              {/* Select Child SKU */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Select Converted SKU *
-                </label>
-                <SearchableSkuSelect
-                  options={skuOptions.filter((s) => String(s.id) !== String(selectedParentId))}
-                  value={selectedChildId}
-                  onChange={setSelectedChildId}
-                  placeholder="-- Choose Retail Product --"
-                  searchPlaceholder="Search retail SKU..."
-                  formatOption={(s) => `${s.name} (Stock: ${s.stock})`}
-                />
-              </div>
-
-              {/* Converted Qty & Shrinkage */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Retail Packets Created *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={convertedQty}
-                    onChange={(e) => setConvertedQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Shrinkage / Waste Qty
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={shrinkageQty}
-                    onChange={(e) => setShrinkageQty(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="0"
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Step 3: Financial Reconciliation */}
-          {parentSku && childSku && (
-            <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-2 text-blue-900 font-bold text-xs uppercase tracking-wide">
-                <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                Step 3: Automated Financial Reconciliation & GRN Allocation
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-                <div className="bg-white p-3 rounded-lg border border-blue-100">
-                  <div className="text-[11px] text-slate-500 font-semibold">Total Bulk Cost</div>
-                  <div className="font-mono font-bold text-sm text-slate-900 mt-0.5">
-                    ₹{(splitQty * parentSku.cost).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-blue-100">
-                  <div className="text-[11px] text-slate-500 font-semibold">Allocated Unit GRN Cost</div>
-                  <div className="font-mono font-bold text-sm text-blue-700 mt-0.5">
-                    ₹{derivedUnitCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-blue-100">
-                  <div className="text-[11px] text-slate-500 font-semibold">Retail Packets Output</div>
-                  <div className="font-mono font-bold text-sm text-emerald-700 mt-0.5">
-                    {convertedQty} units
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Remarks */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">
-              Notes / Remarks
-            </label>
+      {/* Two-Panel Layout matching reference */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Panel: Search items + Show all items + Scrollable SKU list */}
+        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Broken 50kg bag into 50 x 1kg packets (0kg shrinkage)"
-              className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+              placeholder="Search items"
+              value={leftSearch}
+              onChange={(e) => setLeftSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onBack}
-              className="px-5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-[#0f2d59] hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <Save className="w-4 h-4" /> Confirm & Execute Stock Split
-            </button>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showAllItems}
+              onChange={(e) => setShowAllItems(e.target.checked)}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            Show all items
+          </label>
+
+          <div className="max-h-[460px] overflow-y-auto space-y-2 pr-1">
+            {leftFilteredSkus.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">No items found</div>
+            ) : (
+              leftFilteredSkus.map((s) => {
+                const isSelected = String(s.id) === String(selectedParentId);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleSelectParent(s)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50/80 border-blue-400 shadow-2xs'
+                        : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50/60'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-blue-700">{s.name}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {s.category} STOCK : {s.stock}
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
-        </form>
+        </div>
+
+        {/* Right Panel: Prompt or Split Form */}
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          {!parentSku ? (
+            <p className="text-xs text-slate-600 py-2">Search and select the item to split.</p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Item Header */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">Item : {parentSku.name}</span>
+                  <span className="text-[11px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                    Box → split in Pkt / Pcs
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600">
+                  Stock: <b>{parentSku.stock}</b> · GRN price <b>{parentSku.cost}</b>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSplitRows((prev) => [...prev, createSplitRow(prev.length)])}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-full cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" /> Add split item
+                </button>
+              </div>
+
+              {/* Out Qty */}
+              <div className="max-w-xs">
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Out Qty <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Enter qty"
+                  value={outQtyInput}
+                  onChange={(e) => setOutQtyInput(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              {/* Split Item Cards */}
+              <div className="space-y-3">
+                {splitRows.map((row, idx) => {
+                  const autoGrn =
+                    outQtyNum > 0 && totalInQty > 0
+                      ? ((outQtyNum * parentSku.cost) / totalInQty).toFixed(2)
+                      : 'auto';
+                  return (
+                    <div
+                      key={row.uid}
+                      className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/40 relative"
+                    >
+                      {splitRows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitRows((prev) => prev.filter((r) => r.uid !== row.uid))}
+                          className="absolute right-3 top-3 text-slate-400 hover:text-rose-600 cursor-pointer"
+                          title="Remove split item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1">
+                            Converted Item <span className="text-rose-500">*</span>
+                          </label>
+                          <SearchableItemDropdown
+                            options={skuOptions.filter((s) => String(s.id) !== String(parentSku.id))}
+                            value={row.childId}
+                            onChange={(id) => {
+                              const picked = skuOptions.find((s) => String(s.id) === id);
+                              handleRowChange(row.uid, {
+                                childId: id,
+                                sellingPrice: picked && picked.price > 0 ? String(picked.price) : row.sellingPrice,
+                              });
+                            }}
+                            placeholder={idx === 0 ? 'Select item' : 'Select item'}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1">
+                            GRN price (from main SKU)
+                          </label>
+                          <input
+                            type="text"
+                            readOnly
+                            value={autoGrn}
+                            className="w-full px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg text-slate-600 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1">
+                            Selling Price <span className="text-rose-500">*</span>{' '}
+                            <span className="font-normal text-[11px] text-slate-500">
+                              (main selling converted ÷ ₹1)
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Enter selling price"
+                            value={row.sellingPrice}
+                            onChange={(e) => handleRowChange(row.uid, { sellingPrice: e.target.value })}
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1">
+                            In Qty <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Enter qty"
+                            value={row.inQty}
+                            onChange={(e) => handleRowChange(row.uid, { inQty: e.target.value })}
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Plus Circle Button */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setSplitRows((prev) => [...prev, createSplitRow(prev.length)])}
+                  className="w-7 h-7 rounded-full bg-[#0d1b4c] hover:bg-[#1a2d6d] text-white inline-flex items-center justify-center shadow-sm cursor-pointer"
+                  title="Add another split item"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Shrinkage & Difference in stock */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Shrinkage Item</label>
+                  <select
+                    value={shrinkageItemId}
+                    onChange={(e) => setShrinkageItemId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">No shrinkage</option>
+                    {skuOptions.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Shrinkage price</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter item price"
+                    value={shrinkagePrice}
+                    onChange={(e) => setShrinkagePrice(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Shrinkage Qty</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Enter quantity"
+                    value={shrinkageQtyInput}
+                    onChange={(e) => setShrinkageQtyInput(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Difference in stock</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${diffQty} Box ✓`}
+                    className="w-full px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Balance Summary Bar */}
+              <div className="bg-rose-50/70 border border-rose-200 text-rose-700 px-3.5 py-2 rounded-lg text-xs font-semibold">
+                Main item: {outQtyNum} Out · Split items total: {totalInQty} Pcs
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-full cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-[#0d1b4c] hover:bg-[#1a2d6d] rounded-full shadow-sm cursor-pointer"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
