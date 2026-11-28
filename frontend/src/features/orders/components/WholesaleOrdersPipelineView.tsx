@@ -785,15 +785,17 @@ export function WholesaleOrdersPipelineView() {
             const map = new Map(parsed.map((o: PipelineOrder) => [o.orderNo, normalizePipelineOrder(o)]));
             for (const initO of INITIAL_PIPELINE_ORDERS) {
               if (!map.has(initO.orderNo)) {
-                map.set(initO.orderNo, initO);
+                map.set(initO.orderNo, initO.stage !== "completed" ? { ...initO, vehicleNo: "" } : initO);
               }
             }
             const loaded = Array.from(map.values());
-            if (!localStorage.getItem("pk_all_vehicle_default_cleared_v2")) {
-              localStorage.setItem("pk_all_vehicle_default_cleared_v2", "1");
-              return loaded.map((o) =>
+            if (!localStorage.getItem("pk_all_vehicle_default_cleared_v3")) {
+              localStorage.setItem("pk_all_vehicle_default_cleared_v3", "1");
+              const cleared = loaded.map((o) =>
                 o.stage !== "completed" ? { ...o, vehicleNo: "" } : o
               );
+              safeSavePipelineOrders(cleared);
+              return cleared;
             }
             return loaded;
           }
@@ -1582,19 +1584,19 @@ export function WholesaleOrdersPipelineView() {
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) return;
 
-    const paidTotal = (Number(targetOrder.cashPaid) || 0) + (Number(targetOrder.qrPaid) || 0);
-    const hasPayment = Boolean(targetOrder.paymentMode) && (paidTotal > 0 || (Number(targetOrder.returnAmount) || 0) > 0);
-    if (!hasPayment) {
-      toast.error("Please complete payment before marking delivered.");
-      setViewingOrder(targetOrder);
-      return;
-    }
-
     const assignedVehicle = (selectedVehicle && selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)")
       ? selectedVehicle
       : (targetOrder.vehicleNo || "");
     if (!assignedVehicle || assignedVehicle === "Select Vehicle No") {
       toast.error("Please select a Vehicle No before marking delivered.");
+      setViewingOrder(targetOrder);
+      return;
+    }
+
+    const paidTotal = (Number(targetOrder.cashPaid) || 0) + (Number(targetOrder.qrPaid) || 0);
+    const hasPayment = Boolean(targetOrder.paymentMode) && (paidTotal > 0 || (Number(targetOrder.returnAmount) || 0) > 0);
+    if (!hasPayment) {
+      toast.error("Please complete payment before marking delivered.");
       setViewingOrder(targetOrder);
       return;
     }
