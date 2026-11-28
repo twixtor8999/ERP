@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.audit_logs.models import AuditLog
 from app.modules.billing.models import Invoice
 from app.modules.inventory.models import (
     InventoryReservation,
@@ -18,6 +19,7 @@ from app.modules.inventory.models import (
     StockSplitItem,
 )
 from app.modules.orders.models import Order, OrderItem
+from app.modules.products.models import Product, ProductVariant
 
 
 def _recompute_available(sb: StockBalance) -> None:
@@ -553,3 +555,144 @@ def execute_stock_split(
         )
 
     return batch
+
+
+def compute_closing_stock(
+    *,
+    opening: Decimal | float | int,
+    purchase: Decimal | float | int = 0,
+    purchase_return: Decimal | float | int = 0,
+    sales: Decimal | float | int = 0,
+    sales_return: Decimal | float | int = 0,
+    split_in: Decimal | float | int = 0,
+    split_out: Decimal | float | int = 0,
+) -> Decimal:
+    """Exact Closing Stock formula: Opening + Purchase - PurchaseReturn - Sales + SalesReturn + SplitIn - SplitOut."""
+    return (
+        Decimal(str(opening))
+        + Decimal(str(purchase))
+        - Decimal(str(purchase_return))
+        - Decimal(str(sales))
+        + Decimal(str(sales_return))
+        + Decimal(str(split_in))
+        - Decimal(str(split_out))
+    )
+
+
+def reconcile_organization_inventory(
+    db: Session,
+    org_id: str,
+    actor_id: str | None = None,
+) -> dict:
+    """Read-only inventory reconciliation checking Closing - Pending = Available, reservation sums, and ledger integrity.
+
+    Never silently overwrites stock quantities; records AuditLog entries for any detected mismatch.
+    """
+    balances = db.scalars(
+        select(StockBalance).where(StockBalance.organization_id == org_id)
+    ).all()
+
+    variant_skus = {
+        vid: sku
+        for vid, sku in db.execute(
+            select(ProductVariant.id, ProductVariant.sku)
+            .join(Product, ProductVariant.product_id == Product.id)
+            .where(Product.organization_id == org_id)
+        ).all()
+    }
+
+    active_resv_by_variant: dict[str, Decimal] = {}
+    for resv in db.scalars(
+        select(InventoryReservation).where(
+            InventoryReservation.organization_id == org_id,
+            InventoryReservation.is_released.is_(False),
+        )
+    ).all():
+        active_resv_by_variant[resv.product_variant_id] = (
+            active_resv_by_variant.get(resv.product_variant_id, Decimal("0.0000"))
+            + Decimal(str(resv.quantity or 0))
+        )
+
+    mismatches: list[dict] = []
+    for sb in balances:
+        sku = variant_skus.get(sb.product_variant_id, sb.product_variant_id)
+        on_hand = Decimal(str(sb.quantity_on_hand or 0))
+        reserved = Decimal(str(sb.quantity_reserved or 0))
+        available = Decimal(str(sb.quantity_available or 0))
+
+        if on_hand < 0 or reserved < 0 or available < 0:
+            mismatches.append({
+                "stock_balance_id": sb.id,
+                "variant_id": sb.product_variant_id,
+                "sku": sku,
+                "mismatch_type": "NEGATIVE_BALANCE",
+                "expected": ">= 0",
+                "actual": f"on_hand={on_hand}, reserved={reserved}, available={available}",
+            })
+
+        expected_avail = max(Decimal("0.0000"), on_hand - reserved)
+        if abs(expected_avail - available) > Decimal("0.001"):
+            mismatches.append({
+                "stock_balance_id": sb.id,
+                "variant_id": sb.product_variant_id,
+                "sku": sku,
+                "mismatch_type": "AVAILABLE_FORMULA_MISMATCH",
+                "expected": str(expected_avail),
+                "actual": str(available),
+            })
+
+        expected_resv = active_resv_by_variant.get(sb.product_variant_id, Decimal("0.0000"))
+        if abs(expected_resv - reserved) > Decimal("0.001"):
+            mismatches.append({
+                "stock_balance_id": sb.id,
+                "variant_id": sb.product_variant_id,
+                "sku": sku,
+                "mismatch_type": "RESERVATION_SUM_MISMATCH",
+                "expected": str(expected_resv),
+                "actual": str(reserved),
+            })
+
+    # Verify snapshot math on physical ledger movements that carry opening_quantity & closing_quantity
+    physical_types = {"IN", "PURCHASE", "PURCHASE_RETURN", "SALES_FINALIZATION", "RETURN", "SPLIT", "ADJUSTMENT"}
+    for mv in db.scalars(
+        select(StockMovement).where(
+            StockMovement.organization_id == org_id,
+            StockMovement.opening_quantity.is_not(None),
+            StockMovement.closing_quantity.is_not(None),
+        )
+    ).all():
+        if (mv.movement_type or "").upper() not in physical_types:
+            continue
+        expected_close = Decimal(str(mv.opening_quantity)) + Decimal(str(mv.quantity))
+        actual_close = Decimal(str(mv.closing_quantity))
+        if abs(expected_close - actual_close) > Decimal("0.001"):
+            mismatches.append({
+                "movement_id": mv.id,
+                "variant_id": mv.product_variant_id,
+                "sku": variant_skus.get(mv.product_variant_id, mv.product_variant_id),
+                "mismatch_type": "LEDGER_SNAPSHOT_MISMATCH",
+                "expected": str(expected_close),
+                "actual": str(actual_close),
+            })
+
+    for mm in mismatches:
+        db.add(
+            AuditLog(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                user_id=actor_id,
+                action="INVENTORY_RECONCILIATION_MISMATCH",
+                entity_type="StockBalance",
+                entity_id=str(mm.get("stock_balance_id") or mm.get("movement_id") or org_id),
+                new_values=mm,
+            )
+        )
+    if mismatches:
+        db.flush()
+
+    return {
+        "status": "MISMATCH_FOUND" if mismatches else "HEALTHY",
+        "checked_skus": len(balances),
+        "mismatch_count": len(mismatches),
+        "mismatches": mismatches,
+    }

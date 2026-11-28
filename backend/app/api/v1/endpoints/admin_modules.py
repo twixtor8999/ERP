@@ -22,6 +22,7 @@ from app.modules.inventory.service import (
     adjust_order_item_quantity,
     execute_stock_split,
     finalize_order_reservations_to_sales,
+    reconcile_organization_inventory,
     record_stock_movement,
     release_order_reservations_on_cancel,
     reserve_order_item_stock,
@@ -2878,6 +2879,22 @@ def get_inventory_ledger(
             "notes": m.notes,
         })
     return results
+
+
+@router.get("/inventory/reconcile", dependencies=[Depends(require_admin_user)])
+def reconcile_inventory_endpoint(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Run automated inventory reconciliation without silently overwriting stock quantities."""
+    report = reconcile_organization_inventory(
+        db=db,
+        org_id=current_user.organization_id,
+        actor_id=current_user.user_id,
+    )
+    if report["mismatch_count"] > 0:
+        db.commit()
+    return report
 
 
 @router.get("/subscription", dependencies=[Depends(require_admin_user)])
