@@ -124,7 +124,7 @@ export function LoginPage() {
 
   if (isCrm) {
     return (
-      <div className="h-screen w-full relative flex flex-col items-center justify-start pt-2 sm:pt-3 bg-white text-slate-800 antialiased px-3 sm:px-4 overflow-hidden">
+      <div className="min-h-screen w-full relative flex flex-col items-center justify-center bg-[#f1f5f9] text-slate-800 antialiased px-3 sm:px-4 overflow-hidden">
         {/* Exact Reference Curved Royal Blue Canopy Arc */}
         <div
           className="absolute pointer-events-none z-0"
@@ -140,13 +140,15 @@ export function LoginPage() {
           }}
         />
 
-        {/* Centered CRM Login Card matching reference 1:1 */}
-        <div className="relative z-10 w-full max-w-[408px] bg-white rounded-[22px] shadow-[0_18px_50px_rgba(13,27,76,0.25)] border-0 px-6 py-6 sm:px-7 sm:py-7 space-y-3.5">
-          {/* Card Header: Ai Smart Bazar CRM */}
-          <div className="text-center space-y-1.5">
-            <h2 className="text-2xl sm:text-[27px] font-black text-[#0d1b4c] tracking-tight">
-              Ai Smart Bazar <span className="text-[#f59e0b]">CRM</span>
-            </h2>
+        {/* Centered Vertical White Column Backdrop matching Reference */}
+        <div className="relative z-10 w-full max-w-[448px] min-h-screen bg-white flex flex-col items-center justify-center px-4 sm:px-5 py-8">
+          {/* Centered CRM Login Card matching reference 1:1 */}
+          <div className="w-full max-w-[408px] bg-white rounded-[22px] shadow-[0_18px_50px_rgba(13,27,76,0.22)] border border-slate-100 px-6 py-6 sm:px-7 sm:py-7 space-y-3.5">
+            {/* Card Header: Ai Smart Bazar CRM */}
+            <div className="text-center space-y-1.5">
+              <h2 className="text-2xl sm:text-[27px] font-semibold text-[#0d1b4c] tracking-tight">
+                Ai Smart Bazar <span className="font-black text-[#f59e0b]">CRM</span>
+              </h2>
             <div className="inline-block relative pt-0.5">
               <img
                 src="/siddeshwar-logo.png"
@@ -174,6 +176,7 @@ export function LoginPage() {
               <Input
                 id="crm-identifier"
                 type="text"
+                autoFocus
                 placeholder="Registered mobile number / username"
                 className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-600 focus-visible:border-blue-600 text-sm h-10 rounded-[12px] shadow-none"
                 disabled={isSubmitting}
@@ -257,15 +260,16 @@ export function LoginPage() {
             </a>
           </div>
 
-          {/* Footer with Lock & Version 5.17 matching reference */}
-          <div className="text-center pt-2 space-y-1">
-            <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Secure login</span>
+            {/* Footer with Lock & Version 5.08 matching reference */}
+            <div className="text-center pt-2 space-y-1">
+              <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Secure login</span>
+              </div>
+              <p className="text-[11px] font-mono text-slate-400">
+                5.08
+              </p>
             </div>
-            <p className="text-[11px] font-mono text-slate-400">
-              5.17
-            </p>
           </div>
         </div>
       </div>
