@@ -197,7 +197,10 @@ export function WholesaleStockMovementView() {
               className="border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500"
             />
             <button
-              onClick={() => toast.success("Filters applied")}
+              onClick={() => {
+                void syncMovement();
+                toast.success("Filters applied");
+              }}
               className="px-3 py-1 bg-[#0f2d59] hover:bg-[#1a3d6d] text-white rounded text-xs font-semibold transition"
             >
               Submit

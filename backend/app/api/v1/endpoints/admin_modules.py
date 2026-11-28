@@ -5226,7 +5226,10 @@ def get_stock_movements(
     today_iso = today_ist.isoformat()
     start_iso = (from_date or today_iso)[:10]
     end_iso = (to_date or today_iso)[:10]
+    if start_iso > end_iso:
+        start_iso, end_iso = end_iso, start_iso
     start_d = date.fromisoformat(start_iso)
+    end_d = date.fromisoformat(end_iso)
 
     variants = db.scalars(
         select(ProductVariant)
@@ -5242,9 +5245,11 @@ def get_stock_movements(
 
     # Fetch movements from start_date up to today so we can walk backwards accurately from live StockBalance
     maps = _aggregate_daily_order_and_movement_maps(db, org_id, start_date=start_d, end_date=today_ist)
-    all_dates = sorted(maps["dates"] | {end_iso} | ({start_iso} if start_iso == end_iso else set()), reverse=True)
-    # Include all dates >= start_iso up to today_iso when computing backward balance, emit only [start_iso, end_iso]
-    calc_dates = sorted(maps["dates"] | {today_iso, end_iso, start_iso}, reverse=True)
+    # Include every calendar date in [start_d, max(end_d, today_ist)] (capped at 180 days) so selected range always shows all dates
+    span_end = max(end_d, today_ist)
+    total_days = min(180, max(0, (span_end - start_d).days))
+    range_dates = {(start_d + timedelta(days=offset)).isoformat() for offset in range(total_days + 1)}
+    calc_dates = sorted(maps["dates"] | range_dates | {today_iso, end_iso, start_iso}, reverse=True)
 
     q = (search or "").strip().lower()
     rows: list[dict[str, Any]] = []
@@ -5302,7 +5307,7 @@ def get_stock_movements(
                     "stockValue": round(day_closing * cost, 2),
                     "punchOrders": round(punch, 2),
                     "orderCancel": round(cancel, 2),
-                    "available": round(day_closing - punch, 2),
+                    "available": round(day_closing, 2),
                 })
 
     rows.sort(key=lambda r: (r["date"], r["skuName"]), reverse=False)
