@@ -6248,6 +6248,228 @@ def adjust_inventory_stock(
     return {"success": True, "variant_id": payload.variant_id, "closing": float(sb.quantity_on_hand), "delta": float(delta)}
 
 
+class StockSplitItemPayload(BaseModel):
+    child_variant_id: str | None = None
+    child_sku_name: str | None = None
+    in_qty: Decimal
+    selling_price: Decimal | None = None
+
+
+class ExecuteStockSplitPayload(BaseModel):
+    parent_variant_id: str | None = None
+    parent_sku_name: str | None = None
+    out_qty: Decimal
+    items: list[StockSplitItemPayload]
+    shrinkage_qty: Decimal = Decimal("0")
+    notes: str | None = None
+
+
+@router.get("/inventory/stock-splits", dependencies=[Depends(require_admin_user)])
+def list_stock_splits(
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Return all Stock Split vouchers recorded in Railway PostgreSQL."""
+    org_id = current_user.organization_id
+    ist_tz = ZoneInfo("Asia/Kolkata")
+    mv_rows = db.execute(
+        select(StockMovement, ProductVariant, Product)
+        .join(ProductVariant, StockMovement.product_variant_id == ProductVariant.id)
+        .join(Product, ProductVariant.product_id == Product.id)
+        .where(StockMovement.organization_id == org_id, StockMovement.movement_type == "SPLIT")
+        .order_by(StockMovement.created_at.desc())
+        .limit(500)
+    ).all()
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for mv, var, prod in mv_rows:
+        ref = mv.reference_id or mv.id
+        dt = mv.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        dt_ist = dt.astimezone(ist_tz)
+        entry = grouped.setdefault(
+            ref,
+            {
+                "id": ref,
+                "date": dt_ist.date().isoformat(),
+                "createdAt": dt_ist.isoformat(),
+                "dcName": "SIDDESHWAR ENTERPRISES",
+                "operatorName": "Staff",
+                "notes": mv.notes or "",
+                "out": None,
+                "ins": [],
+            },
+        )
+        q_val = float(mv.quantity or 0)
+        item_info = {
+            "variantId": var.id,
+            "skuNo": var.sku,
+            "itemName": prod.name,
+            "qty": abs(q_val),
+            "price": float(mv.unit_cost or 0),
+        }
+        if q_val < 0:
+            entry["out"] = item_info
+        else:
+            entry["ins"].append(item_info)
+
+    result = []
+    for ref, entry in grouped.items():
+        out = entry["out"]
+        ins = entry["ins"]
+        if not out or not ins:
+            continue
+        first_in = ins[0]
+        result.append({
+            "id": ref,
+            "date": entry["date"],
+            "createdAt": entry["createdAt"],
+            "dcName": entry["dcName"],
+            "parentSkuId": out["variantId"],
+            "parentSkuNo": out["skuNo"],
+            "parentItemName": out["itemName"],
+            "parentGrnPrice": out["price"],
+            "splitQty": out["qty"],
+            "childSkuId": first_in["variantId"],
+            "childSkuNo": first_in["skuNo"],
+            "childItemName": ", ".join(f"{x['qty']}x {x['itemName']}" for x in ins) if len(ins) > 1 else first_in["itemName"],
+            "convertedQty": sum(x["qty"] for x in ins),
+            "splitGrnPrice": first_in["price"],
+            "shrinkageQty": 0,
+            "operatorName": entry["operatorName"],
+            "notes": entry["notes"],
+        })
+    return result
+
+
+@router.post("/inventory/stock-split", dependencies=[Depends(require_admin_user)])
+def execute_stock_split(
+    payload: ExecuteStockSplitPayload,
+    current_user: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Execute a stock split in Railway PostgreSQL: deduct Split Out, add Split In, and record SPLIT StockMovements."""
+    org_id = current_user.organization_id
+    if payload.out_qty <= 0 or not payload.items:
+        raise HTTPException(status_code=400, detail="out_qty > 0 and at least one split item are required")
+
+    def resolve_variant(var_id: str | None, sku_name: str | None) -> ProductVariant | None:
+        if var_id:
+            v = db.scalar(
+                select(ProductVariant)
+                .join(Product, ProductVariant.product_id == Product.id)
+                .where(ProductVariant.id == var_id, Product.organization_id == org_id)
+            )
+            if v:
+                return v
+        if sku_name:
+            return db.scalar(
+                select(ProductVariant)
+                .join(Product, ProductVariant.product_id == Product.id)
+                .where(Product.organization_id == org_id, func.lower(Product.name) == sku_name.strip().lower())
+            )
+        return None
+
+    parent_var = resolve_variant(payload.parent_variant_id, payload.parent_sku_name)
+    if not parent_var:
+        raise HTTPException(status_code=404, detail="Source bulk SKU not found in database")
+
+    branch = db.scalar(select(Branch).where(Branch.organization_id == org_id).limit(1))
+    warehouse = db.scalar(select(Warehouse).where(Warehouse.organization_id == org_id).limit(1))
+    if not branch or not warehouse:
+        raise HTTPException(status_code=400, detail="Organization branch/warehouse not configured")
+
+    def get_or_create_balance(var: ProductVariant) -> StockBalance:
+        sb = db.scalar(
+            select(StockBalance).where(
+                StockBalance.organization_id == org_id,
+                StockBalance.product_variant_id == var.id,
+            )
+        )
+        if not sb:
+            sb = StockBalance(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                branch_id=branch.id,
+                warehouse_id=warehouse.id,
+                product_variant_id=var.id,
+                quantity_on_hand=Decimal("0.0000"),
+                quantity_reserved=Decimal("0.0000"),
+                quantity_available=Decimal("0.0000"),
+                average_unit_cost=var.cost_price or Decimal("0.00"),
+                total_value=Decimal("0.00"),
+            )
+            db.add(sb)
+            db.flush()
+        return sb
+
+    voucher_id = f"SP{uuid.uuid4().hex[:8].upper()}"
+    parent_sb = get_or_create_balance(parent_var)
+    parent_cost = parent_sb.average_unit_cost or parent_var.cost_price or Decimal("0.00")
+    parent_sb.quantity_on_hand = max(Decimal("0.0000"), Decimal(parent_sb.quantity_on_hand or 0) - payload.out_qty)
+    parent_sb.quantity_available = max(Decimal("0.0000"), parent_sb.quantity_on_hand - Decimal(parent_sb.quantity_reserved or 0))
+    parent_sb.total_value = parent_sb.quantity_on_hand * parent_cost
+
+    db.add(
+        StockMovement(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            branch_id=parent_sb.branch_id,
+            warehouse_id=parent_sb.warehouse_id,
+            product_variant_id=parent_var.id,
+            movement_type="SPLIT",
+            quantity=-payload.out_qty,
+            unit_cost=parent_cost,
+            total_cost=payload.out_qty * parent_cost,
+            reference_type="STOCK_SPLIT",
+            reference_id=voucher_id,
+            notes=payload.notes or f"Stock Split Out ({voucher_id})",
+            created_by=current_user.user_id,
+        )
+    )
+
+    total_in_qty = sum((it.in_qty for it in payload.items if it.in_qty > 0), Decimal("0"))
+    allocated_unit_cost = (payload.out_qty * parent_cost / total_in_qty) if total_in_qty > 0 else Decimal("0.00")
+
+    for it in payload.items:
+        if it.in_qty <= 0:
+            continue
+        child_var = resolve_variant(it.child_variant_id, it.child_sku_name)
+        if not child_var:
+            raise HTTPException(status_code=404, detail=f"Converted SKU not found: {it.child_sku_name or it.child_variant_id}")
+        child_sb = get_or_create_balance(child_var)
+        child_sb.quantity_on_hand = Decimal(child_sb.quantity_on_hand or 0) + it.in_qty
+        child_sb.quantity_available = max(Decimal("0.0000"), child_sb.quantity_on_hand - Decimal(child_sb.quantity_reserved or 0))
+        if allocated_unit_cost > 0:
+            child_sb.average_unit_cost = allocated_unit_cost
+        child_sb.total_value = child_sb.quantity_on_hand * (child_sb.average_unit_cost or Decimal("0.00"))
+        if it.selling_price and it.selling_price > 0:
+            child_var.selling_price = it.selling_price
+            child_var.wholesale_price = it.selling_price
+
+        db.add(
+            StockMovement(
+                id=str(uuid.uuid4()),
+                organization_id=org_id,
+                branch_id=child_sb.branch_id,
+                warehouse_id=child_sb.warehouse_id,
+                product_variant_id=child_var.id,
+                movement_type="SPLIT",
+                quantity=it.in_qty,
+                unit_cost=allocated_unit_cost,
+                total_cost=it.in_qty * allocated_unit_cost,
+                reference_type="STOCK_SPLIT",
+                reference_id=voucher_id,
+                notes=payload.notes or f"Stock Split In ({voucher_id})",
+                created_by=current_user.user_id,
+            )
+        )
+
+    db.commit()
+    return {"success": True, "voucher_id": voucher_id}
+
+
 
 
 

@@ -7,6 +7,7 @@ import { StockSplitDetailView } from './StockSplitDetailView';
 import { WholesaleAddStockSplitView } from './WholesaleAddStockSplitView';
 import { toast } from 'sonner';
 import { getIstDateString, isDateInRange } from '@/lib/utilities/istTime';
+import { fetchStockSplits } from '@/lib/api/apiService';
 
 interface Props {
   onBack?: () => void;
@@ -25,7 +26,20 @@ export const WholesaleStockSplitView: React.FC<Props> = ({ onBack }) => {
   const [activeDateFilter, setActiveDateFilter] = useState({ start: monthStartIst, end: todayIst });
 
   useEffect(() => {
-    const refresh = () => setSplits(getStoredStockSplits());
+    const loadFromDb = () => {
+      fetchStockSplits()
+        .then((rows) => {
+          if (Array.isArray(rows) && rows.length > 0) {
+            setSplits(rows as StockSplitRecord[]);
+          }
+        })
+        .catch(() => {});
+    };
+    const refresh = () => {
+      setSplits(getStoredStockSplits());
+      loadFromDb();
+    };
+    loadFromDb();
     window.addEventListener('inventory_updated', refresh);
     window.addEventListener('storage', refresh);
     return () => {

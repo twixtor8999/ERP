@@ -3,7 +3,7 @@ import { ArrowLeft, Search, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { StockSplitRecord, SplitSkuOption } from '../types';
 import { getStoredSkus } from '@/features/inventory/data/mockInventory';
 import { computeLiveRealtimeSkus } from '@/features/inventory/utils/liveInventory';
-import { fetchRealtimeInventory, type ApiRealtimeSku } from '@/lib/api/apiService';
+import { fetchRealtimeInventory, executeStockSplit, type ApiRealtimeSku } from '@/lib/api/apiService';
 import { getIstDateString } from '@/lib/utilities/istTime';
 import { useAuthStore } from '@/stores/auth.store';
 import { getInvoiceTemplateConfig } from '@/features/orders/utils/invoiceTemplateConfig';
@@ -154,7 +154,7 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
   const skuOptions: SplitSkuOption[] = useMemo(() => {
     if (liveApiSkus && liveApiSkus.length > 0) {
       return liveApiSkus.map((s) => ({
-        id: s.id,
+        id: s.variantId || s.id,
         skuNo: s.code || String(s.id),
         name: s.name,
         category: s.category || 'General',
@@ -213,7 +213,7 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
     setSplitRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!parentSku) {
       toast.error('Please select an item to split from the left list');
@@ -230,9 +230,11 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
       return;
     }
 
-    const totalCost = outQtyNum * parentSku.cost;
-    const totalConverted = validRows.reduce((s, r) => s + (Number(r.inQty) || 0), 0);
-
+    const mappedItems: Array<{
+      childSku: SplitSkuOption;
+      inQty: number;
+      sellingPrice: number;
+    }> = [];
     for (const row of validRows) {
       const childSku = skuOptions.find((s) => String(s.id) === String(row.childId));
       if (!childSku) continue;
@@ -240,34 +242,69 @@ export const WholesaleAddStockSplitView: React.FC<Props> = ({ onBack, onSuccess 
         toast.error('Converted item must be different from the main item');
         return;
       }
-      const inQty = Number(row.inQty) || 0;
-      const allocatedUnitCost = totalConverted > 0 ? totalCost / totalConverted : 0;
-
-      const newRecord: StockSplitRecord = {
-        id: `SP${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 4).toUpperCase()}`,
-        date: todayIso,
-        dcName,
-        parentSkuId: parentSku.id,
-        parentSkuNo: parentSku.skuNo,
-        parentItemName: parentSku.name,
-        parentCategory: parentSku.category,
-        parentGrnPrice: parentSku.cost,
-        splitQty: outQtyNum,
-        childSkuId: childSku.id,
-        childSkuNo: childSku.skuNo,
-        childItemName: childSku.name,
-        childCategory: childSku.category,
-        convertedQty: inQty,
-        splitGrnPrice: Math.round(allocatedUnitCost * 100) / 100,
-        shrinkageQty: shrinkageQtyNum,
-        operatorName,
-        notes: `Standard stock split ${parentSku.name} → ${childSku.name}`,
-        createdAt: new Date().toISOString(),
-      };
-      onSuccess(newRecord);
+      mappedItems.push({
+        childSku,
+        inQty: Number(row.inQty) || 0,
+        sellingPrice: Number(row.sellingPrice) || 0,
+      });
     }
 
-    toast.success('Stock split completed successfully!');
+    if (mappedItems.length === 0) return;
+
+    let voucherId = `SP${Date.now().toString(36).toUpperCase()}`;
+    try {
+      const res = await executeStockSplit({
+        parent_variant_id: typeof parentSku.id === 'string' ? parentSku.id : undefined,
+        parent_sku_name: parentSku.name,
+        out_qty: outQtyNum,
+        items: mappedItems.map((m) => ({
+          child_variant_id: typeof m.childSku.id === 'string' ? m.childSku.id : undefined,
+          child_sku_name: m.childSku.name,
+          in_qty: m.inQty,
+          selling_price: m.sellingPrice > 0 ? m.sellingPrice : undefined,
+        })),
+        shrinkage_qty: shrinkageQtyNum,
+        notes: `Standard stock split ${parentSku.name} → ${mappedItems.map((m) => `${m.inQty}x ${m.childSku.name}`).join(', ')}`,
+      });
+      if (res?.voucher_id) voucherId = res.voucher_id;
+    } catch {
+      toast.error('Failed to save stock split to Railway database');
+      return;
+    }
+
+    const totalCost = outQtyNum * parentSku.cost;
+    const totalConverted = mappedItems.reduce((s, m) => s + m.inQty, 0);
+    const allocatedUnitCost = totalConverted > 0 ? totalCost / totalConverted : 0;
+    const firstChild = mappedItems[0]?.childSku;
+    if (!firstChild) return;
+
+    const newRecord: StockSplitRecord = {
+      id: voucherId,
+      date: todayIso,
+      dcName,
+      parentSkuId: parentSku.id,
+      parentSkuNo: parentSku.skuNo,
+      parentItemName: parentSku.name,
+      parentCategory: parentSku.category,
+      parentGrnPrice: parentSku.cost,
+      splitQty: outQtyNum,
+      childSkuId: firstChild.id,
+      childSkuNo: firstChild.skuNo,
+      childItemName:
+        mappedItems.length > 1
+          ? mappedItems.map((m) => `${m.inQty}x ${m.childSku.name}`).join(', ')
+          : firstChild.name,
+      childCategory: firstChild.category,
+      convertedQty: totalConverted,
+      splitGrnPrice: Math.round(allocatedUnitCost * 100) / 100,
+      shrinkageQty: shrinkageQtyNum,
+      operatorName,
+      notes: `Standard stock split ${parentSku.name} → ${mappedItems.map((m) => `${m.inQty}x ${m.childSku.name}`).join(', ')}`,
+      createdAt: new Date().toISOString(),
+    };
+    window.dispatchEvent(new Event('inventory_updated'));
+    onSuccess(newRecord);
+    toast.success('Stock split saved to Railway DB & Inventory updated!');
     onBack();
   };
 

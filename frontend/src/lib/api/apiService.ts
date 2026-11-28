@@ -191,6 +191,30 @@ export async function fetchSuppliers(): Promise<ApiSupplier[]> {
   return Array.isArray(res.data) ? res.data : [];
 }
 
+export interface ApiStockSplitPayload {
+  parent_variant_id?: string;
+  parent_sku_name?: string;
+  out_qty: number;
+  items: Array<{
+    child_variant_id?: string;
+    child_sku_name?: string;
+    in_qty: number;
+    selling_price?: number;
+  }>;
+  shrinkage_qty?: number;
+  notes?: string;
+}
+
+export async function fetchStockSplits(): Promise<any[]> {
+  const res = await apiClient.get<any[]>("/api/v1/admin/inventory/stock-splits");
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function executeStockSplit(payload: ApiStockSplitPayload): Promise<{ success: boolean; voucher_id: string }> {
+  const res = await apiClient.post<{ success: boolean; voucher_id: string }>("/api/v1/admin/inventory/stock-split", payload);
+  return res.data;
+}
+
 export async function fetchPurchases(dateFrom?: string, dateTo?: string): Promise<ApiPurchase[]> {
   const params = new URLSearchParams();
   if (dateFrom) params.set("date_from", dateFrom);
