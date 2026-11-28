@@ -789,13 +789,10 @@ export function WholesaleOrdersPipelineView() {
               }
             }
             const loaded = Array.from(map.values());
-            if (!localStorage.getItem("pk_invoice_vehicle_default_cleared_v1")) {
-              localStorage.setItem("pk_invoice_vehicle_default_cleared_v1", "1");
+            if (!localStorage.getItem("pk_all_vehicle_default_cleared_v2")) {
+              localStorage.setItem("pk_all_vehicle_default_cleared_v2", "1");
               return loaded.map((o) =>
-                (o.stage === "packing" || o.stage === "invoice") &&
-                (o.vehicleNo === "KA28AA6256" || (o.vehicleNo && /^\d{10,}$/.test(o.vehicleNo)))
-                  ? { ...o, vehicleNo: "" }
-                  : o
+                o.stage !== "completed" ? { ...o, vehicleNo: "" } : o
               );
             }
             return loaded;
@@ -855,13 +852,10 @@ export function WholesaleOrdersPipelineView() {
               source: bo.source === "Admin" ? "Store" : (bo.source || existing?.source || "CRM"),
               orderDate: bo.order_date || existing?.orderDate || "24-11-2026",
               orderTime: bo.order_placed ? bo.order_placed.split(" ")[1] || "10:00 am" : existing?.orderTime || "10:00 am",
-              vehicleNo: (() => {
-                const rawV = existing?.vehicleNo || (bo.vehicle_no && !/^\d{10,}$/.test(String(bo.vehicle_no)) ? String(bo.vehicle_no) : "");
-                if ((stage === "packing" || stage === "invoice") && rawV === "KA28AA6256" && !existing?.vehicleNo) {
-                  return "";
-                }
-                return rawV || "";
-              })(),
+              vehicleNo:
+                stage !== "completed"
+                  ? (existing?.vehicleNo || "")
+                  : (existing?.vehicleNo || (bo.vehicle_no && !/^\d{10,}$/.test(String(bo.vehicle_no)) ? String(bo.vehicle_no) : "")),
               total: typeof bo.total_amount === "number" ? bo.total_amount : existing?.total || 0,
               balance: bo.payment_status === "PAID" ? 0 : typeof bo.total_amount === "number" ? bo.total_amount : existing?.balance || 0,
               stage: stage,
@@ -2124,13 +2118,16 @@ export function WholesaleOrdersPipelineView() {
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-600">Vehicle:</span>
               <select
-                value={selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)" ? selectedVehicle : (viewingOrder.vehicleNo || "KA28AA6256")}
+                value={selectedVehicle !== "0" && selectedVehicle !== "Select vehicle" && selectedVehicle !== "All Vehicle(s)" ? selectedVehicle : (viewingOrder.vehicleNo || "")}
                 onChange={(e) => setSelectedVehicle(e.target.value)}
                 className="px-2.5 py-1 border border-slate-300 rounded-md bg-white font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
               >
-                <option value="KA28AA6256">KA28AA6256</option>
-                <option value="KA28AC0349">KA28AC0349</option>
-                <option value="KA28AB3425">KA28AB3425</option>
+                <option value="">Select Vehicle No</option>
+                {availableVehicleOptions.map((veh) => (
+                  <option key={veh} value={veh}>
+                    {veh}
+                  </option>
+                ))}
               </select>
             </div>
 
