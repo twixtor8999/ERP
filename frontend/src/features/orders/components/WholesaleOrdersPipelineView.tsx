@@ -1069,22 +1069,27 @@ export function WholesaleOrdersPipelineView() {
     return ["All routes", ...Array.from(rSet).filter(Boolean).sort()];
   }, [orders]);
 
-  // Dynamically extract all unique villages, optionally filtered by selected route
+  // Dynamically extract unique villages ONLY from orders currently in the active stage, date range, and route
   const availableVillages = useMemo(() => {
     const vSet = new Set<string>();
     const isAllRoutes = !routeFilter || routeFilter === "All routes" || routeFilter === "All";
+    const targetStage = activeTab === "report" ? "all" : activeTab;
     orders.forEach((o) => {
+      const matchesStage =
+        targetStage === "all"
+          ? true
+          : targetStage === "packing"
+          ? o.stage === "packing" || o.stage === "placed"
+          : o.stage === targetStage;
+      if (!matchesStage) return;
+      const orderIso = extractIsoDate(o.orderDate || o.orderTime);
+      if (!isDateInRange(orderIso, appliedFromDate, appliedToDate)) return;
       if (isAllRoutes || (o.route || "").toLowerCase() === routeFilter.toLowerCase()) {
         if (o.village) vSet.add(o.village.trim());
       }
     });
-    (realCustomersData as any[]).forEach((c) => {
-      if (isAllRoutes || (c.route || "").toLowerCase() === routeFilter.toLowerCase()) {
-        if (c.village) vSet.add(c.village.trim());
-      }
-    });
     return ["All villages", ...Array.from(vSet).filter(Boolean).sort()];
-  }, [orders, routeFilter]);
+  }, [orders, activeTab, appliedFromDate, appliedToDate, routeFilter]);
 
   // Kannada Connection Alert Modal state (Exact 1:1 to Image 5 from client website)
   const [offlineAlertOpen, setOfflineAlertOpen] = useState(false);
