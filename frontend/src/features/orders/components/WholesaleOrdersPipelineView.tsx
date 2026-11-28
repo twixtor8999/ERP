@@ -798,11 +798,12 @@ export function WholesaleOrdersPipelineView() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [justMovedToInvoiceIds, setJustMovedToInvoiceIds] = useState<Set<string>>(new Set());
 
-  // Date filters defaulting to today's IST date dynamically
+  // Date filters defaulting to 1st of current month -> today (IST)
   const todayStr = getIstDateString();
-  const [fromDate, setFromDate] = useState(todayStr);
+  const monthStartStr = `${todayStr.slice(0, 7)}-01`;
+  const [fromDate, setFromDate] = useState(monthStartStr);
   const [toDate, setToDate] = useState(todayStr);
-  const [appliedFromDate, setAppliedFromDate] = useState(todayStr);
+  const [appliedFromDate, setAppliedFromDate] = useState(monthStartStr);
   const [appliedToDate, setAppliedToDate] = useState(todayStr);
   const [pageSearch, setPageSearch] = useState("");
 
