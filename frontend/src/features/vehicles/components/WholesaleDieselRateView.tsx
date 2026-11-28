@@ -12,15 +12,15 @@ export function WholesaleDieselRateView() {
   const navigate = useNavigate();
   const [rates, setRates] = useState<DieselRateRecord[]>(() => getStoredDieselRates());
 
-  const todayStr = "2026-11-22";
+  const todayStr = new Date().toISOString().slice(0, 10);
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [inputRate, setInputRate] = useState<string>("98.5");
+  const [inputRate, setInputRate] = useState<string>(rates[0]?.rate ? String(rates[0].rate) : "");
   const [inputDate, setInputDate] = useState<string>(todayStr);
 
-  const currentRate = rates[0]?.rate || 99.0;
+  const currentRate = rates[0]?.rate || 0;
 
   const handleSaveRate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +38,20 @@ export function WholesaleDieselRateView() {
       minute: "2-digit",
     });
 
+    const currentUser = (() => {
+      try {
+        const u = JSON.parse(localStorage.getItem("auth_user") || "{}");
+        return u?.name || u?.full_name || localStorage.getItem("user_name") || "Admin";
+      } catch {
+        return "Admin";
+      }
+    })();
+
     const newRec: DieselRateRecord = {
       id: Date.now(),
       date: inputDate,
       rate: Math.round(r * 100) / 100,
-      by: "Vijaykumar Shantagiri Super Admin",
+      by: currentUser,
       savedOn: formattedSavedOn,
     };
 

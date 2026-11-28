@@ -18,10 +18,12 @@ import { toast } from "sonner";
 import {
   getStoredVehicles,
   getStoredTrips,
+  getStoredDieselRates,
   saveStoredTrips,
   createTripInApi,
   type VehicleTripRecord,
 } from "../data/mockVehicles";
+import { fetchCrmOrders } from "@/lib/api/apiService";
 
 interface LoadableOrder {
   id: string | number;
@@ -36,88 +38,74 @@ interface LoadableOrder {
 export function WholesaleCreateTripView() {
   const navigate = useNavigate();
   const vehicles = getStoredVehicles();
+  const existingTrips = getStoredTrips();
+  const activeDieselRate = getStoredDieselRates()[0]?.rate || 0;
 
   const [selectedVehId, setSelectedVehId] = useState<string>(
     vehicles[0]?.id ? String(vehicles[0].id) : ""
   );
-  const [startKm, setStartKm] = useState<string>("46100");
+  const lastTripForDefaultVeh = existingTrips.find(
+    (t) => String(t.vehId) === (vehicles[0]?.id ? String(vehicles[0].id) : "")
+  );
+  const [startKm, setStartKm] = useState<string>(
+    lastTripForDefaultVeh?.endKm ? String(lastTripForDefaultVeh.endKm) : ""
+  );
+  const [fixedRent, setFixedRent] = useState<string>(
+    lastTripForDefaultVeh?.fixedRent ? String(lastTripForDefaultVeh.fixedRent) : ""
+  );
   const [startKmPhoto, setStartKmPhoto] = useState<string>("");
 
   const [searchOrderQuery, setSearchOrderQuery] = useState("");
 
-  // Invoiced orders loaded from live pipeline
+  // Invoiced orders loaded from live pipeline / API
   const [invoicedOrders, setInvoicedOrders] = useState<LoadableOrder[]>(() => {
     try {
       const storedPipeline = localStorage.getItem("crm_wholesale_pipeline_orders");
       const list = storedPipeline ? JSON.parse(storedPipeline) : [];
       if (Array.isArray(list) && list.length > 0) {
-        // Collect orders that are invoiced or ready for dispatch and not already on an active trip
         const filtered = list.filter(
           (o: any) => o.stage === "invoice" || o.stage === "dispatch"
         );
-        if (filtered.length > 0) {
-          return filtered.map((o: any, idx: number) => ({
-            id: o.id || o.orderNo,
-            no: o.invoiceNo || o.orderNo,
-            custName: o.customerName || o.shopName || "Customer",
-            village: o.village || "Bijapur",
-            amount: Number(o.total) || 0,
-            itemsCount: Array.isArray(o.items) ? o.items.length : 1,
-            checked: idx < 2, // pre-check first 2 for convenient loading
-          }));
-        }
+        return filtered.map((o: any) => ({
+          id: o.id || o.orderNo,
+          no: o.invoiceNo || o.orderNo,
+          custName: o.customerName || o.shopName || "Customer",
+          village: o.village || "—",
+          amount: Number(o.total) || 0,
+          itemsCount: Array.isArray(o.items) ? o.items.length : 1,
+          checked: false,
+        }));
       }
     } catch {}
-
-    // Fallback verified invoiced orders if pipeline has no active invoiced orders yet
-    return [
-      {
-        id: 201,
-        no: "INV-2026-1045",
-        custName: "Sri Basaveshwar Stores",
-        village: "Basavan Bagewadi",
-        amount: 14200,
-        itemsCount: 8,
-        checked: true,
-      },
-      {
-        id: 202,
-        no: "INV-2026-1046",
-        custName: "Mamadapur Daily Mart",
-        village: "Mamadapur",
-        amount: 9800,
-        itemsCount: 5,
-        checked: true,
-      },
-      {
-        id: 203,
-        no: "INV-2026-1047",
-        custName: "Lakshmi General Stores",
-        village: "Tikota",
-        amount: 11400,
-        itemsCount: 6,
-        checked: false,
-      },
-      {
-        id: 204,
-        no: "INV-2026-1048",
-        custName: "Om Sai Supermarket",
-        village: "Atharga",
-        amount: 18650,
-        itemsCount: 11,
-        checked: false,
-      },
-      {
-        id: 205,
-        no: "INV-2026-1049",
-        custName: "Shree Ganesh Kirana",
-        village: "Yarnal",
-        amount: 7300,
-        itemsCount: 4,
-        checked: false,
-      },
-    ];
+    return [];
   });
+
+  React.useEffect(() => {
+    if (invoicedOrders.length > 0) return;
+    fetchCrmOrders(200)
+      .then((rows) => {
+        const ready = rows.filter(
+          (o) =>
+            o.status === "invoiced" ||
+            o.status === "dispatched" ||
+            o.status === "confirmed"
+        );
+        if (ready.length > 0) {
+          setInvoicedOrders(
+            ready.map((o) => ({
+              id: o.id,
+              no: o.invoice_number || o.order_number,
+              custName: o.customer_name || "Customer",
+              village: o.village || "—",
+              amount: Number(o.total_amount) || 0,
+              itemsCount: Array.isArray(o.items) ? o.items.length : 1,
+              checked: false,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const selectedVehicle = useMemo(() => {
     return vehicles.find((v) => String(v.id) === selectedVehId) || vehicles[0];
@@ -166,6 +154,7 @@ export function WholesaleCreateTripView() {
 
     const todayIso = new Date().toISOString().slice(0, 10);
     const startKmNum = Number(startKm) || 0;
+    const fixedRentNum = Number(fixedRent) || 0;
     const newTrip: VehicleTripRecord = {
       id: Date.now(),
       date: todayIso,
@@ -180,11 +169,11 @@ export function WholesaleCreateTripView() {
       startKm: startKmNum,
       endKm: startKmNum,
       totalKm: 0,
-      fixedRent: 1400,
+      fixedRent: fixedRentNum,
       dieselCost: 0,
       tollCost: 0,
       otherCost: 0,
-      totalRent: 1400,
+      totalRent: fixedRentNum,
       status: "in_progress",
       kmPhotos: startKmPhoto ? [startKmPhoto] : [],
       ...(startKmPhoto ? { startKmPhoto } : {}),
@@ -373,25 +362,32 @@ export function WholesaleCreateTripView() {
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 font-medium">Driver:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedVehicle.dr || "Basavaraj Hiremath"}
+                        {selectedVehicle.dr || "—"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 font-medium">Owner:</span>
                       <span className="font-semibold text-slate-800">
-                        {selectedVehicle.own || "Siddeshwar Enterprises"}
+                        {selectedVehicle.own || "—"}
                       </span>
                     </div>
                   </div>
 
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-blue-900 font-semibold">Standard Fixed Rent:</span>
-                      <b className="text-blue-900">₹1,400</b>
+                      <span className="text-blue-900 font-semibold">Fixed Rent (₹):</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={fixedRent}
+                        onChange={(e) => setFixedRent(e.target.value)}
+                        placeholder="0"
+                        className="w-24 px-2 py-1 text-right font-mono font-bold text-blue-900 bg-white border border-blue-200 rounded"
+                      />
                     </div>
                     <div className="flex justify-between items-center text-blue-700 text-2xs">
-                      <span>Diesel reimbursement:</span>
-                      <span>10 km/l @ ₹99/l</span>
+                      <span>Diesel rate:</span>
+                      <span>{activeDieselRate > 0 ? `₹${activeDieselRate}/l` : "Not set"}</span>
                     </div>
                   </div>
                 </div>

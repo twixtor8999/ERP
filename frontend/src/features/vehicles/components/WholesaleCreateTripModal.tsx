@@ -22,34 +22,29 @@ export function WholesaleCreateTripModal({
   const [selectedVehId, setSelectedVehId] = useState<string>(
     vehicles[0]?.id ? String(vehicles[0].id) : ""
   );
+  const [startKm, setStartKm] = useState<string>("");
+  const [fixedRent, setFixedRent] = useState<string>("");
 
-  // Mock pending invoiced orders ready to load onto a vehicle
-  const [invoicedOrders, setInvoicedOrders] = useState([
-    {
-      id: 201,
-      no: "INV-2026-1045",
-      custName: "Sri Basaveshwar Stores",
-      village: "Basavan Bagewadi",
-      amount: 14200,
-      checked: true,
-    },
-    {
-      id: 202,
-      no: "INV-2026-1046",
-      custName: "Mamadapur Daily Mart",
-      village: "Mamadapur",
-      amount: 9800,
-      checked: true,
-    },
-    {
-      id: 203,
-      no: "INV-2026-1047",
-      custName: "Lakshmi General Stores",
-      village: "Tikota",
-      amount: 11400,
-      checked: false,
-    },
-  ]);
+  // Load live invoiced/dispatched orders from pipeline
+  const [invoicedOrders, setInvoicedOrders] = useState(() => {
+    try {
+      const raw = localStorage.getItem("crm_wholesale_pipeline_orders");
+      const list = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) {
+        return list
+          .filter((o: any) => o.stage === "invoice" || o.stage === "dispatch")
+          .map((o: any) => ({
+            id: Number(o.id) || Date.now(),
+            no: o.invoiceNo || o.orderNo,
+            custName: o.customerName || o.shopName || "Customer",
+            village: o.village || "—",
+            amount: Number(o.total) || 0,
+            checked: false,
+          }));
+      }
+    } catch {}
+    return [];
+  });
 
   if (!isOpen) return null;
 
@@ -75,6 +70,8 @@ export function WholesaleCreateTripModal({
 
     const orderValue = selectedOrders.reduce((sum, o) => sum + o.amount, 0);
 
+    const startKmNum = Number(startKm) || 0;
+    const fixedRentNum = Number(fixedRent) || 0;
     const newTrip: VehicleTripRecord = {
       id: Date.now(),
       date: new Date().toISOString().slice(0, 10),
@@ -86,14 +83,14 @@ export function WholesaleCreateTripModal({
       invoiceAmt: orderValue,
       returns: 0,
       netSales: orderValue,
-      startKm: 46100,
-      endKm: 46100,
+      startKm: startKmNum,
+      endKm: startKmNum,
       totalKm: 0,
-      fixedRent: 1400,
+      fixedRent: fixedRentNum,
       dieselCost: 0,
       tollCost: 0,
       otherCost: 0,
-      totalRent: 1400,
+      totalRent: fixedRentNum,
       status: "in_progress",
       orders: selectedOrders.map((o) => ({
         id: o.id,
@@ -138,6 +135,35 @@ export function WholesaleCreateTripModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Start KM
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={startKm}
+                onChange={(e) => setStartKm(e.target.value)}
+                placeholder="e.g. 54500"
+                className="w-full px-3 py-2 text-xs font-mono font-semibold bg-white text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Fixed Rent (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={fixedRent}
+                onChange={(e) => setFixedRent(e.target.value)}
+                placeholder="e.g. 1500"
+                className="w-full px-3 py-2 text-xs font-mono font-semibold bg-white text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
           </div>
 
           {/* Invoiced orders to load */}
