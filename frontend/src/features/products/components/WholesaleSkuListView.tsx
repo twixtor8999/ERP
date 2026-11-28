@@ -49,6 +49,25 @@ export function WholesaleSkuListView() {
   }, []);
   const [filterMode, setFilterMode] = useState<"active" | "inactive" | "all">("active");
   const [searchQuery, setSearchQuery] = useState("");
+  const [unitIncentives, setUnitIncentives] = useState<Record<string, number>>(() => {
+    try {
+      const raw = localStorage.getItem("pk_sku_unit_incentives");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleIncentiveChange = (skuKey: string, val: string) => {
+    const num = Math.max(0, Number(val) || 0);
+    setUnitIncentives((prev) => {
+      const next = { ...prev, [skuKey]: num };
+      try {
+        localStorage.setItem("pk_sku_unit_incentives", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Edit Modal State
   const [editingSku, setEditingSku] = useState<SkuProduct | null>(null);
@@ -426,14 +445,19 @@ export function WholesaleSkuListView() {
                 <th className="py-2.5 px-2.5 border-r border-blue-700/50 text-center">GST</th>
                 <th className="py-2.5 px-2 border-r border-blue-700/50 text-right">Stock</th>
                 <th className="py-2.5 px-2 border-r border-blue-700/50 text-right">Min</th>
+                <th className="py-2.5 px-2.5 border-r border-blue-700/50 text-right">
+                  Margin
+                  <div className="text-[9px] font-normal">per unit</div>
+                </th>
                 <th className="py-2.5 px-2.5 border-r border-blue-700/50 text-right">Margin %</th>
+                <th className="py-2.5 px-2.5 border-r border-blue-700/50 text-center">Incentive ₹ / unit</th>
                 <th className="py-2.5 px-2.5 text-center w-20">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
               {filteredSkus.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-10 text-center text-slate-400">
+                  <td colSpan={13} className="py-10 text-center text-slate-400">
                     No SKUs found.
                   </td>
                 </tr>
@@ -492,11 +516,28 @@ export function WholesaleSkuListView() {
                         {s.min}
                       </td>
                       <td
+                        className={`py-2 px-2.5 border-r border-slate-100 text-right font-mono font-semibold ${
+                          margin <= 0 ? "text-rose-600" : "text-slate-800"
+                        }`}
+                      >
+                        {Number(margin.toFixed(2)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      </td>
+                      <td
                         className={`py-2 px-2.5 border-r border-slate-100 text-right font-bold ${
                           marginPc <= 0 ? "text-rose-600" : "text-emerald-700"
                         }`}
                       >
                         {marginPc.toFixed(1)}%
+                      </td>
+                      <td className="py-2 px-2.5 border-r border-slate-100 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={unitIncentives[s.code || s.name] ?? 0}
+                          onChange={(e) => handleIncentiveChange(s.code || s.name, e.target.value)}
+                          className="w-16 px-2 py-1 text-xs border border-slate-300 rounded font-mono text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
                       </td>
                       <td className="py-2 px-2.5 text-center">
                         <button
