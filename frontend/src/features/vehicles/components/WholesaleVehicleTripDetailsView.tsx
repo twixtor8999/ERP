@@ -184,6 +184,42 @@ export function WholesaleVehicleTripDetailsView({ trip, onBack, onEditTrip }: Pr
         ))}
       </div>
 
+      <p className="text-xs text-slate-600">
+        Vehicle rent {trip.fixedRent.toLocaleString("en-IN")} is in Expenses as &quot;Vehicle Rent&quot; on {trip.date}. Editing the rent here updates that expense.
+      </p>
+
+      {/* Start km photo & End km photo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-2">
+          <div className="text-xs font-medium text-slate-600">Start km photo</div>
+          {(trip as any).startKmPhoto ? (
+            <img
+              src={(trip as any).startKmPhoto}
+              alt="Start km photo"
+              className="w-full max-h-56 object-contain rounded-lg bg-slate-50 border border-slate-100"
+            />
+          ) : (
+            <div className="h-36 rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-400">
+              No start km photo uploaded
+            </div>
+          )}
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-2">
+          <div className="text-xs font-medium text-slate-600">End km photo</div>
+          {(trip as any).endKmPhoto ? (
+            <img
+              src={(trip as any).endKmPhoto}
+              alt="End km photo"
+              className="w-full max-h-56 object-contain rounded-lg bg-slate-50 border border-slate-100"
+            />
+          ) : (
+            <div className="h-36 rounded-lg bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-400">
+              No end km photo uploaded
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Orders on this trip */}
       <div className="space-y-2">
         <h2 className="text-xs font-bold text-[#0f2d59]">Orders on this trip</h2>
